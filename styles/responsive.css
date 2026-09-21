@@ -1,0 +1,66 @@
+/* ===========================================================================
+   Adaptation : PC d'abord (cohabitation Roblox), puis tablette, puis mobile
+   ========================================================================= */
+
+@media (max-width: 1180px) {
+  .colonnes { grid-template-columns: 1fr; }
+  .salle__corps { grid-template-columns: 1fr 280px; }
+}
+
+@media (max-width: 980px) {
+  :root { --l-rail: 60px; }
+  .marque__nom, .rail__lien span:not(.compteur), .rail__titre { display: none; }
+  .rail__lien { justify-content: center; padding: 10px 0; }
+  .marque { justify-content: center; padding: 0; }
+
+  .salle__corps { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .salle__panneau { border-left: 0; border-top: 1px solid var(--ligne); max-height: 46dvh; }
+  .cahier { grid-template-columns: 1fr; }
+  .tranche { display: none; }
+  .cahier.tranche-ouverte { grid-template-columns: 200px 1fr; }
+  .cahier.tranche-ouverte .tranche { display: flex; }
+  .grille--fixe2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  :root { --l-rail: 0px; --h-barre: 48px; }
+  .chassis { grid-template-columns: 1fr; grid-template-areas: "barre" "vue"; }
+  .marque { display: none; }
+
+  /* Rail transformé en tiroir */
+  .rail {
+    position: fixed; inset: 0 auto 0 0; z-index: 150;
+    width: 248px; transform: translateX(-100%);
+    transition: transform 180ms cubic-bezier(.2,.8,.3,1);
+    box-shadow: var(--ombre-3);
+  }
+  body.tiroir-ouvert .rail { transform: none; }
+  body.tiroir-ouvert::after {
+    content: ""; position: fixed; inset: 0; z-index: 140; background: var(--voile);
+  }
+  .rail__lien span:not(.compteur), .rail__titre { display: block; }
+  .rail__lien { justify-content: flex-start; padding: 9px var(--e-4); }
+
+  .page { padding: var(--e-4) var(--e-4) var(--e-6); }
+  .page__entete { flex-direction: column; align-items: stretch; }
+  .parchemin { padding: var(--e-4) var(--e-4) var(--e-5) calc(var(--e-4) + 22px); min-height: 400px; }
+  .parchemin::before { left: 16px; }
+  .modale { max-height: 92dvh; }
+  .calque-toasts { left: var(--e-3); right: var(--e-3); max-width: none; }
+  .tableau__barre { gap: var(--e-1); }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .btn { min-height: 36px; }
+}
+
+@media (max-width: 460px) {
+  .grille--2, .grille--3, .grille--4 { grid-template-columns: 1fr; }
+  .code-classe--grand { font-size: var(--t-2xl); }
+}
+
+/* Impression : le cahier seul, sur parchemin clair */
+@media print {
+  .rail, .barre, .marque, .tranche, .feuillet__barre, .calque-toasts { display: none !important; }
+  .chassis { display: block; height: auto; }
+  .parchemin { box-shadow: none; border: 0; background: #fff; }
+  body { background: #fff; }
+}

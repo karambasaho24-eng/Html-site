@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="nuit" data-density="grand">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OJM Academy — Environnement scolaire</title>
+<meta name="description" content="Environnement scolaire numérique parallèle : cahiers, tableau interactif, classes et sessions en temps réel." />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#0d1013" />
+
+<link rel="icon" href="public/favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="public/manifest.webmanifest" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/layout.css" />
+<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/notebook.css" />
+<link rel="stylesheet" href="styles/board.css" />
+<link rel="stylesheet" href="styles/live.css" />
+<link rel="stylesheet" href="styles/responsive.css" />
+</head>
+<body>
+  <a class="skip-link" href="#vue">Aller au contenu</a>
+
+  <div id="ecran-chargement" class="boot">
+    <div class="boot__mark" aria-hidden="true">OJM</div>
+    <p class="boot__label">Ouverture de l'académie…</p>
+  </div>
+
+  <div id="application" hidden></div>
+
+  <div id="calque-modales" class="calque-modales"></div>
+  <div id="calque-toasts" class="calque-toasts" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script type="module" src="src/app.js"></script>
+  <noscript>
+    <p style="padding:2rem;font-family:system-ui">
+      OJM Academy nécessite JavaScript pour fonctionner.
+    </p>
+  </noscript>
+</body>
+</html>

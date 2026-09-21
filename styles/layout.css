@@ -1,0 +1,234 @@
+/* ===========================================================================
+   Châssis de l'application : barre, rail de navigation, vue, panneau
+   ========================================================================= */
+
+.chassis {
+  display: grid;
+  grid-template-columns: var(--l-rail) 1fr;
+  grid-template-rows: var(--h-barre) 1fr;
+  grid-template-areas: "marque barre" "rail vue";
+  height: 100dvh;
+  background: var(--encre-900);
+}
+
+/* --- Bloc marque --------------------------------------------------------- */
+.marque {
+  grid-area: marque;
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: 0 var(--e-4);
+  background: var(--encre-850);
+  border-right: 1px solid var(--ligne);
+  border-bottom: 1px solid var(--ligne);
+  overflow: hidden;
+}
+.marque__sceau {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  display: grid; place-content: center;
+  border: 1.5px solid var(--ligne-laiton);
+  border-radius: var(--r-sm);
+  color: var(--laiton);
+  font-family: var(--f-titre); font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+}
+.marque__nom {
+  font-family: var(--f-titre); font-size: var(--t-md); font-weight: 600;
+  letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.marque__devise {
+  display: block; font-family: var(--f-ui); font-size: 9px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--texte-faible);
+}
+
+/* --- Barre supérieure ---------------------------------------------------- */
+.barre {
+  grid-area: barre;
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: 0 var(--e-3) 0 var(--e-4);
+  background: var(--encre-850);
+  border-bottom: 1px solid var(--ligne);
+}
+.barre__fil {
+  display: flex; align-items: center; gap: var(--e-2);
+  font-size: var(--t-sm); color: var(--texte-doux);
+  min-width: 0; flex: 1;
+}
+.barre__fil b { color: var(--texte); font-weight: 600; }
+.barre__fil span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barre__sep { color: var(--texte-faible); }
+.barre__outils { display: flex; align-items: center; gap: var(--e-1); flex: 0 0 auto; }
+
+/* --- Rail de navigation -------------------------------------------------- */
+.rail {
+  grid-area: rail;
+  display: flex; flex-direction: column;
+  background: var(--encre-850);
+  border-right: 1px solid var(--ligne);
+  overflow-y: auto; overflow-x: hidden;
+  padding: var(--e-3) 0 var(--e-4);
+}
+.rail__titre {
+  padding: var(--e-4) var(--e-4) var(--e-2);
+  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--texte-faible); font-weight: 600;
+}
+.rail__lien {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: 7px var(--e-4);
+  color: var(--texte-doux); font-size: var(--t-md);
+  border-left: 2px solid transparent;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+.rail__lien:hover { background: var(--encre-800); color: var(--texte); text-decoration: none; }
+.rail__lien[aria-current="page"] {
+  background: var(--encre-800); color: var(--texte);
+  border-left-color: var(--laiton);
+}
+.rail__lien svg { flex: 0 0 auto; width: 16px; height: 16px; opacity: .85; }
+.rail__lien .compteur {
+  margin-left: auto; font-size: var(--t-xs); font-family: var(--f-mono);
+  background: var(--encre-600); color: var(--texte-doux);
+  padding: 0 5px; border-radius: 999px;
+}
+.rail__pied { margin-top: auto; padding: var(--e-3) var(--e-4) 0; }
+
+/* --- Vue principale ------------------------------------------------------ */
+.vue {
+  grid-area: vue;
+  overflow: auto;
+  position: relative;
+  display: flex; flex-direction: column;
+}
+.vue--pleine { overflow: hidden; }
+
+.page {
+  padding: var(--e-6) var(--e-6) var(--e-7);
+  max-width: 1180px; width: 100%; margin: 0 auto;
+  flex: 1;
+}
+.page--large { max-width: none; }
+
+.page__entete {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--e-4); flex-wrap: wrap;
+  padding-bottom: var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  margin-bottom: var(--e-5);
+}
+.page__titre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.page__surtitre {
+  font-size: var(--t-xs); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--laiton); font-weight: 600;
+}
+.page__sous { color: var(--texte-doux); font-size: var(--t-sm); }
+.page__actions { display: flex; gap: var(--e-2); flex-wrap: wrap; }
+
+/* --- Grilles ------------------------------------------------------------- */
+.grille { display: grid; gap: var(--e-4); }
+.grille--2 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.grille--3 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.grille--4 { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.grille--fixe2 { grid-template-columns: 1fr 1fr; }
+
+.colonnes {
+  display: grid;
+  grid-template-columns: 1fr var(--l-panneau);
+  gap: var(--e-5);
+  align-items: start;
+}
+
+/* --- Panneau latéral contextuel ------------------------------------------ */
+.panneau {
+  background: var(--encre-850);
+  border: 1px solid var(--ligne);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.panneau__entete {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--e-2);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  background: var(--encre-800);
+}
+.panneau__titre {
+  font-size: var(--t-xs); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--texte-doux); font-weight: 600;
+}
+.panneau__corps { padding: var(--e-4); }
+.panneau__corps--serre { padding: 0; }
+.panneau__liste { max-height: 420px; overflow-y: auto; }
+
+/* --- Mode cohabitation Roblox -------------------------------------------- */
+:root[data-density="compact"] .marque__nom,
+:root[data-density="compact"] .rail__lien span:not(.compteur),
+:root[data-density="compact"] .rail__titre { display: none; }
+:root[data-density="compact"] .rail__lien { justify-content: center; padding: 10px 0; }
+:root[data-density="compact"] .marque { justify-content: center; padding: 0; }
+:root[data-density="compact"] .page { padding: var(--e-4); }
+
+:root[data-density="minimal"] .chassis {
+  grid-template-columns: 1fr;
+  grid-template-areas: "barre" "vue";
+}
+:root[data-density="minimal"] .marque,
+:root[data-density="minimal"] .rail { display: none; }
+:root[data-density="minimal"] .page { padding: var(--e-3); }
+
+/* Fenêtre flottante « cahier à côté de Roblox » */
+body.est-flottant .chassis {
+  border: 1px solid var(--ligne-laiton);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--ombre-3);
+}
+
+/* --- Hors session : le châssis s'efface au profit de l'écran d'accès ------- */
+body.hors-session .chassis {
+  grid-template-columns: 1fr;
+  grid-template-areas: "vue";
+}
+body.hors-session .marque,
+body.hors-session .rail,
+body.hors-session .barre { display: none; }
+
+.accueil-acces {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  background: var(--encre-900);
+}
+.acces__enseigne {
+  display: flex; flex-direction: column; justify-content: center; gap: var(--e-5);
+  padding: var(--e-7);
+  background:
+    radial-gradient(circle at 28% 22%, rgba(201,162,39,.08), transparent 55%),
+    linear-gradient(160deg, var(--encre-850), var(--encre-1000));
+  border-right: 1px solid var(--ligne-laiton);
+}
+.acces__sceau {
+  width: 84px; height: 84px;
+  display: grid; place-content: center;
+  border: 2px solid var(--ligne-laiton); border-radius: var(--r-md);
+  font-family: var(--f-titre); font-size: 1.6rem; font-weight: 700;
+  letter-spacing: .14em; color: var(--laiton);
+}
+.acces__titre { font-size: 2.4rem; line-height: 1.1; }
+.acces__devise {
+  font-size: var(--t-xs); letter-spacing: .24em; text-transform: uppercase; color: var(--laiton);
+}
+.acces__points { display: grid; gap: var(--e-3); max-width: 46ch; }
+.acces__point { display: flex; gap: var(--e-3); align-items: flex-start; font-size: var(--t-sm); color: var(--texte-doux); }
+.acces__point svg { flex: 0 0 auto; margin-top: 2px; color: var(--laiton); }
+
+.acces__formulaire {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: var(--e-7) var(--e-6);
+  overflow-y: auto;
+}
+.acces__boite { width: min(400px, 100%); margin: 0 auto; }
+
+@media (max-width: 900px) {
+  .accueil-acces { grid-template-columns: 1fr; }
+  .acces__enseigne { display: none; }
+  .acces__formulaire { padding: var(--e-5) var(--e-4); }
+}

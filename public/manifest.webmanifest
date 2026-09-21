@@ -1,0 +1,10 @@
+{
+  "name": "OJM Academy",
+  "short_name": "OJM",
+  "description": "Environnement scolaire numérique parallèle au RP Roblox.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d1013",
+  "theme_color": "#0d1013",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

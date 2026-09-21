@@ -1,0 +1,121 @@
+/* ===========================================================================
+   Tableau interactif
+   ========================================================================= */
+
+.tableau {
+  display: flex; flex-direction: column;
+  height: 100%; min-height: 0;
+  background: var(--encre-1000);
+}
+
+.tableau__barre {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-3);
+  background: var(--encre-850);
+  border-bottom: 1px solid var(--ligne);
+  flex-wrap: wrap;
+}
+
+.tableau__scene {
+  flex: 1; min-height: 0; position: relative;
+  display: grid; place-items: center;
+  padding: var(--e-4);
+  overflow: hidden;
+}
+
+.tableau__surface {
+  position: relative;
+  border-radius: var(--r-sm);
+  box-shadow: var(--ombre-3), 0 0 0 6px #241c14, 0 0 0 7px #3b2f21;
+  max-width: 100%; max-height: 100%;
+  background: #17231f;
+}
+.tableau__surface[data-fond="ardoise"] { background: #17231f; }
+.tableau__surface[data-fond="craie"]   { background: #1b2430; }
+.tableau__surface[data-fond="papier"]  { background: #f3ead9; }
+.tableau__surface[data-fond="quadrille"] {
+  background-color: #1b2430;
+  background-image:
+    repeating-linear-gradient(rgba(255,255,255,.05) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 32px);
+}
+
+.tableau__toile { display: block; touch-action: none; cursor: crosshair; max-width: 100%; }
+.tableau__toile[data-lecture="1"] { cursor: default; }
+
+/* Curseurs distants */
+.curseurs { position: absolute; inset: 0; pointer-events: none; }
+.curseur-distant {
+  position: absolute; transform: translate(-2px, -2px);
+  transition: left 90ms linear, top 90ms linear;
+}
+.curseur-distant__pointe {
+  width: 10px; height: 10px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); border: 1.5px solid rgba(0,0,0,.4);
+}
+.curseur-distant__nom {
+  position: absolute; left: 12px; top: 8px;
+  font-size: 10px; padding: 1px 5px; border-radius: var(--r-xs);
+  background: rgba(0,0,0,.6); color: #fff; white-space: nowrap;
+}
+
+/* --- Outils --------------------------------------------------------------- */
+.outils {
+  display: flex; align-items: center; gap: 2px;
+  background: var(--encre-900);
+  border: 1px solid var(--ligne);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+.outil {
+  width: 30px; height: 30px;
+  display: grid; place-content: center;
+  border: 0; background: none; border-radius: var(--r-xs);
+  color: var(--texte-doux);
+}
+.outil:hover { background: var(--encre-700); color: var(--texte); }
+.outil[aria-pressed="true"] { background: var(--encre-600); color: var(--laiton-clair); box-shadow: inset 0 0 0 1px var(--ligne-laiton); }
+.outil svg { width: 16px; height: 16px; }
+
+.teintes { display: flex; gap: 3px; align-items: center; }
+.teinte {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+}
+.teinte[aria-pressed="true"] { border-color: var(--texte); transform: scale(1.12); }
+
+.epaisseurs { display: flex; gap: 2px; align-items: center; }
+.epaisseur {
+  width: 26px; height: 26px; display: grid; place-content: center;
+  background: none; border: 0; border-radius: var(--r-xs); color: var(--texte-doux);
+}
+.epaisseur:hover { background: var(--encre-700); }
+.epaisseur[aria-pressed="true"] { background: var(--encre-600); }
+.epaisseur i { display: block; background: currentColor; border-radius: 999px; }
+
+/* --- Pages du tableau ----------------------------------------------------- */
+.pages-tableau {
+  display: flex; align-items: center; gap: var(--e-1);
+  overflow-x: auto; padding: 2px;
+}
+.page-tableau {
+  min-width: 34px; height: 26px; padding: 0 var(--e-2);
+  display: grid; place-content: center;
+  background: var(--encre-800); border: 1px solid var(--ligne);
+  border-radius: var(--r-xs);
+  font-family: var(--f-mono); font-size: var(--t-xs); color: var(--texte-doux);
+}
+.page-tableau:hover { border-color: var(--ligne-forte); color: var(--texte); }
+.page-tableau[aria-current="true"] {
+  background: var(--encre-600); border-color: var(--laiton); color: var(--laiton-clair);
+}
+
+/* --- Saisie de texte sur le tableau --------------------------------------- */
+.saisie-tableau {
+  position: absolute; z-index: 5;
+  background: rgba(0,0,0,.35);
+  border: 1px dashed var(--laiton);
+  color: #fff; padding: 2px 4px; min-width: 120px;
+  font-family: var(--f-titre); outline: none;
+}

@@ -1,0 +1,226 @@
+/* ===========================================================================
+   Cahier — surface de parchemin, reliure, pages
+   ========================================================================= */
+
+.cahier {
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  height: 100%;
+  min-height: 0;
+  background: var(--encre-900);
+}
+.cahier--sans-tranche { grid-template-columns: 1fr; }
+
+/* --- Tranche : liste des pages ------------------------------------------- */
+.tranche {
+  background: var(--encre-850);
+  border-right: 1px solid var(--ligne);
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.tranche__entete {
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  display: flex; align-items: center; gap: var(--e-2);
+}
+.tranche__titre {
+  font-family: var(--f-titre); font-size: var(--t-md); font-weight: 600;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tranche__pages { flex: 1; overflow-y: auto; padding: var(--e-2) 0; }
+.tranche__pied { padding: var(--e-2); border-top: 1px solid var(--ligne); }
+
+.onglet-page {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: 6px var(--e-3) 6px var(--e-2);
+  margin: 1px var(--e-2);
+  border-radius: var(--r-sm);
+  font-size: var(--t-sm); color: var(--texte-doux);
+  cursor: pointer; user-select: none;
+  border: 1px solid transparent;
+}
+.onglet-page:hover { background: var(--encre-800); color: var(--texte); }
+.onglet-page[aria-current="true"] {
+  background: var(--encre-700); color: var(--texte); border-color: var(--ligne-forte);
+}
+.onglet-page__num {
+  font-family: var(--f-mono); font-size: 10px; color: var(--texte-faible);
+  width: 20px; text-align: right; flex: 0 0 auto;
+}
+.onglet-page__titre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onglet-page__marque { font-size: 10px; opacity: .7; }
+.onglet-page.glisse { opacity: .4; }
+.onglet-page.cible { border-top: 2px solid var(--laiton); }
+
+/* --- Zone de la page ------------------------------------------------------ */
+.feuillet {
+  min-height: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.feuillet__barre {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-3);
+  background: var(--encre-850);
+  border-bottom: 1px solid var(--ligne);
+  flex-wrap: wrap;
+}
+.feuillet__zone {
+  flex: 1; min-height: 0; overflow: auto;
+  padding: var(--e-5);
+  display: flex; justify-content: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(201,162,39,.04), transparent 60%),
+    var(--encre-900);
+}
+
+/* --- Parchemin ------------------------------------------------------------ */
+.parchemin {
+  width: min(820px, 100%);
+  background: var(--parch-200);
+  color: var(--parch-encre);
+  border-radius: var(--r-sm);
+  box-shadow: var(--ombre-2), inset 0 0 90px rgba(150,120,70,.09);
+  border: 1px solid var(--parch-400);
+  position: relative;
+  padding: var(--e-6) var(--e-6) var(--e-7) calc(var(--e-6) + 34px);
+  min-height: 560px;
+  display: flex; flex-direction: column;
+}
+/* Marge rouge et reliure */
+.parchemin::before {
+  content: ""; position: absolute; left: 26px; top: 0; bottom: 0;
+  width: 1px; background: rgba(160,70,60,.38);
+}
+.parchemin::after {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 8px;
+  background: linear-gradient(90deg, rgba(120,95,55,.2), transparent);
+  border-right: 1px solid var(--parch-400);
+}
+.parchemin--reglure .parchemin__corps {
+  background-image: repeating-linear-gradient(
+    transparent, transparent 27px, rgba(90,110,130,.22) 27px, rgba(90,110,130,.22) 28px);
+  line-height: 28px;
+}
+.parchemin--quadrille .parchemin__corps {
+  background-image:
+    repeating-linear-gradient(transparent, transparent 27px, rgba(90,110,130,.16) 27px, rgba(90,110,130,.16) 28px),
+    repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(90,110,130,.16) 27px, rgba(90,110,130,.16) 28px);
+  line-height: 28px;
+}
+
+.parchemin__entete {
+  display: flex; align-items: baseline; gap: var(--e-3);
+  border-bottom: 1px solid var(--parch-400);
+  padding-bottom: var(--e-2); margin-bottom: var(--e-4);
+}
+.parchemin__titre {
+  font-family: var(--f-titre); font-size: var(--t-xl); font-weight: 600;
+  color: #1f1c16; background: none; border: 0; padding: 0; flex: 1; min-width: 0;
+  width: 100%;
+}
+.parchemin__titre:focus { outline: none; border-bottom: 1px solid rgba(160,70,60,.5); }
+.parchemin__date { font-size: var(--t-xs); color: #6d6455; font-family: var(--f-mono); }
+
+.parchemin__corps {
+  flex: 1;
+  font-family: var(--f-titre);
+  font-size: 1.0625rem;
+  color: var(--parch-encre);
+  background: transparent; border: 0; outline: none;
+  width: 100%; resize: none;
+  white-space: pre-wrap; word-break: break-word;
+  min-height: 380px;
+}
+.parchemin__corps:empty::before {
+  content: attr(data-vide);
+  color: rgba(80,72,58,.45); font-style: italic;
+}
+.parchemin__corps b, .parchemin__corps strong { font-weight: 700; }
+.parchemin__corps mark { background: rgba(201,162,39,.4); color: inherit; padding: 0 2px; }
+.parchemin__corps h2 { font-size: 1.25rem; margin: 1.2em 0 .3em; color: #241f17; }
+.parchemin__corps h3 { font-size: 1.1rem; margin: 1em 0 .25em; }
+.parchemin__corps ul, .parchemin__corps ol { padding-left: 1.4em; margin: .4em 0; }
+.parchemin__corps blockquote {
+  border-left: 3px solid rgba(160,70,60,.4); margin: .6em 0; padding-left: .8em;
+  font-style: italic; color: #4b4438;
+}
+.parchemin__corps img { max-width: 100%; border-radius: var(--r-xs); border: 1px solid var(--parch-400); }
+.parchemin__corps a { color: #6b4f12; text-decoration: underline; }
+
+.parchemin__pied {
+  margin-top: var(--e-4); padding-top: var(--e-2);
+  border-top: 1px solid var(--parch-400);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--t-xs); color: #736a58; font-family: var(--f-mono);
+}
+
+/* Pièce jointe capturée depuis le tableau */
+.parchemin__capture {
+  margin: var(--e-3) 0;
+  border: 1px solid var(--parch-400);
+  border-radius: var(--r-sm);
+  background: #eee4d0;
+  padding: var(--e-2);
+}
+.parchemin__capture img { display: block; width: 100%; border-radius: var(--r-xs); }
+.parchemin__capture figcaption { font-size: var(--t-xs); color: #6d6455; margin-top: 4px; }
+
+/* --- Barre d'outils de texte --------------------------------------------- */
+.outils-texte { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
+.outils-texte .btn--icone { width: 28px; min-height: 28px; }
+
+/* --- Sélecteur de couverture ---------------------------------------------- */
+.couvertures { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--e-2); }
+.couverture {
+  aspect-ratio: 3/4; border-radius: var(--r-sm); border: 2px solid var(--ligne);
+  cursor: pointer; position: relative; overflow: hidden;
+  display: grid; place-content: end center; padding-bottom: 6px;
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+}
+.couverture[aria-pressed="true"] { border-color: var(--laiton); }
+.couverture--parchment { background: linear-gradient(160deg, #e8dcc4, #cbb994); color: #4a3f28; }
+.couverture--cuir      { background: linear-gradient(160deg, #4a3527, #2c1f16); color: #c0a482; }
+.couverture--ardoise   { background: linear-gradient(160deg, #3d525c, #22303a); color: #b8cdd8; }
+.couverture--olive     { background: linear-gradient(160deg, #6f7d4d, #3f4a2b); color: #d8e0c2; }
+.couverture--oxblood   { background: linear-gradient(160deg, #7c3a3a, #4a2020); color: #e5bfbb; }
+.couverture--encre     { background: linear-gradient(160deg, #2a323a, #14181d); color: #9aa6b2; }
+
+/* --- Vignette de cahier --------------------------------------------------- */
+.dos-cahier {
+  display: flex; gap: var(--e-3);
+  padding: var(--e-3);
+  background: var(--encre-850);
+  border: 1px solid var(--ligne); border-radius: var(--r-md);
+  transition: border-color var(--transition), transform var(--transition);
+  color: inherit;
+}
+.dos-cahier:hover { border-color: var(--ligne-forte); text-decoration: none; transform: translateY(-1px); }
+.dos-cahier__vignette {
+  width: 46px; height: 62px; flex: 0 0 auto; border-radius: 2px 4px 4px 2px;
+  box-shadow: inset -6px 0 8px -6px rgba(0,0,0,.5), var(--ombre-1);
+  position: relative;
+}
+.dos-cahier__vignette::after {
+  content: ""; position: absolute; left: 4px; top: 0; bottom: 0; width: 1px;
+  background: rgba(0,0,0,.25);
+}
+.dos-cahier__infos { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.dos-cahier__titre { font-family: var(--f-titre); font-size: var(--t-md); font-weight: 600; }
+
+/* --- Notes personnelles pendant le cours --------------------------------- */
+.note-perso {
+  background: #f7f0c9;
+  color: #3a3420;
+  border: 1px solid #ddd09a;
+  border-radius: var(--r-sm);
+  padding: var(--e-3);
+  font-family: var(--f-titre);
+  box-shadow: var(--ombre-1);
+}
+.note-perso textarea {
+  width: 100%; border: 0; background: transparent; resize: vertical;
+  min-height: 130px; font: inherit; color: inherit; outline: none;
+  line-height: 1.6;
+}

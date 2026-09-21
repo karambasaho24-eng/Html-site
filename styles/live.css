@@ -1,0 +1,229 @@
+/* ===========================================================================
+   Session en direct : salle, bandeau, panneaux, exercices
+   ========================================================================= */
+
+.salle {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+/* --- Bandeau de session --------------------------------------------------- */
+.bandeau {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-4);
+  background: linear-gradient(180deg, var(--encre-800), var(--encre-850));
+  border-bottom: 1px solid var(--ligne-laiton);
+  flex-wrap: wrap;
+}
+.bandeau__titre { font-family: var(--f-titre); font-weight: 600; font-size: var(--t-md); }
+.bandeau__meta { font-size: var(--t-xs); color: var(--texte-faible); }
+.bandeau__outils { margin-left: auto; display: flex; align-items: center; gap: var(--e-2); flex-wrap: wrap; }
+
+/* --- Corps de la salle ---------------------------------------------------- */
+.salle__corps {
+  display: grid;
+  grid-template-columns: 1fr var(--l-panneau);
+  min-height: 0;
+}
+.salle__corps--sans-panneau { grid-template-columns: 1fr; }
+.salle__scene { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+.salle__panneau {
+  border-left: 1px solid var(--ligne);
+  background: var(--encre-850);
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.salle__panneau-onglets {
+  display: flex; border-bottom: 1px solid var(--ligne); background: var(--encre-800);
+}
+.salle__panneau-onglets .onglet { flex: 1; padding: var(--e-2) var(--e-1); font-size: var(--t-xs); position: relative; }
+.salle__panneau-corps { flex: 1; overflow-y: auto; min-height: 0; }
+
+.pastille-compteur {
+  position: absolute; top: 3px; right: 6px;
+  background: var(--oxblood); color: #fff;
+  font-size: 9px; font-family: var(--f-mono);
+  min-width: 14px; height: 14px; border-radius: 999px;
+  display: grid; place-content: center; padding: 0 3px;
+}
+
+/* --- Chronomètre ---------------------------------------------------------- */
+.chrono {
+  display: inline-flex; align-items: baseline; gap: var(--e-2);
+  font-family: var(--f-mono); font-size: var(--t-xl); font-weight: 600;
+  background: var(--encre-900); border: 1px solid var(--ligne-forte);
+  border-radius: var(--r-sm); padding: 2px var(--e-3);
+  font-variant-numeric: tabular-nums;
+}
+.chrono[data-etat="running"] { border-color: var(--ligne-laiton); color: var(--laiton-clair); }
+.chrono[data-etat="done"]    { border-color: var(--alerte); color: var(--alerte); }
+.chrono__label { font-family: var(--f-ui); font-size: var(--t-xs); color: var(--texte-faible); }
+
+/* --- Suivi du professeur -------------------------------------------------- */
+.suivi {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px var(--e-3); border-radius: 999px;
+  font-size: var(--t-xs); font-weight: 600;
+  background: var(--encre-700); border: 1px solid var(--ligne-forte); color: var(--texte-doux);
+}
+.suivi[data-actif="1"] {
+  background: rgba(201,162,39,.14); border-color: var(--ligne-laiton); color: var(--laiton-clair);
+}
+
+/* --- Élèves connectés ----------------------------------------------------- */
+.eleve {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  border-bottom: 1px solid var(--ligne);
+}
+.eleve__infos { flex: 1; min-width: 0; }
+.eleve__nom { font-size: var(--t-sm); font-weight: 500; }
+.eleve__activite { font-size: var(--t-xs); color: var(--texte-faible); }
+.eleve__activite em { font-style: normal; color: var(--laiton); }
+.eleve--main-levee { background: rgba(201,162,39,.07); box-shadow: inset 2px 0 0 var(--laiton); }
+
+/* --- Questions ------------------------------------------------------------ */
+.question {
+  padding: var(--e-3); border-bottom: 1px solid var(--ligne);
+}
+.question__entete { display: flex; align-items: center; gap: var(--e-2); margin-bottom: 4px; }
+.question__corps { font-size: var(--t-sm); color: var(--texte); }
+.question__reponse {
+  margin-top: var(--e-2); padding: var(--e-2);
+  background: var(--encre-800); border-left: 2px solid var(--olive);
+  font-size: var(--t-xs); color: var(--texte-doux);
+}
+.question[data-statut="answered"] { opacity: .6; }
+
+/* --- Sondage -------------------------------------------------------------- */
+.sondage { padding: var(--e-4); border-bottom: 1px solid var(--ligne); }
+.sondage__question { font-family: var(--f-titre); font-size: var(--t-lg); margin-bottom: var(--e-3); }
+.sondage__option {
+  display: block; width: 100%; text-align: left;
+  padding: var(--e-2) var(--e-3); margin-bottom: 6px;
+  background: var(--encre-800); border: 1px solid var(--ligne);
+  border-radius: var(--r-sm); position: relative; overflow: hidden;
+  font-size: var(--t-sm);
+}
+.sondage__option:hover { border-color: var(--ligne-forte); }
+.sondage__option[aria-pressed="true"] { border-color: var(--laiton); }
+.sondage__barre {
+  position: absolute; inset: 0 auto 0 0;
+  background: rgba(201,162,39,.16);
+  transition: width 300ms ease; z-index: 0;
+}
+.sondage__texte { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: var(--e-2); }
+
+/* --- Annonce -------------------------------------------------------------- */
+.annonce {
+  border: 1px solid var(--ligne-laiton);
+  border-left-width: 3px;
+  background: rgba(201,162,39,.06);
+  border-radius: var(--r-sm);
+  padding: var(--e-3) var(--e-4);
+  margin-bottom: var(--e-3);
+}
+.annonce[data-niveau="alert"] { border-color: var(--alerte); background: rgba(180,85,78,.07); }
+.annonce__titre {
+  font-size: var(--t-xs); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--laiton); font-weight: 700; margin-bottom: 4px;
+}
+.annonce__corps { font-family: var(--f-titre); font-size: var(--t-lg); }
+
+/* --- Exercices ------------------------------------------------------------ */
+.exo { max-width: 780px; margin: 0 auto; }
+.exo__entete {
+  border-bottom: 1px solid var(--ligne);
+  padding-bottom: var(--e-3); margin-bottom: var(--e-5);
+}
+.exo__consigne {
+  font-family: var(--f-titre); font-size: var(--t-lg);
+  background: var(--encre-850); border-left: 3px solid var(--laiton);
+  padding: var(--e-3) var(--e-4); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: var(--e-5);
+}
+.exo__question {
+  background: var(--encre-850); border: 1px solid var(--ligne);
+  border-radius: var(--r-md); padding: var(--e-4); margin-bottom: var(--e-4);
+}
+.exo__numero {
+  font-family: var(--f-mono); font-size: var(--t-xs); color: var(--laiton);
+  letter-spacing: .1em; margin-bottom: var(--e-2);
+}
+.exo__enonce { font-family: var(--f-titre); font-size: var(--t-lg); margin-bottom: var(--e-3); }
+.exo__points { float: right; font-size: var(--t-xs); color: var(--texte-faible); font-family: var(--f-mono); }
+
+.choix {
+  display: flex; align-items: flex-start; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3); margin-bottom: 6px;
+  border: 1px solid var(--ligne); border-radius: var(--r-sm);
+  cursor: pointer; background: var(--encre-900);
+  transition: border-color var(--transition), background var(--transition);
+}
+.choix:hover { border-color: var(--ligne-forte); }
+.choix input { margin-top: 3px; accent-color: var(--laiton); }
+.choix[data-selection="1"] { border-color: var(--laiton); background: rgba(201,162,39,.07); }
+.choix[data-correct="1"] { border-color: var(--ok); background: rgba(111,156,106,.09); }
+.choix[data-correct="0"] { border-color: var(--alerte); background: rgba(180,85,78,.08); }
+
+.trou {
+  display: inline-block; min-width: 120px;
+  border: 0; border-bottom: 1px solid var(--laiton);
+  background: transparent; color: var(--laiton-clair);
+  padding: 0 4px; font-family: var(--f-mono);
+}
+
+/* Classement / association */
+.classable {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3); margin-bottom: 4px;
+  background: var(--encre-900); border: 1px solid var(--ligne);
+  border-radius: var(--r-sm); cursor: grab;
+}
+.classable:active { cursor: grabbing; }
+.classable.glisse { opacity: .4; }
+.classable__poignee { color: var(--texte-faible); font-size: var(--t-xs); }
+
+.association { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--e-2) var(--e-3); align-items: center; }
+
+/* --- Suivi de l'exercice côté professeur ---------------------------------- */
+.suivi-exo { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--e-2); }
+.suivi-exo__eleve {
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--ligne); border-radius: var(--r-sm);
+  background: var(--encre-850); font-size: var(--t-sm);
+}
+.suivi-exo__eleve[data-etat="submitted"] { border-color: rgba(111,156,106,.4); }
+.suivi-exo__eleve[data-etat="started"]   { border-color: rgba(201,150,63,.4); }
+
+/* --- Mode examen ---------------------------------------------------------- */
+body.mode-examen .rail,
+body.mode-examen .barre__outils .hors-examen { display: none; }
+.bandeau-examen {
+  background: var(--oxblood); color: #f6e7e5;
+  padding: var(--e-2) var(--e-4);
+  display: flex; align-items: center; gap: var(--e-3);
+  font-size: var(--t-sm); font-weight: 600; letter-spacing: .04em;
+}
+
+/* --- Zone Roblox ---------------------------------------------------------- */
+.zone-roblox {
+  border: 1px dashed var(--ligne-forte);
+  border-radius: var(--r-md);
+  padding: var(--e-5);
+  text-align: center; color: var(--texte-faible);
+  background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.012) 10px, rgba(255,255,255,.012) 20px);
+}
+
+/* --- Journal -------------------------------------------------------------- */
+.journal { font-family: var(--f-mono); font-size: var(--t-xs); }
+.journal__ligne {
+  display: flex; gap: var(--e-3);
+  padding: 5px var(--e-3);
+  border-bottom: 1px solid var(--ligne);
+  color: var(--texte-doux);
+}
+.journal__heure { color: var(--laiton); flex: 0 0 auto; }

@@ -1,0 +1,120 @@
+/* ===========================================================================
+   OJM ACADEMY — Jetons de design
+   Registre visuel : institutionnel, militaire, scolaire. Encre, laiton, olive,
+   parchemin. Pas de dégradés décoratifs, pas de cartes surdimensionnées.
+   ========================================================================= */
+
+:root {
+  /* --- Encre (chrome de l'application) ------------------------------------ */
+  --encre-1000: #080a0c;
+  --encre-900:  #0d1013;
+  --encre-850:  #11151a;
+  --encre-800:  #161b21;
+  --encre-700:  #1d242b;
+  --encre-600:  #273038;
+  --encre-500:  #35414b;
+  --encre-400:  #4a5865;
+
+  /* --- Parchemin (surfaces de travail : cahiers, documents) --------------- */
+  --parch-100: #faf5ea;
+  --parch-200: #f3ead9;
+  --parch-300: #e8dcc4;
+  --parch-400: #d6c6a8;
+  --parch-encre: #2a2620;
+
+  /* --- Accents ------------------------------------------------------------ */
+  --laiton:     #c9a227;
+  --laiton-sombre: #9a7b1c;
+  --laiton-clair:  #e2c25c;
+  --olive:      #7d8c58;
+  --olive-sombre: #5c6840;
+  --oxblood:    #9c4a44;
+  --ardoise:    #4f6d7a;
+  --pourpre:    #6b5b8f;
+
+  /* --- Sémantique --------------------------------------------------------- */
+  --ok:      #6f9c6a;
+  --attn:    #c9963f;
+  --alerte:  #b4554e;
+  --info:    #5b829c;
+
+  /* --- Texte -------------------------------------------------------------- */
+  --texte:        #e6e2d8;
+  --texte-doux:   #a9a396;
+  --texte-faible: #746e63;
+  --texte-inverse:#1a1d21;
+
+  /* --- Lignes et fonds ---------------------------------------------------- */
+  --ligne:        #262e36;
+  --ligne-forte:  #38424c;
+  --ligne-laiton: rgba(201, 162, 39, .34);
+  --voile:        rgba(8, 10, 12, .72);
+
+  /* --- Typographie -------------------------------------------------------- */
+  --f-titre: "Spectral", "Iowan Old Style", Georgia, serif;
+  --f-ui:    "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --t-xs:  .6875rem;
+  --t-sm:  .78125rem;
+  --t-md:  .875rem;
+  --t-lg:  1rem;
+  --t-xl:  1.1875rem;
+  --t-2xl: 1.5rem;
+  --t-3xl: 2rem;
+
+  /* --- Espacements -------------------------------------------------------- */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 24px;
+  --e-6: 32px;
+  --e-7: 48px;
+
+  /* --- Rayons et ombres --------------------------------------------------- */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 8px;
+  --ombre-1: 0 1px 2px rgba(0,0,0,.4);
+  --ombre-2: 0 4px 14px rgba(0,0,0,.36);
+  --ombre-3: 0 18px 48px rgba(0,0,0,.5);
+
+  /* --- Mesures du châssis ------------------------------------------------- */
+  --h-barre: 52px;
+  --l-rail: 232px;
+  --l-panneau: 320px;
+
+  --transition: 140ms cubic-bezier(.4, 0, .2, 1);
+}
+
+/* --- Densités pour cohabiter avec la fenêtre Roblox ----------------------- */
+:root[data-density="moyen"]   { --h-barre: 46px; --l-rail: 196px; --t-md: .84rem; }
+:root[data-density="compact"] { --h-barre: 40px; --l-rail: 60px;  --t-md: .82rem; --e-5: 16px; --e-6: 20px; }
+:root[data-density="minimal"] { --h-barre: 34px; --l-rail: 0px;   --t-md: .8rem;  --e-5: 12px; --e-6: 16px; }
+
+/* --- Thème clair (salle éclairée) ---------------------------------------- */
+:root[data-theme="jour"] {
+  --encre-1000: #d8d2c4;
+  --encre-900:  #e6e0d2;
+  --encre-850:  #ece6da;
+  --encre-800:  #f2ece1;
+  --encre-700:  #f7f2e9;
+  --encre-600:  #e4ddcf;
+  --encre-500:  #cfc6b4;
+  --encre-400:  #b3a995;
+
+  --texte:        #23211c;
+  --texte-doux:   #565146;
+  --texte-faible: #837c6e;
+  --texte-inverse:#f7f2e9;
+
+  --ligne:        #d5cdbb;
+  --ligne-forte:  #bdb3a0;
+  --voile:        rgba(40, 36, 28, .5);
+  --laiton:       #8a6d12;
+  --laiton-clair: #a8871f;
+  --ombre-2: 0 4px 14px rgba(60,52,32,.16);
+  --ombre-3: 0 18px 48px rgba(60,52,32,.22);
+}
