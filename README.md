@@ -14,6 +14,25 @@ RolePlay, présence en jeu  ←→   cours, cahiers, tableau, exercices, archive
 
 ---
 
+## À côté du jeu
+
+Le site est fait pour cohabiter avec Roblox, pas pour le remplacer. Trois
+façons de le garder sous la main :
+
+**La fenêtre d'à-côté** — le bouton ⤴ de la barre supérieure, ou `Ctrl+Maj+F`.
+L'interface se détache dans une petite fenêtre qui **reste au-dessus de toutes
+les autres**, y compris d'un jeu en plein écran fenêtré (Document
+Picture-in-Picture, Chrome et Edge). On relit une consigne sans quitter la
+partie. Refermer la fenêtre ramène l'interface dans l'onglet, sans rien perdre.
+
+**Installer l'application** — le bouton ⊕ dans la barre d'adresse du
+navigateur. Le site s'ouvre alors dans sa propre fenêtre : **ni onglets, ni
+barre d'adresse**, juste l'interface.
+
+**Les densités** — `Ctrl+\` fait défiler Grand → Moyen → Compact → Minimal.
+En Compact le rail se réduit à une colonne d'icônes ; en Minimal il disparaît.
+`Ctrl+Maj+M` bascule directement en Minimal.
+
 ## Mettre le site en ligne
 
 Site statique : ni compilation, ni serveur. On dépose le dossier tel quel.

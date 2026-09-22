@@ -33,6 +33,7 @@ const LIBELLES_ACTIONS = {
   "recherche.ouvrir": "Recherche globale",
   "densite.cycler": "Changer de densité",
   "densite.minimal": "Basculer en mode minimal",
+  "fenetre.flottante": "Détacher la fenêtre d'à-côté",
   "page.suivante": "Page suivante",
   "page.precedente": "Page précédente",
   "page.nouvelle": "Nouvelle page",

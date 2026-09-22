@@ -16,6 +16,7 @@ import { erreur, toast } from "./ui/toast.js";
 import { el, render } from "./ui/dom.js";
 import { ecouter } from "./core/bus.js";
 import { stockageLocal, stockageSession } from "./core/stockage.js";
+import { basculerFenetreFlottante } from "./features/fenetre-flottante.js";
 
 /* --- Table de routage ------------------------------------------------------ */
 function declarerRoutes() {
@@ -53,6 +54,7 @@ function declarerRaccourcis() {
   enregistrerAction("recherche.ouvrir", () => aller("/recherche"));
   enregistrerAction("densite.cycler",   () => cyclerDensite());
   enregistrerAction("densite.minimal",  () => appliquerDensite(etat.densite === "minimal" ? "grand" : "minimal"));
+  enregistrerAction("fenetre.flottante", () => basculerFenetreFlottante());
   enregistrerAction("aide.raccourcis",  () => aller("/reglages?onglet=raccourcis"));
   enregistrerAction("cahier.ouvrir", () => {
     const dernier = etat.cahiers?.[0];

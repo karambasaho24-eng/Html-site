@@ -11,6 +11,9 @@ import { L } from "../core/lexique.js";
 import { estEnseignant, estAdmin, encadreUneClasse } from "../core/permissions.js";
 import { initiales } from "../core/util.js";
 import { menu } from "./modal.js";
+import { docHote } from "../core/hote.js";
+import { basculerFenetreFlottante, estFlottant, flottantAuPremierPlan, flottantDisponible }
+  from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
 import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
 import { notifications as depotNotifications } from "../data/index.js";
@@ -37,7 +40,7 @@ export function construireChassis(hote) {
     ),
     el("header.barre",
       el("button.btn.btn--fantome.btn--icone.bouton-tiroir", {
-        "aria-label": "Navigation", onclick: () => document.body.classList.toggle("tiroir-ouvert")
+        "aria-label": "Navigation", onclick: () => docHote().body.classList.toggle("tiroir-ouvert")
       }, icone("menu", 17)),
       refs.fil = el("div.barre__fil"),
       refs.outils = el("div.barre__outils")
@@ -52,7 +55,7 @@ export function construireChassis(hote) {
   peindreFil();
 
   observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); });
-  observer(["notifications", "reseau", "densite", "theme", "utilisateur"], peindreOutils);
+  observer(["notifications", "reseau", "densite", "theme", "utilisateur", "flottant"], peindreOutils);
   observer("classeActive", peindreFil);
 
   return refs.vue;
@@ -65,7 +68,7 @@ function lienRail(href, nom, libelle, icone_, compteur = null) {
     href: `#${href}`,
     "aria-current": actif ? "page" : null,
     title: libelle,
-    onclick: () => document.body.classList.remove("tiroir-ouvert")
+    onclick: () => docHote().body.classList.remove("tiroir-ouvert")
   }, icone(icone_, 16), el("span", libelle),
      compteur ? el("span.compteur", String(compteur)) : null);
 }
@@ -161,6 +164,15 @@ function peindreOutils() {
       icone("cloche", 17),
       nonLues ? el("span.pastille-compteur", nonLues > 9 ? "9+" : String(nonLues)) : null
     ),
+
+    flottantDisponible() ? el("button.btn.btn--fantome.btn--icone.hors-examen", {
+      "aria-label": "Fenêtre d'à-côté",
+      title: flottantAuPremierPlan()
+        ? "Détacher au-dessus du jeu (Ctrl+Maj+F)"
+        : "Détacher dans sa propre fenêtre (Ctrl+Maj+F)",
+      "aria-pressed": String(estFlottant()),
+      onclick: () => basculerFenetreFlottante()
+    }, icone(estFlottant() ? "entree" : "sortie", 17)) : null,
 
     el("button.btn.btn--fantome.btn--icone.hors-examen", {
       "aria-label": "Densité d'affichage", title: "Densité (Ctrl+\\)",

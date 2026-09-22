@@ -56,6 +56,7 @@ export const RACCOURCIS_DEFAUT = {
   "recherche.ouvrir":  "/",
   "densite.cycler":    "mod+\\",
   "densite.minimal":   "mod+shift+m",
+  "fenetre.flottante": "mod+shift+f",
   "page.suivante":     "alt+ArrowRight",
   "page.precedente":   "alt+ArrowLeft",
   "page.nouvelle":     "mod+Enter",

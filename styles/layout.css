@@ -238,3 +238,32 @@ body.hors-session .barre { display: none; }
   .acces__enseigne { display: none; }
   .acces__formulaire { padding: var(--e-5) var(--e-4); }
 }
+
+/* --- La fenêtre d'à-côté ---------------------------------------------------
+   Petite, posée au-dessus du jeu. Chaque pixel compte : on retire le liseré
+   d'origine, on supprime le bloc de marque, et la barre prend toute la
+   largeur. Le rail reste une colonne d'icônes — jamais un tiroir : dans une
+   fenêtre qu'on consulte d'un coup d'œil, un menu à ouvrir est un menu qu'on
+   n'ouvre pas. La densité est forcée à « compact » à l'ouverture, ce qui le
+   réduit à 60 px. */
+body.est-flottant {
+  margin: 0;
+  overflow: hidden;
+}
+body.est-flottant .chassis {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: 100dvh;
+  grid-template-columns: var(--l-rail) minmax(0, 1fr);
+  grid-template-rows: var(--h-barre) minmax(0, 1fr);
+  grid-template-areas: "barre barre" "rail vue";
+}
+body.est-flottant .marque { display: none; }
+body.est-flottant .bouton-tiroir { display: none; }
+body.est-flottant .page { padding: var(--e-3) var(--e-3) var(--e-5); }
+body.est-flottant .page__entete { flex-direction: column; align-items: stretch; }
+body.est-flottant .btn { min-height: 34px; }
+body.est-flottant .calque-toasts { left: var(--e-2); right: var(--e-2); max-width: none; }
+body.est-flottant .barre { padding: 0 var(--e-2); }
+body.est-flottant .barre__fil { font-size: var(--t-xs); }

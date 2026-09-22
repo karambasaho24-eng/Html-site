@@ -4,10 +4,11 @@
  * ------------------------------------------------------------------------- */
 import { el } from "./dom.js";
 import { icone } from "./icons.js";
+import { docHote, fenetreHote } from "../core/hote.js";
 
 const pile = [];
 
-function calque() { return document.getElementById("calque-modales"); }
+function calque() { return docHote().getElementById("calque-modales"); }
 
 /**
  * ouvrirModale({ titre, corps, actions, large })
@@ -24,7 +25,7 @@ export function ouvrirModale({ titre, corps, actions, large = false, surFermetur
         resolue = true;
         voile.remove();
         pile.pop();
-        document.removeEventListener("keydown", surTouche);
+        clavier.removeEventListener("keydown", surTouche);
         surFermeture?.(valeur);
         resoudre(valeur);
         pile.at(-1)?.focus?.();
@@ -78,7 +79,10 @@ export function ouvrirModale({ titre, corps, actions, large = false, surFermetur
 
     hote.appendChild(voile);
     pile.push(boite);
-    document.addEventListener("keydown", surTouche);
+    // Le même document du début à la fin : si l'interface déménage pendant
+    // qu'une modale est ouverte, on retire l'écouteur là où on l'a posé.
+    const clavier = hote.ownerDocument;
+    clavier.addEventListener("keydown", surTouche);
 
     const premier = boite.querySelector("input, textarea, select, button.btn--primaire");
     setTimeout(() => premier?.focus?.(), 30);
@@ -267,25 +271,27 @@ export function menu(ancre, items) {
     })
   );
 
-  document.body.appendChild(boite);
+  const doc = ancre.ownerDocument || docHote();
+  const vue = doc.defaultView || fenetreHote();
+  doc.body.appendChild(boite);
   const r = ancre.getBoundingClientRect();
   const l = boite.getBoundingClientRect();
-  const x = Math.min(r.left, window.innerWidth - l.width - 8);
-  const y = r.bottom + l.height > window.innerHeight ? r.top - l.height - 4 : r.bottom + 4;
+  const x = Math.min(r.left, vue.innerWidth - l.width - 8);
+  const y = r.bottom + l.height > vue.innerHeight ? r.top - l.height - 4 : r.bottom + 4;
   boite.style.left = `${Math.max(8, x)}px`;
   boite.style.top = `${Math.max(8, y)}px`;
 
   function fermer() {
     boite.remove();
-    document.removeEventListener("mousedown", surClic, true);
-    document.removeEventListener("keydown", surTouche, true);
+    doc.removeEventListener("mousedown", surClic, true);
+    doc.removeEventListener("keydown", surTouche, true);
   }
   function surClic(e) { if (!boite.contains(e.target)) fermer(); }
   function surTouche(e) { if (e.key === "Escape") { e.stopPropagation(); fermer(); } }
 
   setTimeout(() => {
-    document.addEventListener("mousedown", surClic, true);
-    document.addEventListener("keydown", surTouche, true);
+    doc.addEventListener("mousedown", surClic, true);
+    doc.addEventListener("keydown", surTouche, true);
   }, 0);
 
   return fermer;

@@ -495,6 +495,35 @@ body.hors-session .barre { display: none; }
   .acces__formulaire { padding: var(--e-5) var(--e-4); }
 }
 
+/* --- La fenêtre d'à-côté ---------------------------------------------------
+   Petite, posée au-dessus du jeu. Chaque pixel compte : on retire le liseré
+   d'origine, on supprime le bloc de marque, et la barre prend toute la
+   largeur. Le rail reste une colonne d'icônes — jamais un tiroir : dans une
+   fenêtre qu'on consulte d'un coup d'œil, un menu à ouvrir est un menu qu'on
+   n'ouvre pas. La densité est forcée à « compact » à l'ouverture, ce qui le
+   réduit à 60 px. */
+body.est-flottant {
+  margin: 0;
+  overflow: hidden;
+}
+body.est-flottant .chassis {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: 100dvh;
+  grid-template-columns: var(--l-rail) minmax(0, 1fr);
+  grid-template-rows: var(--h-barre) minmax(0, 1fr);
+  grid-template-areas: "barre barre" "rail vue";
+}
+body.est-flottant .marque { display: none; }
+body.est-flottant .bouton-tiroir { display: none; }
+body.est-flottant .page { padding: var(--e-3) var(--e-3) var(--e-5); }
+body.est-flottant .page__entete { flex-direction: column; align-items: stretch; }
+body.est-flottant .btn { min-height: 34px; }
+body.est-flottant .calque-toasts { left: var(--e-2); right: var(--e-2); max-width: none; }
+body.est-flottant .barre { padding: 0 var(--e-2); }
+body.est-flottant .barre__fil { font-size: var(--t-xs); }
+
 /* ---- components.css ---- */
 /* ===========================================================================
    Composants
@@ -5562,9 +5591,26 @@ var init_permissions = __esm({
   }
 });
 
+// src/core/hote.js
+function docHote() {
+  return courant;
+}
+function definirHote(document_) {
+  courant = document_ || globalThis.document;
+}
+function fenetreHote() {
+  return courant?.defaultView || globalThis;
+}
+var courant;
+var init_hote = __esm({
+  "src/core/hote.js"() {
+    courant = globalThis.document;
+  }
+});
+
 // src/ui/modal.js
 function calque() {
-  return document.getElementById("calque-modales");
+  return docHote().getElementById("calque-modales");
 }
 function ouvrirModale({ titre, corps, actions: actions2, large = false, surFermeture = null }) {
   return new Promise((resoudre2) => {
@@ -5576,7 +5622,7 @@ function ouvrirModale({ titre, corps, actions: actions2, large = false, surFerme
         resolue = true;
         voile.remove();
         pile.pop();
-        document.removeEventListener("keydown", surTouche);
+        clavier.removeEventListener("keydown", surTouche);
         surFermeture?.(valeur);
         resoudre2(valeur);
         pile.at(-1)?.focus?.();
@@ -5633,7 +5679,8 @@ function ouvrirModale({ titre, corps, actions: actions2, large = false, surFerme
     }
     hote.appendChild(voile);
     pile.push(boite);
-    document.addEventListener("keydown", surTouche);
+    const clavier = hote.ownerDocument;
+    clavier.addEventListener("keydown", surTouche);
     const premier = boite.querySelector("input, textarea, select, button.btn--primaire");
     setTimeout(() => premier?.focus?.(), 30);
   });
@@ -5759,8 +5806,8 @@ function construireChamp(c, refs2) {
     );
   }
   if (c.type === "choix") {
-    let courant = c.valeur ?? c.options?.[0]?.valeur ?? "";
-    const cache = el("input", { type: "hidden", value: courant, ref: capter });
+    let courant2 = c.valeur ?? c.options?.[0]?.valeur ?? "";
+    const cache = el("input", { type: "hidden", value: courant2, ref: capter });
     const groupe = el(
       "div.choix-objets",
       { role: "radiogroup", "aria-label": c.label },
@@ -5770,11 +5817,11 @@ function construireChamp(c, refs2) {
           type: "button",
           role: "radio",
           dataset: { valeur: o.valeur },
-          "aria-checked": String(o.valeur === courant),
+          "aria-checked": String(o.valeur === courant2),
           onclick: (e) => {
-            courant = o.valeur;
+            courant2 = o.valeur;
             cache.value = o.valeur;
-            groupe.querySelectorAll(".choix-objet").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.valeur === courant)));
+            groupe.querySelectorAll(".choix-objet").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.valeur === courant2)));
             c.onchoix?.(o.valeur);
           }
         },
@@ -5840,17 +5887,19 @@ function menu(ancre, items) {
       }, item.icone ? icone(item.icone, 15) : null, item.libelle);
     })
   );
-  document.body.appendChild(boite);
+  const doc = ancre.ownerDocument || docHote();
+  const vue = doc.defaultView || fenetreHote();
+  doc.body.appendChild(boite);
   const r = ancre.getBoundingClientRect();
   const l = boite.getBoundingClientRect();
-  const x = Math.min(r.left, window.innerWidth - l.width - 8);
-  const y = r.bottom + l.height > window.innerHeight ? r.top - l.height - 4 : r.bottom + 4;
+  const x = Math.min(r.left, vue.innerWidth - l.width - 8);
+  const y = r.bottom + l.height > vue.innerHeight ? r.top - l.height - 4 : r.bottom + 4;
   boite.style.left = `${Math.max(8, x)}px`;
   boite.style.top = `${Math.max(8, y)}px`;
   function fermer() {
     boite.remove();
-    document.removeEventListener("mousedown", surClic, true);
-    document.removeEventListener("keydown", surTouche, true);
+    doc.removeEventListener("mousedown", surClic, true);
+    doc.removeEventListener("keydown", surTouche, true);
   }
   function surClic(e) {
     if (!boite.contains(e.target)) fermer();
@@ -5862,8 +5911,8 @@ function menu(ancre, items) {
     }
   }
   setTimeout(() => {
-    document.addEventListener("mousedown", surClic, true);
-    document.addEventListener("keydown", surTouche, true);
+    doc.addEventListener("mousedown", surClic, true);
+    doc.addEventListener("keydown", surTouche, true);
   }, 0);
   return fermer;
 }
@@ -5872,7 +5921,216 @@ var init_modal = __esm({
   "src/ui/modal.js"() {
     init_dom();
     init_icons();
+    init_hote();
     pile = [];
+  }
+});
+
+// src/ui/toast.js
+var toast_exports = {};
+__export(toast_exports, {
+  avertir: () => avertir,
+  erreur: () => erreur,
+  messageErreur: () => messageErreur,
+  succes: () => succes,
+  toast: () => toast
+});
+function calque2() {
+  return docHote().getElementById("calque-toasts");
+}
+function toast(titre, options = {}) {
+  const { corps = null, type = "info", duree: duree2 = 4200, action = null } = options;
+  const hote = calque2();
+  if (!hote) return () => {
+  };
+  const noeud = el(
+    `div.toast.toast--${type}`,
+    { role: "status" },
+    el("span", { style: { color: "var(--laiton)", marginTop: "1px" } }, icone(ICONES[type] || "cloche", 15)),
+    el(
+      "div",
+      { style: { flex: "1", minWidth: "0" } },
+      el("span.toast__titre", titre),
+      corps && el("span.toast__corps", corps)
+    ),
+    action && el("button.btn.btn--fantome.petit", {
+      onclick: () => {
+        action.action();
+        fermer();
+      }
+    }, action.libelle)
+  );
+  hote.appendChild(noeud);
+  let minuteur = duree2 > 0 ? setTimeout(fermer, duree2) : null;
+  noeud.addEventListener("mouseenter", () => {
+    if (minuteur) clearTimeout(minuteur);
+  });
+  noeud.addEventListener("mouseleave", () => {
+    if (duree2 > 0) minuteur = setTimeout(fermer, 1600);
+  });
+  noeud.addEventListener("click", (e) => {
+    if (!e.target.closest("button")) fermer();
+  });
+  function fermer() {
+    if (!noeud.isConnected) return;
+    noeud.classList.add("part");
+    setTimeout(() => noeud.remove(), 170);
+  }
+  return fermer;
+}
+function messageErreur(err) {
+  if (!err) return "Erreur inconnue.";
+  const brut = err.message || String(err);
+  const table2 = {
+    "Invalid login credentials": "Identifiants incorrects.",
+    "User already registered": "Un compte existe d\xE9j\xE0 avec cette adresse.",
+    "Email not confirmed": "Adresse non confirm\xE9e : consultez votre bo\xEEte mail.",
+    "Permission refus\xE9e": "Vous n'avez pas les droits n\xE9cessaires.",
+    "Code de classe introuvable": "Ce code ne correspond \xE0 aucune classe.",
+    "Les inscriptions sont ferm\xE9es": "Les inscriptions \xE0 cette classe sont ferm\xE9es.",
+    "Failed to fetch": "Serveur injoignable. V\xE9rifiez votre connexion."
+  };
+  for (const [motif, message] of Object.entries(table2)) {
+    if (brut.includes(motif)) return message;
+  }
+  if (err.code === "23505") return "Cet \xE9l\xE9ment existe d\xE9j\xE0.";
+  if (err.code === "42501") return "Vous n'avez pas les droits n\xE9cessaires.";
+  return brut;
+}
+var ICONES, succes, erreur, avertir;
+var init_toast = __esm({
+  "src/ui/toast.js"() {
+    init_dom();
+    init_icons();
+    init_hote();
+    ICONES = { info: "cloche", ok: "coche", alerte: "croix", attn: "drapeau" };
+    succes = (titre, corps) => toast(titre, { corps, type: "ok" });
+    erreur = (titre, corps) => toast(titre, { corps, type: "alerte", duree: 6500 });
+    avertir = (titre, corps) => toast(titre, { corps, type: "attn", duree: 5200 });
+  }
+});
+
+// src/features/fenetre-flottante.js
+function flottantDisponible() {
+  return Boolean(globalThis.documentPictureInPicture) || Boolean(globalThis.open);
+}
+function flottantAuPremierPlan() {
+  return Boolean(globalThis.documentPictureInPicture);
+}
+function estFlottant() {
+  return Boolean(fenetre && !fenetre.closed);
+}
+function transposerStyles(cible) {
+  for (const feuille of document.querySelectorAll('link[rel="stylesheet"], style')) {
+    cible.head.appendChild(feuille.cloneNode(true));
+  }
+  for (const lien of document.querySelectorAll('link[rel="preconnect"]')) {
+    cible.head.appendChild(lien.cloneNode(true));
+  }
+  cible.documentElement.dataset.theme = document.documentElement.dataset.theme || "nuit";
+}
+function demenager(vers) {
+  for (const id of IDS) {
+    const noeud = docHote().getElementById(id);
+    if (noeud) vers.body.appendChild(vers.adoptNode(noeud));
+  }
+  vers.body.className = document.body.className;
+  definirHote(vers);
+}
+async function ouvrirFenetreFlottante() {
+  if (estFlottant()) {
+    fenetre.focus?.();
+    return true;
+  }
+  const taille = local.lire(CLE_TAILLE, { width: 460, height: 680 });
+  densiteAvant = etat.densite;
+  try {
+    if (globalThis.documentPictureInPicture) {
+      fenetre = await documentPictureInPicture.requestWindow({
+        width: taille.width,
+        height: taille.height,
+        disallowReturnToOpener: false
+      });
+    } else {
+      fenetre = globalThis.open(
+        "",
+        "classe-parallele",
+        `popup=yes,width=${taille.width},height=${taille.height}`
+      );
+      if (!fenetre) {
+        toast("Fen\xEAtre bloqu\xE9e", {
+          corps: "Autorisez les fen\xEAtres surgissantes pour ce site, puis r\xE9essayez.",
+          type: "alerte",
+          duree: 8e3
+        });
+        return false;
+      }
+      fenetre.document.title = document.title;
+    }
+  } catch (err) {
+    console.warn("[flottant]", err);
+    toast("Fen\xEAtre flottante indisponible", { corps: err.message, type: "alerte" });
+    fenetre = null;
+    return false;
+  }
+  const doc = fenetre.document;
+  transposerStyles(doc);
+  demenager(doc);
+  doc.body.classList.add("est-flottant");
+  detournerLiens(doc);
+  appliquerDensiteFlottante(taille.width);
+  fenetre.addEventListener("resize", () => {
+    local.ecrire(CLE_TAILLE, { width: fenetre.innerWidth, height: fenetre.innerHeight });
+    appliquerDensiteFlottante(fenetre.innerWidth);
+  });
+  fenetre.addEventListener("pagehide", refermer, { once: true });
+  definir({ flottant: true });
+  return true;
+}
+function appliquerDensiteFlottante(largeur) {
+  fenetre.document.documentElement.dataset.density = largeur < 820 ? "compact" : "moyen";
+}
+function detournerLiens(doc) {
+  doc.addEventListener("click", (e) => {
+    const lien = e.target?.closest?.('a[href^="#/"]');
+    if (!lien || e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    aller(lien.getAttribute("href").slice(1));
+  }, true);
+}
+function refermer() {
+  if (!fenetre) return;
+  const veuve = fenetre;
+  fenetre = null;
+  for (const id of IDS) {
+    const noeud = veuve.document?.getElementById(id);
+    if (noeud) document.body.appendChild(document.adoptNode(noeud));
+  }
+  definirHote(document);
+  document.body.classList.remove("est-flottant");
+  document.documentElement.dataset.density = densiteAvant || "grand";
+  definir({ flottant: false, densite: densiteAvant || etat.densite });
+  try {
+    if (!veuve.closed) veuve.close();
+  } catch {
+  }
+}
+function basculerFenetreFlottante() {
+  return estFlottant() ? (refermer(), false) : ouvrirFenetreFlottante();
+}
+var CLE_TAILLE, IDS, fenetre, densiteAvant;
+var init_fenetre_flottante = __esm({
+  "src/features/fenetre-flottante.js"() {
+    init_hote();
+    init_router();
+    init_store();
+    init_util();
+    init_toast();
+    CLE_TAILLE = "ojm.flottant.taille";
+    IDS = ["application", "calque-modales", "calque-toasts"];
+    fenetre = null;
+    densiteAvant = null;
   }
 });
 
@@ -5986,6 +6244,7 @@ var init_interface = __esm({
       "recherche.ouvrir": "/",
       "densite.cycler": "mod+\\",
       "densite.minimal": "mod+shift+m",
+      "fenetre.flottante": "mod+shift+f",
       "page.suivante": "alt+ArrowRight",
       "page.precedente": "alt+ArrowLeft",
       "page.nouvelle": "mod+Enter",
@@ -6022,7 +6281,7 @@ function construireChassis(hote) {
       "header.barre",
       el("button.btn.btn--fantome.btn--icone.bouton-tiroir", {
         "aria-label": "Navigation",
-        onclick: () => document.body.classList.toggle("tiroir-ouvert")
+        onclick: () => docHote().body.classList.toggle("tiroir-ouvert")
       }, icone("menu", 17)),
       refs.fil = el("div.barre__fil"),
       refs.outils = el("div.barre__outils")
@@ -6038,7 +6297,7 @@ function construireChassis(hote) {
     peindreRail();
     peindreFil();
   });
-  observer(["notifications", "reseau", "densite", "theme", "utilisateur"], peindreOutils);
+  observer(["notifications", "reseau", "densite", "theme", "utilisateur", "flottant"], peindreOutils);
   observer("classeActive", peindreFil);
   return refs.vue;
 }
@@ -6050,7 +6309,7 @@ function lienRail(href, nom, libelle, icone_, compteur = null) {
       href: `#${href}`,
       "aria-current": actif ? "page" : null,
       title: libelle,
-      onclick: () => document.body.classList.remove("tiroir-ouvert")
+      onclick: () => docHote().body.classList.remove("tiroir-ouvert")
     },
     icone(icone_, 16),
     el("span", libelle),
@@ -6155,6 +6414,12 @@ function peindreOutils() {
       icone("cloche", 17),
       nonLues ? el("span.pastille-compteur", nonLues > 9 ? "9+" : String(nonLues)) : null
     ),
+    flottantDisponible() ? el("button.btn.btn--fantome.btn--icone.hors-examen", {
+      "aria-label": "Fen\xEAtre d'\xE0-c\xF4t\xE9",
+      title: flottantAuPremierPlan() ? "D\xE9tacher au-dessus du jeu (Ctrl+Maj+F)" : "D\xE9tacher dans sa propre fen\xEAtre (Ctrl+Maj+F)",
+      "aria-pressed": String(estFlottant()),
+      onclick: () => basculerFenetreFlottante()
+    }, icone(estFlottant() ? "entree" : "sortie", 17)) : null,
     el("button.btn.btn--fantome.btn--icone.hors-examen", {
       "aria-label": "Densit\xE9 d'affichage",
       title: "Densit\xE9 (Ctrl+\\)",
@@ -6240,94 +6505,13 @@ var init_chassis = __esm({
     init_permissions();
     init_util();
     init_modal();
+    init_hote();
+    init_fenetre_flottante();
     init_session();
     init_interface();
     init_data();
     init_data();
     refs = {};
-  }
-});
-
-// src/ui/toast.js
-var toast_exports = {};
-__export(toast_exports, {
-  avertir: () => avertir,
-  erreur: () => erreur,
-  messageErreur: () => messageErreur,
-  succes: () => succes,
-  toast: () => toast
-});
-function calque2() {
-  return document.getElementById("calque-toasts");
-}
-function toast(titre, options = {}) {
-  const { corps = null, type = "info", duree: duree2 = 4200, action = null } = options;
-  const hote = calque2();
-  if (!hote) return () => {
-  };
-  const noeud = el(
-    `div.toast.toast--${type}`,
-    { role: "status" },
-    el("span", { style: { color: "var(--laiton)", marginTop: "1px" } }, icone(ICONES[type] || "cloche", 15)),
-    el(
-      "div",
-      { style: { flex: "1", minWidth: "0" } },
-      el("span.toast__titre", titre),
-      corps && el("span.toast__corps", corps)
-    ),
-    action && el("button.btn.btn--fantome.petit", {
-      onclick: () => {
-        action.action();
-        fermer();
-      }
-    }, action.libelle)
-  );
-  hote.appendChild(noeud);
-  let minuteur = duree2 > 0 ? setTimeout(fermer, duree2) : null;
-  noeud.addEventListener("mouseenter", () => {
-    if (minuteur) clearTimeout(minuteur);
-  });
-  noeud.addEventListener("mouseleave", () => {
-    if (duree2 > 0) minuteur = setTimeout(fermer, 1600);
-  });
-  noeud.addEventListener("click", (e) => {
-    if (!e.target.closest("button")) fermer();
-  });
-  function fermer() {
-    if (!noeud.isConnected) return;
-    noeud.classList.add("part");
-    setTimeout(() => noeud.remove(), 170);
-  }
-  return fermer;
-}
-function messageErreur(err) {
-  if (!err) return "Erreur inconnue.";
-  const brut = err.message || String(err);
-  const table2 = {
-    "Invalid login credentials": "Identifiants incorrects.",
-    "User already registered": "Un compte existe d\xE9j\xE0 avec cette adresse.",
-    "Email not confirmed": "Adresse non confirm\xE9e : consultez votre bo\xEEte mail.",
-    "Permission refus\xE9e": "Vous n'avez pas les droits n\xE9cessaires.",
-    "Code de classe introuvable": "Ce code ne correspond \xE0 aucune classe.",
-    "Les inscriptions sont ferm\xE9es": "Les inscriptions \xE0 cette classe sont ferm\xE9es.",
-    "Failed to fetch": "Serveur injoignable. V\xE9rifiez votre connexion."
-  };
-  for (const [motif, message] of Object.entries(table2)) {
-    if (brut.includes(motif)) return message;
-  }
-  if (err.code === "23505") return "Cet \xE9l\xE9ment existe d\xE9j\xE0.";
-  if (err.code === "42501") return "Vous n'avez pas les droits n\xE9cessaires.";
-  return brut;
-}
-var ICONES, succes, erreur, avertir;
-var init_toast = __esm({
-  "src/ui/toast.js"() {
-    init_dom();
-    init_icons();
-    ICONES = { info: "cloche", ok: "coche", alerte: "croix", attn: "drapeau" };
-    succes = (titre, corps) => toast(titre, { corps, type: "ok" });
-    erreur = (titre, corps) => toast(titre, { corps, type: "alerte", duree: 6500 });
-    avertir = (titre, corps) => toast(titre, { corps, type: "attn", duree: 5200 });
   }
 });
 
@@ -16438,6 +16622,7 @@ var init_reglages = __esm({
       "recherche.ouvrir": "Recherche globale",
       "densite.cycler": "Changer de densit\xE9",
       "densite.minimal": "Basculer en mode minimal",
+      "fenetre.flottante": "D\xE9tacher la fen\xEAtre d'\xE0-c\xF4t\xE9",
       "page.suivante": "Page suivante",
       "page.precedente": "Page pr\xE9c\xE9dente",
       "page.nouvelle": "Nouvelle page",
@@ -16520,6 +16705,7 @@ init_toast();
 init_dom();
 init_bus();
 init_stockage();
+init_fenetre_flottante();
 function declarerRoutes() {
   definirRoute("/connexion", { nom: "connexion", vue: () => Promise.resolve().then(() => (init_auth(), auth_exports)), publique: true });
   definirRoute("/", { nom: "accueil", vue: () => Promise.resolve().then(() => (init_accueil(), accueil_exports)), prive: true });
@@ -16549,6 +16735,7 @@ function declarerRaccourcis() {
   enregistrerAction("recherche.ouvrir", () => aller("/recherche"));
   enregistrerAction("densite.cycler", () => cyclerDensite());
   enregistrerAction("densite.minimal", () => appliquerDensite(etat.densite === "minimal" ? "grand" : "minimal"));
+  enregistrerAction("fenetre.flottante", () => basculerFenetreFlottante());
   enregistrerAction("aide.raccourcis", () => aller("/reglages?onglet=raccourcis"));
   enregistrerAction("cahier.ouvrir", () => {
     const dernier = etat.cahiers?.[0];

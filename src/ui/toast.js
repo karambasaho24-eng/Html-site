@@ -3,11 +3,12 @@
  * ------------------------------------------------------------------------- */
 import { el } from "./dom.js";
 import { icone } from "./icons.js";
+import { docHote } from "../core/hote.js";
 
 const ICONES = { info: "cloche", ok: "coche", alerte: "croix", attn: "drapeau" };
 
 function calque() {
-  return document.getElementById("calque-toasts");
+  return docHote().getElementById("calque-toasts");
 }
 
 export function toast(titre, options = {}) {
