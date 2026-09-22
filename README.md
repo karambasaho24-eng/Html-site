@@ -14,6 +14,34 @@ RolePlay, présence en jeu  ←→   cours, cahiers, tableau, exercices, archive
 
 ---
 
+## Mettre le site en ligne
+
+Site statique : ni compilation, ni serveur. On dépose le dossier tel quel.
+
+**Netlify, une fois** — depuis une copie locale du dépôt :
+
+```bash
+npx -y netlify-cli deploy --prod --dir . --site <identifiant-du-projet>
+```
+
+**Netlify, en continu** — *Project configuration › Build & deploy ›
+Continuous deployment › Link repository*, branche `main`. Ne touchez ni à la
+commande de build ni au dossier à publier : `netlify.toml` les porte déjà.
+Chaque poussée republie alors le site toute seule.
+
+Les identifiants Supabase se mettent dans les variables d'environnement du
+projet (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) : la commande de build les dépose
+dans `config.js`. Sans variables, le `config.js` versionné sert de repli, ce
+qui garde le glisser-déposer et l'ouverture en local fonctionnels.
+
+Tout est détaillé dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+
+**Sans rien installer** — `page-unique.html` contient l'application entière en
+un seul fichier. Il s'ouvre depuis le disque, s'envoie par courriel, ou se
+dépose sur [app.netlify.com/drop](https://app.netlify.com/drop).
+
+---
+
 ## En deux minutes
 
 Le professeur ouvre une session et obtient un code :
