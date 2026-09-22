@@ -16,20 +16,27 @@ import { L } from "../core/lexique.js";
 import {
   sessions as depotSessions, tableaux, cahiers, presence as depotPresence,
   questions as depotQuestions, mains, sondages, minuteries, annonces,
-  exercices, documents, temps, journal, notifications, membres as depotMembres, pages as depotPages
+  exercices, documents, temps, journal, notifications, membres as depotMembres, pages as depotPages,
+  cartable as depotCartable, renvois, cahiers as depotCahiers, classes as depotClasses
 } from "../data/index.js";
 import { activerClasse } from "../core/session.js";
 import { encadre, peutDessiner, peutContribuer, estObservateur } from "../core/permissions.js";
 import { creerTableau, OUTILS, TEINTES, EPAISSEURS } from "../features/tableau.js";
+import { compterPagesPdf, pdfEnImages } from "../features/import-document.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
 import { modePleineVue } from "../ui/chassis.js";
 import { avatar, blocVide, pastillePresence } from "../ui/fragments.js";
-import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
+import { confirmer, demander, formulaire, menu, ouvrirModale } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { duree, heure, depuis, initiales, local, debounce, pluriel } from "../core/util.js";
 import { personnages } from "../data/index.js";
 import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
 import { inscrireAuLivret } from "../features/livret.js";
+import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
+import { preparerAffaires, materielAttendu, ligneMateriel } from "../features/cartable.js";
+import { exigerProximite } from "../features/proximite.js";
+import { composerPapier, tendrePapier } from "../features/papier.js";
+import { creerEditeurCahier as ouvrirCahierInspecte } from "../features/editeur-cahier.js";
 
 const COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
 
@@ -75,6 +82,10 @@ export default async function vueSalle({ params }) {
   let documentAffiche = null;
   let presences = [];
   let equipe = [];
+  let sacs = new Map();            // cartables déposés, par utilisateur
+  let listeRenvois = [];
+  let modeSeance = modeDe(session);
+  const attendu = materielAttendu(classe);
 
   // En RP, c'est le personnage qui est présent à l'appel, pas le compte.
   const enRP = universDe(classe) !== "aucun";
@@ -113,6 +124,15 @@ export default async function vueSalle({ params }) {
           `${classe.name} · ${pluriel(presentsCount, "connecté", "connectés")} · ouverte ${depuis(session.started_at)}`)
       ),
       el("div.bandeau__outils",
+        staff
+          ? el("button.mode-seance", {
+              dataset: { mode: session.mode || "cours" },
+              title: "Changer le mode de la séance",
+              onclick: (e) => choisirMode(e.currentTarget)
+            }, icone(modeSeance.icone, 13), modeSeance.libelle)
+          : el("span.mode-seance", { dataset: { mode: session.mode || "cours" } },
+              icone(modeSeance.icone, 13), modeSeance.libelle),
+
         minuterie ? blocMinuterie() : null,
 
         !staff ? el("button.suivi", {
@@ -123,10 +143,22 @@ export default async function vueSalle({ params }) {
 
         !staff && contributeur ? el("button.btn", {
           onclick: basculerMain
-        }, icone("main", 15), maMainLevee() ? "Baisser la main" : "Lever la main") : null,
+        }, icone("main", 15),
+          maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander) : null,
 
-        !staff && contributeur ? el("button.btn", { onclick: poserQuestion },
-          icone("interro", 15), "J'ai une question") : null,
+        !staff && contributeur && (session.mode || "cours") === "cours"
+          ? el("button.btn", { onclick: poserQuestion },
+              icone("interro", 15), "J'ai une question") : null,
+
+        !staff && offre(session, "cartable") ? el("button.btn", {
+          onclick: () => ouvrirCartable(), title: "Ce que j'ai apporté en séance"
+        }, icone("sac", 15), "Mes affaires") : null,
+
+        offre(session, "papiers") ? el("button.btn", {
+          // Sans la lambda, le gestionnaire recevrait l'événement comme
+          // destinataire — et le papier partirait à personne.
+          onclick: () => remettreUnPapier(), title: "Rédiger et tendre un papier"
+        }, icone("papier", 15), "Papier") : null,
 
         staff ? el("button.btn", { onclick: (e) => menuProfesseur(e.currentTarget) },
           icone("reglages", 15), "Outils") : null,
@@ -216,6 +248,9 @@ export default async function vueSalle({ params }) {
 
     const elements = await tableaux.elements(pageCourante.id);
     moteurTableau.definirElements(elements);
+    if (pageCourante.background_image) {
+      await moteurTableau.definirImageFond(pageCourante.background_image).catch(() => {});
+    }
 
     render(zoneScene,
       el("div.tableau",
@@ -364,6 +399,14 @@ export default async function vueSalle({ params }) {
         action: choisirAutorises
       },
       { separateur: true },
+      { titre: "Poser sous le tableau" },
+      { libelle: "Une image", icone: "image", action: () => poserFondImage(pageCourante, "image") },
+      { libelle: "Une page de PDF", icone: "documents", action: () => poserFondImage(pageCourante, "pdf") },
+      pageCourante.background_image
+        ? { libelle: "Retirer ce qui est posé", icone: "croix",
+            action: () => retirerFondImage(pageCourante) }
+        : null,
+      { separateur: true },
       { titre: "Fond" },
       ...[["ardoise", "Ardoise"], ["craie", "Bleu nuit"], ["quadrille", "Quadrillé"], ["papier", "Papier"]]
         .map(([fond, libelle]) => ({
@@ -391,6 +434,80 @@ export default async function vueSalle({ params }) {
         }
       }
     ].filter(Boolean));
+  }
+
+  /**
+   * Poser quelque chose sous le tableau. L'image devient un calque : on écrit
+   * dessus, on efface ses propres traits sans l'emporter, et on la retire
+   * quand on veut. Elle est stockée avec la page, donc toute la classe la voit.
+   */
+  async function poserFondImage(pageCourante, genre) {
+    const entree = el("input", {
+      type: "file",
+      accept: genre === "pdf" ? "application/pdf" : "image/*"
+    });
+    entree.click();
+
+    const fichier = await new Promise((resoudre) => {
+      entree.onchange = () => resoudre(entree.files?.[0] || null);
+      // Annuler la boîte de fichiers ne déclenche rien : on n'attend pas indéfiniment.
+      window.addEventListener("focus", () => setTimeout(() => resoudre(entree.files?.[0] || null), 400),
+        { once: true });
+    });
+    if (!fichier) return;
+
+    let source;
+    try {
+      if (genre === "pdf") {
+        const total = await compterPagesPdf(fichier);
+        const choix = total > 1
+          ? await formulaire({
+              titre: "Quelle page ?",
+              champs: [{ cle: "page", label: `Page (1 à ${total})`, type: "number",
+                valeur: 1, min: 1, max: total }],
+              libelle: "Poser"
+            })
+          : { page: 1 };
+        if (!choix) return;
+        const numero = Math.max(1, Math.min(total, Number(choix.page) || 1));
+        toast("Conversion de la page…");
+        const images = await pdfEnImages(fichier, { pagesVoulues: [numero], echelle: 2 });
+        source = images[0];
+      } else {
+        source = await new Promise((resoudre, rejeter) => {
+          const lecteur = new FileReader();
+          lecteur.onload = () => resoudre(lecteur.result);
+          lecteur.onerror = () => rejeter(lecteur.error);
+          lecteur.readAsDataURL(fichier);
+        });
+      }
+    } catch (err) {
+      erreur("Conversion impossible", messageErreur(err));
+      return;
+    }
+    if (!source) return;
+
+    try {
+      await tableaux.majorerPage(pageCourante.id, { background_image: source });
+      pageCourante.background_image = source;
+      await moteurTableau.definirImageFond(source);
+      succes(genre === "pdf" ? "Page posée au tableau" : "Image posée au tableau");
+    } catch (err) {
+      // Une page de PDF en pleine résolution dépasse vite ce qu'une colonne
+      // de texte accepte : on le dit plutôt que d'échouer en silence.
+      erreur("Impossible de poser cette image", messageErreur(err));
+    }
+  }
+
+  async function retirerFondImage(pageCourante) {
+    try {
+      await tableaux.majorerPage(pageCourante.id, { background_image: null });
+      pageCourante.background_image = null;
+      await moteurTableau.definirImageFond(null);
+      toast("Retiré. Les annotations restent.");
+    } catch (err) {
+      erreur("Impossible", messageErreur(err));
+    }
   }
 
   async function choisirAutorises() {
@@ -545,12 +662,25 @@ export default async function vueSalle({ params }) {
       return el("p.petit.faible", { style: { padding: "var(--e-4)" } }, "Personne pour l'instant.");
     }
     const mainsParUtilisateur = new Map(listeMains.map((m) => [m.user_id, m]));
+    const renvoyes = new Set(listeRenvois.map((r) => r.user_id));
+    const controleMateriel = staff && offre(session, "cartable")
+      && (attendu.supports.length > 0 || attendu.fournitures.length > 0);
 
     return el("div",
+      controleMateriel ? el("div.controle-materiel",
+        el("span.controle-materiel__titre", icone("sac", 12), " Matériel demandé"),
+        el("span.petit.faible",
+          [...attendu.supports.map((x) => x.title), ...attendu.fournitures].join(" · "))
+      ) : null,
+
       participants.map((p) => {
         const main = mainsParUtilisateur.get(p.user_id);
-        return el("div.eleve", { class: main ? "eleve--main-levee" : "" },
-          pastillePresence(p.statut || "present"),
+        const renvoye = renvoyes.has(p.user_id);
+        return el("div.eleve", {
+          class: [main ? "eleve--main-levee" : "", renvoye ? "eleve--renvoye" : ""]
+            .filter(Boolean).join(" ")
+        },
+          pastillePresence(renvoye ? "absent" : (p.statut || "present")),
           el("span.avatar", { class: p.role === "teacher" ? "avatar--prof" : "" }, initiales(p.nom)),
           el("div.eleve__infos",
             el("div.eleve__nom",
@@ -558,7 +688,13 @@ export default async function vueSalle({ params }) {
               p.grade ? " " : null,
               p.nom || "Participant"),
             el("div.eleve__activite",
-              main ? el("em", "✋ demande la parole") : (p.activite || libelleScene(p.scene)))
+              renvoye ? el("em", "renvoyé de la séance")
+                : main ? el("em", `✋ ${modeSeance.parole.demander.toLowerCase()}`)
+                : (p.activite || libelleScene(p.scene))),
+            controleMateriel && p.role !== "teacher"
+              ? el("div.eleve__materiel",
+                  ligneMateriel(sacs.get(p.user_id), attendu, { court: true }))
+              : null
           ),
           staff
             ? el("div.liste__fin",
@@ -570,15 +706,252 @@ export default async function vueSalle({ params }) {
                   title: "Faire redescendre la main",
                   onclick: () => repondreMain(main, "lowered")
                 }, icone("croix", 14)) : null,
-                enRP ? el("button.btn.btn--fantome.btn--icone", {
-                  title: `Inscrire ${p.nom || "ce membre"} au livret`,
-                  onclick: () => inscrire(p.user_id)
-                }, icone("etoile", 14)) : null
+                p.role !== "teacher" ? el("button.btn.btn--fantome.btn--icone", {
+                  title: `Agir sur ${p.nom || "ce membre"}`,
+                  "aria-label": `Agir sur ${p.nom || "ce membre"}`,
+                  onclick: (e) => menuParticipant(e.currentTarget, p, renvoye)
+                }, icone("points", 14)) : null
               )
             : null
         );
+      }),
+
+      staff ? blocRenvoyes() : null
+    );
+  }
+
+  /**
+   * Un renvoyé quitte la salle, donc il disparaît de la liste des présents.
+   * Sans cette section, l'instructeur n'aurait plus aucun moyen de revenir
+   * sur sa décision : on garde les renvois sous les yeux jusqu'à la fin de la
+   * séance.
+   */
+  function blocRenvoyes() {
+    const dehors = listeRenvois.filter((r) =>
+      !participants.some((p) => p.user_id === r.user_id));
+    if (!dehors.length) return null;
+
+    const parId = new Map(equipe.map((m) => [m.user_id, m]));
+    return el("div.renvoyes",
+      el("span.renvoyes__titre", icone("renvoi", 12), " Renvoyés de cette séance"),
+      dehors.map((r) => {
+        const membre = parId.get(r.user_id);
+        const nom = nomAffiche(fichesRP.get(r.user_id), membre?.profil) || "Un membre";
+        return el("div.renvoyes__ligne",
+          el("div", { style: { flex: "1", minWidth: "0" } },
+            el("div.tronque", nom),
+            el("div.petit.faible", (r.reason || "").trim() || "Aucun motif porté.")),
+          el("button.btn.btn--fantome.btn--icone", {
+            title: "Lever le renvoi", "aria-label": `Lever le renvoi de ${nom}`,
+            onclick: () => leverRenvoi({ user_id: r.user_id, nom })
+          }, icone("entree", 14))
+        );
       })
     );
+  }
+
+  /**
+   * Ce qu'un encadrant peut faire d'un participant. Trois de ces gestes
+   * supposent qu'on soit à côté de lui : le site le demande avant, il ne le
+   * vérifie pas après.
+   */
+  function menuParticipant(ancre, participant, renvoye) {
+    menu(ancre, [
+      offre(session, "cartable")
+        ? { libelle: "Demander son cahier", icone: "cahier",
+            action: () => inspecterSupport(participant) }
+        : null,
+      offre(session, "papiers")
+        ? { libelle: "Lui tendre un papier", icone: "papier",
+            action: () => remettreUnPapier(participant) }
+        : null,
+      enRP
+        ? { libelle: "Inscrire au livret", icone: "etoile",
+            action: () => inscrire(participant.user_id) }
+        : null,
+      { separateur: true },
+      renvoye
+        ? { libelle: "Lever le renvoi", icone: "entree",
+            action: () => leverRenvoi(participant) }
+        : { libelle: "Le renvoyer de la séance", icone: "renvoi", danger: true,
+            action: () => renvoyer(participant) }
+    ].filter(Boolean));
+  }
+
+  /* --- Inspection d'un support apporté --------------------------------------- */
+
+  /**
+   * L'encadrement a le droit d'ouvrir ce qu'on a apporté — c'est un droit, pas
+   * une demande. Mais il ne s'exerce pas à distance, et jamais en cachette :
+   * le propriétaire en est averti par la procédure elle-même.
+   */
+  async function inspecterSupport(participant) {
+    const sac = sacs.get(participant.user_id);
+    const apportes = depotCartable.apportes(sac);
+    if (!apportes.length) {
+      toast(`${participant.nom || "Ce membre"} n'a rien apporté : il n'y a rien à ouvrir.`);
+      return;
+    }
+
+    let supports = [];
+    try {
+      supports = (await depotCahiers.mesCahiers(participant.user_id))
+        .filter((c) => apportes.includes(String(c.id)));
+    } catch { supports = []; }
+
+    if (!supports.length) {
+      // Le sac dit qu'il a apporté quelque chose, mais on n'y a pas accès :
+      // on tente quand même par identifiant, la procédure tranchera.
+      const intitules = sac?.notebooks && !Array.isArray(sac.notebooks) ? sac.notebooks : {};
+      supports = apportes.map((id) => ({
+        id, title: intitules[id] || "Support apporté", support: "cahier"
+      }));
+    }
+
+    const choix = supports.length === 1 ? supports[0].id : await formulaire({
+      titre: "Quel support ?",
+      champs: [{
+        cle: "cahier", label: "Ce qu'il a dans son sac", type: "select",
+        valeur: supports[0].id,
+        options: supports.map((c) => ({ valeur: c.id, libelle: c.title }))
+      }],
+      libelle: "Continuer"
+    }).then((r) => r?.cahier);
+    if (!choix) return;
+
+    const proche = await exigerProximite({
+      motif: "cahier",
+      cible: participant.profil || participant,
+      personnage: fichesRP.get(participant.user_id),
+      detail: supports.find((c) => String(c.id) === String(choix))?.title || null
+    });
+    if (!proche) return;
+
+    let cahier;
+    try {
+      cahier = await depotCahiers.inspecter(choix, classe.id);
+    } catch (err) {
+      erreur("Consultation impossible", messageErreur(err));
+      return;
+    }
+
+    const ligne = Array.isArray(cahier) ? cahier[0] : cahier;
+    const editeur = ouvrirCahierInspecte({
+      cahier: ligne, peutEcrire: false, compact: true, rp: reglagesRP(classe)
+    });
+
+    await ouvrirModale({
+      titre: `Le ${ligne.support || "cahier"} de ${participant.nom || "ce membre"}`,
+      large: true,
+      corps: () => el("div.inspection",
+        el("p.petit.faible",
+          icone("oeil", 12),
+          " Consultation en lecture seule. L'intéressé a été prévenu."),
+        editeur.noeud),
+      actions: [{ libelle: "Rendre le cahier", variante: "primaire", valeur: true }],
+      surFermeture: () => editeur.detruire()
+    });
+
+    journal.ecrire({
+      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
+      action: "cahier.inspection", meta: { cahier: ligne.id, membre: participant.user_id }
+    });
+  }
+
+  /* --- Renvoi ---------------------------------------------------------------- */
+
+  /**
+   * « Vous ne faites pas partie de ce cours. » On sort de la séance, pas de la
+   * classe : le lien reste, la scène s'arrête là pour aujourd'hui.
+   */
+  async function renvoyer(participant) {
+    const sortie = await formulaire({
+      titre: `Renvoyer ${participant.nom || "ce membre"}`,
+      note: "Le motif sera lu par l'intéressé et porté au registre de la séance.",
+      champs: [{
+        cle: "motif", label: "Motif", type: "textarea", lignes: 3,
+        placeholder: "Ne figure pas sur la liste des inscrits à cette instruction."
+      }],
+      libelle: "Continuer"
+    });
+    if (!sortie) return;
+
+    const proche = await exigerProximite({
+      motif: "renvoi",
+      cible: participant.profil || participant,
+      personnage: fichesRP.get(participant.user_id)
+    });
+    if (!proche) return;
+
+    try {
+      await renvois.renvoyer(session.id, participant.user_id, sortie.motif, true);
+      listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
+      succes(`${participant.nom || "Le membre"} a été prié de sortir`);
+      peindrePanneau();
+    } catch (err) {
+      erreur("Renvoi impossible", messageErreur(err));
+    }
+  }
+
+  async function leverRenvoi(participant) {
+    const ligne = listeRenvois.find((r) => r.user_id === participant.user_id);
+    if (!ligne) return;
+    try {
+      await renvois.lever(ligne.id);
+      listeRenvois = listeRenvois.filter((r) => r.id !== ligne.id);
+      toast("Renvoi levé : il peut revenir.");
+      peindrePanneau();
+    } catch (err) {
+      erreur("Impossible", messageErreur(err));
+    }
+  }
+
+  /* --- Mode de la séance ------------------------------------------------------ */
+  function choisirMode(ancre) {
+    menu(ancre, LISTE_MODES.map((m) => ({
+      libelle: m.libelle, icone: m.icone,
+      action: async () => {
+        if (m.cle === (session.mode || "cours")) return;
+        try {
+          const maj = await depotSessions.definirMode(session.id, m.cle);
+          session.mode = maj?.mode || m.cle;
+          modeSeance = modeDe(session);
+          if (!offre(session, "tableau") && scene === "tableau") scene = "cahier";
+          await diffuserFocus({ kind: scene, ref: null, mode: session.mode });
+          peindreBandeau(); peindrePanneau(); await peindreScene();
+          toast(`Séance en mode « ${m.libelle} »`);
+        } catch (err) {
+          erreur("Changement impossible", messageErreur(err));
+        }
+      }
+    })));
+  }
+
+  /* --- Cartable et papiers ---------------------------------------------------- */
+  async function ouvrirCartable() {
+    await preparerAffaires({
+      classe,
+      surEnregistrement: async () => {
+        sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+        peindrePanneau();
+      }
+    });
+  }
+
+  /** Rédiger puis tendre. Le papier existe avant le geste, jamais l'inverse. */
+  async function remettreUnPapier(destinataire = null) {
+    const papier = await composerPapier({ classe });
+    if (!papier) return;
+
+    const candidats = (destinataire ? [destinataire] : participants)
+      .filter((p) => p.user_id !== etat.utilisateur.id)
+      .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }));
+
+    if (!candidats.length) {
+      toast("Le papier est dans votre sacoche : vous le tendrez quand quelqu'un sera là.");
+      return;
+    }
+    await tendrePapier({ papier, classe, session, candidats, fiches: fichesRP });
   }
 
   function libelleScene(nom) {
@@ -953,24 +1326,84 @@ export default async function vueSalle({ params }) {
   function menuProfesseur(ancre) {
     menu(ancre, [
       { titre: "Afficher à la classe" },
-      { libelle: "Le tableau", icone: "tableau", action: async () => {
+      offre(session, "tableau") ? { libelle: "Le tableau", icone: "tableau", action: async () => {
         scene = "tableau"; await peindreScene(); await diffuserFocus({ kind: "tableau", ref: tableau.id, page: indexPage });
-      } },
-      { libelle: "Le cahier commun", icone: "cahier", action: async () => {
+      } } : null,
+      offre(session, "cahierCommun") ? { libelle: "Le cahier commun", icone: "cahier", action: async () => {
         scene = "cahier"; await peindreScene();
         await diffuserFocus({ kind: "cahier", ref: cahierCommun?.id, page: null });
-      } },
-      { libelle: "Un document", icone: "documents", action: distribuerDocument },
-      { libelle: "Un exercice", icone: "exercices", action: choisirExercice },
+      } } : null,
+      offre(session, "documents")
+        ? { libelle: "Un document", icone: "documents", action: distribuerDocument } : null,
+      offre(session, "exercices")
+        ? { libelle: "Un exercice", icone: "exercices", action: choisirExercice } : null,
       { separateur: true },
       { titre: "Animation" },
       { libelle: "Publier une annonce", icone: "megaphone", action: publierAnnonceSession },
-      { libelle: "Lancer un sondage", icone: "sondage", action: lancerSondage },
-      { libelle: "Minuterie / compte à rebours", icone: "chrono", action: creerMinuterie },
+      offre(session, "sondage")
+        ? { libelle: modeSeance.motSondage || "Lancer un sondage", icone: "sondage", action: lancerSondage }
+        : null,
+      offre(session, "minuterie")
+        ? { libelle: "Minuterie / compte à rebours", icone: "chrono", action: creerMinuterie } : null,
       { separateur: true },
       { libelle: "Appel et présences", icone: "eleves", action: ouvrirPresences },
+      offre(session, "cartable")
+        ? { libelle: "Demander du matériel", icone: "sac", action: definirMateriel } : null,
       enRP ? { libelle: "Inscrire au livret", icone: "etoile", action: () => inscrire() } : null
     ].filter(Boolean));
+  }
+
+  /**
+   * « Apportez votre cahier rouge et une plume. »
+   * La consigne vit dans les réglages de la classe : elle vaut pour les
+   * séances suivantes tant qu'on ne la change pas.
+   */
+  async function definirMateriel() {
+    const mesSupports = await depotCahiers.deClasse(classe.id).catch(() => []);
+    const sortie = await formulaire({
+      titre: "Matériel demandé",
+      note: "Ce qui manquera se verra dans la liste des présents. Rien n'est bloqué : "
+        + "arriver les mains vides est une scène, pas une erreur système.",
+      champs: [
+        { cle: "supports", label: "Supports attendus", type: "textarea", lignes: 3,
+          valeur: attendu.supports.map((x) => x.title).join("\n"),
+          placeholder: "Cahier de manœuvre\nCarnet de terrain",
+          aide: "Un intitulé par ligne. Chacun apporte le sien." },
+        { cle: "fournitures", label: "Trousse", type: "textarea", lignes: 2,
+          valeur: attendu.fournitures.join(", "),
+          placeholder: "Plume, encre, règle",
+          aide: "Séparés par des virgules." }
+      ],
+      libelle: "Demander"
+    });
+    if (!sortie) return;
+
+    const supports = String(sortie.supports || "").split("\n")
+      .map((l) => l.trim()).filter(Boolean)
+      .map((titre) => {
+        const connu = mesSupports.find((c) => c.title.toLowerCase() === titre.toLowerCase());
+        return { id: connu?.id || titre.toLowerCase(), title: titre };
+      });
+    const fournitures = String(sortie.fournitures || "").split(",")
+      .map((l) => l.trim()).filter(Boolean);
+
+    try {
+      const maj = await depotClasses.majorer(classe.id, {
+        settings: { ...(classe.settings || {}), materiel: { supports, fournitures } }
+      });
+      classe.settings = maj?.settings || { ...(classe.settings || {}), materiel: { supports, fournitures } };
+      attendu.supports = supports;
+      attendu.fournitures = fournitures;
+      succes("Matériel demandé");
+      notifications.diffuser(classe.id, {
+        kind: "materiel", titre: "Matériel à apporter",
+        corps: [...supports.map((x) => x.title), ...fournitures].join(" · ") || "Rien de particulier.",
+        lien: `/classe/${classe.id}/salle`
+      }).catch(() => {});
+      peindrePanneau();
+    } catch (err) {
+      erreur("Consigne non enregistrée", messageErreur(err));
+    }
   }
 
   async function distribuerDocument() {
@@ -1185,13 +1618,33 @@ export default async function vueSalle({ params }) {
         { table: "announcements", filtre: `class_id=eq.${classe.id}` },
         { table: "exercises", filtre: `class_id=eq.${classe.id}` },
         { table: "attendance", filtre: `session_id=eq.${session.id}` },
-        { table: "board_pages", filtre: `board_id=eq.${tableau.id}` }
+        { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
+        { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
+        { table: "session_ejections", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table, type, nouveau }) => {
         switch (table) {
           case "class_sessions":
             if (nouveau?.status === "ended") return surFinDeSession();
+            if (nouveau?.mode && nouveau.mode !== session.mode) {
+              session.mode = nouveau.mode;
+              modeSeance = modeDe(session);
+              toast(`Séance en mode « ${modeSeance.libelle} »`, { type: "info" });
+              peindreBandeau(); peindrePanneau();
+            }
             if (nouveau?.focus) await appliquerFocus(nouveau.focus);
+            break;
+          case "class_bags":
+            sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+            if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
+            break;
+          case "session_ejections":
+            listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
+            if (!staff) {
+              const mien = listeRenvois.find((r) => r.user_id === etat.utilisateur.id);
+              if (mien) return sortirRenvoye(mien);
+            }
+            if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
             break;
           case "rp_profiles":
             fichesRP = await personnages.index(classe.id).catch(() => fichesRP);
@@ -1298,6 +1751,23 @@ export default async function vueSalle({ params }) {
     return COULEURS_PARTICIPANTS[(index < 0 ? 0 : index) % COULEURS_PARTICIPANTS.length];
   }
 
+  /** Renvoyé : on quitte la salle, on garde la raison en clair. */
+  function sortirRenvoye(ligne) {
+    definir({ sessionActive: null });
+    toast("Vous avez été prié de quitter la séance", {
+      corps: (ligne?.reason || "").trim() || "Aucun motif n'a été porté.",
+      type: "attn", duree: 12000
+    });
+    aller(`/classe/${classe.id}`);
+    return {
+      noeud: el("div.page", blocVide(
+        "Vous avez été renvoyé de cette séance",
+        (ligne?.reason || "").trim() || "Aucun motif n'a été porté au registre.",
+        { libelle: "Retour à la classe", action: () => aller(`/classe/${classe.id}`) })),
+      titre: classe.name
+    };
+  }
+
   function surFinDeSession() {
     if (staff) return;
     definir({ sessionActive: null });
@@ -1309,6 +1779,27 @@ export default async function vueSalle({ params }) {
   await depotPresence.pointer(session.id).catch((err) => console.warn("[salle] pointage", err));
   await Promise.all([rafraichirMains(), rafraichirQuestions(), rafraichirSondage()]);
   minuterie = await minuteries.active(session.id).catch(() => null);
+  [sacs, listeRenvois, equipe] = await Promise.all([
+    depotCartable.liste(classe.id).catch(() => new Map()),
+    renvois.liste(session.id).catch(() => []),
+    depotMembres.liste(classe.id).catch(() => [])
+  ]);
+
+  // Renvoyé avant même d'entrer : on ne force pas la porte.
+  if (!staff && listeRenvois.some((r) => r.user_id === etat.utilisateur.id)) {
+    return sortirRenvoye(listeRenvois.find((r) => r.user_id === etat.utilisateur.id));
+  }
+
+  // Le sac se prépare avant d'entrer, pas pendant. On le rappelle une fois.
+  if (!staff && offre(session, "cartable")
+      && (attendu.supports.length || attendu.fournitures.length)
+      && !sacs.get(etat.utilisateur.id)) {
+    setTimeout(() => {
+      toast("Vous n'avez pas préparé vos affaires", {
+        corps: "L'encadrement verra ce qui manque.", type: "attn", duree: 9000
+      });
+    }, 1200);
+  }
 
   brancherCanalSession();
   peindreBandeau();

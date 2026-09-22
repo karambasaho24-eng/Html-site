@@ -196,6 +196,31 @@ function construireChamp(c, refs) {
       c.aide && el("span.champ__aide", c.aide)
     );
   }
+  /* Choix illustré : on désigne un objet, pas une ligne dans une liste. */
+  if (c.type === "choix") {
+    let courant = c.valeur ?? c.options?.[0]?.valeur ?? "";
+    const cache = el("input", { type: "hidden", value: courant, ref: capter });
+    const groupe = el("div.choix-objets", { role: "radiogroup", "aria-label": c.label },
+      (c.options || []).map((o) => el("button.choix-objet", {
+        type: "button",
+        role: "radio",
+        dataset: { valeur: o.valeur },
+        "aria-checked": String(o.valeur === courant),
+        onclick: (e) => {
+          courant = o.valeur; cache.value = o.valeur;
+          groupe.querySelectorAll(".choix-objet")
+            .forEach((b) => b.setAttribute("aria-checked", String(b.dataset.valeur === courant)));
+          c.onchoix?.(o.valeur);
+        }
+      },
+        el("span.choix-objet__figure", { dataset: { objet: o.valeur }, "aria-hidden": "true" }),
+        el("span.choix-objet__nom", o.libelle),
+        o.aide ? el("span.choix-objet__aide", o.aide) : null
+      ))
+    );
+    return el("div.champ", el("span.champ__label", c.label), groupe, cache);
+  }
+
   if (c.type === "couleur") {
     const teintes = ["olive", "laiton", "ardoise", "oxblood", "pourpre", "encre"];
     let courante = c.valeur || "olive";

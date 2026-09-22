@@ -16,14 +16,19 @@ const COUVERTURES = {
   encre:     "linear-gradient(160deg, #2a323a, #14181d)"
 };
 
+const NOMS_SUPPORT = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
+
 export function vignetteCahier(cahier, options = {}) {
+  const support = cahier.support || "cahier";
   return el("a.dos-cahier", { href: `#/cahier/${cahier.id}` },
     el("span.dos-cahier__vignette", {
+      dataset: { support },
       style: { background: COUVERTURES[cahier.cover] || COUVERTURES.parchment }
     }),
     el("span.dos-cahier__infos",
       el("span.dos-cahier__titre", cahier.title),
       cahier.subtitle ? el("span.petit.faible", cahier.subtitle) : null,
+      el("span.etiq-support", NOMS_SUPPORT[support] || "Cahier"),
       el("span.petit.faible",
         cahier.kind === "shared" ? `${L("Cahier")} commun` : `Modifié ${depuis(cahier.updated_at || cahier.created_at)}`),
       options.pages != null ? el("span.petit.faible", pluriel(options.pages, "page")) : null

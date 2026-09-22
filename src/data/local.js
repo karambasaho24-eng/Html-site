@@ -435,6 +435,77 @@ export async function creerPiloteLocal() {
       });
     },
 
+    /** Équivalent de inspect_notebook : on n'ouvre que ce qui a été apporté. */
+    async inspect_notebook({ target_notebook, target_class }) {
+      const cahier = await t("notebooks").lire(target_notebook);
+      if (!cahier) throw new ErreurDonnees("Support introuvable", "P0002");
+
+      const sacs = await t("class_bags").liste({ class_id: target_class, user_id: cahier.owner_id });
+      const contenu = sacs[0]?.notebooks || {};
+      const apportes = Array.isArray(contenu) ? contenu.map(String) : Object.keys(contenu);
+      if (!apportes.includes(String(target_notebook))) {
+        throw new ErreurDonnees(
+          "Ce support n'a pas été apporté : il reste hors de portée.", "42501");
+      }
+
+      await t("activity_logs").creer({
+        class_id: target_class, user_id: monId(), action: "cahier.inspection",
+        meta: { cahier: target_notebook, proprietaire: cahier.owner_id }
+      });
+      await t("notifications").creer({
+        user_id: cahier.owner_id, class_id: target_class, kind: "inspection",
+        title: `Votre ${cahier.support || "cahier"} a été consulté`,
+        body: `L'encadrement a ouvert « ${cahier.title} ».`,
+        link: `/classe/${target_class}`, read_at: null
+      });
+      return cahier;
+    },
+
+    /** Équivalent de eject_member : on sort de la séance, pas de la classe. */
+    async eject_member({ target_session, target_user, motif, proche }) {
+      const seance = await t("class_sessions").lire(target_session);
+      if (!seance) throw new ErreurDonnees("Séance introuvable", "P0002");
+      if (target_user === monId()) {
+        throw new ErreurDonnees("On ne se renvoie pas soi-même", "22023");
+      }
+
+      const existants = await t("session_ejections").liste({
+        session_id: target_session, user_id: target_user
+      });
+      const donnees = {
+        session_id: target_session, class_id: seance.class_id, user_id: target_user,
+        by_user: monId(), reason: motif || null, attested: Boolean(proche)
+      };
+      const ligne = existants[0]
+        ? await t("session_ejections").majorer(existants[0].id,
+            { ...donnees, created_at: new Date().toISOString() })
+        : await t("session_ejections").creer(donnees);
+
+      const presences = await t("attendance").liste({
+        session_id: target_session, user_id: target_user
+      });
+      for (const p of presences) {
+        if (!p.left_at) {
+          await t("attendance").majorer(p.id, {
+            left_at: new Date().toISOString(), status: "offline"
+          });
+        }
+      }
+
+      await t("activity_logs").creer({
+        class_id: seance.class_id, session_id: target_session, user_id: monId(),
+        action: "seance.renvoi",
+        meta: { seance: target_session, membre: target_user, motif: motif || null }
+      });
+      await t("notifications").creer({
+        user_id: target_user, class_id: seance.class_id, kind: "renvoi",
+        title: "Vous avez été prié de quitter la séance",
+        body: (motif || "").trim() || "Aucun motif n'a été porté.",
+        link: `/classe/${seance.class_id}`, read_at: null
+      });
+      return ligne;
+    },
+
     /** Équivalent de la fonction SQL class_standings. */
     async class_standings({ target_class }) {
       const entrees = await t("service_records").liste({ class_id: target_class });

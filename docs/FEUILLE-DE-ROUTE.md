@@ -36,6 +36,30 @@ Responsive PC → tablette → mobile, raccourcis configurables, assainissement 
 HTML, gestion des coupures réseau, états vides soignés, navigation au clavier
 et pièges de focus dans les modales.
 
+### Phase 8 — Les objets de la scène
+Ajoutée après coup, à la demande : le site ne devait plus être une interface
+d'école mais un lieu où l'on manipule des choses.
+
+- **Supports distincts** — feuille, cahier, carnet, dossier, chacun avec sa
+  capacité et sa couverture. Les pages tournent vraiment (rotation Y, 190 ms),
+  on pose des repères visibles sur la tranche et des pense-bêtes qu'on déplace.
+- **Cartable et trousse** — on prépare ses affaires avant d'entrer ;
+  l'encadrement demande du matériel et voit qui a oublié quoi.
+- **Inspection** — l'encadrement ouvre un support apporté, en lecture seule,
+  après attestation de proximité, et l'intéressé en est averti.
+- **Papiers** — cinq modèles dessinés, duplication en plusieurs exemplaires,
+  remise en main propre, et un destinataire libre de refuser.
+- **Règle de proximité** — un garde commun aux trois gestes qui supposent une
+  présence physique, avec attestation conservée.
+- **Modes de séance** — cours, réunion, distribution : les outils et le
+  vocabulaire suivent.
+- **Renvoi** — l'instructeur fait sortir quelqu'un de la séance, motif porté au
+  registre, renvoi levable.
+- **Tableau libre** — une image ou une page de PDF posée sous le tableau, qu'on
+  annote sans l'effacer.
+- **Modérateurs** — un rôle qui veille sur les papiers qui circulent, sans
+  toucher aux comptes ni aux cahiers.
+
 ## Ce qui reste à faire
 
 Par ordre d'utilité réelle, pas de difficulté.
@@ -92,9 +116,10 @@ Aujourd'hui l'information est dispersée dans `grades`. Une table `certification
 avec une date de validité et un numéro vérifiable donnerait une vraie valeur RP
 — un document opposable en jeu.
 
-**Convocation.** Le professeur annonce une séance à l'avance ; les élèves la
-voient arriver et confirment leur présence. Les sessions sont déjà
-programmables (`status = 'planned'`) : il manque l'écran et la notification.
+**Convocation programmée.** La convocation existe désormais comme papier
+remis en main propre, mais pas comme séance annoncée à l'avance : les sessions
+sont programmables (`status = 'planned'`), il manque l'écran et la
+notification qui préviennent la veille.
 
 **Fiches d'affaire.** Pour une académie juridique, le cas pratique gagnerait à
 devenir un objet durable — pièces jointes, parties, chronologie, conclusion —

@@ -118,3 +118,12 @@
   --ombre-2: 0 4px 14px rgba(60,52,32,.16);
   --ombre-3: 0 18px 48px rgba(60,52,32,.22);
 }
+
+/* --- Couleurs des repères de tranche et des pense-bêtes ------------------- */
+:root {
+  --repere-rouge:  #c05a52;
+  --repere-bleu:   #5b829c;
+  --repere-vert:   #7d9c6a;
+  --repere-jaune:  #d8bd63;
+  --repere-violet: #8d7bb0;
+}

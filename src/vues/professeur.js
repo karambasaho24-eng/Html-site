@@ -9,9 +9,10 @@ import { L } from "../core/lexique.js";
 import { sessions, membres, exercices } from "../data/index.js";
 import { entete, blocVide, statistique } from "../ui/fragments.js";
 import { encadreUneClasse, mesClassesEncadrees } from "../core/permissions.js";
-import { demander } from "../ui/modal.js";
+import { formulaire } from "../ui/modal.js";
 import { erreur, toast, messageErreur } from "../ui/toast.js";
 import { copier, depuis, pluriel } from "../core/util.js";
+import { LISTE_MODES } from "../features/modes.js";
 
 export default async function vueProfesseur() {
   if (!encadreUneClasse()) {
@@ -116,15 +117,20 @@ export default async function vueProfesseur() {
   );
 
   async function demarrer(classe) {
-    const titre = await demander({
-      titre: `Démarrer une session — ${classe.name}`,
-      label: "Intitulé de la séance",
-      placeholder: "Session 01 — Fondements du droit",
-      aide: "Laissez vide pour une numérotation automatique.",
-      libelle: "Démarrer"
+    const sortie = await formulaire({
+      titre: `Ouvrir une séance — ${classe.name}`,
+      champs: [
+        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: "cours",
+          options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
+        { cle: "title", label: "Intitulé de la séance", valeur: "",
+          placeholder: "Session 01 — Fondements du droit",
+          aide: "Laissez vide pour une numérotation automatique." }
+      ],
+      libelle: "Ouvrir"
     });
+    if (!sortie) return;
     try {
-      await sessions.demarrer(classe.id, titre || null);
+      await sessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("Démarrage impossible", messageErreur(err));

@@ -149,6 +149,41 @@ Jaeger ». Une page de carnet est datée de l'an 850.
 Un cadet qui doit vraiment dire quelque chose hors-perso coche une case : son
 message part marqué, visible comme tel, et le reste de la séance demeure jouable.
 
+## La proximité, et pourquoi elle n'est pas vérifiée
+
+Trois gestes n'ont de sens qu'en présence : ouvrir le carnet de quelqu'un, lui
+tendre un papier, le renvoyer de la séance. Un instructeur ne lit pas par-dessus
+l'épaule d'un cadet depuis l'autre bout de la caserne.
+
+Le site ne peut pas mesurer une distance dans Roblox — il n'a aucun lien
+technique avec le jeu, et c'est délibéré. Prétendre le contraire serait un
+mensonge d'interface : une barre de chargement qui ne charge rien.
+
+Il fait donc ce qu'il peut faire honnêtement. Avant chaque geste, il demande
+une attestation explicite — « je me tiens à portée de voix de cette personne,
+en jeu » — puis il la date et la conserve avec l'acte. Si quelqu'un conteste
+plus tard, la trace dit qui a déclaré quoi, et quand.
+
+C'est exactement le fonctionnement d'une table de jeu : on croit les joueurs
+sur parole, et on garde de quoi trancher les désaccords. La différence, c'est
+que la parole est écrite.
+
+## Ce que l'inspection autorise, et ce qu'elle interdit
+
+L'encadrement a **le droit** d'ouvrir un carnet — ce n'est pas une demande
+qu'un cadet pourrait refuser. Mais ce droit s'arrête à trois bornes :
+
+1. **Seulement ce qui a été apporté.** Un carnet laissé chez soi n'existe pas
+   pour l'inspection, et la base l'applique (`inspect_notebook`,
+   `app_can_read_notebook`) — ce n'est pas une politesse de l'interface.
+2. **Jamais en cachette.** La procédure prévient le propriétaire et inscrit la
+   consultation au registre, dans la même transaction que la lecture.
+3. **Jamais en écriture.** On regarde le carnet d'un cadet ; on n'écrit pas
+   dedans à sa place.
+
+Sans ces bornes, le cartable ne serait qu'un décor. Avec elles, oublier son
+carnet devient une vraie décision de personnage.
+
 ## Limites assumées
 
 - **Aucun contrôle n'est imposé.** Rien n'empêche d'écrire hors-perso sans le
@@ -164,6 +199,12 @@ message part marqué, visible comme tel, et le reste de la séance demeure jouab
 - **La fiche n'est pas vérifiée.** Un cadet peut se déclarer commandant. C'est
   à l'encadrement de corriger — il en a le droit sur toutes les fiches de son
   espace.
+- **La proximité est déclarée, jamais mesurée.** Voir plus haut : c'est une
+  attestation datée, pas un capteur. Un instructeur de mauvaise foi peut
+  mentir ; il laissera une trace de son mensonge.
+- **Le matériel oublié ne bloque rien.** Arriver sans son carnet n'interdit
+  aucune action : cela se voit, et cela se joue. Un site qui punirait à la
+  place du maître déplacerait l'autorité au mauvais endroit.
 
 ## Sources
 

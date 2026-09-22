@@ -67,6 +67,12 @@ export function creerTableau(options = {}) {
   const pileAnnulation = [];
   const pileRefaire = [];
 
+  /* Le calque de fond : une image ou une page de PDF posée sous le tableau.
+     Elle n'est pas un élément dessiné — on écrit par-dessus, on la gomme
+     jamais, et la retirer laisse les annotations en place. */
+  let imageFond = null;      // { source, image, ajustement }
+
+
   /* --- Rendu ---------------------------------------------------------------- */
   function fondDeToile() {
     const couleurs = { ardoise: "#17231f", craie: "#1b2430", papier: "#f3ead9", quadrille: "#1b2430" };
@@ -89,6 +95,8 @@ export function creerTableau(options = {}) {
       }
     }
     ctx.restore();
+
+    peindreFondImage();
 
     const tous = [...elements, ...provisoires.values()];
     tous.sort((a, b) => (a.z || 0) - (b.z || 0));
@@ -168,6 +176,16 @@ export function creerTableau(options = {}) {
         break;
     }
     ctx.restore();
+  }
+
+  /** L'image de fond est ajustée « contain » : rien n'est rogné, rien n'est déformé. */
+  function peindreFondImage() {
+    const img = imageFond?.image;
+    if (!img?.complete || !img.naturelleOk) return;
+    const echelle = Math.min(LARGEUR / img.naturalWidth, HAUTEUR / img.naturalHeight);
+    const l = img.naturalWidth * echelle;
+    const h = img.naturalHeight * echelle;
+    ctx.drawImage(img, (LARGEUR - l) / 2, (HAUTEUR - h) / 2, l, h);
   }
 
   const cacheImages = new Map();
@@ -417,6 +435,24 @@ export function creerTableau(options = {}) {
     },
     ecriture: () => ecriture,
     definirFond(nouveau) { surface.dataset.fond = nouveau; peindre(); },
+
+    /**
+     * Pose une image sous le tableau — une photo, un plan, une page de PDF.
+     * `null` la retire. Le tracé déjà posé n'est jamais touché.
+     */
+    definirImageFond(source) {
+      if (!source) { imageFond = null; peindre(); return Promise.resolve(); }
+      if (imageFond?.source === source) return Promise.resolve();
+      return new Promise((resoudre) => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.onload = () => { image.naturelleOk = true; peindre(); resoudre(); };
+        image.onerror = () => { imageFond = null; peindre(); resoudre(); };
+        image.src = source;
+        imageFond = { source, image };
+      });
+    },
+    imageFond: () => imageFond?.source || null,
 
     /** Position d'un curseur distant, en coordonnées relatives. */
     curseurDistant(id, x, y, nom, teinte) {

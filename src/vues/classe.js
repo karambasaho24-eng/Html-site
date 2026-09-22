@@ -11,7 +11,8 @@ import { classes as depotClasses, membres as depotMembres, sessions as depotSess
 import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
 import { encadre, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
-import { confirmer, formulaire, demander, menu } from "../ui/modal.js";
+import { confirmer, formulaire, menu } from "../ui/modal.js";
+import { MODES, LISTE_MODES } from "../features/modes.js";
 import { personnages } from "../data/index.js";
 import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
 import { livret } from "../data/index.js";
@@ -681,20 +682,31 @@ export default async function vueClasse({ params, requete }) {
   }
 
   /* --- Actions ------------------------------------------------------------------ */
+  /**
+   * On ouvre une séance en disant d'abord ce qu'on y fait : un cours, une
+   * réunion ou une distribution. Le mode se change ensuite en salle, mais le
+   * choisir ici évite d'entrer sans savoir ce qui se joue.
+   */
   async function demarrerSession() {
-    const titre = await demander({
-      titre: "Démarrer une session",
-      label: "Intitulé de la séance",
-      placeholder: "Session 01 — Fondements du droit",
-      aide: "Laissez vide pour une numérotation automatique.",
-      libelle: "Démarrer"
+    const sortie = await formulaire({
+      titre: "Ouvrir une séance",
+      champs: [
+        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: "cours",
+          options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
+        { cle: "title", label: "Intitulé de la séance", valeur: "",
+          placeholder: "Session 01 — Fondements du droit",
+          aide: "Laissez vide pour une numérotation automatique." }
+      ],
+      libelle: "Ouvrir"
     });
-    if (titre === null && titre !== "") { /* annulation */ }
+    if (!sortie) return;
+
     try {
-      await depotSessions.demarrer(classe.id, titre || null);
+      await depotSessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
+      const nom = MODES[sortie.mode]?.libelle || "Cours";
       await notifications.diffuser(classe.id, {
-        kind: "session", titre: `${classe.name} — session ouverte`,
-        corps: "Le cours commence.", lien: `/classe/${classe.id}/salle`
+        kind: "session", titre: `${classe.name} — séance ouverte`,
+        corps: `${nom} en cours.`, lien: `/classe/${classe.id}/salle`
       }).catch(() => {});
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {

@@ -34,7 +34,8 @@ export const P = {
   ARCHIVES:          "VIEW_ARCHIVES",
   GERER_COMPTES:     "MANAGE_USERS",
   JOURNAUX:          "VIEW_LOGS",
-  MODERER:           "MODERATE"
+  MODERER:           "MODERATE",
+  GERER_PAPIERS:     "MANAGE_PAPERS"
 };
 
 const ROLES_ADMIN = new Set(["super_admin", "admin", "director"]);
@@ -48,6 +49,16 @@ export function peut(permission) {
 
 export function estAdmin() {
   return ROLES_ADMIN.has(etat.profil?.role_key);
+}
+
+/**
+ * Modérateur : il veille sur les papiers qui circulent et sur les
+ * signalements. Ce n'est pas un administrateur au rabais — il ne touche ni
+ * aux comptes, ni aux cahiers, et il ne tranche jamais à la place d'un
+ * destinataire.
+ */
+export function estModerateur() {
+  return estAdmin() || etat.profil?.role_key === "moderator";
 }
 
 /**
@@ -123,6 +134,7 @@ export function peutEcrireCahier(cahier, membre = etat.membreActif) {
 export const LIBELLES_ROLES = {
   super_admin: "Super administrateur",
   admin: "Administrateur",
+  moderator: "Modérateur",
   director: "Directeur",
   teacher: "Professeur",
   instructor: "Formateur",

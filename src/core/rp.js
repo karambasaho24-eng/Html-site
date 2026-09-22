@@ -131,12 +131,14 @@ export function sansHRP(texte) {
  * « xX_Dark_Xx » vienne signer un rapport militaire.
  */
 export function nomAffiche(personnage, profil) {
-  return personnage?.name?.trim() || profil?.display_name || "—";
+  // Les lignes de présence en direct ne portent pas de profil complet : elles
+  // portent déjà le nom retenu pour la séance, sous la clé `nom`.
+  return personnage?.name?.trim() || profil?.display_name || profil?.nom || "—";
 }
 
 /** Ligne d'identité complète : « Cadet Jean Marchand — 104ᵉ brigade ». */
 export function identiteComplete(personnage, profil) {
-  if (!personnage) return profil?.display_name || "—";
+  if (!personnage) return profil?.display_name || profil?.nom || "—";
   return [personnage.rank, nomAffiche(personnage, profil)]
     .filter(Boolean).join(" ")
     + (personnage.promotion ? ` — ${personnage.promotion}` : "");

@@ -31,7 +31,8 @@ suivre qu'un arbre virtuel.
         vues/            un écran, une fonction qui renvoie un nœud
           │
         features/        éditeur de cahier · moteur de tableau ·
-          │              exercice en direct · conversion de documents
+          │              exercice en direct · conversion de documents ·
+          │              cartable · papiers · proximité · modes de séance
           │
         data/index.js    façade : classes, cahiers, sessions, exercices…
           │
@@ -65,7 +66,7 @@ Deux canaux, jamais plus, et toujours filtrés :
 
 | Canal              | Portée                              | Contenu |
 |--------------------|-------------------------------------|---------|
-| `session:<id>`     | une session de classe               | session, mains, questions, sondages, minuteries, annonces, exercices, présences, pages de tableau |
+| `session:<id>`     | une session de classe               | session, mains, questions, sondages, minuteries, annonces, exercices, présences, pages de tableau, cartables, renvois |
 | `tableau:<pageId>` | une page de tableau                 | éléments tracés |
 
 Les abonnements `postgres_changes` portent un filtre serveur
@@ -97,6 +98,60 @@ supprimer : l'historique d'une séance reste reconstituable.
 La capture transforme l'état courant en image et l'attache à une page du cahier
 commun (`capture_board_page`). Le tableau peut ensuite être effacé sans perte.
 
+Une page de tableau peut aussi porter une **image de fond**
+(`board_pages.background_image`) : une photo, un plan, une page de PDF
+convertie à la volée. Ce n'est pas un élément tracé mais un calque peint avant
+les traits — on écrit par-dessus, la gomme ne l'emporte pas, et la retirer
+laisse les annotations en place.
+
+## Les objets de la scène
+
+Une école jouée manipule des choses, pas des enregistrements. Quatre systèmes
+leur donnent une existence propre.
+
+**Le support.** Un cahier n'est pas une feuille. `notebooks.support` distingue
+feuille (1 page), cahier (10), carnet (20) et dossier (30) ; `max_pages` en
+découle et l'éditeur refuse d'aller au-delà. Les pages tournent, portent des
+repères de tranche visibles sans ouvrir, et acceptent des pense-bêtes qu'on
+déplace à la main.
+
+**Le cartable.** `class_bags` retient ce que chacun a apporté —
+`notebooks` est un objet `{ identifiant: intitulé }`, la clé pour l'inspection
+et l'intitulé pour le contrôle du matériel, puisque l'encadrement demande « le
+cahier de manœuvre » et que chacun apporte le sien. La liste attendue vit dans
+`classes.settings.materiel`. Rien n'est bloqué : arriver les mains vides est
+une scène, pas une erreur.
+
+**La frontière d'inspection.** L'encadrement peut ouvrir un support *apporté* —
+`inspect_notebook` le vérifie, l'inscrit au journal et prévient son
+propriétaire. Un support resté chez soi reste hors de portée, y compris pour
+les pages et les pense-bêtes (`app_can_read_notebook` suit le même chemin).
+C'est une lecture : `app_can_write_notebook` n'a pas été touché.
+
+**Les papiers.** `papers` et `paper_handoffs` portent ce qui se remet en main
+propre. Cinq modèles, cinq mises en page réelles — mot, ordre de mission,
+convocation, laissez-passer, rapport. Un papier se duplique en plusieurs
+exemplaires, se tend à quelqu'un, et le destinataire le garde ou le refuse.
+
+## La règle de proximité
+
+Trois gestes supposent d'être à côté de la personne : ouvrir son cahier, lui
+tendre un papier, la renvoyer de la séance. Le site **ne peut pas** mesurer une
+distance dans Roblox, et il ne prétend pas le faire — `src/features/proximite.js`
+demande une attestation, la date et la conserve avec l'acte
+(`paper_handoffs.attested`, `session_ejections.attested`).
+
+Le contrôle reste social, comme à n'importe quelle table de jeu. Ce qui change,
+c'est qu'il laisse une trace opposable.
+
+## Les modes de séance
+
+`class_sessions.mode` vaut `cours`, `reunion` ou `distribution`. Le mode ne
+verrouille rien par sécurité — c'est une mise en scène : il change les outils
+offerts et le vocabulaire employé (`src/features/modes.js`). En réunion, on
+« demande la parole » au lieu de « lever la main » et les exercices
+disparaissent ; en distribution, il ne reste que les papiers.
+
 ## Sécurité
 
 ### La base fait autorité
@@ -112,17 +167,23 @@ raccourci : sans elles, la politique de `class_members` relirait
 
 ### Ce que le linter Supabase signale, et pourquoi
 
-Vingt fonctions `SECURITY DEFINER` restent exécutables par les utilisateurs
-connectés. C'est voulu, et c'est le minimum :
+Vingt-cinq fonctions `SECURITY DEFINER` restent exécutables par les
+utilisateurs connectés. C'est voulu, et c'est le minimum :
 
-- les douze aides `app_*` sont évaluées **par l'appelant** à l'intérieur des
+- les quatorze aides `app_*` sont évaluées **par l'appelant** à l'intérieur des
   politiques ; sans droit d'exécution, plus aucune requête ne passerait. Elles
   ne renvoient qu'un booléen ou un identifiant de rattachement ;
-- les huit procédures métier (`join_class`, `start_session`, `end_session`…)
-  sont l'API de l'application et vérifient elles-mêmes les droits avant d'agir.
+- les procédures métier (`join_class`, `start_session`, `end_session`,
+  `inspect_notebook`, `eject_member`…) sont l'API de l'application et vérifient
+  elles-mêmes les droits avant d'agir.
 
 Tout le reste — générateur de code, fonctions de déclencheur — a vu ses droits
-retirés par la migration `0005` et n'est plus atteignable via l'API.
+retirés par les migrations `0005` et `0014`, et n'est plus atteignable via
+l'API. Aucune n'est exécutable sans être connecté.
+
+Les règles de cette couche sont vérifiées en impersonnant de vrais comptes
+(`set_config('request.jwt.claims', …)`) : trente-deux assertions couvrent
+l'inspection, le cartable, le renvoi et la circulation des papiers.
 
 Reste un réglage à activer à la main dans la console Supabase :
 *Authentication › Policies › Leaked password protection* (vérification des mots

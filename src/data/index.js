@@ -198,8 +198,17 @@ export const sessions = {
       { ordre: "started_at", sens: "desc", limite: 1 });
     return lignes[0] || null;
   },
-  demarrer: (classeId, titre) => pilote.rpc("start_session", { target_class: classeId, session_title: titre || null }),
+  async demarrer(classeId, titre, mode = "cours") {
+    const session = await pilote.rpc("start_session",
+      { target_class: classeId, session_title: titre || null });
+    const ligne = Array.isArray(session) ? session[0] : session;
+    if (ligne && mode && mode !== "cours") {
+      return T("class_sessions").majorer(ligne.id, { mode });
+    }
+    return ligne;
+  },
   terminer: (id) => pilote.rpc("end_session", { target_session: id }),
+  definirMode: (id, mode) => T("class_sessions").majorer(id, { mode }),
   majorer: (id, patch) => T("class_sessions").majorer(id, patch),
   supprimer: (id) => T("class_sessions").supprimer(id),
   archivees: (classeId) =>
@@ -218,6 +227,21 @@ export const presence = {
   async historique(utilisateurId, limite = 50) {
     return T("attendance").liste({ user_id: utilisateurId }, { ordre: "arrived_at", sens: "desc", limite });
   }
+};
+
+/* ===========================================================================
+   Renvois de séance
+   ========================================================================= */
+export const renvois = {
+  liste: (sessionId) => T("session_ejections").liste({ session_id: sessionId },
+    { ordre: "created_at", sens: "desc" }),
+  renvoyer: (sessionId, utilisateurId, motif, atteste) =>
+    pilote.rpc("eject_member", {
+      target_session: sessionId, target_user: utilisateurId,
+      motif: motif || null, proche: Boolean(atteste)
+    }),
+  /** Lever un renvoi : la personne peut revenir. */
+  lever: (id) => T("session_ejections").supprimer(id)
 };
 
 export const journal = {
@@ -243,7 +267,13 @@ export const cahiers = {
   },
   deClasse: (classeId) => T("notebooks").liste({ class_id: classeId }, { ordre: "created_at" }),
   lire: (id) => T("notebooks").lire(id),
-  creer: (donnees) => T("notebooks").creer({ archived: false, ...donnees }),
+  creer: (donnees) => T("notebooks").creer({
+    archived: false, support: "cahier", max_pages: 10, ...donnees
+  }),
+
+  /** Inspection d'un support apporté au cartable, par l'encadrement. */
+  inspecter: (cahierId, classeId) =>
+    pilote.rpc("inspect_notebook", { target_notebook: cahierId, target_class: classeId }),
   majorer: (id, patch) => T("notebooks").majorer(id, patch),
   supprimer: (id) => T("notebooks").supprimer(id)
 };
@@ -274,6 +304,153 @@ export const pages = {
       target_board_page: pageTableauId, target_notebook: cahierId,
       page_title: titre, snapshot: instantane
     })
+};
+
+/* ===========================================================================
+   Pense-bêtes et repères
+   ========================================================================= */
+export const penseBetes = {
+  liste: (pageId) => T("sticky_notes").liste({ page_id: pageId }, { ordre: "created_at" }),
+  async pourPages(pageIds) {
+    if (!pageIds.length) return new Map();
+    const lignes = await T("sticky_notes").liste({ page_id: pageIds });
+    const index = new Map();
+    for (const l of lignes) {
+      if (!index.has(l.page_id)) index.set(l.page_id, []);
+      index.get(l.page_id).push(l);
+    }
+    return index;
+  },
+  creer: (donnees) => T("sticky_notes").creer({ color: "jaune", x: 0.7, y: 0.12, rotation: 0, ...donnees }),
+  majorer: (id, patch) => T("sticky_notes").majorer(id, patch),
+  supprimer: (id) => T("sticky_notes").supprimer(id)
+};
+
+/* ===========================================================================
+   Cartable
+   Ce qu'on a apporté en séance. Sert aussi de frontière : un support resté
+   chez soi ne peut pas être inspecté.
+   ========================================================================= */
+export const cartable = {
+  async pour(classeId, utilisateurId) {
+    const lignes = await T("class_bags").liste({ class_id: classeId, user_id: utilisateurId });
+    return lignes[0] || null;
+  },
+  async liste(classeId) {
+    const lignes = await T("class_bags").liste({ class_id: classeId });
+    return new Map(lignes.map((l) => [l.user_id, l]));
+  },
+
+  /**
+   * `notebooks` est un objet { identifiant: intitulé }, et non une liste.
+   * L'identifiant sert à l'inspection (les politiques SQL testent la présence
+   * de la clé avec l'opérateur `?`), l'intitulé sert au contrôle du matériel :
+   * l'encadrement demande « le cahier de manœuvre », et chacun apporte le
+   * sien, qui porte un identifiant différent.
+   */
+  async enregistrer(classeId, utilisateurId, { notebooks, supplies }) {
+    const existant = await this.pour(classeId, utilisateurId);
+    const patch = { notebooks: normaliserSac(notebooks), supplies };
+    if (existant) return T("class_bags").majorer(existant.id, patch);
+    return T("class_bags").creer({ class_id: classeId, user_id: utilisateurId, ...patch });
+  },
+
+  /** Les identifiants des supports réellement apportés. */
+  apportes(sac) {
+    return Object.keys(normaliserSac(sac?.notebooks));
+  },
+
+  /** Ce qui manque par rapport à ce que l'encadrement a demandé. */
+  manquants(sac, attendu = {}) {
+    const emportes = normaliserSac(sac?.notebooks);
+    const parId = new Set(Object.keys(emportes));
+    const parTitre = new Set(Object.values(emportes).map((t) => String(t).trim().toLowerCase()));
+    const fournitures = new Set((sac?.supplies || []).map((f) => String(f).toLowerCase()));
+
+    return {
+      // On accepte l'intitulé autant que l'identifiant : c'est le nom du
+      // support qui a été demandé à voix haute, pas sa clé technique.
+      supports: (attendu.supports || []).filter((s) =>
+        !parId.has(String(s.id)) && !parTitre.has(String(s.title || "").trim().toLowerCase())),
+      fournitures: (attendu.fournitures || []).filter((f) => !fournitures.has(f.toLowerCase()))
+    };
+  }
+};
+
+/** Accepte l'ancienne forme (liste d'identifiants) comme la nouvelle. */
+function normaliserSac(valeur) {
+  if (!valeur) return {};
+  if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
+  return valeur;
+}
+
+/* ===========================================================================
+   Papiers remis en main propre
+   ========================================================================= */
+export const papiers = {
+  mesPapiers: (auteurId) =>
+    T("papers").liste({ author_id: auteurId }, { ordre: "created_at", sens: "desc" }),
+  lire: (id) => T("papers").lire(id),
+  creer: (donnees) => T("papers").creer(donnees),
+  majorer: (id, patch) => T("papers").majorer(id, patch),
+  supprimer: (id) => T("papers").supprimer(id),
+
+  /** Duplique un papier pour en tendre plusieurs exemplaires. */
+  async dupliquer(paperId, exemplaires = 1) {
+    const source = await T("papers").lire(paperId);
+    if (!source) throw new ErreurDonnees("Papier introuvable", "P0002");
+    const copies = [];
+    for (let i = 0; i < exemplaires; i++) {
+      const { id, created_at, updated_at, ...reste } = source;
+      copies.push(await T("papers").creer(reste));
+    }
+    return copies;
+  },
+
+  /** Tendre un papier. `attested` : l'émetteur déclare être à proximité. */
+  tendre: (donnees) => T("paper_handoffs").creer({ state: "offered", ...donnees }),
+
+  async recus(utilisateurId) {
+    const remises = await T("paper_handoffs").liste({ to_user: utilisateurId },
+      { ordre: "created_at", sens: "desc" });
+    if (!remises.length) return [];
+    const contenus = await T("papers").liste({ id: [...new Set(remises.map((r) => r.paper_id))] });
+    const index = new Map(contenus.map((c) => [c.id, c]));
+    const auteurs = await profils.parIds([...new Set(remises.map((r) => r.from_user))]);
+    const parAuteur = new Map(auteurs.map((a) => [a.id, a]));
+    return remises.map((r) => ({ ...r, papier: index.get(r.paper_id) || null, auteur: parAuteur.get(r.from_user) || null }));
+  },
+
+  async envoyes(utilisateurId) {
+    return T("paper_handoffs").liste({ from_user: utilisateurId }, { ordre: "created_at", sens: "desc" });
+  },
+
+  repondre: (remiseId, etat) => T("paper_handoffs").majorer(remiseId, {
+    state: etat, settled_at: new Date().toISOString()
+  }),
+
+  /**
+   * Ce qui circule, pour la modération. La base filtre : seul un modérateur
+   * ou un administrateur reçoit plus que ses propres remises.
+   */
+  async circulation(limite = 200) {
+    const remises = await T("paper_handoffs").liste({},
+      { ordre: "created_at", sens: "desc", limite });
+    if (!remises.length) return [];
+
+    const contenus = await T("papers").liste({ id: [...new Set(remises.map((r) => r.paper_id))] });
+    const parPapier = new Map(contenus.map((c) => [c.id, c]));
+    const gens = await profils.parIds([...new Set(
+      remises.flatMap((r) => [r.from_user, r.to_user]))]);
+    const parId = new Map(gens.map((p) => [p.id, p]));
+
+    return remises.map((r) => ({
+      ...r,
+      papier: parPapier.get(r.paper_id) || null,
+      expediteur: parId.get(r.from_user) || null,
+      destinataire: parId.get(r.to_user) || null
+    }));
+  }
 };
 
 /* ===========================================================================

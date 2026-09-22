@@ -10,6 +10,15 @@ import { cahiers, pages } from "../data/index.js";
 import { entete, vignetteCahier, blocVide, encartRoblox } from "../ui/fragments.js";
 import { formulaire, confirmer, menu } from "../ui/modal.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
+import { CAPACITE_SUPPORT } from "../features/editeur-cahier.js";
+
+/* Quatre objets, quatre usages. La capacité vient de l'objet, pas d'un réglage. */
+const SUPPORTS = [
+  { cle: "feuille", libelle: "Feuille", aide: "Une page, à donner" },
+  { cle: "cahier",  libelle: "Cahier",  aide: "10 pages" },
+  { cle: "carnet",  libelle: "Carnet",  aide: "20 pages, de poche" },
+  { cle: "dossier", libelle: "Dossier", aide: "30 pages classées" }
+];
 
 const COUVERTURES = [
   { cle: "parchment", libelle: "Parchemin" },
@@ -85,6 +94,8 @@ export default async function vueCahiers() {
     const sortie = await formulaire({
       titre: `Nouveau ${L("cahier")}`,
       champs: [
+        { cle: "support", label: "Quel support ?", type: "choix", valeur: "cahier",
+          options: SUPPORTS.map((s) => ({ valeur: s.cle, libelle: s.libelle, aide: s.aide })) },
         { cle: "title", label: "Titre", valeur: "", placeholder: "Cahier de droit pénal", requis: true },
         { cle: "subtitle", label: "Sous-titre (facultatif)", valeur: "", placeholder: "Promotion 2026" },
         { cle: "cover", label: "Couverture", type: "select", valeur: "parchment",
@@ -93,13 +104,17 @@ export default async function vueCahiers() {
       libelle: "Créer"
     });
     if (!sortie) return;
+    const support = sortie.support || "cahier";
     try {
       const cahier = await cahiers.creer({
         owner_id: etat.utilisateur.id, kind: "personal", class_id: null,
         title: sortie.title, subtitle: sortie.subtitle || null, cover: sortie.cover,
-        color: "olive", icon: "book", collaborative: false
+        color: "olive", icon: "book", collaborative: false,
+        support, max_pages: CAPACITE_SUPPORT[support] || 10
       });
-      await pages.creer(cahier.id, { title: "Page 1", created_by: etat.utilisateur.id });
+      await pages.creer(cahier.id, {
+        title: support === "feuille" ? "Feuille" : "Page 1", created_by: etat.utilisateur.id
+      });
       succes("Cahier créé");
       aller(`/cahier/${cahier.id}`);
     } catch (err) {

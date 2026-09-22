@@ -5,24 +5,27 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { pilote, profils, rbac, journal } from "../data/index.js";
+import { pilote, profils, rbac, journal, papiers } from "../data/index.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
-import { estAdmin, LIBELLES_ROLES } from "../core/permissions.js";
-import { confirmer, menu } from "../ui/modal.js";
+import { estAdmin, estModerateur, LIBELLES_ROLES } from "../core/permissions.js";
+import { confirmer, menu, ouvrirModale } from "../ui/modal.js";
 import { erreur, toast, messageErreur } from "../ui/toast.js";
-import { dateCourte, heure, aplatir } from "../core/util.js";
+import { dateCourte, heure, depuis, aplatir } from "../core/util.js";
+import { rendrePapier, MODELES } from "../features/papier.js";
 
 export default async function vueAdministration() {
-  if (!estAdmin()) {
+  if (!estModerateur()) {
     return {
       noeud: el("div.page", blocVide("Accès refusé",
-        "Cet espace est réservé à l'administration de l'académie.",
+        "Cet espace est réservé à l'administration et à la modération.",
         { libelle: "Accueil", action: () => aller("/") })),
       titre: "Administration"
     };
   }
 
-  let actif = "comptes";
+  // Un modérateur n'administre pas les comptes : il surveille ce qui circule.
+  const admin = estAdmin();
+  let actif = admin ? "comptes" : "papiers";
   let filtre = "";
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
@@ -34,10 +37,11 @@ export default async function vueAdministration() {
   );
 
   const ONGLETS = [
-    { cle: "comptes", libelle: "Comptes" },
-    { cle: "roles", libelle: "Rôles et permissions" },
+    admin ? { cle: "comptes", libelle: "Comptes" } : null,
+    admin ? { cle: "roles", libelle: "Rôles et permissions" } : null,
+    { cle: "papiers", libelle: "Papiers en circulation" },
     { cle: "journaux", libelle: "Journaux" }
-  ];
+  ].filter(Boolean);
 
   function peindreBarre() {
     render(barre, ONGLETS.map((o) => el("button.onglet", {
@@ -51,6 +55,7 @@ export default async function vueAdministration() {
     try {
       if (actif === "comptes") render(contenu, await sectionComptes());
       else if (actif === "roles") render(contenu, await sectionRoles());
+      else if (actif === "papiers") render(contenu, await sectionPapiers());
       else render(contenu, await sectionJournaux());
     } catch (err) {
       render(contenu, blocVide("Chargement impossible", messageErreur(err)));
@@ -122,6 +127,72 @@ export default async function vueAdministration() {
         }
       }))
     ]);
+  }
+
+  /**
+   * Ce qui circule. Un modérateur voit passer les remises et peut lire un
+   * papier signalé — il ne décide jamais à la place du destinataire :
+   * accepter ou refuser reste un geste de personnage.
+   */
+  async function sectionPapiers() {
+    let recents = [];
+    try { recents = await papiers.circulation(200); }
+    catch (err) { return blocVide("Registre indisponible", messageErreur(err)); }
+
+    if (!recents.length) {
+      return blocVide("Rien ne circule",
+        "Aucun papier n'a encore été tendu sur cette plateforme.");
+    }
+
+    const ETATS = {
+      offered:  ["En attente", "etiq--attn"],
+      accepted: ["Gardé", "etiq--ok"],
+      refused:  ["Refusé", "etiq--alerte"],
+      withdrawn:["Retiré", ""]
+    };
+
+    return el("div.panneau",
+      el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } },
+        "Les deux cents dernières remises. Ouvrir un papier est une lecture, "
+        + "inscrite au journal comme telle."),
+      el("div.liste", recents.map((r) => {
+        const [libelle, teinte] = ETATS[r.state] || ETATS.offered;
+        return el("div.liste__item",
+          el("span.etiq", { class: teinte }, libelle),
+          el("div", { style: { flex: "1", minWidth: "0" } },
+            el("div.tronque", r.papier?.title || "Papier supprimé"),
+            el("div.petit.faible",
+              `${MODELES[r.papier?.model]?.libelle || "Papier"} · `
+              + `${r.expediteur?.display_name || "?"} → ${r.destinataire?.display_name || "?"}`
+              + ` · ${depuis(r.created_at)}`)
+          ),
+          r.attested
+            ? el("span.etiq.etiq--info", { title: "Proximité attestée par l'émetteur" }, "En main propre")
+            : el("span.etiq", { title: "Aucune attestation de proximité" }, "Sans attestation"),
+          r.papier ? el("button.btn.btn--fantome.btn--icone", {
+            "aria-label": `Lire « ${r.papier.title} »`,
+            onclick: () => lirePapier(r)
+          }, icone("oeil", 15)) : null
+        );
+      }))
+    );
+  }
+
+  async function lirePapier(remise) {
+    await ouvrirModale({
+      titre: "Lecture de modération",
+      large: true,
+      corps: () => el("div",
+        el("p.petit.faible",
+          `Remis par ${remise.expediteur?.display_name || "?"} à `
+          + `${remise.destinataire?.display_name || "?"}.`),
+        rendrePapier(remise.papier, { auteur: remise.expediteur })),
+      actions: [{ libelle: "Fermer", variante: "primaire", valeur: true }]
+    });
+    journal.ecrire({
+      class_id: remise.class_id || null, user_id: etat.utilisateur.id,
+      action: "papier.moderation", meta: { papier: remise.paper_id, remise: remise.id }
+    });
   }
 
   async function sectionRoles() {

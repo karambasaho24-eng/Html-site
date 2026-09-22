@@ -11,9 +11,9 @@
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { pages as depotPages, temps } from "../data/index.js";
+import { pages as depotPages, temps, penseBetes } from "../data/index.js";
 import { assainirHTML, injecterHTML, texteBrut } from "../core/assainir.js";
-import { debounce, dateLongue, heure, depuis } from "../core/util.js";
+import { debounce, dateLongue, heure, depuis, clamp } from "../core/util.js";
 import { dateRP, REGLAGES_RP_DEFAUT } from "../core/rp.js";
 import { confirmer, demander, menu } from "../ui/modal.js";
 import { toast, erreur, messageErreur } from "../ui/toast.js";
@@ -21,6 +21,14 @@ import { etat } from "../core/store.js";
 import { local } from "../core/util.js";
 
 const REGLURES = ["reglure", "quadrille", "blanc"];
+const COULEURS_REPERE = ["rouge", "bleu", "vert", "jaune", "violet"];
+const COULEURS_PENSE_BETE = ["jaune", "rose", "vert", "bleu", "orange"];
+
+/** Combien de pages tient chaque support. Une feuille n'en a qu'une. */
+export const CAPACITE_SUPPORT = { feuille: 1, cahier: 10, carnet: 20, dossier: 30 };
+
+const ANIMATION_REDUITE = () =>
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
 /**
  * creerEditeurCahier({ cahier, peutEcrire, pageInitiale, surPage, surCapture, compact, tempsReel })
@@ -36,6 +44,15 @@ export function creerEditeurCahier(options) {
     actionsSupplementaires = null,
     rp = REGLAGES_RP_DEFAUT
   } = options;
+
+  let corps = null;
+  let piedTranche = null;
+  let parcheminNoeud = null;
+  let minuteurTournage = null;
+  let penseBetesPage = [];
+
+  const support = cahier.support || "cahier";
+  const capacite = cahier.max_pages || CAPACITE_SUPPORT[support] || 10;
 
   let listePages = [];
   let pageCourante = null;
@@ -58,9 +75,7 @@ export function creerEditeurCahier(options) {
         }, icone("points", 15))
       ),
       trancheListe,
-      peutEcrire ? el("div.tranche__pied",
-        el("button.btn.btn--bloc", { onclick: ajouterPage }, icone("plus", 15), "Nouvelle page")
-      ) : null
+      peutEcrire ? el("div.tranche__pied", { ref: (n) => { piedTranche = n; } }) : null
     ),
     el("section.feuillet", barreFeuillet, zoneFeuillet)
   );
@@ -108,11 +123,12 @@ export function creerEditeurCahier(options) {
 
   function peindreTranche() {
     if (compact) return;
+    peindrePiedTranche();
     render(trancheListe, listePages.map((page, index) => el("div.onglet-page", {
       "aria-current": String(page.id === pageCourante?.id),
       draggable: peutEcrire,
       dataset: { id: page.id },
-      onclick: () => ouvrirPage(page.id),
+      onclick: () => ouvrirPage(page.id, "auto"),
       oncontextmenu: (e) => { e.preventDefault(); menuPage(e.currentTarget, page); },
       ondragstart: (e) => {
         e.currentTarget.classList.add("glisse");
@@ -130,10 +146,43 @@ export function creerEditeurCahier(options) {
       }
     },
       el("span.onglet-page__num", String(index + 1)),
+      page.marker_color
+        ? el("span", {
+            title: page.marker_label || "Repère",
+            style: {
+              width: "6px", height: "14px", borderRadius: "1px", flex: "0 0 auto",
+              background: `var(--repere-${page.marker_color}, #c9a227)`
+            }
+          })
+        : null,
       el("span.onglet-page__titre", page.title || "Sans titre"),
       page.origin === "board" ? el("span.onglet-page__marque", { title: "Capture du tableau" }, "▣") : null,
       page.origin === "document" ? el("span.onglet-page__marque", { title: "Issue d'un document" }, "▤") : null
     )));
+  }
+
+  /**
+   * Un support a une capacité. Une feuille volante n'a qu'une face ; un cahier
+   * en tient dix. Le bouton dit ce qu'il en reste plutôt que d'échouer après
+   * coup.
+   */
+  function peindrePiedTranche() {
+    if (!piedTranche || !peutEcrire) return;
+    const reste = capacite - listePages.length;
+
+    render(piedTranche,
+      el("button.btn.btn--bloc", {
+        onclick: ajouterPage,
+        disabled: reste <= 0,
+        title: reste <= 0
+          ? `Ce ${support} est plein : ${capacite} pages.`
+          : `Encore ${reste} page${reste > 1 ? "s" : ""} disponible${reste > 1 ? "s" : ""}.`
+      }, icone("plus", 15), reste > 0 ? "Nouvelle page" : `${support} plein`),
+      reste > 0 && reste <= 3
+        ? el("p.petit.faible.centre", { style: { margin: "6px 0 0" } },
+            `Plus que ${reste} page${reste > 1 ? "s" : ""}.`)
+        : null
+    );
   }
 
   async function deplacerPage(sourceId, indexCible) {
@@ -149,9 +198,19 @@ export function creerEditeurCahier(options) {
   }
 
   /* --- Page ---------------------------------------------------------------- */
-  function ouvrirPage(pageId) {
+  /**
+   * Ouvre une page. Quand on passe d'une page à l'autre, la feuille tourne :
+   * le contenu est remplacé à mi-course, pendant que l'animation continue sur
+   * le même élément. Sans cela on verrait la page sauter.
+   */
+  function ouvrirPage(pageId, sens = null) {
     const page = listePages.find((p) => p.id === pageId);
     if (!page) return;
+
+    const avant = listePages.findIndex((p) => p.id === pageCourante?.id);
+    const apres = listePages.findIndex((p) => p.id === pageId);
+    if (sens === "auto") sens = avant < 0 || apres < 0 || apres === avant
+      ? null : (apres > avant ? "avant" : "arriere");
 
     const brouillon = brouillonLire(pageId);
     pageCourante = brouillon && new Date(brouillon.horodatage) > new Date(page.updated_at || 0)
@@ -160,7 +219,21 @@ export function creerEditeurCahier(options) {
 
     peindreTranche();
     peindreBarre();
-    peindreParchemin();
+
+    penseBetesPage = [];
+    chargerPenseBetes().then(() => {
+      if (pageCourante?.id === pageId) peindrePenseBetes();
+    });
+
+    if (sens && parcheminNoeud && !ANIMATION_REDUITE()) {
+      parcheminNoeud.classList.remove("tourne-avant", "tourne-arriere");
+      void parcheminNoeud.offsetWidth;          // relance l'animation
+      parcheminNoeud.classList.add(`tourne-${sens}`);
+      clearTimeout(minuteurTournage);
+      minuteurTournage = setTimeout(() => remplirParchemin(), 190);
+    } else {
+      peindreParchemin();
+    }
     surPage?.(pageCourante);
   }
 
@@ -188,6 +261,35 @@ export function creerEditeurCahier(options) {
         sep(),
         outil("Image", "image", insererImage),
         rp.hrpAutorise ? outil("Passage hors-roleplay", "texte", marquerHRP, "(( ))") : null,
+        sep(),
+        el("button.btn.btn--fantome.btn--icone", {
+          type: "button", title: "Coller un pense-bête", "aria-label": "Coller un pense-bête",
+          onmousedown: (e) => e.preventDefault(),
+          onclick: (e) => menu(e.currentTarget, [
+            { titre: "Coller un pense-bête" },
+            ...COULEURS_PENSE_BETE.map((c) => ({
+              libelle: { jaune: "Jaune", rose: "Rose", vert: "Vert", bleu: "Bleu", orange: "Orange" }[c],
+              action: () => collerPenseBete(c)
+            }))
+          ])
+        }, icone("cahier", 15)),
+        el("button.btn.btn--fantome.btn--icone", {
+          type: "button", title: "Poser un repère sur cette page", "aria-label": "Poser un repère",
+          onmousedown: (e) => e.preventDefault(),
+          onclick: (e) => menu(e.currentTarget, [
+            { titre: "Repère de tranche" },
+            ...COULEURS_REPERE.map((c) => ({
+              libelle: { rouge: "Rouge", bleu: "Bleu", vert: "Vert", jaune: "Jaune", violet: "Violet" }[c]
+                + (pageCourante?.marker_color === c ? "  ✓" : ""),
+              action: () => basculerRepere(c)
+            })),
+            pageCourante?.marker_color ? { separateur: true } : null,
+            pageCourante?.marker_color
+              ? { libelle: "Retirer le repère", icone: "croix",
+                  action: () => basculerRepere(pageCourante.marker_color) }
+              : null
+          ].filter(Boolean))
+        }, icone("drapeau", 15)),
         outil("Annuler", "annuler", commande("undo")),
         outil("Refaire", "refaire", commande("redo"))
       ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
@@ -222,16 +324,36 @@ export function creerEditeurCahier(options) {
     return el("span", { style: { width: "1px", height: "18px", background: "var(--ligne)", margin: "0 4px" } });
   }
 
-  let corps = null;
-
+  /**
+   * Construit l'objet une fois pour toutes : la reliure, l'épaisseur du bloc
+   * de pages, la feuille elle-même. Seul son contenu est remplacé ensuite,
+   * pour que l'animation de tournage porte sur un élément qui perdure.
+   */
   function peindreParchemin() {
     if (!pageCourante) return;
+
+    parcheminNoeud = el("article.parchemin", {
+      class: support === "feuille" ? "parchemin--feuille" : ""
+    });
+    const reperes = el("div.reperes");
+
+    render(zoneFeuillet,
+      el("div.relieur", { class: support === "feuille" ? "relieur--feuille" : "" },
+        parcheminNoeud, reperes)
+    );
+    remplirParchemin();
+  }
+
+  function remplirParchemin() {
+    if (!pageCourante || !parcheminNoeud) return;
     const classeReglure = reglure === "quadrille" ? "parchemin--quadrille"
       : reglure === "blanc" ? "" : "parchemin--reglure";
 
     corps = el("div.parchemin__corps", {
       contenteditable: peutEcrire ? "true" : "false",
-      "data-vide": "Commencez à écrire…",
+      // Une page vide qu'on ne peut pas remplir n'invite à rien : en
+      // consultation, elle est simplement vide.
+      "data-vide": peutEcrire ? "Commencez à écrire…" : "Cette page est restée blanche.",
       spellcheck: "true",
       role: "textbox", "aria-multiline": "true", "aria-label": "Contenu de la page",
       oninput: capturerCorps,
@@ -262,8 +384,10 @@ export function creerEditeurCahier(options) {
 
     const numero = listePages.findIndex((p) => p.id === pageCourante.id) + 1;
 
-    render(zoneFeuillet,
-      el("article.parchemin", { class: classeReglure },
+    parcheminNoeud.className = `parchemin ${classeReglure}`
+      + (support === "feuille" ? " parchemin--feuille" : "");
+
+    render(parcheminNoeud,
         el("header.parchemin__entete",
           titre,
           el("span", {
@@ -277,11 +401,166 @@ export function creerEditeurCahier(options) {
         ) : null,
         corps,
         el("footer.parchemin__pied",
-          el("span", `${cahier.title} — page ${numero}`),
+          el("span", support === "feuille"
+            ? cahier.title
+            : `${cahier.title} — page ${numero} / ${listePages.length}`),
           el("span", pageCourante.updated_at ? `Modifiée ${depuis(pageCourante.updated_at)}` : "Nouvelle page")
         )
-      )
     );
+
+    peindrePenseBetes();
+    peindreReperes();
+  }
+
+  /* --- Repères de tranche --------------------------------------------------- */
+
+  function peindreReperes() {
+    const hote = zoneFeuillet.querySelector(".reperes");
+    if (!hote) return;
+    const marquees = listePages.filter((p) => p.marker_color);
+
+    render(hote, marquees.map((page) => el("button.repere", {
+      class: `repere--${page.marker_color}`,
+      "aria-current": String(page.id === pageCourante?.id),
+      title: page.marker_label || `Page ${listePages.indexOf(page) + 1}`,
+      onclick: () => ouvrirPage(page.id, "auto")
+    }, String(listePages.indexOf(page) + 1))));
+  }
+
+  /** Pose ou retire un repère sur la page courante. */
+  async function basculerRepere(couleur) {
+    if (!pageCourante || !peutEcrire) return;
+    const retrait = pageCourante.marker_color === couleur;
+    const patch = retrait
+      ? { marker_color: null, marker_label: null }
+      : { marker_color: couleur, marker_label: pageCourante.title || null };
+    try {
+      await depotPages.majorer(pageCourante.id, patch);
+      Object.assign(pageCourante, patch);
+      const i = listePages.findIndex((p) => p.id === pageCourante.id);
+      if (i >= 0) Object.assign(listePages[i], patch);
+      peindreTranche();
+      peindreReperes();
+    } catch (err) {
+      erreur("Repère non posé", messageErreur(err));
+    }
+  }
+
+  /* --- Pense-bêtes ---------------------------------------------------------- */
+
+  async function chargerPenseBetes() {
+    if (!pageCourante) { penseBetesPage = []; return; }
+    penseBetesPage = await penseBetes.liste(pageCourante.id).catch(() => []);
+  }
+
+  function peindrePenseBetes() {
+    if (!parcheminNoeud) return;
+    for (const ancien of parcheminNoeud.querySelectorAll(".pense-bete")) ancien.remove();
+
+    for (const mot of penseBetesPage) {
+      parcheminNoeud.appendChild(construirePenseBete(mot));
+    }
+  }
+
+  function construirePenseBete(mot) {
+    const enregistrer = debounce(async (patch) => {
+      try { await penseBetes.majorer(mot.id, patch); }
+      catch (err) { console.warn("[pense-bête]", err); }
+    }, 600);
+
+    const noeud = el("div.pense-bete", {
+      class: `pense-bete--${mot.color}`,
+      style: {
+        left: `${(mot.x ?? 0.7) * 100}%`,
+        top: `${(mot.y ?? 0.1) * 100}%`,
+        transform: `rotate(${mot.rotation || 0}deg)`
+      },
+      role: "note",
+      "aria-label": "Pense-bête"
+    });
+
+    // La prise est la bande de colle : on attrape le papier par là, pas par le texte.
+    noeud.appendChild(el("div.pense-bete__prise", { "aria-hidden": "true" }));
+
+    /* Le texte vit dans son propre nœud : un conteneur dont le seul enfant est
+       un bouton non éditable n'offre aucune place au curseur. */
+    const texte = el("div.pense-bete__texte", {
+      contenteditable: peutEcrire ? "true" : "false",
+      spellcheck: "true",
+      "data-invite": "Note…",
+      oninput: (e) => {
+        mot.body = e.currentTarget.textContent;
+        enregistrer({ body: mot.body });
+      }
+    }, mot.body || "");
+    noeud.appendChild(texte);
+
+    if (peutEcrire) {
+      noeud.appendChild(el("button.pense-bete__retirer", {
+        type: "button", "aria-label": "Retirer le pense-bête",
+        onclick: async (e) => {
+          e.stopPropagation();
+          await penseBetes.supprimer(mot.id).catch(() => {});
+          penseBetesPage = penseBetesPage.filter((m) => m.id !== mot.id);
+          peindrePenseBetes();
+        }
+      }, icone("croix", 12)));
+
+      rendreDeplacable(noeud, mot, enregistrer);
+    }
+    return noeud;
+  }
+
+  /** Un pense-bête se décolle et se recolle où l'on veut sur la page. */
+  function rendreDeplacable(noeud, mot, enregistrer) {
+    noeud.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".pense-bete__retirer")) return;
+      // Écrire n'est pas déplacer : le texte garde ses clics et sa sélection.
+      if (e.target.closest(".pense-bete__texte")) return;
+      const page = parcheminNoeud.getBoundingClientRect();
+      const depart = noeud.getBoundingClientRect();
+      const decalageX = e.clientX - depart.left;
+      const decalageY = e.clientY - depart.top;
+      let bouge = false;
+
+      const surMouvement = (ev) => {
+        bouge = true;
+        noeud.setPointerCapture?.(e.pointerId);
+        const x = clamp((ev.clientX - decalageX - page.left) / page.width, 0, 0.88);
+        const y = clamp((ev.clientY - decalageY - page.top) / page.height, 0, 0.92);
+        mot.x = x; mot.y = y;
+        noeud.style.left = `${x * 100}%`;
+        noeud.style.top = `${y * 100}%`;
+      };
+      const surRelache = () => {
+        window.removeEventListener("pointermove", surMouvement);
+        window.removeEventListener("pointerup", surRelache);
+        if (bouge) enregistrer({ x: mot.x, y: mot.y });
+      };
+      window.addEventListener("pointermove", surMouvement);
+      window.addEventListener("pointerup", surRelache);
+    });
+  }
+
+  async function collerPenseBete(couleur = "jaune") {
+    if (!pageCourante || !peutEcrire) return;
+    try {
+      const mot = await penseBetes.creer({
+        page_id: pageCourante.id,
+        author_id: etat.utilisateur?.id || null,
+        body: "",
+        color: couleur,
+        x: 0.62 + Math.random() * 0.12,
+        y: 0.08 + Math.random() * 0.1,
+        rotation: Math.round((Math.random() * 6 - 3) * 10) / 10
+      });
+      penseBetesPage.push(mot);
+      peindrePenseBetes();
+      const frais = parcheminNoeud.querySelector(`.pense-bete:last-of-type .pense-bete__texte`);
+      frais?.focus();
+    } catch (err) {
+      erreur("Pense-bête non collé", messageErreur(err));
+    }
   }
 
   function capturerCorps() {
@@ -319,6 +598,12 @@ export function creerEditeurCahier(options) {
 
   /* --- Actions sur les pages ------------------------------------------------ */
   async function ajouterPage() {
+    if (listePages.length >= capacite) {
+      toast(`Ce ${support} est plein`, {
+        corps: `Il ne tient que ${capacite} page${capacite > 1 ? "s" : ""}.`, type: "attn"
+      });
+      return;
+    }
     try {
       const page = await depotPages.creer(cahier.id, {
         title: `Page ${listePages.length + 1}`,
@@ -326,7 +611,7 @@ export function creerEditeurCahier(options) {
       });
       listePages.push(page);
       peindreTranche();
-      ouvrirPage(page.id);
+      ouvrirPage(page.id, "auto");
     } catch (err) {
       erreur("Ajout impossible", messageErreur(err));
     }

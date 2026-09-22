@@ -71,6 +71,12 @@ const TRACES = {
   liste:      "M4 6h16M4 12h16M4 18h16",
   livre:      "M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2zM20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z",
   robot:      "M8 3v3M16 3v3M5 8h14v11H5zM9 13h.01M15 13h.01M9.5 16h5",
+  alerte:     "M12 3 2.5 20h19zM12 10v4M12 17h.01",
+  sac:        "M4 8h16l-1 12H5zM8 8V6a4 4 0 0 1 8 0v2M4 12h16",
+  papier:     "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h4",
+  cachet:     "M12 3a4 4 0 0 0-3.4 6.1L7 14h10l-1.6-4.9A4 4 0 0 0 12 3ZM5 17h14v4H5z",
+  reunion:    "M12 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM4.5 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM19.5 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM3 21a5 5 0 0 1 18 0M8 12.5A5 5 0 0 1 16 12.5",
+  renvoi:     "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M14 9l6 6M20 9l-6 6",
 };
 
 export function icone(nom, taille = 18) {
