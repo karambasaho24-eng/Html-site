@@ -36,11 +36,17 @@ const neutraliser = (js) => js.replace(/<\/script/gi, "<\\/script");
 const bundle = neutraliser(readFileSync(resolve(bundlePath), "utf8"));
 const config = neutraliser(readFileSync(resolve(configPath || resolve(RACINE, "config.js")), "utf8"));
 
-/** Récupère le garde-fou de démarrage déjà écrit dans index.html. */
+/**
+ * Le garde-fou de démarrage. Il vit dans son propre fichier — la politique de
+ * sécurité du site refuse les scripts écrits dans la page — mais la page
+ * autonome, elle, n'a pas de fichiers à côté : on le remet en ligne ici.
+ */
 function extraireVeille() {
-  const debut = source.indexOf("<script>\n    // Garde-fou");
-  const fin = source.indexOf("</script>", debut);
-  return debut < 0 ? "" : source.slice(debut, fin + 9);
+  try {
+    return `<script>\n${neutraliser(readFileSync(resolve(RACINE, "boot.js"), "utf8"))}\n<\/script>`;
+  } catch {
+    return "";
+  }
 }
 
 const page = `<title>Classe Parallèle</title>
