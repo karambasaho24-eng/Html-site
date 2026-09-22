@@ -6,7 +6,12 @@
 
 [build]
   publish = "."
-  command = ""
+  # Le site n'a rien à compiler. Cette unique étape dépose les identifiants
+  # Supabase, pris dans les variables d'environnement du projet, dans le
+  # config.js que le navigateur ira lire. Sans elle, les variables ne
+  # serviraient à rien : un site statique ne lit pas l'environnement.
+  # Sans variables, elle ne touche à rien et le config.js du dépôt reste.
+  command = "node outils/config-depuis-env.mjs"
 
 # --- Ce qui n'a rien à faire en ligne ---------------------------------------
 # On publie le dossier tel quel, donc tout ce qui traîne à côté du site serait
