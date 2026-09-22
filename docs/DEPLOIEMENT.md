@@ -69,11 +69,41 @@ Puis déposez le dossier.
 
 ### Netlify
 
-Glissez le dossier sur [app.netlify.com/drop](https://app.netlify.com/drop),
-ou connectez le dépôt avec :
+**Le plus rapide** — glissez le dossier sur
+[app.netlify.com/drop](https://app.netlify.com/drop). Aucune construction :
+c'est le `config.js` du dépôt qui sert.
 
-- commande de build : *(aucune)*
+**Le plus durable** — reliez le dépôt : *Project configuration › Build &
+deploy › Continuous deployment › Link repository*. Le `netlify.toml` porte
+déjà tout le reste :
+
+- commande de build : `node outils/config-depuis-env.mjs`
 - dossier à publier : `.`
+
+Chaque poussée met alors le site à jour toute seule.
+
+#### Les identifiants par variables d'environnement
+
+*Project configuration › Environment variables* :
+
+| Variable | Valeur |
+|---|---|
+| `SUPABASE_URL` | `https://xxxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | `sb_publishable_…` |
+| `ACADEMY_NAME` | facultatif |
+| `ACADEMY_MOTTO` | facultatif |
+
+La commande de build les dépose dans `config.js`. **C'est cette étape qui les
+rend utiles** : un site statique ne lit pas l'environnement, donc sans elle
+les variables resteraient lettre morte et le site parlerait à l'instance
+écrite en dur dans le dépôt.
+
+Sans variables, le script ne touche à rien — le glisser-déposer et l'ouverture
+en local continuent de fonctionner avec le `config.js` versionné.
+
+Ces valeurs ne sont pas des secrets : ne les marquez pas *secret*. Elles
+doivent être écrites dans un fichier que le navigateur télécharge. Ce qui
+protège les données, c'est la RLS.
 
 ### GitHub Pages
 
