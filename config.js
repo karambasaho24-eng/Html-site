@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * OJM ACADEMY — Configuration publique
+ * CLASSE PARALLÈLE — Configuration publique
  *
  * L'URL et la clé « publishable » sont publiques par nature : elles voyagent
  * dans chaque requête du navigateur. Toute la sécurité repose sur les
@@ -18,9 +18,11 @@ window.OJM_CONFIG = {
   supabaseUrl: "https://rcxnnomthawosncwoemz.supabase.co",
   supabaseAnonKey: "sb_publishable_Y_LIzg8cVW_Ek51jMbaVgg_TS7kfYpc",
 
-  // Nom de l'établissement affiché dans l'interface.
-  academyName: "OJM Academy",
-  academyMotto: "Ordre · Justice · Mérite",
+  // Nom affiché dans l'interface. Laissez tel quel pour la plateforme
+  // générique, ou mettez le nom de votre établissement / serveur RP : c'est
+  // le seul endroit à changer pour habiller le site à vos couleurs.
+  academyName: "Classe Parallèle",
+  academyMotto: "L'école qui tourne à côté du jeu",
 
   // Vocabulaire RP personnalisable (voir src/core/lexique.js pour la liste
   // complète des termes, ou l'écran Réglages › Vocabulaire RP).

@@ -1,7 +1,7 @@
 {
-  "name": "OJM Academy",
-  "short_name": "OJM",
-  "description": "Environnement scolaire numérique parallèle au RP Roblox.",
+  "name": "Classe Parallèle",
+  "short_name": "Classe",
+  "description": "L'espace scolaire qui tourne à côté du jeu.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0d1013",

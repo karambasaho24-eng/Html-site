@@ -8,23 +8,23 @@ import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
 import { sessions, membres, exercices } from "../data/index.js";
 import { entete, blocVide, statistique } from "../ui/fragments.js";
-import { estEnseignant, peut, P } from "../core/permissions.js";
+import { encadreUneClasse, mesClassesEncadrees } from "../core/permissions.js";
 import { demander } from "../ui/modal.js";
 import { erreur, toast, messageErreur } from "../ui/toast.js";
 import { copier, depuis, pluriel } from "../core/util.js";
 
 export default async function vueProfesseur() {
-  if (!estEnseignant()) {
+  if (!encadreUneClasse()) {
     return {
-      noeud: el("div.page", blocVide("Espace réservé",
-        "Cet espace est destiné aux professeurs et aux formateurs.",
-        { libelle: "Retour à l'accueil", action: () => aller("/") })),
-      titre: "Espace professeur"
+      noeud: el("div.page", blocVide(
+        `Vous n'animez aucune ${L("classe")}`,
+        `Cet espace s'ouvre dès que vous créez une ${L("classe")} ou qu'un ${L("professeur")} vous nomme assistant.`,
+        { libelle: `Créer une ${L("classe")}`, action: () => aller("/classes") })),
+      titre: `Espace ${L("professeur")}`
     };
   }
 
-  const mesClasses = etat.classes.filter((c) =>
-    !c.archived && (["teacher", "assistant"].includes(c.membre?.role) || c.owner_id === etat.utilisateur.id));
+  const mesClasses = mesClassesEncadrees();
 
   const resume = [];
   for (const classe of mesClasses) {
@@ -52,10 +52,8 @@ export default async function vueProfesseur() {
     entete(`Espace ${L("professeur")}`, "Tableau de bord",
       `${pluriel(mesClasses.length, L("classe"), L("classes"))} · ${pluriel(totalEleves, L("eleve"), L("eleves"))}`,
       [
-        peut(P.CREER_CLASSE)
-          ? el("button.btn.btn--primaire", { onclick: () => aller("/classes") },
-              icone("plus", 15), `Nouvelle ${L("classe")}`)
-          : null,
+        el("button.btn.btn--primaire", { onclick: () => aller("/classes") },
+          icone("plus", 15), `Nouvelle ${L("classe")}`),
         el("button.btn", { onclick: () => aller("/modeles") }, icone("cours", 15), "Préparer un cours")
       ]),
 
@@ -114,7 +112,7 @@ export default async function vueProfesseur() {
         )
       : blocVide(`Aucune ${L("classe")}`,
           `Créez votre première ${L("classe")} : un code sera généré pour vos ${L("eleves")}.`,
-          peut(P.CREER_CLASSE) ? { libelle: `Créer une ${L("classe")}`, action: () => aller("/classes") } : null)
+          { libelle: `Créer une ${L("classe")}`, action: () => aller("/classes") })
   );
 
   async function demarrer(classe) {

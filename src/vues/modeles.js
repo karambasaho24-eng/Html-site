@@ -10,11 +10,12 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
+import { L } from "../core/lexique.js";
 import { cours, cahiers, pages as depotPages } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { formulaire, confirmer, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { estEnseignant } from "../core/permissions.js";
+import { encadreUneClasse, mesClassesEncadrees } from "../core/permissions.js";
 import { depuis, pluriel } from "../core/util.js";
 
 const GENRES = [
@@ -26,16 +27,17 @@ const GENRES = [
 ];
 
 export default async function vueModeles() {
-  if (!estEnseignant()) {
+  if (!encadreUneClasse()) {
     return {
-      noeud: el("div.page", blocVide("Espace réservé", "Réservé aux professeurs et formateurs.",
-        { libelle: "Accueil", action: () => aller("/") })),
-      titre: "Modèles"
+      noeud: el("div.page", blocVide(
+        "Rien à préparer pour l'instant",
+        `Les cours se préparent pour une ${L("classe")} que vous animez. Créez la vôtre pour commencer.`,
+        { libelle: `Créer une ${L("classe")}`, action: () => aller("/classes") })),
+      titre: "Cours et modèles"
     };
   }
 
-  const classesEncadrees = etat.classes.filter((c) =>
-    ["teacher", "assistant"].includes(c.membre?.role) || c.owner_id === etat.utilisateur.id);
+  const classesEncadrees = mesClassesEncadrees();
 
   let selection = null;
   const listeZone = el("div.panneau__corps.panneau__corps--serre");

@@ -10,16 +10,15 @@ import { documents, dossiers, cahiers, journal, notifications } from "../data/in
 import { entete, blocVide } from "../ui/fragments.js";
 import { confirmer, demander, menu, ouvrirModale } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { estEnseignant } from "../core/permissions.js";
+import { mesClassesEncadrees } from "../core/permissions.js";
 import { poids, depuis, pluriel } from "../core/util.js";
 
 const TYPES_ACCEPTES = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv";
 const TAILLE_MAX = 25 * 1024 * 1024;
 
 export default async function vueDocuments({ requete }) {
-  const classesEncadrees = etat.classes.filter((c) =>
-    ["teacher", "assistant"].includes(c.membre?.role) || c.owner_id === etat.utilisateur.id);
-  const peutImporter = estEnseignant() || classesEncadrees.length > 0;
+  const classesEncadrees = mesClassesEncadrees();
+  const peutImporter = classesEncadrees.length > 0;
 
   let classeFiltre = requete?.classe || (classesEncadrees[0]?.id ?? etat.classes[0]?.id ?? null);
   let dossierCourant = null;

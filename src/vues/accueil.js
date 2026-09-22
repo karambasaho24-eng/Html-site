@@ -8,7 +8,7 @@ import { etat, definir } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
 import { cahiers, sessions, annonces, journal, classes as depotClasses } from "../data/index.js";
-import { estEnseignant, peut, P } from "../core/permissions.js";
+import { encadreUneClasse } from "../core/permissions.js";
 import { normaliserCode, depuis, heure, dateLongue } from "../core/util.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses } from "../core/session.js";
@@ -34,7 +34,7 @@ export default async function vueAccueil() {
         el("span.page__sous", messageAccueil(sessionsEnCours.length))
       ),
       el("div.page__actions",
-        estEnseignant() && peut(P.CREER_CLASSE)
+        encadreUneClasse()
           ? el("button.btn", { onclick: () => aller("/professeur") },
               icone("grille", 15), `Espace ${L("professeur")}`)
           : null,

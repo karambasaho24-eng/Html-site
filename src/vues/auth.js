@@ -10,6 +10,14 @@ import { config } from "../core/config.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { L } from "../core/lexique.js";
 
+/** Monogramme dérivé du nom affiché. */
+function sceau() {
+  const mots = String(config.academyName || "Classe Parallèle")
+    .split(/[\s\u00b7\u2014-]+/).filter(Boolean);
+  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
+  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
+}
+
 const ARGUMENTS = [
   ["cahiers", "Un cahier personnel pour chaque élève", "Pages, dessins, annotations. Il reste privé, même pendant le cours."],
   ["tableau", "Un tableau partagé en temps réel", "Le professeur écrit, la classe voit. Les pages se conservent."],
@@ -23,10 +31,10 @@ export default async function vueAuth() {
   const boite = el("div.acces__boite");
   const noeud = el("div.accueil-acces",
     el("aside.acces__enseigne",
-      el("div.acces__sceau", "OJM"),
+      el("div.acces__sceau", sceau()),
       el("div",
         el("p.acces__devise", config.academyMotto || "Ordre · Justice · Mérite"),
-        el("h1.acces__titre", config.academyName || "OJM Academy"),
+        el("h1.acces__titre", config.academyName || config.academyName),
         el("p.doux", { style: { maxWidth: "44ch", marginTop: "var(--e-3)" } },
           "L'environnement scolaire numérique de votre académie RP. Il fonctionne à côté de Roblox, jamais à sa place.")
       ),
@@ -96,7 +104,7 @@ export default async function vueAuth() {
 
   /* --- Inscription -------------------------------------------------------- */
   function formInscription() {
-    let nom, email, motDePasse, role, bouton;
+    let nom, email, motDePasse, bouton;
     return el("form", {
       onsubmit: async (e) => {
         e.preventDefault();
@@ -108,7 +116,7 @@ export default async function vueAuth() {
         try {
           const sortie = await auth.inscrire({
             email: email.value.trim(), motDePasse: motDePasse.value,
-            nom: nom.value.trim(), role: role.value
+            nom: nom.value.trim(), role: "student"
           });
           if (!sortie?.session && pilote.mode === "supabase") {
             succes("Compte créé", "Confirmez votre adresse via le courriel reçu, puis connectez-vous.");
@@ -123,9 +131,9 @@ export default async function vueAuth() {
         }
       }
     },
-      el("h2", { style: { marginBottom: "var(--e-2)" } }, "Ouvrir un dossier"),
+      el("h2", { style: { marginBottom: "var(--e-2)" } }, "Créer un compte"),
       el("p.doux.petit", { style: { marginBottom: "var(--e-5)" } },
-        "Votre identité sera visible des professeurs de vos classes."),
+        "Votre nom sera visible des membres des espaces que vous rejoignez."),
 
       el("label.champ",
         el("span.champ__label", "Nom affiché"),
@@ -141,15 +149,9 @@ export default async function vueAuth() {
         motDePasse = el("input.saisie", { type: "password", required: true, minlength: 8, autocomplete: "new-password" }),
         el("span.champ__aide", "Huit caractères minimum.")
       ),
-      el("label.champ",
-        el("span.champ__label", "Je rejoins l'académie en tant que"),
-        role = el("select.saisie",
-          el("option", { value: "student" }, L("Eleve")),
-          el("option", { value: "teacher" }, L("Professeur")),
-          el("option", { value: "observer" }, "Observateur")
-        ),
-        el("span.champ__aide", "Un administrateur peut ajuster ce rôle par la suite.")
-      ),
+      el("p.petit.faible", { style: { marginBottom: "var(--e-4)" } },
+        `Un seul type de compte. Vous serez ${L("professeur")} des ${L("classes")} que vous créez, `
+        + `${L("eleve")} de celles que vous rejoignez avec un code.`),
       bouton = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Créer mon compte"),
       el("div.centre", { style: { marginTop: "var(--e-4)" } },
         el("button.btn.btn--fantome.petit", { type: "button", onclick: () => basculer("connexion") },

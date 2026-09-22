@@ -49,8 +49,33 @@ export function estAdmin() {
   return ROLES_ADMIN.has(etat.profil?.role_key);
 }
 
+/**
+ * Rôle global déclaré sur le profil. Sert à la présentation et à
+ * l'administration, pas à décider qui peut ouvrir une classe : sur cette
+ * plateforme, n'importe quel inscrit peut créer la sienne.
+ */
 export function estEnseignant() {
   return ROLES_ENSEIGNANTS.has(etat.profil?.role_key);
+}
+
+/**
+ * Encadre-t-on au moins un espace ? C'est ce qui ouvre l'espace professeur —
+ * on ne l'est pas « par nature », on le devient en créant ou en co-animant
+ * une classe.
+ */
+export function encadreUneClasse() {
+  if (estAdmin()) return true;
+  return etat.classes.some((c) =>
+    c.owner_id === etat.utilisateur?.id
+    || ["teacher", "assistant"].includes(c.membre?.role));
+}
+
+/** Les classes que l'on encadre, dans l'ordre d'affichage habituel. */
+export function mesClassesEncadrees() {
+  return etat.classes.filter((c) =>
+    !c.archived
+    && (c.owner_id === etat.utilisateur?.id
+        || ["teacher", "assistant"].includes(c.membre?.role)));
 }
 
 /* --- Rôle au sein d'une classe -------------------------------------------- */
@@ -100,7 +125,7 @@ export const LIBELLES_ROLES = {
   director: "Directeur",
   teacher: "Professeur",
   instructor: "Formateur",
-  student: "Élève",
+  student: "Membre",
   observer: "Observateur"
 };
 

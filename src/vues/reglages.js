@@ -9,7 +9,7 @@ import { entete } from "../ui/fragments.js";
 import { config, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
 import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
-import { L, lexiqueActuel, definirLexique } from "../core/lexique.js";
+import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
 import { succes, erreur, toast } from "../ui/toast.js";
 import { local, poids } from "../core/util.js";
@@ -162,12 +162,34 @@ export default async function vueReglages({ requete }) {
   /* --- Lexique ------------------------------------------------------------------ */
   function sectionLexique() {
     const actuel = lexiqueActuel();
+    const preset = presetActuel();
+
     return el("div.pile",
       el("div.panneau",
-        el("div.panneau__entete", el("span.panneau__titre", "Vocabulaire de l'établissement")),
+        el("div.panneau__entete", el("span.panneau__titre", "Nature de vos espaces")),
+        el("div.panneau__corps.panneau__corps--serre",
+          el("div.liste", Object.entries(PRESETS).map(([cle, p]) =>
+            el("div.liste__item.liste__item--cliquable", {
+              "aria-current": String(cle === preset),
+              onclick: () => {
+                appliquerPreset(cle);
+                succes(`Vocabulaire « ${p.libelle} »`, "Rechargez pour l'appliquer partout.");
+                peindre();
+              }
+            },
+              el("div.liste__principal",
+                el("div.liste__nom", p.libelle),
+                el("div.liste__detail", p.aide)
+              ),
+              el("div.liste__fin", cle === preset ? icone("coche", 15) : null)
+            )))
+        )
+      ),
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Ajustement mot à mot")),
         el("div.panneau__corps",
           el("p.petit.doux",
-            "Adaptez les termes à votre univers : « classe » peut devenir « salle », « promotion » ou « unité »."),
+            "Partez d'un jeu ci-dessus, puis retouchez les termes qui ne collent pas tout à fait."),
           el("button.btn", {
             onclick: async () => {
               const sortie = await formulaire({

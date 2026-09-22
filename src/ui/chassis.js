@@ -8,7 +8,7 @@ import { etat, observer } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
-import { estEnseignant, estAdmin } from "../core/permissions.js";
+import { estEnseignant, estAdmin, encadreUneClasse } from "../core/permissions.js";
 import { initiales } from "../core/util.js";
 import { menu } from "./modal.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
@@ -18,12 +18,20 @@ import { pilote } from "../data/index.js";
 
 let refs = {};
 
+/** Monogramme dérivé du nom affiché : « Classe Parallèle » → « CP ». */
+function sceau() {
+  const mots = String(config.academyName || "Classe Parallèle")
+    .split(/[\s·—-]+/).filter(Boolean);
+  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
+  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
+}
+
 export function construireChassis(hote) {
   const chassis = el("div.chassis",
     el("div.marque",
-      el("div.marque__sceau", "OJM"),
+      el("div.marque__sceau", sceau()),
       el("div", { style: { minWidth: "0" } },
-        el("div.marque__nom", config.academyName || "OJM Academy"),
+        el("div.marque__nom", config.academyName || "Classe Parallèle"),
         el("span.marque__devise", config.academyMotto || "")
       )
     ),
@@ -63,7 +71,7 @@ function lienRail(href, nom, libelle, icone_, compteur = null) {
 }
 
 function peindreRail() {
-  const enseignant = estEnseignant();
+  const enseignant = encadreUneClasse();
   const classesActives = etat.classes.filter((c) => !c.archived);
 
   render(refs.rail,
@@ -102,7 +110,7 @@ function peindreFil() {
     modeles: "Modèles", administration: "Administration", recherche: "Recherche"
   };
 
-  const morceaux = [el("span", { style: { color: "var(--texte-faible)" } }, titres[nom] || "OJM")];
+  const morceaux = [el("span", { style: { color: "var(--texte-faible)" } }, titres[nom] || sceau())];
 
   if (etat.classeActive && ["classe", "salle", "exercice", "cahier"].includes(nom)) {
     morceaux.unshift(
@@ -178,7 +186,7 @@ function peindreOutils() {
         } }
       ])
     },
-      el("span.avatar", { class: estEnseignant() ? "avatar--prof" : "" },
+      el("span.avatar", { class: encadreUneClasse() ? "avatar--prof" : "" },
         initiales(etat.profil?.display_name))
     )
   );

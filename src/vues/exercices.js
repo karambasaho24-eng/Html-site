@@ -10,13 +10,12 @@ import { exercices } from "../data/index.js";
 import { entete, blocVide, onglets } from "../ui/fragments.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
-import { estEnseignant } from "../core/permissions.js";
+import { mesClassesEncadrees } from "../core/permissions.js";
 import { depuis } from "../core/util.js";
 
 export default async function vueExercices({ requete }) {
-  const classesEncadrees = etat.classes.filter((c) =>
-    ["teacher", "assistant"].includes(c.membre?.role) || c.owner_id === etat.utilisateur.id);
-  const peutCreer = estEnseignant() && classesEncadrees.length > 0;
+  const classesEncadrees = mesClassesEncadrees();
+  const peutCreer = classesEncadrees.length > 0;
 
   let filtre = requete?.classe || "toutes";
   const liste = el("div.pile");

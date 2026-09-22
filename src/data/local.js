@@ -597,7 +597,7 @@ async function amorcerRbac(t) {
   const roles = [
     ["super_admin", "Super administrateur", 100], ["admin", "Administrateur", 90],
     ["director", "Directeur", 80], ["teacher", "Professeur", 60],
-    ["instructor", "Formateur", 50], ["student", "Élève", 20], ["observer", "Observateur", 10]
+    ["instructor", "Formateur", 50], ["student", "Membre", 20], ["observer", "Observateur", 10]
   ];
   for (const [key, label, rank] of roles) await t("roles").creer({ id: key, key, label, rank });
 
@@ -608,9 +608,16 @@ async function amorcerRbac(t) {
     "VIEW_DOCUMENT", "TAKE_ATTENDANCE", "PUBLISH_ANNOUNCEMENT", "RUN_POLL",
     "VIEW_ARCHIVES", "VIEW_LOGS"
   ];
+  // Le rôle de base peut aussi ouvrir ses propres espaces : c'est ce qui rend
+  // la plateforme utilisable par n'importe qui, pas seulement par un
+  // établissement. Voir la migration 0007.
   const permsEleve = [
     "USE_NOTEBOOK", "READ_SHARED_NOTEBOOK", "VIEW_BOARD", "ANSWER_EXERCISE",
-    "VIEW_DOCUMENT", "ASK_QUESTION", "RAISE_HAND", "VIEW_ARCHIVES"
+    "VIEW_DOCUMENT", "ASK_QUESTION", "RAISE_HAND", "VIEW_ARCHIVES",
+    "CREATE_CLASS", "MANAGE_CLASS", "MANAGE_MEMBERS", "VIEW_STUDENTS",
+    "CREATE_COURSE", "RUN_SESSION", "EDIT_SHARED_NOTEBOOK", "USE_BOARD",
+    "CREATE_EXERCISE", "GRADE_EXERCISE", "UPLOAD_DOCUMENT",
+    "TAKE_ATTENDANCE", "PUBLISH_ANNOUNCEMENT", "RUN_POLL"
   ];
   const permsObs = ["READ_SHARED_NOTEBOOK", "VIEW_BOARD", "VIEW_DOCUMENT", "VIEW_ARCHIVES"];
   const toutes = [...new Set([...permsProf, ...permsEleve, "MANAGE_USERS", "MODERATE"])];

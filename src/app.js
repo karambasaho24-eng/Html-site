@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * OJM ACADEMY — amorçage.
+ * CLASSE PARALLÈLE — amorçage.
  *
  * Environnement scolaire numérique fonctionnant en parallèle d'un serveur
  * Roblox RP : les cahiers, le tableau, les documents, les exercices et la vie

@@ -3,6 +3,7 @@
  * le site se dépose tel quel sur n'importe quel hébergement statique.
  * ------------------------------------------------------------------------- */
 import { definir, etat } from "./store.js";
+import { config } from "./config.js";
 import { emettre } from "./bus.js";
 
 const routes = [];
@@ -100,9 +101,8 @@ export async function resoudre() {
     else if (conteneur) conteneur.replaceChildren(noeud);
 
     conteneur?.scrollTo?.({ top: 0 });
-    document.title = sortie?.titre
-      ? `${sortie.titre} — OJM Academy`
-      : "OJM Academy";
+    const enseigne = config.academyName || "Classe Parallèle";
+    document.title = sortie?.titre ? `${sortie.titre} — ${enseigne}` : enseigne;
     emettre("route:apres", { nom: route.nom, params });
   } catch (err) {
     console.error("[routeur] vue", err);

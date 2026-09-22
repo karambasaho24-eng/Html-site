@@ -10,8 +10,8 @@ const CLE = "ojm.config";
 const DEFAUTS = {
   supabaseUrl: "",
   supabaseAnonKey: "",
-  academyName: "OJM Academy",
-  academyMotto: "Ordre · Justice · Mérite",
+  academyName: "Classe Parallèle",
+  academyMotto: "L'école qui tourne à côté du jeu",
   lexique: {}
 };
 
