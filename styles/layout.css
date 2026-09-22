@@ -267,3 +267,20 @@ body.est-flottant .btn { min-height: 34px; }
 body.est-flottant .calque-toasts { left: var(--e-2); right: var(--e-2); max-width: none; }
 body.est-flottant .barre { padding: 0 var(--e-2); }
 body.est-flottant .barre__fil { font-size: var(--t-xs); }
+
+/* En bandeau, la hauteur est la ressource rare : on rend au contenu tout ce
+   que l'habillage peut céder, sans jamais retirer le titre — c'est lui qui dit
+   où l'on est quand la fenêtre ne montre que quelques lignes. */
+@media (max-height: 460px) {
+  body.est-flottant .page { padding: var(--e-2) var(--e-2) var(--e-4); }
+  body.est-flottant .page__entete {
+    margin-bottom: var(--e-3);
+    padding-bottom: var(--e-2);
+  }
+  body.est-flottant .page__titre h1 { font-size: var(--t-xl); }
+  body.est-flottant .page__surtitre,
+  body.est-flottant .page__sous { display: none; }
+  body.est-flottant .parchemin { min-height: 0; padding-top: var(--e-3); }
+  body.est-flottant .parchemin__corps { min-height: 140px; }
+  body.est-flottant .feuillet__zone { padding: var(--e-2); }
+}

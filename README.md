@@ -25,6 +25,11 @@ les autres**, y compris d'un jeu en plein écran fenêtré (Document
 Picture-in-Picture, Chrome et Edge). On relit une consigne sans quitter la
 partie. Refermer la fenêtre ramène l'interface dans l'onglet, sans rien perdre.
 
+Quatre formes au choix dans le menu ⊞ : **Colonne** pour écrire sur le côté,
+**Bandeau** pour suivre en bas de l'écran, **Carré**, **Large**. La position,
+elle, appartient au navigateur — on attrape la fenêtre et on la pose où l'on
+veut.
+
 **Installer l'application** — le bouton ⊕ dans la barre d'adresse du
 navigateur. Le site s'ouvre alors dans sa propre fenêtre : **ni onglets, ni
 barre d'adresse**, juste l'interface.

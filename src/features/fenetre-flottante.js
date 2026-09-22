@@ -23,6 +23,24 @@ import { toast } from "../ui/toast.js";
 const CLE_TAILLE = "ojm.flottant.taille";
 const IDS = ["application", "calque-modales", "calque-toasts"];
 
+/**
+ * Quatre façons de poser la fenêtre à côté du jeu. Aucune n'est meilleure :
+ * cela dépend de ce qu'on fait — relire une consigne d'un œil, ou écrire
+ * vraiment. La position exacte, elle, appartient au navigateur : on demande,
+ * il place, et l'utilisateur déplace ensuite à la main. Mieux vaut des formes
+ * franches qu'une promesse de positionnement qu'on ne tiendrait pas.
+ */
+export const FORMES = [
+  { cle: "colonne", libelle: "Colonne", aide: "Sur le côté, pour écrire",
+    width: 460, height: 760 },
+  { cle: "bandeau", libelle: "Bandeau", aide: "En bas, pour suivre",
+    width: 980, height: 300 },
+  { cle: "carre",   libelle: "Carré",   aide: "Un compromis",
+    width: 620, height: 600 },
+  { cle: "large",   libelle: "Large",   aide: "Presque l'écran entier",
+    width: 1100, height: 700 }
+];
+
 let fenetre = null;
 let densiteAvant = null;
 
@@ -60,10 +78,18 @@ function demenager(vers) {
   definirHote(vers);
 }
 
-export async function ouvrirFenetreFlottante() {
-  if (estFlottant()) { fenetre.focus?.(); return true; }
+export async function ouvrirFenetreFlottante(forme = null) {
+  const voulue = FORMES.find((f) => f.cle === forme);
+  if (estFlottant()) {
+    // Déjà ouverte : on la remet à la forme demandée plutôt que de la fermer.
+    if (voulue) { redimensionner(voulue); return true; }
+    fenetre.focus?.();
+    return true;
+  }
 
-  const taille = local.lire(CLE_TAILLE, { width: 460, height: 680 });
+  const taille = voulue
+    ? { width: voulue.width, height: voulue.height }
+    : local.lire(CLE_TAILLE, { width: 460, height: 760 });
   densiteAvant = etat.densite;
 
   try {
@@ -155,6 +181,24 @@ export function refermer() {
   try { if (!veuve.closed) veuve.close(); } catch { /* déjà fermée */ }
 }
 
-export function basculerFenetreFlottante() {
-  return estFlottant() ? (refermer(), false) : ouvrirFenetreFlottante();
+/** Change la forme d'une fenêtre déjà ouverte, sans la refermer. */
+function redimensionner({ width, height }) {
+  try {
+    fenetre.resizeTo(width, height);
+    local.ecrire(CLE_TAILLE, { width, height });
+    appliquerDensiteFlottante(width);
+  } catch (err) {
+    // Certains navigateurs refusent de redimensionner une fenêtre qu'ils
+    // placent eux-mêmes. On ne prétend pas y être arrivé.
+    console.warn("[flottant] redimensionnement refusé", err);
+    toast("Taille imposée par le navigateur", {
+      corps: "Attrapez le bord de la fenêtre pour l'ajuster à la main.",
+      type: "info", duree: 6000
+    });
+  }
+}
+
+export function basculerFenetreFlottante(forme = null) {
+  if (estFlottant() && !forme) { refermer(); return false; }
+  return ouvrirFenetreFlottante(forme);
 }

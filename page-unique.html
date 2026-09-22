@@ -524,6 +524,23 @@ body.est-flottant .calque-toasts { left: var(--e-2); right: var(--e-2); max-widt
 body.est-flottant .barre { padding: 0 var(--e-2); }
 body.est-flottant .barre__fil { font-size: var(--t-xs); }
 
+/* En bandeau, la hauteur est la ressource rare : on rend au contenu tout ce
+   que l'habillage peut céder, sans jamais retirer le titre — c'est lui qui dit
+   où l'on est quand la fenêtre ne montre que quelques lignes. */
+@media (max-height: 460px) {
+  body.est-flottant .page { padding: var(--e-2) var(--e-2) var(--e-4); }
+  body.est-flottant .page__entete {
+    margin-bottom: var(--e-3);
+    padding-bottom: var(--e-2);
+  }
+  body.est-flottant .page__titre h1 { font-size: var(--t-xl); }
+  body.est-flottant .page__surtitre,
+  body.est-flottant .page__sous { display: none; }
+  body.est-flottant .parchemin { min-height: 0; padding-top: var(--e-3); }
+  body.est-flottant .parchemin__corps { min-height: 140px; }
+  body.est-flottant .feuillet__zone { padding: var(--e-2); }
+}
+
 /* ---- components.css ---- */
 /* ===========================================================================
    Composants
@@ -6037,12 +6054,17 @@ function demenager(vers) {
   vers.body.className = document.body.className;
   definirHote(vers);
 }
-async function ouvrirFenetreFlottante() {
+async function ouvrirFenetreFlottante(forme = null) {
+  const voulue = FORMES.find((f) => f.cle === forme);
   if (estFlottant()) {
+    if (voulue) {
+      redimensionner(voulue);
+      return true;
+    }
     fenetre.focus?.();
     return true;
   }
-  const taille = local.lire(CLE_TAILLE, { width: 460, height: 680 });
+  const taille = voulue ? { width: voulue.width, height: voulue.height } : local.lire(CLE_TAILLE, { width: 460, height: 760 });
   densiteAvant = etat.densite;
   try {
     if (globalThis.documentPictureInPicture) {
@@ -6116,10 +6138,28 @@ function refermer() {
   } catch {
   }
 }
-function basculerFenetreFlottante() {
-  return estFlottant() ? (refermer(), false) : ouvrirFenetreFlottante();
+function redimensionner({ width, height }) {
+  try {
+    fenetre.resizeTo(width, height);
+    local.ecrire(CLE_TAILLE, { width, height });
+    appliquerDensiteFlottante(width);
+  } catch (err) {
+    console.warn("[flottant] redimensionnement refus\xE9", err);
+    toast("Taille impos\xE9e par le navigateur", {
+      corps: "Attrapez le bord de la fen\xEAtre pour l'ajuster \xE0 la main.",
+      type: "info",
+      duree: 6e3
+    });
+  }
 }
-var CLE_TAILLE, IDS, fenetre, densiteAvant;
+function basculerFenetreFlottante(forme = null) {
+  if (estFlottant() && !forme) {
+    refermer();
+    return false;
+  }
+  return ouvrirFenetreFlottante(forme);
+}
+var CLE_TAILLE, IDS, FORMES, fenetre, densiteAvant;
 var init_fenetre_flottante = __esm({
   "src/features/fenetre-flottante.js"() {
     init_hote();
@@ -6129,6 +6169,36 @@ var init_fenetre_flottante = __esm({
     init_toast();
     CLE_TAILLE = "ojm.flottant.taille";
     IDS = ["application", "calque-modales", "calque-toasts"];
+    FORMES = [
+      {
+        cle: "colonne",
+        libelle: "Colonne",
+        aide: "Sur le c\xF4t\xE9, pour \xE9crire",
+        width: 460,
+        height: 760
+      },
+      {
+        cle: "bandeau",
+        libelle: "Bandeau",
+        aide: "En bas, pour suivre",
+        width: 980,
+        height: 300
+      },
+      {
+        cle: "carre",
+        libelle: "Carr\xE9",
+        aide: "Un compromis",
+        width: 620,
+        height: 600
+      },
+      {
+        cle: "large",
+        libelle: "Large",
+        aide: "Presque l'\xE9cran entier",
+        width: 1100,
+        height: 700
+      }
+    ];
     fenetre = null;
     densiteAvant = null;
   }
@@ -6429,6 +6499,15 @@ function peindreOutils() {
           libelle: `${d.libelle}${etat.densite === d.cle ? "  \u2713" : ""}`,
           action: () => appliquerDensite(d.cle)
         })),
+        ...flottantDisponible() ? [
+          { separateur: true },
+          { titre: "Fen\xEAtre d'\xE0-c\xF4t\xE9" },
+          ...FORMES.map((f) => ({
+            libelle: `${f.libelle} \u2014 ${f.aide}`,
+            action: () => ouvrirFenetreFlottante(f.cle)
+          })),
+          ...estFlottant() ? [{ libelle: "La ranger", icone: "entree", action: () => basculerFenetreFlottante() }] : []
+        ] : [],
         { separateur: true },
         { libelle: etat.theme === "nuit" ? "Th\xE8me clair" : "Th\xE8me sombre", icone: "oeil", action: basculerTheme }
       ])

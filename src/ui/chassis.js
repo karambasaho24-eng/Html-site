@@ -12,7 +12,8 @@ import { estEnseignant, estAdmin, encadreUneClasse } from "../core/permissions.j
 import { initiales } from "../core/util.js";
 import { menu } from "./modal.js";
 import { docHote } from "../core/hote.js";
-import { basculerFenetreFlottante, estFlottant, flottantAuPremierPlan, flottantDisponible }
+import { basculerFenetreFlottante, ouvrirFenetreFlottante, estFlottant,
+         flottantAuPremierPlan, flottantDisponible, FORMES }
   from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
 import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
@@ -182,6 +183,15 @@ function peindreOutils() {
           libelle: `${d.libelle}${etat.densite === d.cle ? "  ✓" : ""}`,
           action: () => appliquerDensite(d.cle)
         })),
+        ...(flottantDisponible() ? [
+          { separateur: true },
+          { titre: "Fenêtre d'à-côté" },
+          ...FORMES.map((f) => ({
+            libelle: `${f.libelle} — ${f.aide}`,
+            action: () => ouvrirFenetreFlottante(f.cle)
+          })),
+          ...(estFlottant() ? [{ libelle: "La ranger", icone: "entree", action: () => basculerFenetreFlottante() }] : [])
+        ] : []),
         { separateur: true },
         { libelle: etat.theme === "nuit" ? "Thème clair" : "Thème sombre", icone: "oeil", action: basculerTheme }
       ])
