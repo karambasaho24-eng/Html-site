@@ -53,23 +53,11 @@
     #  · connect : Supabase en REST et en WebSocket
     #  · worker  : le moteur pdf.js, chargé en blob:
     #  · frame   : l'aperçu d'un document servi par une URL signée Supabase
-    Content-Security-Policy = """
-      default-src 'self';
-      base-uri 'self';
-      object-src 'none';
-      form-action 'self';
-      frame-ancestors 'self';
-      script-src 'self' https://esm.sh;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      font-src 'self' https://fonts.gstatic.com data:;
-      img-src 'self' data: blob: https:;
-      media-src 'self' blob:;
-      connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh blob: data:;
-      worker-src 'self' blob:;
-      child-src 'self' blob: https://*.supabase.co;
-      frame-src 'self' blob: https://*.supabase.co;
-      manifest-src 'self'
-    """
+    # Sur une seule ligne : Netlify n'accepte pas de retour à la ligne dans
+    # une valeur d'en-tête. Écrite en bloc, la politique arrivait tronquée —
+    # style-src disparaissait, les styles en ligne de l'interface étaient
+    # refusés, et la page s'affichait vide.
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh blob: data:; worker-src 'self' blob:; child-src 'self' blob: https://*.supabase.co; frame-src 'self' blob: https://*.supabase.co; manifest-src 'self'"
 
 # Les bibliothèques embarquées portent leur version : cache long.
 [[headers]]
