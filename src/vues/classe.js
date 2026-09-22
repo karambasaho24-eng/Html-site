@@ -14,6 +14,8 @@ import { encadre, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permi
 import { confirmer, formulaire, demander, menu } from "../ui/modal.js";
 import { personnages } from "../data/index.js";
 import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
+import { livret } from "../data/index.js";
+import { listeEntrees, inscrireAuLivret, tableauClassement, noteCoupure } from "../features/livret.js";
 import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
@@ -21,6 +23,8 @@ import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/u
 const ONGLETS = [
   { cle: "apercu", libelle: "Aperçu" },
   { cle: "identite", libelle: "Personnage", rp: true },
+  { cle: "livret", libelle: "Livret", rp: true },
+  { cle: "classement", libelle: "Classement", rp: true },
   { cle: "membres", libelle: "Membres" },
   { cle: "sessions", libelle: "Sessions" },
   { cle: "cahier", libelle: "Cahier commun" },
@@ -96,7 +100,8 @@ export default async function vueClasse({ params, requete }) {
   async function peindreContenu() {
     render(contenu, el("p.faible.petit", "Chargement…"));
     const rendus = {
-      apercu: ongletApercu, identite: ongletIdentite, membres: ongletMembres,
+      apercu: ongletApercu, identite: ongletIdentite,
+      livret: ongletLivret, classement: ongletClassement, membres: ongletMembres,
       sessions: ongletSessions, cahier: ongletCahier, documents: ongletDocuments,
       exercices: ongletExercices, annonces: ongletAnnonces, reglages: ongletReglages
     };
@@ -244,6 +249,80 @@ export default async function vueClasse({ params, requete }) {
 
   function definirPersonnageActif(fiche) {
     import("../core/store.js").then(({ definir }) => definir({ personnageActif: fiche }));
+  }
+
+  /* --- Livret ---------------------------------------------------------------- */
+
+  /** Index user_id → nom affiché : le personnage d'abord, le compte à défaut. */
+  async function annuaire() {
+    const [equipe, fiches] = await Promise.all([
+      depotMembres.liste(classe.id),
+      personnages.index(classe.id).catch(() => new Map())
+    ]);
+    const noms = new Map();
+    for (const m of equipe) {
+      noms.set(m.user_id, nomAffiche(fiches.get(m.user_id), m.profil));
+    }
+    return { equipe, fiches, noms, nomDe: (id) => noms.get(id) || "—" };
+  }
+
+  async function ongletLivret() {
+    const { equipe, nomDe } = await annuaire();
+    // Un membre ne voit que son propre livret ; l'encadrement voit tout.
+    const entrees = await livret.liste(classe.id, staff ? undefined : etat.utilisateur.id);
+
+    const inscrire = async () => {
+      const cibles = equipe
+        .filter((m) => m.status === "active")
+        .map((m) => ({ user_id: m.user_id, nom: nomDe(m.user_id) }));
+      const entree = await inscrireAuLivret({
+        classe, membres: cibles, auteurId: etat.utilisateur.id,
+        sessionId: sessionEnCours?.id || null
+      });
+      if (entree) {
+        await activerClasse(classe.id);
+        await peindreContenu();
+      }
+    };
+
+    return el("div.pile",
+      el("div.ligne-flex.ligne-flex--entre.enrouler",
+        el("p.petit.doux", { style: { margin: 0, maxWidth: "52ch" } },
+          staff
+            ? "Mentions, sanctions, promotions et aptitudes. Une promotion inscrite ici "
+              + "change aussitôt le grade porté sur la fiche."
+            : "Ce que l'encadrement a inscrit à votre dossier."),
+        staff ? el("button.btn.btn--primaire", { onclick: inscrire },
+          icone("plus", 15), "Inscrire au livret") : null
+      ),
+      listeEntrees(entrees, {
+        classe,
+        nomDe: staff ? nomDe : null,
+        surSuppression: staff ? () => peindreContenu() : null
+      })
+    );
+  }
+
+  async function ongletClassement() {
+    const { nomDe } = await annuaire();
+    const classement = await livret.classement(classe.id);
+
+    return el("div.pile",
+      el("div.panneau",
+        el("div.panneau__entete",
+          el("span.panneau__titre", `Classement — ${classe.name}`),
+          el("span.petit.faible", `${classement.length} classé${classement.length > 1 ? "s" : ""}`)
+        ),
+        el("div.panneau__corps.panneau__corps--serre",
+          tableauClassement(classement, { nomDe, moiId: etat.utilisateur.id })
+        )
+      ),
+      classement.length ? noteCoupure(10) : null,
+      el("p.petit.faible",
+        "Le rang se calcule sur la moyenne des aptitudes inscrites au livret, "
+        + "en pourcentage du maximum possible — un cadet évalué sur peu d'axes "
+        + "n'est ni avantagé ni pénalisé.")
+    );
   }
 
   /* --- Membres -------------------------------------------------------------- */

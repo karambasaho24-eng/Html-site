@@ -29,6 +29,7 @@ import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { duree, heure, depuis, initiales, local, debounce, pluriel } from "../core/util.js";
 import { personnages } from "../data/index.js";
 import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
+import { inscrireAuLivret } from "../features/livret.js";
 
 const COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
 
@@ -559,16 +560,20 @@ export default async function vueSalle({ params }) {
             el("div.eleve__activite",
               main ? el("em", "✋ demande la parole") : (p.activite || libelleScene(p.scene)))
           ),
-          staff && main
+          staff
             ? el("div.liste__fin",
-                el("button.btn.btn--fantome.btn--icone", {
+                main ? el("button.btn.btn--fantome.btn--icone", {
                   title: "Donner la parole",
                   onclick: () => repondreMain(main, "accepted")
-                }, icone("coche", 14)),
-                el("button.btn.btn--fantome.btn--icone", {
+                }, icone("coche", 14)) : null,
+                main ? el("button.btn.btn--fantome.btn--icone", {
                   title: "Faire redescendre la main",
                   onclick: () => repondreMain(main, "lowered")
-                }, icone("croix", 14))
+                }, icone("croix", 14)) : null,
+                enRP ? el("button.btn.btn--fantome.btn--icone", {
+                  title: `Inscrire ${p.nom || "ce membre"} au livret`,
+                  onclick: () => inscrire(p.user_id)
+                }, icone("etoile", 14)) : null
               )
             : null
         );
@@ -667,6 +672,7 @@ export default async function vueSalle({ params }) {
         "exercise.launch": "Exercice lancé", "exercise.close": "Exercice fermé",
         "exercise.submit": "a rendu l'exercice", "document.share": "Document distribué",
         "poll.open": "Sondage lancé", "announcement": "Annonce publiée",
+        "livret.entree": "Inscription au livret",
         "focus": "Changement de page"
       };
       render(noeud, entrees.length
@@ -962,8 +968,9 @@ export default async function vueSalle({ params }) {
       { libelle: "Lancer un sondage", icone: "sondage", action: lancerSondage },
       { libelle: "Minuterie / compte à rebours", icone: "chrono", action: creerMinuterie },
       { separateur: true },
-      { libelle: "Appel et présences", icone: "eleves", action: ouvrirPresences }
-    ]);
+      { libelle: "Appel et présences", icone: "eleves", action: ouvrirPresences },
+      enRP ? { libelle: "Inscrire au livret", icone: "etoile", action: () => inscrire() } : null
+    ].filter(Boolean));
   }
 
   async function distribuerDocument() {
@@ -1054,6 +1061,37 @@ export default async function vueSalle({ params }) {
     canalSession?.envoyer("annonce", { titre: texte });
     journal.ecrire({ class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id, action: "announcement" });
     succes("Annonce publiée");
+  }
+
+  /**
+   * Décerner une mention, un blâme ou une aptitude sans quitter la manœuvre.
+   * C'est là que l'encadrement en a besoin : à chaud, quand le fait vient de
+   * se produire, pas une heure plus tard depuis un autre écran.
+   */
+  async function inscrire(cibleId = null) {
+    const cibles = (await depotMembres.liste(classe.id))
+      .filter((m) => m.status === "active")
+      .map((m) => ({
+        user_id: m.user_id,
+        nom: nomAffiche(fichesRP.get(m.user_id), m.profil)
+      }));
+
+    const entree = await inscrireAuLivret({
+      classe, membres: cibles, auteurId: etat.utilisateur.id,
+      sessionId: session.id, membrePreselectionne: cibleId
+    });
+    if (!entree) return;
+
+    journal.ecrire({
+      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
+      action: "livret.entree", meta: { genre: entree.kind, concerne: entree.user_id }
+    });
+    // Une promotion change le grade : les fiches doivent suivre à l'écran.
+    if (entree.kind === "promotion") {
+      fichesRP = await personnages.index(classe.id).catch(() => fichesRP);
+      majPresence();
+    }
+    peindrePanneau();
   }
 
   async function ouvrirPresences() {

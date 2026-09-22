@@ -149,6 +149,44 @@ export const personnages = {
 };
 
 /* ===========================================================================
+   Livret de service
+   Mentions, sanctions, promotions et aptitudes. C'est ce qui donne aux actes
+   des conséquences durables, et au classement de promotion sa matière.
+   ========================================================================= */
+export const livret = {
+  /** Tout le livret d'un espace, ou celui d'un seul membre. */
+  liste: (classeId, utilisateurId = undefined) =>
+    T("service_records").liste(
+      { class_id: classeId, ...(utilisateurId ? { user_id: utilisateurId } : {}) },
+      { ordre: "created_at", sens: "desc" }),
+
+  creer: (donnees) => T("service_records").creer(donnees),
+  supprimer: (id) => T("service_records").supprimer(id),
+
+  /**
+   * Classement de promotion, du meilleur au dernier.
+   *
+   * Il passe par une procédure et non par une lecture directe : la RLS ne
+   * montre à un membre que ses propres inscriptions, si bien qu'un calcul
+   * côté client ne lui donnerait qu'une ligne — la sienne. Le classement,
+   * lui, est un tableau d'honneur : il se lit en entier, sans pour autant
+   * ouvrir le détail des livrets.
+   */
+  async classement(classeId) {
+    const lignes = await pilote.rpc("class_standings", { target_class: classeId });
+    return (lignes || [])
+      .map((l) => ({
+        user_id: l.user_id,
+        evaluations: Number(l.evaluations) || 0,
+        taux: l.taux == null ? 0 : Number(l.taux),
+        total: l.total == null ? 0 : Number(l.total)
+      }))
+      .sort((a, b) => b.taux - a.taux || b.evaluations - a.evaluations)
+      .map((ligne, i) => ({ ...ligne, rang: i + 1 }));
+  }
+};
+
+/* ===========================================================================
    Sessions, présence, journal
    ========================================================================= */
 export const sessions = {

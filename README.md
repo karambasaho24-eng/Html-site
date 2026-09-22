@@ -94,6 +94,8 @@ Aucune étape de compilation : le site est du HTML, du CSS et des modules ES.
 - calendrier de l'univers (« an 850 — 22ᵉ jour du neuvième mois »)
 - marquage hors-roleplay `(( … ))` sur les questions, les annonces et les carnets
 - univers proposés, avec grades, corps et vocabulaire assortis
+- livret de service : mentions, sanctions, promotions et aptitudes
+- classement de promotion, public dans l'espace, livrets privés
 
 Voir [`docs/ROLEPLAY.md`](docs/ROLEPLAY.md).
 

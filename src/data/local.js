@@ -122,6 +122,30 @@ function depot(nom) {
         do { ligne.code = genererCode(); }
         while (lignes.some((l) => l.code === ligne.code));
       }
+
+      // Équivalent du déclencheur apply_promotion : une promotion inscrite au
+      // livret change le grade porté sur la fiche. Sans cela, les deux
+      // divergent dès la première montée en grade.
+      if (nom === "service_records" && ligne.kind === "promotion"
+          && String(ligne.rank_to || "").trim()) {
+        const fiches = charger("rp_profiles");
+        let touchee = false;
+        for (const f of fiches) {
+          if (f.class_id === ligne.class_id && f.user_id === ligne.user_id) {
+            f.rank = ligne.rank_to;
+            f.updated_at = new Date().toISOString();
+            touchee = true;
+          }
+        }
+        if (touchee) {
+          sauver("rp_profiles", fiches);
+          for (const f of fiches) {
+            if (f.class_id === ligne.class_id && f.user_id === ligne.user_id) {
+              signaler("rp_profiles", "UPDATE", f, null);
+            }
+          }
+        }
+      }
       lignes.push(ligne);
       sauver(nom, lignes);
       signaler(nom, "INSERT", ligne);
@@ -409,6 +433,32 @@ export async function creerPiloteLocal() {
         body: "", drawing: snapshot || {}, attachments: [],
         origin: "board", origin_ref: target_board_page, created_by: monId()
       });
+    },
+
+    /** Équivalent de la fonction SQL class_standings. */
+    async class_standings({ target_class }) {
+      const entrees = await t("service_records").liste({ class_id: target_class });
+      const parMembre = new Map();
+
+      for (const e of entrees) {
+        if (e.kind !== "aptitude" || e.score == null || !e.max_score) continue;
+        if (!parMembre.has(e.user_id)) {
+          parMembre.set(e.user_id, { total: 0, max: 0, nombre: 0, derniere: null });
+        }
+        const agr = parMembre.get(e.user_id);
+        agr.total += Number(e.score);
+        agr.max += Number(e.max_score);
+        agr.nombre += 1;
+        if (!agr.derniere || e.created_at > agr.derniere) agr.derniere = e.created_at;
+      }
+
+      return [...parMembre.entries()].map(([user_id, a]) => ({
+        user_id,
+        evaluations: a.nombre,
+        taux: a.max ? Math.round((a.total / a.max) * 1000) / 10 : 0,
+        total: Math.round(a.total * 100) / 100,
+        derniere: a.derniere
+      }));
     },
 
     async autograde_attempt({ target_attempt }) {

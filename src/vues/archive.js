@@ -143,6 +143,7 @@ const LIBELLES = {
   "document.share": "Document distribué",
   "document.open": "Document consulté",
   "poll.open": "Sondage lancé",
+  "livret.entree": "Inscription au livret",
   "announcement": "Annonce publiée",
   "class.join": "Inscription à la classe"
 };

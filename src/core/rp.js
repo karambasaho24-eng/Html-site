@@ -177,6 +177,10 @@ export const UNIVERS = {
     corps: [
       "Brigade d'entraînement", "Garnison",
       "Bataillon d'exploration", "Brigades spéciales"
+    ],
+    aptitudes: [
+      "Manœuvre tridimensionnelle", "Corps à corps", "Maniement des lames",
+      "Théorie et stratégie", "Endurance", "Discipline"
     ]
   },
   royaume: {
@@ -185,14 +189,16 @@ export const UNIVERS = {
     aide: "Ordres, maisons et compagnons. Pour un univers médiéval ou féodal.",
     rp: { actif: true, ereLibelle: "an de grâce", ereDecalage: -700, formatDate: "long", hrpAutorise: true },
     grades: ["Apprenti", "Écuyer", "Compagnon", "Maître", "Doyen", "Grand maître"],
-    corps: ["Guilde", "Ordre", "Maison", "Chancellerie"]
+    corps: ["Guilde", "Ordre", "Maison", "Chancellerie"],
+    aptitudes: ["Armes", "Savoir", "Étiquette", "Loyauté", "Éloquence"]
   },
   moderne: {
     libelle: "Contemporain",
     aide: "Académie, cabinet, service. Pour un RP se déroulant à notre époque.",
     rp: { actif: true, ereLibelle: "", ereDecalage: 0, formatDate: "court", hrpAutorise: true },
     grades: ["Stagiaire", "Élève", "Agent", "Superviseur", "Directeur"],
-    corps: ["Académie", "Service", "Cabinet", "Brigade"]
+    corps: ["Académie", "Service", "Cabinet", "Brigade"],
+    aptitudes: ["Théorie", "Pratique", "Rigueur", "Initiative", "Travail d'équipe"]
   }
 };
 
@@ -206,4 +212,28 @@ export function gradesDisponibles(classe) {
 
 export function corpsDisponibles(classe) {
   return UNIVERS[universDe(classe)]?.corps || [];
+}
+
+/** Axes sur lesquels l'encadrement évalue, propres à l'univers. */
+export function aptitudesDisponibles(classe) {
+  return UNIVERS[universDe(classe)]?.aptitudes
+    || ["Théorie", "Pratique", "Assiduité"];
+}
+
+/* ===========================================================================
+   Livret de service
+   ========================================================================= */
+
+export const GENRES_LIVRET = {
+  mention:   { libelle: "Mention",   aide: "Un fait d'armes, une conduite remarquée.", teinte: "ok", icone: "etoile" },
+  sanction:  { libelle: "Sanction",  aide: "Un manquement, une faute de discipline.",  teinte: "alerte", icone: "drapeau" },
+  promotion: { libelle: "Promotion", aide: "Un changement de grade. Il s'applique à la fiche.", teinte: "laiton", icone: "bouclier" },
+  aptitude:  { libelle: "Aptitude",  aide: "Une note sur un axe d'évaluation. Elle compte au classement.", teinte: "info", icone: "sondage" },
+  note:      { libelle: "Observation", aide: "Une remarque versée au dossier.",        teinte: "", icone: "cahier" }
+};
+
+/** Rang dans la promotion, tel qu'on l'annonce. */
+export function libelleRang(rang) {
+  if (rang === 1) return "1ᵉʳ";
+  return `${rang}ᵉ`;
 }

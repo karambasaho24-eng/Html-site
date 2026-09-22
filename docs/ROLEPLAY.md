@@ -87,7 +87,58 @@ Le but n'est pas de simuler une œuvre précise, mais de donner des points de
 départ crédibles que chaque serveur ajuste ensuite mot à mot (*Réglages ›
 Vocabulaire RP*).
 
+### Livret de service
+
+Une note sur vingt ne veut rien dire dans un corps militaire, et personne ne
+se bat pour une moyenne. Ce qui fait tenir un RP d'académie, c'est que les
+actes laissent des traces.
+
+Le livret accueille cinq natures d'inscription :
+
+| Nature | Ce qu'elle fait |
+|---|---|
+| **Mention** | Un fait d'armes, une conduite remarquée |
+| **Sanction** | Un manquement, une faute de discipline |
+| **Promotion** | Un changement de grade — **il s'applique aussitôt à la fiche** |
+| **Aptitude** | Une note sur un axe d'évaluation, qui compte au classement |
+| **Observation** | Une remarque versée au dossier |
+
+Les axes d'aptitude viennent de l'univers : *manœuvre tridimensionnelle*,
+*corps à corps*, *maniement des lames*, *théorie et stratégie*, *endurance*,
+*discipline* pour un corps militaire ; *armes*, *savoir*, *étiquette*,
+*loyauté*, *éloquence* pour un royaume.
+
+L'encadrement inscrit **pendant la manœuvre**, depuis les outils de séance ou
+directement sur la ligne d'un participant à l'appel — c'est là qu'on en a
+besoin, à chaud, pas une heure plus tard depuis un autre écran.
+
+Seul l'encadrement écrit au livret : un cadet ne se décerne pas ses mentions.
+Et chacun ne lit que le sien.
+
+### Classement de promotion
+
+Le rang se calcule sur la moyenne des aptitudes, en pourcentage du maximum
+possible — un membre évalué sur peu d'axes n'est ni avantagé ni pénalisé. Les
+dix premiers sont mis en avant : dans beaucoup d'univers, c'est ce rang qui
+ouvre le choix de l'affectation.
+
+**Le classement est public dans l'espace, les livrets ne le sont pas.** C'est
+une frontière délibérée : un tableau d'honneur n'a de poids que s'il est
+affiché, mais le détail d'un blâme ne regarde que son destinataire. La
+procédure `class_standings` expose l'agrégat à tout membre sans ouvrir les
+inscriptions elles-mêmes.
+
+> La première version calculait le classement côté navigateur, à partir des
+> inscriptions lues. La RLS n'en montrant qu'une à chacun — la sienne — chaque
+> cadet voyait un classement d'une seule ligne. Corrigé par la migration
+> `0010`.
+
 ## Ce que ça donne
+
+Un instructeur ouvre une manœuvre, décerne une mention à chaud, note une
+aptitude, élève un cadet au grade de soldat — et le grade change partout dans
+la seconde. Le classement de promotion se met à jour, affiché à toute la
+brigade.
 
 Dans un espace réglé sur « Derrière les murs », l'interface ne dit plus
 *classe*, *élève*, *professeur*, *exercice*, *cahier*, mais **brigade**,
@@ -107,6 +158,9 @@ message part marqué, visible comme tel, et le reste de la séance demeure jouab
   toutes pièces (mois de longueurs différentes, semaines à six jours…). C'est
   suffisant pour sortir de l'ère moderne sans obliger personne à apprendre une
   arithmétique nouvelle.
+- **Le classement ne mesure que ce qui a été noté.** Un membre jamais évalué
+  n'y figure pas. C'est volontaire : mieux vaut une absence qu'un zéro qui
+  ressemblerait à un jugement.
 - **La fiche n'est pas vérifiée.** Un cadet peut se déclarer commandant. C'est
   à l'encadrement de corriger — il en a le droit sur toutes les fiches de son
   espace.
