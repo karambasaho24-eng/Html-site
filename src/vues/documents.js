@@ -173,6 +173,9 @@ export default async function vueDocuments({ requete }) {
       } catch { total = null; }
     }
 
+    let champCahier = null;
+    let champPages = null;
+
     const sortie = await ouvrirModale({
       titre: "Convertir en pages de cahier",
       corps: () => el("div",
@@ -181,21 +184,21 @@ export default async function vueDocuments({ requete }) {
           : `« ${doc.title} » sera versé dans le cahier choisi.`),
         el("label.champ",
           el("span.champ__label", "Cahier de destination"),
-          el("select.saisie#conv-cahier",
+          champCahier = el("select.saisie",
             cibles.map((c) => el("option", { value: c.id },
               c.kind === "shared" ? `${c.title} (commun)` : c.title)))
         ),
         total ? el("label.champ",
           el("span.champ__label", "Pages à importer"),
-          el("input.saisie#conv-pages", { placeholder: `1-${total} (vide = toutes)` }),
+          champPages = el("input.saisie", { placeholder: `1-${total} (vide = toutes)` }),
           el("span.champ__aide", "Exemple : 1-4, 7, 10-12")
         ) : null
       ),
       actions: [
         { libelle: "Plus tard", valeur: null },
         { libelle: "Convertir", variante: "primaire", action: () => ({
-          cahier: document.getElementById("conv-cahier").value,
-          pages: document.getElementById("conv-pages")?.value || ""
+          cahier: champCahier.value,
+          pages: champPages?.value || ""
         }) }
       ]
     });

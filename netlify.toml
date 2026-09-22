@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# OJM ACADEMY — déploiement Netlify
+#
+# Site entièrement statique : rien à compiler, on publie le dossier tel quel.
+# ---------------------------------------------------------------------------
+
+[build]
+  publish = "."
+  command = ""
+
+# --- En-têtes de sécurité ---------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    # La politique de contenu autorise exactement ce dont le site se sert :
+    #  · scripts : uniquement les fichiers du site (aucun script en ligne)
+    #  · styles  : le site + Google Fonts, et les attributs style= de l'interface
+    #  · images  : le site, les captures de tableau (data:) et les fichiers
+    #              téléchargés depuis le stockage (blob:, https:)
+    #  · connect : Supabase en REST et en WebSocket
+    #  · worker  : le moteur pdf.js, chargé en blob:
+    #  · frame   : l'aperçu d'un document servi par une URL signée Supabase
+    Content-Security-Policy = """
+      default-src 'self';
+      base-uri 'self';
+      object-src 'none';
+      form-action 'self';
+      frame-ancestors 'self';
+      script-src 'self' https://esm.sh;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com data:;
+      img-src 'self' data: blob: https:;
+      media-src 'self' blob:;
+      connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh blob: data:;
+      worker-src 'self' blob:;
+      child-src 'self' blob: https://*.supabase.co;
+      frame-src 'self' blob: https://*.supabase.co;
+      manifest-src 'self'
+    """
+
+# Les bibliothèques embarquées portent leur version : cache long.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# La configuration doit pouvoir changer sans attendre l'expiration d'un cache.
+[[headers]]
+  for = "/config.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

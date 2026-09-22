@@ -33,12 +33,27 @@ export function el(selector, props = null, ...children) {
   return node;
 }
 
+/**
+ * Analyse « tag#id.classe », dans n'importe quel ordre : « div.carte#mon-id »
+ * et « div#mon-id.carte » sont équivalents.
+ *
+ * Un sélecteur invalide lève plutôt que de retomber silencieusement sur un
+ * <div> : une faute de frappe doit se voir tout de suite, pas se traduire en
+ * champ de formulaire introuvable trois écrans plus loin.
+ */
 function parseSelector(selector) {
-  const match = /^([a-zA-Z][\w-]*)?(#[\w-]+)?((?:\.[\w-]+)*)$/.exec(selector || "div");
-  if (!match) return ["div", "", []];
+  const brut = selector || "div";
+  const match = /^([a-zA-Z][\w-]*)?((?:[.#][\w-]+)*)$/.exec(brut);
+  if (!match) throw new Error(`Sélecteur invalide : « ${brut} »`);
+
   const tag = match[1] || "div";
-  const id = match[2] ? match[2].slice(1) : "";
-  const classes = match[3] ? match[3].split(".").filter(Boolean) : [];
+  let id = "";
+  const classes = [];
+
+  for (const jeton of (match[2] || "").match(/[.#][\w-]+/g) || []) {
+    if (jeton[0] === "#") id = jeton.slice(1);
+    else classes.push(jeton.slice(1));
+  }
   return [tag, id, classes];
 }
 
