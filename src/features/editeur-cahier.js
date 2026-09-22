@@ -14,6 +14,7 @@ import { icone } from "../ui/icons.js";
 import { pages as depotPages, temps } from "../data/index.js";
 import { assainirHTML, injecterHTML, texteBrut } from "../core/assainir.js";
 import { debounce, dateLongue, heure, depuis } from "../core/util.js";
+import { dateRP, REGLAGES_RP_DEFAUT } from "../core/rp.js";
 import { confirmer, demander, menu } from "../ui/modal.js";
 import { toast, erreur, messageErreur } from "../ui/toast.js";
 import { etat } from "../core/store.js";
@@ -32,7 +33,8 @@ export function creerEditeurCahier(options) {
     surPage = null,
     compact = false,
     tempsReel = false,
-    actionsSupplementaires = null
+    actionsSupplementaires = null,
+    rp = REGLAGES_RP_DEFAUT
   } = options;
 
   let listePages = [];
@@ -185,6 +187,7 @@ export function creerEditeurCahier(options) {
         outil("Citation", "texte", commande("formatBlock", "<blockquote>"), "❝"),
         sep(),
         outil("Image", "image", insererImage),
+        rp.hrpAutorise ? outil("Passage hors-roleplay", "texte", marquerHRP, "(( ))") : null,
         outil("Annuler", "annuler", commande("undo")),
         outil("Refaire", "refaire", commande("redo"))
       ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
@@ -263,7 +266,10 @@ export function creerEditeurCahier(options) {
       el("article.parchemin", { class: classeReglure },
         el("header.parchemin__entete",
           titre,
-          el("span.parchemin__date", dateLongue(pageCourante.created_at))
+          el("span", {
+            class: rp.actif ? "parchemin__date date-rp" : "parchemin__date",
+            title: rp.actif ? dateLongue(pageCourante.created_at) : null
+          }, rp.actif ? dateRP(pageCourante.created_at, rp) : dateLongue(pageCourante.created_at))
         ),
         pageCourante.drawing?.image ? el("figure.parchemin__capture",
           el("img", { src: pageCourante.drawing.image, alt: "Capture du tableau", loading: "lazy" }),
@@ -282,6 +288,20 @@ export function creerEditeurCahier(options) {
     if (!pageCourante || !corps) return;
     pageCourante.body = assainirHTML(corps.innerHTML);
     sauvegarder();
+  }
+
+  /**
+   * Met la sélection à part comme passage hors-roleplay. Sans sélection, pose
+   * un marqueur où écrire. La classe « hrp » fait partie de la liste blanche
+   * de l'assainisseur : elle survit à l'enregistrement et au rechargement.
+   */
+  function marquerHRP() {
+    const selection = window.getSelection();
+    const texte = selection && !selection.isCollapsed ? selection.toString() : "";
+    const echappe = texte.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+    document.execCommand("insertHTML", false,
+      `<span class="hrp">${echappe || "hors roleplay"}</span>&nbsp;`);
+    capturerCorps();
   }
 
   async function insererImage() {

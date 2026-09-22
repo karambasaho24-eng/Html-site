@@ -6,17 +6,21 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { L } from "../core/lexique.js";
+import { L, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { classes as depotClasses, membres as depotMembres, sessions as depotSessions, cahiers, annonces, documents, exercices, journal, notifications } from "../data/index.js";
 import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
-import { encadre, LIBELLES_ROLES_CLASSE } from "../core/permissions.js";
+import { encadre, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
 import { confirmer, formulaire, demander, menu } from "../ui/modal.js";
+import { personnages } from "../data/index.js";
+import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
+import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
 
 const ONGLETS = [
   { cle: "apercu", libelle: "Aperçu" },
+  { cle: "identite", libelle: "Personnage", rp: true },
   { cle: "membres", libelle: "Membres" },
   { cle: "sessions", libelle: "Sessions" },
   { cle: "cahier", libelle: "Cahier commun" },
@@ -78,7 +82,10 @@ export default async function vueClasse({ params, requete }) {
   );
 
   function peindreOnglets() {
-    render(barreOnglets, ONGLETS.filter((o) => !o.staff || staff).map((o) =>
+    const enRP = universDe(classe) !== "aucun";
+    render(barreOnglets, ONGLETS
+      .filter((o) => (!o.staff || staff) && (!o.rp || enRP))
+      .map((o) =>
       el("button.onglet", {
         role: "tab", "aria-selected": String(o.cle === ongletActif),
         onclick: () => { ongletActif = o.cle; peindreOnglets(); peindreContenu(); }
@@ -89,9 +96,9 @@ export default async function vueClasse({ params, requete }) {
   async function peindreContenu() {
     render(contenu, el("p.faible.petit", "Chargement…"));
     const rendus = {
-      apercu: ongletApercu, membres: ongletMembres, sessions: ongletSessions,
-      cahier: ongletCahier, documents: ongletDocuments, exercices: ongletExercices,
-      annonces: ongletAnnonces, reglages: ongletReglages
+      apercu: ongletApercu, identite: ongletIdentite, membres: ongletMembres,
+      sessions: ongletSessions, cahier: ongletCahier, documents: ongletDocuments,
+      exercices: ongletExercices, annonces: ongletAnnonces, reglages: ongletReglages
     };
     try {
       render(contenu, await (rendus[ongletActif] || ongletApercu)());
@@ -150,7 +157,7 @@ export default async function vueClasse({ params, requete }) {
               avatar(m.profil, { prof: true }),
               el("div.liste__principal",
                 el("div.liste__nom", m.profil?.display_name || "—"),
-                el("div.liste__detail", LIBELLES_ROLES_CLASSE[m.role])
+                el("div.liste__detail", libelleRoleClasse(m.role))
               )
             )))
           )
@@ -187,9 +194,63 @@ export default async function vueClasse({ params, requete }) {
     );
   }
 
+  /* --- Personnage ------------------------------------------------------------ */
+  async function ongletIdentite() {
+    const [maFiche, toutes, equipe] = await Promise.all([
+      personnages.pour(classe.id, etat.utilisateur.id).catch(() => null),
+      personnages.liste(classe.id).catch(() => []),
+      depotMembres.liste(classe.id)
+    ]);
+    const profilsParUtilisateur = new Map(equipe.map((m) => [m.user_id, m.profil]));
+
+    const modifier = async () => {
+      const maj = await editerFiche({
+        classe, personnage: maFiche, utilisateurId: etat.utilisateur.id, profil: etat.profil
+      });
+      if (maj) { definirPersonnageActif(maj); await peindreContenu(); }
+    };
+
+    const autres = toutes.filter((f) => f.user_id !== etat.utilisateur.id);
+
+    return el("div.colonnes",
+      el("div.pile",
+        el("h3", "Ma fiche"),
+        carteFiche(maFiche, etat.profil, { sien: true, surEdition: modifier }),
+        el("p.petit.faible",
+          "Votre fiche accompagne cet espace seulement. Ailleurs, vous pouvez être quelqu'un d'autre.")
+      ),
+      el("div.pile",
+        el("h3", "Les autres"),
+        autres.length
+          ? el("div.panneau", el("div.panneau__corps.panneau__corps--serre",
+              el("div.liste", autres.map((f) => el("div.liste__item",
+                el("span.avatar", initialesDe(f)),
+                el("div.liste__principal",
+                  el("div.liste__nom", identiteComplete(f, profilsParUtilisateur.get(f.user_id))),
+                  el("div.liste__detail",
+                    [f.corps, f.origin].filter(Boolean).join(" · ") || "—")
+                )
+              )))
+            ))
+          : blocVide("Personne d'autre", "Les fiches des autres membres apparaîtront ici.")
+      )
+    );
+  }
+
+  function initialesDe(fiche) {
+    return String(fiche.name || "?").split(/[\s-]+/).filter(Boolean).slice(0, 2)
+      .map((m) => m[0].toUpperCase()).join("") || "?";
+  }
+
+  function definirPersonnageActif(fiche) {
+    import("../core/store.js").then(({ definir }) => definir({ personnageActif: fiche }));
+  }
+
   /* --- Membres -------------------------------------------------------------- */
   async function ongletMembres() {
     const equipe = await depotMembres.liste(classe.id);
+    const fiches = await personnages.index(classe.id);
+    for (const m of equipe) m.fiche = fiches.get(m.user_id) || null;
     const enAttente = equipe.filter((m) => m.status === "pending");
     const actifs = equipe.filter((m) => m.status === "active");
     const exclus = equipe.filter((m) => m.status === "banned");
@@ -217,13 +278,22 @@ export default async function vueClasse({ params, requete }) {
 
   function ligneMembre(membre, options = {}) {
     const moi = membre.user_id === etat.utilisateur.id;
+    const enRP = universDe(classe) !== "aucun";
+    // En RP, c'est le personnage qui est listé ; le nom du compte n'apparaît
+    // qu'à l'encadrement, et discrètement.
+    const nom = enRP && membre.fiche
+      ? identiteComplete(membre.fiche, membre.profil)
+      : (membre.profil?.display_name || "—");
+
     return el("div.liste__item",
       avatar(membre.profil, { prof: ["teacher", "assistant"].includes(membre.role) }),
       el("div.liste__principal",
-        el("div.liste__nom", (membre.profil?.display_name || "—") + (moi ? " (vous)" : "")),
+        el("div.liste__nom", nom + (moi ? " (vous)" : "")),
         el("div.liste__detail",
-          [LIBELLES_ROLES_CLASSE[membre.role],
-           membre.profil?.roblox_name ? `Roblox : ${membre.profil.roblox_name}` : null,
+          [libelleRoleClasse(membre.role),
+           enRP && membre.fiche && staff ? `compte : ${membre.profil?.display_name}` : null,
+           enRP && !membre.fiche ? "sans fiche de personnage" : null,
+           membre.profil?.roblox_name ? `en jeu : ${membre.profil.roblox_name}` : null,
            `inscrit ${depuis(membre.joined_at)}`].filter(Boolean).join(" · "))
       ),
       el("div.liste__fin",
@@ -491,6 +561,34 @@ export default async function vueClasse({ params, requete }) {
           el("button.btn", { onclick: modifierClasse }, icone("crayon", 15), "Modifier nom, matière, couleur")
         )
       ),
+
+      el("div.panneau",
+        el("div.panneau__entete",
+          el("span.panneau__titre", "Univers de jeu"),
+          el("span.etiq", UNIVERS[universDe(classe)]?.libelle || "—")
+        ),
+        el("div.panneau__corps",
+          el("p.petit.doux",
+            "L'univers décide du calendrier affiché, des grades proposés sur les fiches "
+            + "de personnage, et de la présence du marquage hors-roleplay. "
+            + "Il n'impose rien : chaque terme reste modifiable."),
+          el("div.liste", Object.entries(UNIVERS).map(([cle, u]) =>
+            el("div.liste__item.liste__item--cliquable", {
+              "aria-current": String(cle === universDe(classe)),
+              onclick: () => choisirUnivers(cle)
+            },
+              el("div.liste__principal",
+                el("div.liste__nom", u.libelle),
+                el("div.liste__detail", u.aide)
+              ),
+              el("div.liste__fin", cle === universDe(classe) ? icone("coche", 15) : null)
+            ))),
+          universDe(classe) !== "aucun"
+            ? el("p.petit.faible", { style: { marginTop: "var(--e-3)" } },
+                "Aujourd'hui, une page datera de : ", el("b.date-rp", dateRP(Date.now(), reglagesRP(classe))))
+            : null
+        )
+      ),
       el("div.panneau",
         el("div.panneau__entete", el("span.panneau__titre", "Fin de vie")),
         el("div.panneau__corps.panneau__corps--serre", el("div.liste",
@@ -522,6 +620,28 @@ export default async function vueClasse({ params, requete }) {
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("Démarrage impossible", messageErreur(err));
+    }
+  }
+
+  async function choisirUnivers(cle) {
+    const univers = UNIVERS[cle];
+    if (!univers) return;
+    try {
+      const reglages = { ...(classe.settings || {}), univers: cle, rp: univers.rp };
+      await depotClasses.majorer(classe.id, { settings: reglages });
+      classe.settings = reglages;
+      await activerClasse(classe.id);
+      // Le vocabulaire suit l'univers, sauf si l'établissement l'a déjà réglé
+      // lui-même : on ne défait pas un choix explicite.
+      if (univers.lexique && presetActuel() === "ecole") {
+        appliquerPreset(univers.lexique);
+      }
+      toast(`Univers : ${univers.libelle}`,
+        { corps: univers.lexique ? "Vocabulaire et calendrier adaptés." : null });
+      await peindreContenu();
+      peindreOnglets();
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
     }
   }
 

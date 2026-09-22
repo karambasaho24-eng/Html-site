@@ -119,6 +119,36 @@ export const membres = {
 };
 
 /* ===========================================================================
+   Fiches de personnage
+   Le compte identifie le joueur ; la fiche identifie le personnage, et c'est
+   elle qui signe tout ce qui se passe dans l'espace. Une par membre et par
+   classe : on peut être cadet ici et instructeur ailleurs.
+   ========================================================================= */
+export const personnages = {
+  async pour(classeId, utilisateurId) {
+    const lignes = await T("rp_profiles").liste({ class_id: classeId, user_id: utilisateurId });
+    return lignes[0] || null;
+  },
+  async liste(classeId) {
+    return T("rp_profiles").liste({ class_id: classeId }, { ordre: "name" });
+  },
+  /** Index user_id → fiche, pour habiller une liste de membres. */
+  async index(classeId) {
+    const lignes = await this.liste(classeId).catch(() => []);
+    return new Map(lignes.map((l) => [l.user_id, l]));
+  },
+  creer: (donnees) => T("rp_profiles").creer(donnees),
+  majorer: (id, patch) => T("rp_profiles").majorer(id, patch),
+  supprimer: (id) => T("rp_profiles").supprimer(id),
+
+  async enregistrer(classeId, utilisateurId, donnees) {
+    const existante = await this.pour(classeId, utilisateurId);
+    if (existante) return this.majorer(existante.id, donnees);
+    return this.creer({ class_id: classeId, user_id: utilisateurId, ...donnees });
+  }
+};
+
+/* ===========================================================================
    Sessions, présence, journal
    ========================================================================= */
 export const sessions = {

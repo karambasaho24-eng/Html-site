@@ -27,6 +27,8 @@ import { avatar, blocVide, pastillePresence } from "../ui/fragments.js";
 import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { duree, heure, depuis, initiales, local, debounce, pluriel } from "../core/util.js";
+import { personnages } from "../data/index.js";
+import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
 
 const COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
 
@@ -72,6 +74,12 @@ export default async function vueSalle({ params }) {
   let documentAffiche = null;
   let presences = [];
   let equipe = [];
+
+  // En RP, c'est le personnage qui est présent à l'appel, pas le compte.
+  const enRP = universDe(classe) !== "aucun";
+  let fichesRP = enRP ? await personnages.index(classe.id).catch(() => new Map()) : new Map();
+  const maFiche = () => fichesRP.get(etat.utilisateur.id) || null;
+  const monNom = () => nomAffiche(maFiche(), etat.profil);
 
   let moteurTableau = null;
   let editeurCommun = null;
@@ -201,7 +209,7 @@ export default async function vueSalle({ params }) {
       surFragment: (fragment) => canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id }),
       surCurseur: (x, y) => canalSession?.envoyer("curseur", {
         id: etat.utilisateur.id, x, y,
-        nom: etat.profil?.display_name, page: pageCourante.id
+        nom: monNom(), page: pageCourante.id
       })
     });
 
@@ -441,6 +449,7 @@ export default async function vueSalle({ params }) {
     editeurCommun = creerEditeurCahier({
       cahier: cahierCommun,
       peutEcrire,
+      rp: reglagesRP(classe),
       pageInitiale: refScene,
       tempsReel: true,
       surPage: (page) => {
@@ -543,7 +552,10 @@ export default async function vueSalle({ params }) {
           pastillePresence(p.statut || "present"),
           el("span.avatar", { class: p.role === "teacher" ? "avatar--prof" : "" }, initiales(p.nom)),
           el("div.eleve__infos",
-            el("div.eleve__nom", p.nom || "Participant"),
+            el("div.eleve__nom",
+              p.grade ? el("span.fiche__grade", { style: { marginRight: "6px" } }, p.grade) : null,
+              p.grade ? " " : null,
+              p.nom || "Participant"),
             el("div.eleve__activite",
               main ? el("em", "✋ demande la parole") : (p.activite || libelleScene(p.scene)))
           ),
@@ -569,6 +581,11 @@ export default async function vueSalle({ params }) {
              document: "Consulte un document", exercice: "Répond à l'exercice" }[nom] || "En ligne";
   }
 
+  /** Nom à afficher pour l'auteur d'une question : le personnage d'abord. */
+  function nomDe(ligne) {
+    return nomAffiche(fichesRP.get(ligne.user_id), ligne.profil) || "Participant";
+  }
+
   function panneauQuestions() {
     const ouvertes = listeQuestions.filter((q) => q.status !== "dismissed");
     if (!ouvertes.length) {
@@ -576,13 +593,15 @@ export default async function vueSalle({ params }) {
     }
     return el("div", ouvertes.map((q) => el("div.question", { dataset: { statut: q.status } },
       el("div.question__entete",
-        el("span.avatar", initiales(q.profil?.display_name)),
-        el("b.petit", q.profil?.display_name || "Élève"),
+        el("span.avatar", initiales(nomDe(q))),
+        el("b.petit", nomDe(q)),
+        q.out_of_character ? el("span.etiq.etiq--hrp", "hors-RP") : null,
         el("span.petit.faible", depuis(q.created_at))
       ),
-      el("div.question__corps", q.body),
+      el("div.question__corps",
+        q.out_of_character ? el("span.hrp", q.body) : baliserHRP(q.body)),
       q.context ? el("span.petit.faible", q.context) : null,
-      q.answer ? el("div.question__reponse", q.answer) : null,
+      q.answer ? el("div.question__reponse", baliserHRP(q.answer)) : null,
       staff && q.status === "open"
         ? el("div.ligne-flex", { style: { marginTop: "var(--e-2)" } },
             el("button.btn.petit", { onclick: () => repondreQuestion(q) }, "Répondre"),
@@ -718,9 +737,12 @@ export default async function vueSalle({ params }) {
       const liste = await annonces.liste({ class_id: classe.id }, 12);
       render(noeud, liste.length
         ? liste.map((a) => el("div.annonce", { dataset: { niveau: a.level } },
-            el("div.annonce__titre", heure(a.created_at)),
-            el("div.annonce__corps", a.title),
-            a.body ? el("p.petit.doux", { style: { margin: "6px 0 0" } }, a.body) : null
+            el("div.annonce__titre",
+              heure(a.created_at),
+              a.out_of_character ? el("span.etiq.etiq--hrp", { style: { marginLeft: "6px" } }, "hors-RP") : null),
+            el("div.annonce__corps",
+              a.out_of_character ? el("span.hrp", a.title) : baliserHRP(a.title)),
+            a.body ? el("p.petit.doux", { style: { margin: "6px 0 0" } }, baliserHRP(a.body)) : null
           ))
         : el("p.petit.faible", "Aucune annonce."));
     } });
@@ -736,7 +758,7 @@ export default async function vueSalle({ params }) {
       if (maMainLevee()) await mains.baisser(session.id, etat.utilisateur.id);
       else {
         await mains.lever(session.id, etat.utilisateur.id);
-        canalSession?.envoyer("main", { nom: etat.profil?.display_name });
+        canalSession?.envoyer("main", { nom: monNom() });
       }
       await rafraichirMains();
     } catch (err) {
@@ -753,19 +775,31 @@ export default async function vueSalle({ params }) {
   }
 
   async function poserQuestion() {
-    const texte = await demander({
+    const rp = reglagesRP(classe);
+    const sortie = await formulaire({
       titre: "Poser une question",
-      label: "Votre question",
-      placeholder: "Je n'ai pas compris cette partie…",
-      multiligne: true, libelle: "Envoyer"
+      note: rp.hrpAutorise
+        ? "Votre personnage lève la main. Si la question vient de vous et non de lui, "
+          + "cochez « hors-roleplay » : elle sera marquée comme telle et ne polluera pas la scène."
+        : null,
+      champs: [
+        { cle: "body", label: "Votre question", type: "textarea", lignes: 3, requis: true,
+          placeholder: "Je n'ai pas saisi la manœuvre, mon instructeur." },
+        ...(rp.hrpAutorise
+          ? [{ cle: "hrp", label: "Question hors-roleplay (elle sort du personnage)", type: "checkbox" }]
+          : [])
+      ],
+      libelle: "Envoyer"
     });
-    if (!texte) return;
+    if (!sortie?.body) return;
+    const texte = sortie.body;
     try {
       await depotQuestions.poser({
         session_id: session.id, user_id: etat.utilisateur.id,
-        body: texte, context: contexteCourant()
+        body: texte, context: contexteCourant(),
+        out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
       });
-      canalSession?.envoyer("question", { nom: etat.profil?.display_name });
+      canalSession?.envoyer("question", { nom: monNom() });
       succes("Question envoyée", `Le ${L("professeur")} la verra dans son panneau.`);
       await rafraichirQuestions();
     } catch (err) {
@@ -998,14 +1032,24 @@ export default async function vueSalle({ params }) {
   }
 
   async function publierAnnonceSession() {
-    const texte = await demander({
-      titre: "Annonce à la classe", label: "Message",
-      placeholder: "Le contrôle commence dans 10 minutes.", multiligne: true, libelle: "Publier"
+    const rp = reglagesRP(classe);
+    const sortie = await formulaire({
+      titre: "Annonce à la classe",
+      champs: [
+        { cle: "title", label: "Message", type: "textarea", lignes: 3, requis: true,
+          placeholder: "L'épreuve commencera au son de la cloche." },
+        ...(rp.hrpAutorise
+          ? [{ cle: "hrp", label: "Annonce hors-roleplay (consigne d'organisation)", type: "checkbox" }]
+          : [])
+      ],
+      libelle: "Publier"
     });
-    if (!texte) return;
+    if (!sortie?.title) return;
+    const texte = sortie.title;
     await annonces.creer({
       class_id: classe.id, session_id: session.id, author_id: etat.utilisateur.id,
-      title: texte, body: null, level: "important"
+      title: texte, body: null, level: "important",
+      out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
     });
     canalSession?.envoyer("annonce", { titre: texte });
     journal.ecrire({ class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id, action: "announcement" });
@@ -1081,7 +1125,8 @@ export default async function vueSalle({ params }) {
   const majPresence = debounce(() => {
     canalSession?.majPresence({
       user_id: etat.utilisateur.id,
-      nom: etat.profil?.display_name,
+      nom: monNom(),
+      grade: maFiche()?.rank || null,
       role: staff ? "teacher" : estObservateur() ? "observer" : "student",
       scene, statut: "present", horodatage: Date.now()
     });
@@ -1094,6 +1139,7 @@ export default async function vueSalle({ params }) {
       tables: [
         { table: "class_sessions", filtre: `id=eq.${session.id}` },
         { table: "hands", filtre: `session_id=eq.${session.id}` },
+        { table: "rp_profiles", filtre: `class_id=eq.${classe.id}` },
         { table: "session_questions", filtre: `session_id=eq.${session.id}` },
         { table: "polls", filtre: `session_id=eq.${session.id}` },
         { table: "poll_votes" },
@@ -1108,6 +1154,10 @@ export default async function vueSalle({ params }) {
           case "class_sessions":
             if (nouveau?.status === "ended") return surFinDeSession();
             if (nouveau?.focus) await appliquerFocus(nouveau.focus);
+            break;
+          case "rp_profiles":
+            fichesRP = await personnages.index(classe.id).catch(() => fichesRP);
+            peindrePanneau();
             break;
           case "hands": await rafraichirMains(); break;
           case "session_questions": await rafraichirQuestions(); break;
@@ -1168,7 +1218,8 @@ export default async function vueSalle({ params }) {
       },
       presence: {
         meta: {
-          user_id: etat.utilisateur.id, nom: etat.profil?.display_name,
+          user_id: etat.utilisateur.id, nom: monNom(),
+          grade: maFiche()?.rank || null,
           role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now()
         },
         surMaj: (liste) => {

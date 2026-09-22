@@ -43,7 +43,7 @@ export default async function vueProfil() {
               avatar(profil, { grand: true, prof: ["teacher", "instructor"].includes(profil?.role_key) }),
               el("div",
                 el("h3", profil?.display_name),
-                profil?.roblox_name ? el("span.petit.doux", `Roblox : ${profil.roblox_name}`) : null,
+                profil?.roblox_name ? el("span.petit.doux", `En jeu : ${profil.roblox_name}`) : null,
                 profil?.rp_rank ? el("div", el("span.etiq.etiq--laiton", profil.rp_rank)) : null
               )
             ),
@@ -139,8 +139,9 @@ export default async function vueProfil() {
       titre: "Modifier mon profil",
       champs: [
         { cle: "display_name", label: "Nom affiché", valeur: profil.display_name, requis: true },
-        { cle: "roblox_name", label: "Pseudo Roblox", valeur: profil.roblox_name || "",
-          aide: "Permet au professeur de faire le lien avec votre personnage en jeu." },
+        { cle: "roblox_name", label: "Identité en jeu", valeur: profil.roblox_name || "",
+          aide: "Votre pseudo sur le serveur. Il sert à l'encadrement pour vous "
+              + "retrouver en jeu, et n'apparaît jamais à la place de votre personnage." },
         { cle: "rp_rank", label: "Grade ou fonction RP", valeur: profil.rp_rank || "" },
         { cle: "bio", label: "Présentation", type: "textarea", valeur: profil.bio || "" }
       ]

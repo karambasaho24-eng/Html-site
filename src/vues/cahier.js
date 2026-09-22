@@ -5,6 +5,7 @@ import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { cahiers } from "../data/index.js";
 import { etat } from "../core/store.js";
+import { reglagesRP } from "../core/rp.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
 import { modePleineVue } from "../ui/chassis.js";
 import { peutEcrireCahier } from "../core/permissions.js";
@@ -37,6 +38,7 @@ export default async function vueCahier({ params }) {
   const editeur = creerEditeurCahier({
     cahier,
     peutEcrire,
+    rp: reglagesRP(etat.classeActive),
     pageInitiale: new URLSearchParams(location.hash.split("?")[1] || "").get("page"),
     tempsReel: partage,
     actionsSupplementaires: () => partage

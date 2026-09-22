@@ -14,6 +14,7 @@ export const etat = {
   classeActive: null,
   sessionActive: null,
   membreActif: null,       // ligne class_members pour la classe active
+  personnageActif: null,   // fiche RP du membre dans la classe active
 
   // Données en cache
   classes: [],

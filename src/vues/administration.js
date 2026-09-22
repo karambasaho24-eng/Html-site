@@ -81,7 +81,7 @@ export default async function vueAdministration() {
               el("div.liste__principal",
                 el("div.liste__nom", p.display_name),
                 el("div.liste__detail",
-                  [p.roblox_name ? `Roblox : ${p.roblox_name}` : null,
+                  [p.roblox_name ? `En jeu : ${p.roblox_name}` : null,
                    `inscrit ${dateCourte(p.created_at)}`].filter(Boolean).join(" · "))
               ),
               el("div.liste__fin",

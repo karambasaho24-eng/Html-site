@@ -88,6 +88,15 @@ Aucune étape de compilation : le site est du HTML, du CSS et des modules ES.
 - annonces, sondages, minuteries, compte à rebours, feuille de présence
 - journal de séance, archives consultables, reprise d'une séance passée
 
+**Pour le roleplay**
+
+- fiche de personnage par espace : c'est le personnage qui signe, pas le compte
+- calendrier de l'univers (« an 850 — 22ᵉ jour du neuvième mois »)
+- marquage hors-roleplay `(( … ))` sur les questions, les annonces et les carnets
+- univers proposés, avec grades, corps et vocabulaire assortis
+
+Voir [`docs/ROLEPLAY.md`](docs/ROLEPLAY.md).
+
 **Pour l'administration**
 
 - rôles et permissions (RBAC) appliqués par la base de données
@@ -133,6 +142,7 @@ docs/                      architecture, déploiement, feuille de route
 ```
 
 Documentation détaillée : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+[`docs/ROLEPLAY.md`](docs/ROLEPLAY.md),
 [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md),
 [`docs/FEUILLE-DE-ROUTE.md`](docs/FEUILLE-DE-ROUTE.md).
 

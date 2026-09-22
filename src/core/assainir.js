@@ -20,8 +20,20 @@ const ATTRIBUTS = {
   A: new Set(["href", "title"]),
   IMG: new Set(["src", "alt", "width", "height"]),
   TD: new Set(["colspan", "rowspan"]),
-  TH: new Set(["colspan", "rowspan"])
+  TH: new Set(["colspan", "rowspan"]),
+  SPAN: new Set(["class"]),
+  P: new Set(["class"]),
+  DIV: new Set(["class"]),
+  BLOCKQUOTE: new Set(["class"])
 };
+
+/**
+ * Seules ces classes survivent à l'assainissement. Elles servent au marquage
+ * roleplay — un passage hors-perso, une action, une pensée. Une liste fermée
+ * plutôt qu'un attribut libre : personne ne peut injecter de classe capable
+ * de déformer l'interface qui l'entoure.
+ */
+const CLASSES_AUTORISEES = new Set(["hrp", "rp-action", "rp-pensee", "rp-citation"]);
 
 const PROTOCOLES_SURS = new Set(["http:", "https:", "mailto:"]);
 
@@ -84,6 +96,12 @@ function nettoyerNoeud(racine) {
       }
       if (!autorises || !autorises.has(nom)) {
         noeud.removeAttribute(attribut.name);
+        continue;
+      }
+      if (nom === "class") {
+        const gardees = attribut.value.split(/\s+/).filter((c) => CLASSES_AUTORISEES.has(c));
+        if (gardees.length) noeud.setAttribute("class", gardees.join(" "));
+        else noeud.removeAttribute("class");
         continue;
       }
       if (nom === "href") {

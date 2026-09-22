@@ -74,6 +74,22 @@ export const PRESETS = {
       presence: "appel", Presences: "Appels"
     }
   },
+  murs: {
+    libelle: "Corps militaire",
+    aide: "Brigades, cadets et instructeurs. Pour une académie militaire RP.",
+    termes: {
+      classe: "brigade", classes: "brigades", Classe: "Brigade", Classes: "Brigades",
+      eleve: "cadet", eleves: "cadets", Eleve: "Cadet", Eleves: "Cadets",
+      professeur: "instructeur", Professeur: "Instructeur", professeurs: "instructeurs",
+      cours: "instruction", Cours: "Instruction",
+      cahier: "carnet", cahiers: "carnets", Cahier: "Carnet", Cahiers: "Carnets",
+      session: "manœuvre", Session: "Manœuvre", sessions: "manœuvres",
+      presence: "appel", Presences: "Appels",
+      exercice: "épreuve", exercices: "épreuves", Exercice: "Épreuve", Exercices: "Épreuves",
+      tableau: "ardoise", Tableau: "Ardoise",
+      document: "ordre", Documents: "Ordres"
+    }
+  },
   academie: {
     libelle: "Académie",
     aide: "Formation professionnelle ou juridique : promotions et formateurs.",

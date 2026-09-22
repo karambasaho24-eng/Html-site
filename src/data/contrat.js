@@ -32,7 +32,7 @@ export const TABLES = [
   "exercises", "exercise_questions", "exercise_attempts", "exercise_answers",
   "grades", "announcements", "session_questions", "hands", "polls", "poll_votes",
   "timers", "notifications", "favorites", "activity_logs", "roles",
-  "permissions", "role_permissions"
+  "permissions", "role_permissions", "rp_profiles"
 ];
 
 /** Erreur métier normalisée. */

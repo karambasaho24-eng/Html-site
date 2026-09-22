@@ -352,3 +352,76 @@ a.liste__item:hover, .liste__item--cliquable:hover { background: var(--encre-800
 /* --- Bouton-étiquette pour les champs fichier ------------------------------ */
 label.btn { cursor: pointer; }
 label.btn input[type="file"] { display: none; }
+
+/* ===========================================================================
+   Marquage roleplay
+
+   Le hors-RP n'est pas interdit — l'interdire le pousse ailleurs, en vocal ou
+   en privé, où il pollue quand même la scène. On lui donne une forme
+   reconnaissable, en retrait, que l'œil saute naturellement en relisant.
+   ========================================================================= */
+.hrp {
+  color: var(--texte-faible);
+  font-style: italic;
+  font-family: var(--f-ui);
+  font-size: .92em;
+  opacity: .85;
+}
+.hrp::before { content: "(( "; }
+.hrp::after  { content: " ))"; }
+
+.parchemin .hrp { color: #7c7263; }
+
+.rp-action {
+  font-style: italic;
+  color: var(--texte-doux);
+}
+.parchemin .rp-action { color: #5c5344; }
+
+.rp-pensee {
+  font-style: italic;
+  opacity: .9;
+}
+.rp-pensee::before { content: "« "; }
+.rp-pensee::after  { content: " »"; }
+
+/* Étiquette d'un message entièrement hors-RP */
+.etiq--hrp {
+  background: var(--encre-700);
+  color: var(--texte-faible);
+  border-color: var(--ligne-forte);
+  font-style: italic;
+}
+
+/* --- Fiche de personnage --------------------------------------------------- */
+.fiche {
+  background: var(--encre-850);
+  border: 1px solid var(--ligne-laiton);
+  border-radius: var(--r-md);
+  padding: var(--e-4) var(--e-5);
+}
+.fiche__entete {
+  display: flex; align-items: baseline; gap: var(--e-2); flex-wrap: wrap;
+  border-bottom: 1px solid var(--ligne); padding-bottom: var(--e-2); margin-bottom: var(--e-3);
+}
+.fiche__grade {
+  font-size: var(--t-xs); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--laiton); font-weight: 600;
+}
+.fiche__nom { font-family: var(--f-titre); font-size: var(--t-xl); font-weight: 600; }
+.fiche__ligne { display: flex; gap: var(--e-3); font-size: var(--t-sm); padding: 3px 0; }
+.fiche__cle {
+  flex: 0 0 8.5em; color: var(--texte-faible);
+  font-size: var(--t-xs); letter-spacing: .08em; text-transform: uppercase;
+}
+.fiche__valeur { color: var(--texte); min-width: 0; }
+.fiche__bio {
+  margin-top: var(--e-3); padding-top: var(--e-3); border-top: 1px solid var(--ligne);
+  font-family: var(--f-titre); color: var(--texte-doux); font-size: var(--t-md);
+}
+
+/* Date de l'univers : discrète, jamais en concurrence avec le contenu */
+.date-rp {
+  font-family: var(--f-titre); font-style: italic;
+  color: var(--texte-faible); font-size: var(--t-sm);
+}

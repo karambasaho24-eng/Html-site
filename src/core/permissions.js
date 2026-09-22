@@ -7,6 +7,7 @@
  * garantie de sécurité.
  * ------------------------------------------------------------------------- */
 import { etat } from "./store.js";
+import { L } from "./lexique.js";
 
 export const P = {
   CREER_CLASSE:      "CREATE_CLASS",
@@ -135,3 +136,13 @@ export const LIBELLES_ROLES_CLASSE = {
   student: "Élève",
   observer: "Observateur"
 };
+
+/**
+ * Libellé d'un rôle dans la langue de l'établissement : « Professeur » devient
+ * « Instructeur » dans un corps militaire, « Élève » devient « Cadet ».
+ */
+export function libelleRoleClasse(role) {
+  if (role === "teacher") return L("Professeur");
+  if (role === "student") return L("Eleve");
+  return LIBELLES_ROLES_CLASSE[role] || role;
+}

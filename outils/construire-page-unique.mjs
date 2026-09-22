@@ -14,10 +14,12 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [bundlePath, sortiePath = "page-unique.html"] = process.argv.slice(2);
+const [bundlePath, sortiePath = "page-unique.html", configPath] = process.argv.slice(2);
 
 if (!bundlePath) {
-  console.error("Usage : node outils/construire-page-unique.mjs <bundle.js> [sortie.html]");
+  console.error("Usage : node outils/construire-page-unique.mjs <bundle.js> [sortie.html] [config.js]");
+  console.error("  config.js : configuration à embarquer. Par défaut celle du dépôt —");
+  console.error("  passez-en une autre pour publier une démonstration sans serveur.");
   process.exit(1);
 }
 
@@ -32,7 +34,7 @@ const source = readFileSync(resolve(RACINE, "index.html"), "utf8");
 const neutraliser = (js) => js.replace(/<\/script/gi, "<\\/script");
 
 const bundle = neutraliser(readFileSync(resolve(bundlePath), "utf8"));
-const config = neutraliser(readFileSync(resolve(RACINE, "config.js"), "utf8"));
+const config = neutraliser(readFileSync(resolve(configPath || resolve(RACINE, "config.js")), "utf8"));
 
 /** Récupère le garde-fou de démarrage déjà écrit dans index.html. */
 function extraireVeille() {
