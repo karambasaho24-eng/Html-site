@@ -443,6 +443,10 @@ body.est-flottant .chassis {
 /* --- Hors session : le châssis s'efface au profit de l'écran d'accès ------- */
 body.hors-session .chassis {
   grid-template-columns: 1fr;
+  /* Les lignes aussi : sans cette remise à plat, la zone « vue » retombait
+     dans la première piste — celle de la barre, haute de 52 px — et l'écran
+     d'accès s'y retrouvait rogné par son propre overflow. */
+  grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "vue";
 }
 body.hors-session .marque,
