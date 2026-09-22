@@ -131,7 +131,17 @@ export async function creerPiloteSupabase(config) {
           options: { data: { display_name: nom, role_key: role || "student" } }
         });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
-        return data;
+        if (data?.session) return data;
+
+        /* Pas de session : le projet exige encore une confirmation par
+           courriel. On tente quand même l'ouverture directe — si le réglage
+           « Confirm email » a été levé côté Supabase, elle passe et
+           l'inscription devient un geste unique. Sinon on rend la sortie
+           telle quelle et l'écran d'accès expliquera la suite. */
+        const { data: ouverture } = await sb.auth.signInWithPassword({
+          email, password: motDePasse
+        });
+        return ouverture?.session ? ouverture : data;
       },
       async connecter({ email, motDePasse }) {
         const { data, error } = await sb.auth.signInWithPassword({ email, password: motDePasse });

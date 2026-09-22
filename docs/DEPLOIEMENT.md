@@ -23,9 +23,13 @@ Avec la CLI Supabase, `supabase db push` fait la même chose.
 
 Dans *Authentication › Providers › Email* :
 
-- **Confirmation par courriel** : activée par défaut. Laissez-la si votre
-  académie accepte des inscriptions ouvertes ; désactivez-la si les comptes
-  sont créés par l'administration.
+- **Confirm email** : à **désactiver**. L'inscription devient alors un seul
+  geste — nom, adresse, mot de passe, et l'on entre. C'est le comportement
+  attendu ici : le courriel ne sert qu'à identifier un compte, pas à en
+  vérifier le propriétaire, et une académie RP n'a rien à gagner à faire
+  attendre un élève devant sa boîte mail. Laissée active, l'application le
+  détecte : le compte est créé, l'écran d'accès demande la confirmation, et
+  la connexion se fait au second passage.
 - **Leaked password protection** : à activer (*Authentication › Policies*).
   Supabase vérifie alors les mots de passe auprès de HaveIBeenPwned.
 - **URL de redirection** : ajoutez l'adresse publique du site dans

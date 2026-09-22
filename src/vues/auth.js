@@ -120,7 +120,8 @@ export default async function vueAuth() {
             nom: nom.value.trim(), role: "student"
           });
           if (!sortie?.session && pilote.mode === "supabase") {
-            succes("Compte créé", "Confirmez votre adresse via le courriel reçu, puis connectez-vous.");
+            succes("Compte créé",
+              "Ce projet demande encore une confirmation par courriel : ouvrez le message reçu, puis connectez-vous.");
             basculer("connexion");
             return;
           }

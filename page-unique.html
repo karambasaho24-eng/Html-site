@@ -2614,8 +2614,13 @@ window.OJM_CONFIG = {
 <script type="module">
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -3109,7 +3114,12 @@ async function creerPiloteSupabase(config2) {
           options: { data: { display_name: nom, role_key: role || "student" } }
         });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
-        return data;
+        if (data?.session) return data;
+        const { data: ouverture } = await sb.auth.signInWithPassword({
+          email,
+          password: motDePasse
+        });
+        return ouverture?.session ? ouverture : data;
       },
       async connecter({ email, motDePasse }) {
         const { data, error } = await sb.auth.signInWithPassword({ email, password: motDePasse });
@@ -6001,7 +6011,7 @@ function messageErreur(err) {
   const table2 = {
     "Invalid login credentials": "Identifiants incorrects.",
     "User already registered": "Un compte existe d\xE9j\xE0 avec cette adresse.",
-    "Email not confirmed": "Adresse non confirm\xE9e : consultez votre bo\xEEte mail.",
+    "Email not confirmed": "Adresse non confirm\xE9e : ouvrez le courriel re\xE7u \xE0 la cr\xE9ation du compte.",
     "Permission refus\xE9e": "Vous n'avez pas les droits n\xE9cessaires.",
     "Code de classe introuvable": "Ce code ne correspond \xE0 aucune classe.",
     "Les inscriptions sont ferm\xE9es": "Les inscriptions \xE0 cette classe sont ferm\xE9es.",
@@ -6715,7 +6725,10 @@ async function vueAuth() {
               role: "student"
             });
             if (!sortie?.session && pilote.mode === "supabase") {
-              succes("Compte cr\xE9\xE9", "Confirmez votre adresse via le courriel re\xE7u, puis connectez-vous.");
+              succes(
+                "Compte cr\xE9\xE9",
+                "Ce projet demande encore une confirmation par courriel : ouvrez le message re\xE7u, puis connectez-vous."
+              );
               basculer("connexion");
               return;
             }
