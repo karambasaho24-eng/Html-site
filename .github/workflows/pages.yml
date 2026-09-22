@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Publication sur GitHub Pages.
+#
+# Netlify a des minutes de construction comptées ; pour un dépôt public,
+# Pages n'en a pas. Le site étant entièrement statique, les deux hébergent la
+# même chose — autant en avoir un qui ne s'arrête jamais.
+#
+# Les identifiants Supabase peuvent venir des variables du dépôt
+# (Settings › Secrets and variables › Actions › Variables). Sans elles, le
+# config.js versionné est conservé, et le site fonctionne quand même.
+# ---------------------------------------------------------------------------
+name: Publier sur GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une publication à la fois ; la plus récente gagne.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Composer config.js depuis l'environnement
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          ACADEMY_NAME: ${{ vars.ACADEMY_NAME }}
+          ACADEMY_MOTTO: ${{ vars.ACADEMY_MOTTO }}
+        run: node outils/config-depuis-env.mjs
+
+      # Ce qui sert à fabriquer le site n'a pas à être servi avec lui.
+      - name: Écarter l'atelier
+        run: rm -rf supabase docs outils .github page-unique.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploiement
+        uses: actions/deploy-pages@v4

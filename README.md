@@ -55,6 +55,13 @@ qui garde le glisser-déposer et l'ouverture en local fonctionnels.
 
 Tout est détaillé dans [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
 
+**GitHub Pages** — `.github/workflows/pages.yml` publie à chaque poussée sur
+`main`. Gratuit et sans minutes comptées pour un dépôt public, là où un
+hébergeur à quota finit par suspendre les déploiements. À activer une fois
+dans *Settings › Pages › Source : GitHub Actions*. Les identifiants peuvent
+venir de *Settings › Secrets and variables › Actions › Variables* ; sans eux,
+le `config.js` versionné sert.
+
 **Sans rien installer** — `page-unique.html` contient l'application entière en
 un seul fichier. Il s'ouvre depuis le disque, s'envoie par courriel, ou se
 dépose sur [app.netlify.com/drop](https://app.netlify.com/drop).
