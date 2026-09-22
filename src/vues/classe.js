@@ -7,16 +7,13 @@ import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
-import {
-  classes as depotClasses, membres as depotMembres, sessions as depotSessions,
-  cahiers, annonces, documents, exercices, presence, journal, notifications
-} from "../data/index.js";
+import { classes as depotClasses, membres as depotMembres, sessions as depotSessions, cahiers, annonces, documents, exercices, journal, notifications } from "../data/index.js";
 import { activerClasse, rafraichirClasses } from "../core/session.js";
-import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier, pastillePresence } from "../ui/fragments.js";
+import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
 import { encadre, LIBELLES_ROLES_CLASSE } from "../core/permissions.js";
 import { confirmer, formulaire, demander, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { copier, dateCourte, dateHeure, depuis, duree, dureeLongue, heure, pluriel, poids } from "../core/util.js";
+import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
 
 const ONGLETS = [
   { cle: "apercu", libelle: "Aperçu" },

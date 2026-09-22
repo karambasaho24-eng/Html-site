@@ -73,6 +73,8 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- Rejoindre une classe avec un code
+-- NOTE : cette version est corrigée par la migration 0006 (référence ambiguë
+-- entre la colonne class_id et le paramètre de sortie du même nom).
 -- ---------------------------------------------------------------------------
 create or replace function join_class(join_code text)
 returns table (class_id uuid, class_name text, member_status text)

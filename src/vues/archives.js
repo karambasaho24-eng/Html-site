@@ -4,10 +4,9 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { aller } from "../core/router.js";
-import { sessions, presence } from "../data/index.js";
-import { entete, blocVide, statistique } from "../ui/fragments.js";
-import { dateLongue, dateCourte, dureeLongue, heure, pluriel } from "../core/util.js";
+import { sessions } from "../data/index.js";
+import { entete, blocVide } from "../ui/fragments.js";
+import { dateLongue, dureeLongue, pluriel } from "../core/util.js";
 import { messageErreur } from "../ui/toast.js";
 
 export default async function vueArchives({ requete }) {

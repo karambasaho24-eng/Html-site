@@ -5,12 +5,12 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { pilote, profils, rbac, journal, classes as depotClasses } from "../data/index.js";
+import { pilote, profils, rbac, journal } from "../data/index.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
 import { estAdmin, LIBELLES_ROLES } from "../core/permissions.js";
-import { formulaire, confirmer, menu } from "../ui/modal.js";
-import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { dateCourte, depuis, heure, aplatir } from "../core/util.js";
+import { confirmer, menu } from "../ui/modal.js";
+import { erreur, toast, messageErreur } from "../ui/toast.js";
+import { dateCourte, heure, aplatir } from "../core/util.js";
 
 export default async function vueAdministration() {
   if (!estAdmin()) {

@@ -6,13 +6,12 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { L } from "../core/lexique.js";
 import { documents, dossiers, cahiers, journal, notifications } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
-import { formulaire, confirmer, demander, menu, ouvrirModale } from "../ui/modal.js";
+import { confirmer, demander, menu, ouvrirModale } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { estEnseignant } from "../core/permissions.js";
-import { poids, depuis, dateCourte, pluriel } from "../core/util.js";
+import { poids, depuis, pluriel } from "../core/util.js";
 
 const TYPES_ACCEPTES = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv";
 const TAILLE_MAX = 25 * 1024 * 1024;

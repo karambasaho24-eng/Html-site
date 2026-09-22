@@ -11,15 +11,25 @@
 import { pages as depotPages } from "../data/index.js";
 import { etat } from "../core/store.js";
 
-const PDFJS = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.min.mjs";
-const PDFJS_WORKER = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
+// pdf.js est livré avec le site (vendor/). Il n'est chargé qu'au moment d'une
+// conversion, jamais au démarrage : c'est le plus gros fichier du projet.
+const PDFJS_LOCAL   = new URL("../../vendor/pdf.min.mjs", import.meta.url).href;
+const WORKER_LOCAL  = new URL("../../vendor/pdf.worker.min.mjs", import.meta.url).href;
+const PDFJS_CDN     = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.min.mjs";
+const WORKER_CDN    = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
 
 let pdfjs = null;
 
 async function chargerPdfjs() {
   if (pdfjs) return pdfjs;
-  pdfjs = await import(/* @vite-ignore */ PDFJS);
-  pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  try {
+    pdfjs = await import(/* @vite-ignore */ PDFJS_LOCAL);
+    pdfjs.GlobalWorkerOptions.workerSrc = WORKER_LOCAL;
+  } catch (err) {
+    console.warn("[pdf] copie locale indisponible, repli sur le CDN", err);
+    pdfjs = await import(/* @vite-ignore */ PDFJS_CDN);
+    pdfjs.GlobalWorkerOptions.workerSrc = WORKER_CDN;
+  }
   return pdfjs;
 }
 

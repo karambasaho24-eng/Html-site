@@ -64,3 +64,28 @@
   .parchemin { box-shadow: none; border: 0; background: #fff; }
   body { background: #fff; }
 }
+
+/* ---------------------------------------------------------------------------
+   Correctifs d'encombrement : aucune grille ne doit déborder horizontalement.
+   ------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .chassis { grid-template-columns: minmax(0, 1fr); }
+  .barre { padding: 0 var(--e-2); gap: 1px; }
+  .barre__fil { flex: 1 1 0; min-width: 0; font-size: var(--t-xs); }
+  .barre__outils { flex: 0 0 auto; }
+  .reseau .petit { display: none; }
+  .reseau { padding: 2px 4px; }
+  .page__entete, .page__titre, .page__actions { min-width: 0; max-width: 100%; }
+  .page__actions { width: 100%; }
+  .page__actions .btn { flex: 1 1 140px; }
+  .colonnes, .grille--2, .grille--3 { grid-template-columns: minmax(0, 1fr); }
+  .salle__corps { grid-template-columns: minmax(0, 1fr); }
+  .bandeau { gap: var(--e-2); }
+  .bandeau__outils { width: 100%; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .code-classe { letter-spacing: .12em; font-size: var(--t-lg); }
+}
+
+@media (max-width: 460px) {
+  .barre__fil { display: none; }
+}

@@ -10,8 +10,8 @@ import { exercices } from "../data/index.js";
 import { entete, blocVide, onglets } from "../ui/fragments.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
-import { encadre, estEnseignant } from "../core/permissions.js";
-import { dateCourte, depuis, pluriel } from "../core/util.js";
+import { estEnseignant } from "../core/permissions.js";
+import { depuis } from "../core/util.js";
 
 export default async function vueExercices({ requete }) {
   const classesEncadrees = etat.classes.filter((c) =>

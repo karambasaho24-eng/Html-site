@@ -4,8 +4,8 @@
 
 .chassis {
   display: grid;
-  grid-template-columns: var(--l-rail) 1fr;
-  grid-template-rows: var(--h-barre) 1fr;
+  grid-template-columns: var(--l-rail) minmax(0, 1fr);
+  grid-template-rows: var(--h-barre) minmax(0, 1fr);
   grid-template-areas: "marque barre" "rail vue";
   height: 100dvh;
   background: var(--encre-900);
@@ -98,6 +98,7 @@
   overflow: auto;
   position: relative;
   display: flex; flex-direction: column;
+  min-width: 0;
 }
 .vue--pleine { overflow: hidden; }
 
@@ -116,6 +117,7 @@
   margin-bottom: var(--e-5);
 }
 .page__titre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.page__titre h1 { overflow-wrap: anywhere; }
 .page__surtitre {
   font-size: var(--t-xs); letter-spacing: .18em; text-transform: uppercase;
   color: var(--laiton); font-weight: 600;
@@ -132,7 +134,7 @@
 
 .colonnes {
   display: grid;
-  grid-template-columns: 1fr var(--l-panneau);
+  grid-template-columns: minmax(0, 1fr) var(--l-panneau);
   gap: var(--e-5);
   align-items: start;
 }

@@ -2,7 +2,7 @@
  * Modales, confirmations, invites et menus contextuels.
  * Chaque modale renvoie une promesse résolue avec le résultat, ou null.
  * ------------------------------------------------------------------------- */
-import { el, $ } from "./dom.js";
+import { el } from "./dom.js";
 import { icone } from "./icons.js";
 
 const pile = [];
@@ -40,7 +40,11 @@ export function ouvrirModale({ titre, corps, actions, large = false, surFermetur
           ev.currentTarget.disabled = true;
           try {
             const r = await a.action(api);
-            if (r !== false) api.fermer(r ?? a.valeur ?? true);
+            // `false` maintient la modale ouverte (validation en échec).
+            // `undefined` signifie « pas de valeur produite » ; `null` est une
+            // valeur à part entière et ne doit jamais devenir `true`.
+            if (r === false) return;
+            api.fermer(r === undefined ? (a.valeur ?? true) : r);
           } finally {
             if (ev.currentTarget.isConnected) ev.currentTarget.disabled = false;
           }

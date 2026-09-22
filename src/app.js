@@ -8,7 +8,7 @@
 import { initialiserDonnees, auth, pilote } from "./data/index.js";
 import { definirRoute, demarrerRouteur, aller, resoudre } from "./core/router.js";
 import { chargerSession, rafraichirNotifications } from "./core/session.js";
-import { etat, definir, observer } from "./core/store.js";
+import { etat, definir } from "./core/store.js";
 import { construireChassis, zoneVue } from "./ui/chassis.js";
 import { surveillerReseau } from "./core/reseau.js";
 import { restaurerInterface, activerRaccourcis, enregistrerAction, cyclerDensite, appliquerDensite } from "./core/interface.js";

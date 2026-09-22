@@ -2,17 +2,17 @@
  * Châssis : marque, barre supérieure, rail de navigation, zone de vue.
  * Rendu une seule fois ; seuls les fragments concernés sont recalculés.
  * ------------------------------------------------------------------------- */
-import { el, render, $ } from "./dom.js";
+import { el, render } from "./dom.js";
 import { icone } from "./icons.js";
-import { etat, observer, definir } from "../core/store.js";
+import { etat, observer } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
 import { estEnseignant, estAdmin } from "../core/permissions.js";
-import { initiales, depuis } from "../core/util.js";
+import { initiales } from "../core/util.js";
 import { menu } from "./modal.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
-import { basculerTheme, cyclerDensite, appliquerDensite, DENSITES } from "../core/interface.js";
+import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
 import { notifications as depotNotifications } from "../data/index.js";
 import { pilote } from "../data/index.js";
 

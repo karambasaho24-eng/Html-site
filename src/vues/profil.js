@@ -1,13 +1,13 @@
 /* ---------------------------------------------------------------------------
  * Profil : identité, progression, présences, favoris.
  * ------------------------------------------------------------------------- */
-import { el, render } from "../ui/dom.js";
+import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat, definir } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
-import { profils, notes as depotNotes, presence, favoris, fichiers, journal } from "../data/index.js";
-import { entete, blocVide, avatar, statistique, jauge } from "../ui/fragments.js";
+import { profils, notes as depotNotes, presence, favoris, fichiers } from "../data/index.js";
+import { entete, avatar, statistique, jauge } from "../ui/fragments.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { LIBELLES_ROLES } from "../core/permissions.js";

@@ -7,7 +7,7 @@ import { auth, pilote } from "../data/index.js";
 import { chargerSession } from "../core/session.js";
 import { aller } from "../core/router.js";
 import { config } from "../core/config.js";
-import { erreur, succes, messageErreur, toast } from "../ui/toast.js";
+import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { L } from "../core/lexique.js";
 
 const ARGUMENTS = [

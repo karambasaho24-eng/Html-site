@@ -3,7 +3,20 @@
  * ------------------------------------------------------------------------- */
 import { ErreurDonnees } from "./contrat.js";
 
+// La bibliothèque est livrée avec le site (vendor/) : pas de dépendance à un
+// CDN tiers au moment de l'exécution. Le CDN ne sert que de filet si le fichier
+// local venait à manquer d'un déploiement.
+const LOCALE = new URL("../../vendor/supabase-js.min.js", import.meta.url).href;
 const CDN = "https://esm.sh/@supabase/supabase-js@2.45.4";
+
+async function chargerBibliotheque() {
+  try {
+    return await import(/* @vite-ignore */ LOCALE);
+  } catch (err) {
+    console.warn("[supabase] copie locale indisponible, repli sur le CDN", err);
+    return import(/* @vite-ignore */ CDN);
+  }
+}
 
 function verifier({ data, error }) {
   if (error) throw new ErreurDonnees(error.message, error.code, error);
@@ -79,7 +92,7 @@ function depot(sb, nom) {
 }
 
 export async function creerPiloteSupabase(config) {
-  const { createClient } = await import(/* @vite-ignore */ CDN);
+  const { createClient } = await chargerBibliotheque();
 
   const sb = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },

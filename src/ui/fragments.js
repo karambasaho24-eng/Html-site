@@ -4,7 +4,7 @@
 import { el } from "./dom.js";
 import { icone } from "./icons.js";
 import { L } from "../core/lexique.js";
-import { depuis, dateCourte, initiales, tronquer, duree, pluriel } from "../core/util.js";
+import { depuis, initiales, tronquer, duree, pluriel } from "../core/util.js";
 import { LIBELLES_ROLES_CLASSE } from "../core/permissions.js";
 
 const COUVERTURES = {

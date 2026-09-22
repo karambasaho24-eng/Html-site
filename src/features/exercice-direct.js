@@ -8,9 +8,9 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { exercices, temps, journal, notes as depotNotes } from "../data/index.js";
-import { debounce, duree, initiales, pluriel, heure } from "../core/util.js";
-import { toast, succes, erreur, messageErreur } from "../ui/toast.js";
+import { exercices, temps, journal } from "../data/index.js";
+import { debounce, initiales, pluriel, heure } from "../core/util.js";
+import { succes, erreur, messageErreur } from "../ui/toast.js";
 import { confirmer } from "../ui/modal.js";
 import { blocVide, jauge } from "../ui/fragments.js";
 

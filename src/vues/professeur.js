@@ -1,20 +1,17 @@
 /* ---------------------------------------------------------------------------
  * Espace professeur : vue d'ensemble et commandes rapides.
  * ------------------------------------------------------------------------- */
-import { el, render } from "../ui/dom.js";
+import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
-import {
-  sessions, membres, exercices, documents, annonces,
-  notes as depotNotes, classes as depotClasses
-} from "../data/index.js";
-import { entete, blocVide, statistique, carteClasse, jauge, avatar } from "../ui/fragments.js";
+import { sessions, membres, exercices } from "../data/index.js";
+import { entete, blocVide, statistique } from "../ui/fragments.js";
 import { estEnseignant, peut, P } from "../core/permissions.js";
-import { demander, formulaire } from "../ui/modal.js";
-import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { copier, depuis, pluriel, dateCourte } from "../core/util.js";
+import { demander } from "../ui/modal.js";
+import { erreur, toast, messageErreur } from "../ui/toast.js";
+import { copier, depuis, pluriel } from "../core/util.js";
 
 export default async function vueProfesseur() {
   if (!estEnseignant()) {

@@ -10,10 +10,10 @@ import { exercices, notes as depotNotes, notifications } from "../data/index.js"
 import { activerClasse } from "../core/session.js";
 import { encadre } from "../core/permissions.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
-import { formulaire, confirmer, demander, menu } from "../ui/modal.js";
+import { formulaire, confirmer, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { TYPES_QUESTION, libelleType, vueReponseEleve, vueSuiviProfesseur } from "../features/exercice-direct.js";
-import { dateHeure, heure, pluriel, initiales } from "../core/util.js";
+import { heure, pluriel } from "../core/util.js";
 
 export default async function vueExercice({ params }) {
   const exercice = await exercices.lire(params.id);

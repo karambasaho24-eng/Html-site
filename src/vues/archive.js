@@ -1,18 +1,14 @@
 /* ---------------------------------------------------------------------------
  * Consultation d'une séance archivée.
  * ------------------------------------------------------------------------- */
-import { el, render } from "../ui/dom.js";
+import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import {
-  sessions, presence, tableaux, exercices, annonces,
-  questions as depotQuestions, journal, cahiers, documents
-} from "../data/index.js";
+import { sessions, presence, tableaux, exercices, questions as depotQuestions, journal, cahiers } from "../data/index.js";
 import { activerClasse } from "../core/session.js";
 import { encadre } from "../core/permissions.js";
 import { entete, blocVide, statistique, avatar, pastillePresence } from "../ui/fragments.js";
-import { dateLongue, dureeLongue, heure, duree, pluriel, depuis } from "../core/util.js";
+import { dateLongue, dureeLongue, heure, duree } from "../core/util.js";
 
 export default async function vueArchive({ params }) {
   const session = await sessions.lire(params.id);

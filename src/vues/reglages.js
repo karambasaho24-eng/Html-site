@@ -5,15 +5,11 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { aller } from "../core/router.js";
-import { entete, blocVide } from "../ui/fragments.js";
-import { config, definirConfig, reinitialiserConfig, estRelie } from "../core/config.js";
+import { entete } from "../ui/fragments.js";
+import { config, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
-import {
-  DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci,
-  reinitialiserRaccourcis, libelleCombinaison, RACCOURCIS_DEFAUT
-} from "../core/interface.js";
-import { L, lexiqueActuel, definirLexique, termesDisponibles } from "../core/lexique.js";
+import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
+import { L, lexiqueActuel, definirLexique } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
 import { succes, erreur, toast } from "../ui/toast.js";
 import { local, poids } from "../core/util.js";

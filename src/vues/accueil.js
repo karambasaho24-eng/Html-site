@@ -2,14 +2,14 @@
  * Accueil — « Mon espace ». Point d'entrée quotidien : rejoindre un cours,
  * reprendre un cahier, voir ce qui se passe dans ses classes.
  * ------------------------------------------------------------------------- */
-import { el, render } from "../ui/dom.js";
+import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat, definir } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
 import { cahiers, sessions, annonces, journal, classes as depotClasses } from "../data/index.js";
 import { estEnseignant, peut, P } from "../core/permissions.js";
-import { normaliserCode, depuis, heure, dateLongue, initiales } from "../core/util.js";
+import { normaliserCode, depuis, heure, dateLongue } from "../core/util.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses } from "../core/session.js";
 import { carteClasse, vignetteCahier, blocVide } from "../ui/fragments.js";

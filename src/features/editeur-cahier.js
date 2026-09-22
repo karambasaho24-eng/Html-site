@@ -9,7 +9,7 @@
  * Sauvegarde différée, réordonnancement par glisser-déposer, synchronisation
  * temps réel optionnelle.
  * ------------------------------------------------------------------------- */
-import { el, render, $ } from "../ui/dom.js";
+import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { pages as depotPages, temps } from "../data/index.js";
 import { assainirHTML, injecterHTML, texteBrut } from "../core/assainir.js";

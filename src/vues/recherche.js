@@ -4,8 +4,7 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { aller } from "../core/router.js";
-import { cahiers, pages, documents, exercices, annonces, sessions } from "../data/index.js";
+import { cahiers, pages, documents, exercices, annonces } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { texteBrut } from "../core/assainir.js";
 import { aplatir, debounce, tronquer, depuis } from "../core/util.js";
