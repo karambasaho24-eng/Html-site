@@ -8,6 +8,30 @@
   publish = "."
   command = ""
 
+# --- Ce qui n'a rien à faire en ligne ---------------------------------------
+# On publie le dossier tel quel, donc tout ce qui traîne à côté du site serait
+# servi aussi : migrations SQL, documentation, outils de construction. Rien de
+# secret — le dépôt est public — mais un site n'a pas à exposer son atelier.
+[[redirects]]
+  from = "/supabase/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/docs/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/outils/*"
+  to = "/index.html"
+  status = 404
+
+[[redirects]]
+  from = "/.github/*"
+  to = "/index.html"
+  status = 404
+
 # --- En-têtes de sécurité ---------------------------------------------------
 [[headers]]
   for = "/*"
