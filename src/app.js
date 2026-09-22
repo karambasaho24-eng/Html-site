@@ -15,31 +15,34 @@ import { restaurerInterface, activerRaccourcis, enregistrerAction, cyclerDensite
 import { erreur, toast } from "./ui/toast.js";
 import { el, render } from "./ui/dom.js";
 import { ecouter } from "./core/bus.js";
+import { stockageLocal, stockageSession } from "./core/stockage.js";
 
 /* --- Table de routage ------------------------------------------------------ */
 function declarerRoutes() {
-  const V = (fichier) => () => import(`./vues/${fichier}.js`);
-
-  definirRoute("/connexion",             { nom: "connexion", vue: V("auth"), publique: true });
-  definirRoute("/",                      { nom: "accueil", vue: V("accueil"), prive: true });
-  definirRoute("/cahiers",               { nom: "cahiers", vue: V("cahiers"), prive: true });
-  definirRoute("/cahier/:id",            { nom: "cahier", vue: V("cahier"), prive: true });
-  definirRoute("/classes",               { nom: "classes", vue: V("classes"), prive: true });
-  definirRoute("/classe/:id",            { nom: "classe", vue: V("classe"), prive: true });
-  definirRoute("/classe/:id/salle",      { nom: "salle", vue: V("salle"), prive: true });
-  definirRoute("/documents",             { nom: "documents", vue: V("documents"), prive: true });
-  definirRoute("/bibliotheque",          { nom: "bibliotheque", vue: V("documents"), prive: true });
-  definirRoute("/exercices",             { nom: "exercices", vue: V("exercices"), prive: true });
-  definirRoute("/exercice/:id",          { nom: "exercice", vue: V("exercice"), prive: true });
-  definirRoute("/archives",              { nom: "archives", vue: V("archives"), prive: true });
-  definirRoute("/archive/:id",           { nom: "archive", vue: V("archive"), prive: true });
-  definirRoute("/professeur",            { nom: "professeur", vue: V("professeur"), prive: true });
-  definirRoute("/modeles",               { nom: "modeles", vue: V("modeles"), prive: true });
-  definirRoute("/administration",        { nom: "administration", vue: V("administration"), prive: true });
-  definirRoute("/recherche",             { nom: "recherche", vue: V("recherche"), prive: true });
-  definirRoute("/profil",                { nom: "profil", vue: V("profil"), prive: true });
-  definirRoute("/reglages",              { nom: "reglages", vue: V("reglages"), prive: true });
-  definirRoute("*",                      { nom: "introuvable", vue: V("introuvable") });
+  // Les imports sont écrits en toutes lettres plutôt que construits à la
+  // volée : chaque vue reste chargée à la demande, mais le chemin est
+  // analysable statiquement — ce qui permet aussi d'empaqueter l'application
+  // en un fichier unique pour les contextes qui ne servent pas de modules.
+  definirRoute("/connexion",        { nom: "connexion", vue: () => import("./vues/auth.js"), publique: true });
+  definirRoute("/",                 { nom: "accueil", vue: () => import("./vues/accueil.js"), prive: true });
+  definirRoute("/cahiers",          { nom: "cahiers", vue: () => import("./vues/cahiers.js"), prive: true });
+  definirRoute("/cahier/:id",       { nom: "cahier", vue: () => import("./vues/cahier.js"), prive: true });
+  definirRoute("/classes",          { nom: "classes", vue: () => import("./vues/classes.js"), prive: true });
+  definirRoute("/classe/:id",       { nom: "classe", vue: () => import("./vues/classe.js"), prive: true });
+  definirRoute("/classe/:id/salle", { nom: "salle", vue: () => import("./vues/salle.js"), prive: true });
+  definirRoute("/documents",        { nom: "documents", vue: () => import("./vues/documents.js"), prive: true });
+  definirRoute("/bibliotheque",     { nom: "bibliotheque", vue: () => import("./vues/documents.js"), prive: true });
+  definirRoute("/exercices",        { nom: "exercices", vue: () => import("./vues/exercices.js"), prive: true });
+  definirRoute("/exercice/:id",     { nom: "exercice", vue: () => import("./vues/exercice.js"), prive: true });
+  definirRoute("/archives",         { nom: "archives", vue: () => import("./vues/archives.js"), prive: true });
+  definirRoute("/archive/:id",      { nom: "archive", vue: () => import("./vues/archive.js"), prive: true });
+  definirRoute("/professeur",       { nom: "professeur", vue: () => import("./vues/professeur.js"), prive: true });
+  definirRoute("/modeles",          { nom: "modeles", vue: () => import("./vues/modeles.js"), prive: true });
+  definirRoute("/administration",   { nom: "administration", vue: () => import("./vues/administration.js"), prive: true });
+  definirRoute("/recherche",        { nom: "recherche", vue: () => import("./vues/recherche.js"), prive: true });
+  definirRoute("/profil",           { nom: "profil", vue: () => import("./vues/profil.js"), prive: true });
+  definirRoute("/reglages",         { nom: "reglages", vue: () => import("./vues/reglages.js"), prive: true });
+  definirRoute("*",                 { nom: "introuvable", vue: () => import("./vues/introuvable.js") });
 }
 
 /* --- Raccourcis globaux ---------------------------------------------------- */
@@ -98,8 +101,8 @@ async function demarrer() {
       } else if (evenement === "SIGNED_IN" || evenement === "TOKEN_REFRESHED") {
         if (!etat.utilisateur) {
           await chargerSession();
-          const retour = sessionStorage.getItem("ojm.retour");
-          sessionStorage.removeItem("ojm.retour");
+          const retour = stockageSession.getItem("ojm.retour");
+          stockageSession.removeItem("ojm.retour");
           aller(retour ? retour.replace(/^#/, "") : "/");
         }
       }
@@ -140,7 +143,7 @@ function ecranPanne(err) {
         el("button.btn.btn--primaire", { onclick: () => location.reload() }, "Recharger"),
         el("button.btn", {
           onclick: () => {
-            localStorage.removeItem("ojm.config");
+            try { stockageLocal.removeItem("ojm.config"); } catch { /* ignoré */ }
             location.reload();
           }
         }, "Réinitialiser la configuration locale")

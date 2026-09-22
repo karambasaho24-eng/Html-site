@@ -4,6 +4,7 @@
  * ------------------------------------------------------------------------- */
 import { definir, etat } from "./store.js";
 import { config } from "./config.js";
+import { stockageSession } from "./stockage.js";
 import { emettre } from "./bus.js";
 
 const routes = [];
@@ -47,11 +48,15 @@ export function aller(destination, remplacer = false) {
   if (location.hash === cible) { resoudre(); return; }
   if (remplacer) {
     // replaceState ne déclenche pas hashchange : il faut résoudre soi-même.
-    history.replaceState(null, "", cible);
-    resoudre();
-  } else {
-    location.hash = cible;
+    // Certains bacs à sable interdisent d'écrire dans l'historique ; on se
+    // rabat alors sur une navigation ordinaire.
+    try {
+      history.replaceState(null, "", cible);
+      resoudre();
+      return;
+    } catch { /* historique verrouillé */ }
   }
+  location.hash = cible;
 }
 
 export function retour() {
@@ -65,7 +70,8 @@ export async function resoudre() {
   if (!route) return;
 
   if (route.prive && !etat.utilisateur) {
-    sessionStorage.setItem("ojm.retour", location.hash);
+    try { stockageSession.setItem("ojm.retour", location.hash); }
+    catch { /* le retour après connexion est un confort, pas une nécessité */ }
     aller("/connexion", true);
     return;
   }

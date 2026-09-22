@@ -9,6 +9,7 @@ import { aller } from "../core/router.js";
 import { config } from "../core/config.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { L } from "../core/lexique.js";
+import { stockageSession } from "../core/stockage.js";
 
 /** Monogramme dérivé du nom affiché. */
 function sceau() {
@@ -66,8 +67,8 @@ export default async function vueAuth() {
         try {
           await auth.connecter({ email: email.value.trim(), motDePasse: motDePasse.value });
           await chargerSession();
-          const retour = sessionStorage.getItem("ojm.retour");
-          sessionStorage.removeItem("ojm.retour");
+          const retour = stockageSession.getItem("ojm.retour");
+          stockageSession.removeItem("ojm.retour");
           aller(retour ? retour.replace(/^#/, "") : "/");
         } catch (err) {
           erreur("Connexion refusée", messageErreur(err));

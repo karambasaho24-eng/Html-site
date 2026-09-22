@@ -1,6 +1,7 @@
 /* ---------------------------------------------------------------------------
  * Utilitaires transverses : identifiants, dates, texte, temporisation.
  * ------------------------------------------------------------------------- */
+import { stockageLocal } from "./stockage.js";
 
 export function uid() {
   if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
@@ -194,19 +195,23 @@ export async function copier(texte) {
   }
 }
 
-/** Stockage local tolérant (mode privé, quota plein). */
+/**
+ * Stockage local tolérant. S'appuie sur src/core/stockage.js, qui retombe sur
+ * une mémoire volatile quand le navigateur refuse l'accès (navigation privée,
+ * cookies bloqués, page en bac à sable).
+ */
 export const local = {
   lire(cle, defaut = null) {
     try {
-      const brut = localStorage.getItem(cle);
+      const brut = stockageLocal.getItem(cle);
       return brut == null ? defaut : JSON.parse(brut);
     } catch { return defaut; }
   },
   ecrire(cle, valeur) {
-    try { localStorage.setItem(cle, JSON.stringify(valeur)); return true; }
+    try { stockageLocal.setItem(cle, JSON.stringify(valeur)); return true; }
     catch { return false; }
   },
   retirer(cle) {
-    try { localStorage.removeItem(cle); } catch { /* ignoré */ }
+    try { stockageLocal.removeItem(cle); } catch { /* ignoré */ }
   }
 };

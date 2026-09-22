@@ -11,6 +11,7 @@
  * ------------------------------------------------------------------------- */
 import { ErreurDonnees, TABLES } from "./contrat.js";
 import { uid, genererCode } from "../core/util.js";
+import { stockageLocal, stockageSession, cles as clesDe } from "../core/stockage.js";
 
 const PREFIXE = "ojm.local.";
 const CANAL = "ojm.local.temps";
@@ -18,14 +19,14 @@ const CANAL = "ojm.local.temps";
 /* --- Accès aux collections ------------------------------------------------ */
 function charger(table) {
   try {
-    const brut = localStorage.getItem(PREFIXE + table);
+    const brut = stockageLocal.getItem(PREFIXE + table);
     return brut ? JSON.parse(brut) : [];
   } catch { return []; }
 }
 
 function sauver(table, lignes) {
   try {
-    localStorage.setItem(PREFIXE + table, JSON.stringify(lignes));
+    stockageLocal.setItem(PREFIXE + table, JSON.stringify(lignes));
   } catch (err) {
     throw new ErreurDonnees("Espace de stockage local saturé. Libérez de la place.", "QUOTA", err);
   }
@@ -232,12 +233,15 @@ async function empreinte(texte) {
 }
 
 function comptes() {
-  try { return JSON.parse(localStorage.getItem(CLE_COMPTES) || "[]"); }
+  try { return JSON.parse(stockageLocal.getItem(CLE_COMPTES) || "[]"); }
   catch { return []; }
 }
 
 function sauverComptes(liste) {
-  localStorage.setItem(CLE_COMPTES, JSON.stringify(liste));
+  try { stockageLocal.setItem(CLE_COMPTES, JSON.stringify(liste)); }
+  catch (err) {
+    throw new ErreurDonnees("Impossible d'enregistrer le compte sur cet appareil.", "QUOTA", err);
+  }
 }
 
 /* --- Pilote ---------------------------------------------------------------- */
@@ -247,7 +251,7 @@ export async function creerPiloteLocal() {
   const ecouteursAuth = new Set();
 
   for (const nom of TABLES) {
-    if (!localStorage.getItem(PREFIXE + nom)) sauver(nom, []);
+    if (!stockageLocal.getItem(PREFIXE + nom)) sauver(nom, []);
   }
   await amorcerRbac(t);
 
@@ -255,15 +259,15 @@ export async function creerPiloteLocal() {
   // compte différent tout en partageant les mêmes données. C'est ce qui permet
   // de tester le duo professeur / élève sur un seul poste.
   function sessionCourante() {
-    try { return JSON.parse(sessionStorage.getItem(CLE_SESSION) || "null"); }
+    try { return JSON.parse(stockageSession.getItem(CLE_SESSION) || "null"); }
     catch { return null; }
   }
 
   function definirSession(session) {
     try {
-      if (session) sessionStorage.setItem(CLE_SESSION, JSON.stringify(session));
-      else sessionStorage.removeItem(CLE_SESSION);
-    } catch { /* navigation privée */ }
+      if (session) stockageSession.setItem(CLE_SESSION, JSON.stringify(session));
+      else stockageSession.removeItem(CLE_SESSION);
+    } catch { /* entrepôt indisponible */ }
     for (const l of ecouteursAuth) l(session ? "SIGNED_IN" : "SIGNED_OUT", session);
   }
 

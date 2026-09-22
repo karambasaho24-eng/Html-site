@@ -5,6 +5,7 @@
 import { definir, etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { toast } from "../ui/toast.js";
+import { stockageLocal } from "./stockage.js";
 
 let fermerToast = null;
 let etaitRompu = false;
@@ -65,19 +66,19 @@ export async function avecReprise(operation, { tentatives = 4, delai = 600 } = {
 const CLE_FILE = "ojm.file";
 
 export function fileEnAttente() {
-  try { return JSON.parse(localStorage.getItem(CLE_FILE) || "[]"); }
+  try { return JSON.parse(stockageLocal.getItem(CLE_FILE) || "[]"); }
   catch { return []; }
 }
 
 export function mettreEnFile(entree) {
   const file = fileEnAttente();
   file.push({ ...entree, horodatage: Date.now() });
-  try { localStorage.setItem(CLE_FILE, JSON.stringify(file.slice(-200))); }
+  try { stockageLocal.setItem(CLE_FILE, JSON.stringify(file.slice(-200))); }
   catch { /* quota */ }
 }
 
 export function viderFile() {
-  localStorage.removeItem(CLE_FILE);
+  try { stockageLocal.removeItem(CLE_FILE); } catch { /* ignoré */ }
 }
 
 /**
@@ -94,7 +95,7 @@ export async function rejouerFile(executeur) {
     try { await executeur(entree); rejouees++; }
     catch { restantes.push(entree); }
   }
-  try { localStorage.setItem(CLE_FILE, JSON.stringify(restantes)); }
+  try { stockageLocal.setItem(CLE_FILE, JSON.stringify(restantes)); }
   catch { /* quota */ }
   return rejouees;
 }

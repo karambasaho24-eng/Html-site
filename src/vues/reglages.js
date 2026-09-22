@@ -13,6 +13,7 @@ import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActue
 import { confirmer, formulaire } from "../ui/modal.js";
 import { succes, erreur, toast } from "../ui/toast.js";
 import { local, poids } from "../core/util.js";
+import { stockageLocal, cles as clesStockees, persistant } from "../core/stockage.js";
 
 const ONGLETS = [
   { cle: "affichage", libelle: "Affichage" },
@@ -303,20 +304,27 @@ export default async function vueReglages({ requete }) {
 
   /* --- Données locales --------------------------------------------------------------- */
   function sectionDonnees() {
-    const cles = Object.keys(localStorage).filter((c) => c.startsWith("ojm."));
-    const taille = cles.reduce((s, c) => s + (localStorage.getItem(c)?.length || 0), 0);
+    const toutes = clesStockees(stockageLocal).filter((c) => c.startsWith("ojm."));
+    const taille = toutes.reduce((s, c) => s + (stockageLocal.getItem(c)?.length || 0), 0);
 
     return el("div.pile",
+      !persistant() ? el("div.carte", { style: { borderColor: "var(--ligne-laiton)" } },
+        el("b.petit", "Stockage indisponible"),
+        el("p.petit.doux", { style: { margin: "var(--e-2) 0 0" } },
+          "Ce navigateur refuse l'enregistrement local — navigation privée, cookies bloqués, "
+          + "ou page ouverte dans un cadre restreint. L'application fonctionne, mais tout sera "
+          + "perdu à la fermeture de l'onglet.")
+      ) : null,
       el("div.panneau",
         el("div.panneau__entete", el("span.panneau__titre", "Stockage de ce navigateur")),
         el("div.panneau__corps",
           el("p.petit.doux",
-            `${cles.length} entrées · environ ${poids(taille)}. `
+            `${toutes.length} entrées · environ ${poids(taille)}. `
             + "Y sont conservés : préférences, notes personnelles de séance et brouillons non encore envoyés."),
           el("div.ligne-flex.enrouler",
             el("button.btn", {
               onclick: () => {
-                const donnees = Object.fromEntries(cles.map((c) => [c, localStorage.getItem(c)]));
+                const donnees = Object.fromEntries(toutes.map((c) => [c, stockageLocal.getItem(c)]));
                 const blob = new Blob([JSON.stringify(donnees, null, 2)], { type: "application/json" });
                 const lien = document.createElement("a");
                 lien.href = URL.createObjectURL(blob);
@@ -336,10 +344,10 @@ export default async function vueReglages({ requete }) {
                   libelle: "Effacer", danger: true
                 });
                 if (!ok) return;
-                for (const cle of cles) localStorage.removeItem(cle);
+                for (const cle of toutes) stockageLocal.removeItem(cle);
                 if (pilote.mode === "local") {
-                  for (const cle of Object.keys(localStorage)) {
-                    if (cle.startsWith("ojm.local.")) localStorage.removeItem(cle);
+                  for (const cle of clesStockees(stockageLocal)) {
+                    if (cle.startsWith("ojm.local.")) stockageLocal.removeItem(cle);
                   }
                 }
                 location.reload();
