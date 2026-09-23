@@ -4,7 +4,9 @@
 
 .salle {
   display: grid;
-  grid-template-rows: auto 1fr;
+  /* Bandeau, puis la bande de privation — vide et haute de zéro la plupart du
+     temps —, puis la salle elle-même. */
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
@@ -227,3 +229,84 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   color: var(--texte-doux);
 }
 .journal__heure { color: var(--laiton); flex: 0 0 auto; }
+
+/* --- Privation de matériel ------------------------------------------------ */
+/* Un bandeau, pas une modale : on reste dans le cours, on n'en est pas sorti.
+   Celui qui a oublié ses affaires assiste — c'est bien la punition. */
+.privation {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-4);
+  background: linear-gradient(180deg, rgba(139,42,42,.24), rgba(139,42,42,.12));
+  border-bottom: 1px solid var(--oxblood);
+  flex-wrap: wrap;
+}
+.privation__sceau { color: var(--alerte); display: grid; place-content: center; flex: 0 0 auto; }
+.privation__dit { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.privation__titre { font-family: var(--f-titre); font-size: var(--t-md); }
+.privation__detail { font-size: var(--t-xs); color: var(--texte-doux); }
+.privation__detail b { color: var(--texte); font-variant-numeric: tabular-nums; }
+.privation__refus { font-size: var(--t-xs); color: var(--alerte); }
+.privation__gestes { display: flex; align-items: center; gap: var(--e-2); flex: 0 0 auto; }
+
+.privation__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  border-bottom: 1px solid var(--ligne);
+}
+.privation__ligne--demande { background: rgba(201,162,39,.10); }
+.privation__choix { display: flex; gap: 2px; flex: 0 0 auto; }
+
+/* --- Annotations du maître ------------------------------------------------ */
+/* L'encre rouge dans la marge. Elle ne remplace jamais le texte du cadet :
+   elle se tient à côté, et on voit d'un coup d'œil quelle main a écrit. */
+.marge { display: flex; flex-direction: column; gap: var(--e-2); min-width: 0; }
+.marge__vide { font-size: var(--t-xs); color: var(--texte-faible); font-style: italic; }
+.annotation {
+  border-left: 2px solid var(--oxblood);
+  padding: 2px var(--e-3);
+  font-family: var(--f-main, var(--f-ui)); font-size: var(--t-sm);
+  color: #e8b4b4;
+}
+.annotation[data-encre="verte"] { border-left-color: #4a7c59; color: #a8d5b5; }
+.annotation[data-encre="bleue"] { border-left-color: #3b5f8a; color: #a8c4e8; }
+.annotation__main { display: block; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--texte-faible); }
+
+/* --- Mon cahier, en séance ------------------------------------------------ */
+/* On écrit dans son propre cahier pendant le cours. La rangée du haut montre
+   les dos de ceux qu'on a dans son sac : on choisit le sien à la couleur,
+   comme on le ferait en fouillant son cartable. */
+.mon-cahier { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.mon-cahier__rangee {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  overflow-x: auto;
+}
+.mon-cahier__dos {
+  flex: 0 0 auto;
+  padding: 3px var(--e-3);
+  font-size: var(--t-xs); font-family: var(--f-titre);
+  color: var(--texte-doux);
+  background: var(--encre-800);
+  border: 1px solid var(--ligne-forte);
+  border-left: 3px solid var(--laiton);
+  border-radius: var(--r-xs);
+  white-space: nowrap;
+}
+.mon-cahier__dos[data-couleur="oxblood"] { border-left-color: var(--oxblood); }
+.mon-cahier__dos[data-couleur="bleu"]    { border-left-color: #3b5f8a; }
+.mon-cahier__dos[data-couleur="vert"]    { border-left-color: #4a7c59; }
+.mon-cahier__dos[data-couleur="olive"]   { border-left-color: #6b7040; }
+.mon-cahier__dos[aria-pressed="true"] {
+  color: var(--texte); background: var(--encre-700); border-color: var(--ligne-laiton);
+}
+.mon-cahier .cahier { flex: 1; min-height: 0; }
+.marge__liste { display: flex; flex-direction: column; gap: var(--e-2); }
+.marge__saisie { display: flex; flex-direction: column; gap: var(--e-2); margin-top: var(--e-2); }
+.marge__pied { display: flex; gap: var(--e-2); align-items: center; }
+.marge__pied .saisie { flex: 1; min-width: 0; }
+/* Le cahier et sa marge côte à côte : la correction se lit en regard du
+   texte, jamais à sa place. */
+.inspection--annotable { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--e-4); }
+@media (max-width: 860px) { .inspection--annotable { grid-template-columns: 1fr; } }

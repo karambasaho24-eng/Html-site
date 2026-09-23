@@ -17,7 +17,8 @@ import {
   sessions as depotSessions, tableaux, cahiers, presence as depotPresence,
   questions as depotQuestions, mains, sondages, minuteries, annonces,
   exercices, documents, temps, journal, notifications, membres as depotMembres, pages as depotPages,
-  cartable as depotCartable, renvois, cahiers as depotCahiers, classes as depotClasses
+  cartable as depotCartable, renvois, cahiers as depotCahiers, classes as depotClasses,
+  privations
 } from "../data/index.js";
 import { activerClasse } from "../core/session.js";
 import { encadre, peutDessiner, peutContribuer, estObservateur } from "../core/permissions.js";
@@ -34,7 +35,12 @@ import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } fr
 import { inscrireAuLivret } from "../features/livret.js";
 import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
 import { preparerAffaires, materielAttendu, ligneMateriel } from "../features/cartable.js";
+import {
+  MINUTES_OFFERTES, reglesMateriel, nePeutPasEcrire, bandeauPrivation, lignePrivation
+} from "../features/privation.js";
 import { exigerProximite } from "../features/proximite.js";
+import { creerMarge } from "../features/annotation.js";
+import { porterUneNote } from "../features/bulletin.js";
 import { composerPapier, tendrePapier } from "../features/papier.js";
 import { creerEditeurCahier as ouvrirCahierInspecte } from "../features/editeur-cahier.js";
 
@@ -86,6 +92,13 @@ export default async function vueSalle({ params }) {
   let listeRenvois = [];
   let modeSeance = modeDe(session);
   const attendu = materielAttendu(classe);
+  const regles = reglesMateriel(classe);
+
+  // La privation : la mienne si je suis cadet, toutes si je tiens l'estrade.
+  let maPrivation = null;
+  let privationsSeance = new Map();
+  let dernierRafraichiPrivations = 0;
+  const zonePrivation = el("div");
 
   // En RP, c'est le personnage qui est présent à l'appel, pas le compte.
   const enRP = universDe(classe) !== "aucun";
@@ -109,6 +122,7 @@ export default async function vueSalle({ params }) {
 
   const noeud = el("div.salle",
     bandeau,
+    zonePrivation,
     el("div.salle__corps", zoneScene,
       el("aside.salle__panneau", ongletsPanneau, zonePanneau))
   );
@@ -149,6 +163,17 @@ export default async function vueSalle({ params }) {
         !staff && contributeur && (session.mode || "cours") === "cours"
           ? el("button.btn", { onclick: poserQuestion },
               icone("interro", 15), "J'ai une question") : null,
+
+        !staff && contributeur ? el("button.btn", {
+          class: scene === "moncahier" ? "btn--primaire" : "",
+          onclick: async () => {
+            scene = scene === "moncahier" ? "tableau" : "moncahier";
+            if (suit && scene === "moncahier") basculerSuivi(false);
+            await peindreScene();
+            peindreBandeau();
+          },
+          title: "Prendre mes notes dans mon propre cahier"
+        }, icone("cahier", 15), "Mon cahier") : null,
 
         !staff && offre(session, "cartable") ? el("button.btn", {
           onclick: () => ouvrirCartable(), title: "Ce que j'ai apporté en séance"
@@ -207,10 +232,98 @@ export default async function vueSalle({ params }) {
     editeurCommun = null;
 
     if (scene === "tableau") return peindreTableau();
+    if (scene === "moncahier") return peindreMonCahier();
     if (scene === "cahier") return peindreCahierCommun();
     if (scene === "document") return peindreDocument();
     if (scene === "exercice") return peindreExercice();
     return peindreTableau();
+  }
+
+  /* --- Scène : mon propre cahier ---------------------------------------------- */
+
+  /**
+   * On écrit dans SON cahier, pas sur une feuille volante.
+   *
+   * C'est la différence entre prendre des notes et remplir un formulaire : le
+   * cadet choisit lequel de ses cahiers il ouvre — celui qu'il a apporté, et
+   * seulement celui-là —, il y écrit de sa main, et il le garde. Le maître,
+   * lui, peut le lui demander en séance : c'est le même objet des deux côtés.
+   */
+  let cahierOuvertId = local.lire(`ojm.moncahier.${classe.id}`, null);
+  let editeurPersonnel = null;
+
+  async function peindreMonCahier() {
+    editeurPersonnel?.detruire();
+    editeurPersonnel = null;
+
+    const sac = sacs.get(etat.utilisateur.id);
+    const apportes = new Set(depotCartable.apportes(sac));
+    let mes = [];
+    try { mes = await depotCahiers.mesCahiers(etat.utilisateur.id); } catch { mes = []; }
+    const disponibles = mes.filter((c) => apportes.has(String(c.id)));
+
+    if (!disponibles.length) {
+      render(zoneScene, blocVide(
+        "Vous n'avez apporté aucun cahier",
+        offre(session, "cartable")
+          ? "On n'écrit que dans ce qu'on a dans son sac. Ouvrez-le pour y mettre un support."
+          : "Créez un cahier depuis « Mes cahiers », puis revenez.",
+        offre(session, "cartable")
+          ? { libelle: "Ouvrir mon sac", action: () => ouvrirCartable() }
+          : null
+      ));
+      return;
+    }
+
+    const choisi = disponibles.find((c) => String(c.id) === String(cahierOuvertId))
+      || disponibles[0];
+    cahierOuvertId = choisi.id;
+    local.ecrire(`ojm.moncahier.${classe.id}`, choisi.id);
+
+    // Ce que le maître a écrit dans la marge doit se lire par celui qu'on
+    // corrige : une correction qu'il ne verrait pas ne corrigerait rien.
+    const margePersonnelle = creerMarge({
+      peutAnnoter: false, auteurId: etat.utilisateur.id, nomAuteur: monNom(),
+      // Savoir QUI a corrigé fait partie de la correction : « l'encadrement »
+      // ne veut rien dire quand trois maîtres se relaient.
+      noms: new Map(equipe.map((m) => [
+        m.user_id,
+        nomAffiche(fichesRP.get(m.user_id), m.profil) || m.profil?.display_name || "L'encadrement"
+      ]))
+    });
+
+    editeurPersonnel = creerEditeurCahier({
+      cahier: choisi,
+      surPage: (page) => margePersonnelle.suivre(page),
+      // Privé de matériel, on ouvre quand même son cahier — on ne peut
+      // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
+      // exactement la punition qu'on joue.
+      peutEcrire: !prive(),
+      compact: true,
+      tempsReel: true,
+      rp: reglagesRP(classe)
+    });
+
+    render(zoneScene,
+      el("div.mon-cahier",
+        disponibles.length > 1
+          ? el("div.mon-cahier__rangee",
+              el("span.petit.faible", "Dans mon sac :"),
+              disponibles.map((c) => el("button.mon-cahier__dos", {
+                type: "button",
+                dataset: { couleur: c.color || "olive", objet: c.support || "cahier" },
+                "aria-pressed": String(String(c.id) === String(choisi.id)),
+                onclick: async () => { cahierOuvertId = c.id; await peindreMonCahier(); }
+              }, c.title)))
+          : null,
+        prive()
+          ? el("p.petit.faible", { style: { padding: "0 var(--e-4)" } },
+              icone("cadenas", 12),
+              " Vous pouvez relire, pas écrire : il vous manque de quoi le faire.")
+          : null,
+        el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
+      )
+    );
   }
 
   /* --- Scène : tableau -------------------------------------------------------- */
@@ -221,7 +334,7 @@ export default async function vueSalle({ params }) {
       return;
     }
 
-    const ecriture = peutDessiner(tableau);
+    const ecriture = peutDessiner(tableau) && !prive();
     moteurTableau = creerTableau({
       lectureSeule: !ecriture,
       fond: pageCourante.background === "slate" ? "ardoise" : pageCourante.background,
@@ -670,7 +783,29 @@ export default async function vueSalle({ params }) {
       controleMateriel ? el("div.controle-materiel",
         el("span.controle-materiel__titre", icone("sac", 12), " Matériel demandé"),
         el("span.petit.faible",
-          [...attendu.supports.map((x) => x.title), ...attendu.fournitures].join(" · "))
+          [...attendu.supports.map((x) => x.title), ...attendu.fournitures].join(" · ")),
+        regles.bloquant
+          ? el("span.petit.faible", `Privation de ${regles.minutes} min en cas d'oubli.`)
+          : null
+      ) : null,
+
+      // Ceux qui n'ont rien pour écrire, et ce qu'ils demandent. On les sort
+      // de la liste ordinaire : une main levée pour aller chercher sa plume
+      // ne se confond pas avec une main levée pour répondre.
+      staff && privationsSeance.size ? el("section.privations",
+        el("span.controle-materiel__titre", icone("alerte", 12), " Privés de matériel"),
+        [...privationsSeance.values()]
+          .filter((v) => privations.prive(v) || v.state === "asked")
+          .map((v) => lignePrivation({
+            privation: v,
+            nom: participants.find((x) => x.user_id === v.user_id)?.nom
+              || equipe.find((x) => x.user_id === v.user_id)?.profil?.display_name
+              || "Un cadet",
+            secondes: privations.secondesRestantes(v),
+            surAccord: () => trancherPrivation(v, true),
+            surRefus: () => trancherPrivation(v, false),
+            surLevee: () => leverPrivation(v)
+          }))
       ) : null,
 
       participants.map((p) => {
@@ -765,6 +900,10 @@ export default async function vueSalle({ params }) {
         ? { libelle: "Lui tendre un papier", icone: "papier",
             action: () => remettreUnPapier(participant) }
         : null,
+      staff
+        ? { libelle: "Porter une note", icone: "balance",
+            action: () => porterUneNote({ classe, session, participant }) }
+        : null,
       enRP
         ? { libelle: "Inscrire au livret", icone: "etoile",
             action: () => inscrire(participant.user_id) }
@@ -836,8 +975,15 @@ export default async function vueSalle({ params }) {
     }
 
     const ligne = Array.isArray(cahier) ? cahier[0] : cahier;
+
+    // La marge suit la page ouverte : on annote ce qu'on est en train de
+    // lire, pas une page choisie dans une liste.
+    const marge = creerMarge({
+      peutAnnoter: true, auteurId: etat.utilisateur.id, nomAuteur: monNom()
+    });
     const editeur = ouvrirCahierInspecte({
-      cahier: ligne, peutEcrire: false, compact: true, rp: reglagesRP(classe)
+      cahier: ligne, peutEcrire: false, compact: true, rp: reglagesRP(classe),
+      surPage: (page) => marge.suivre(page)
     });
 
     await ouvrirModale({
@@ -846,8 +992,9 @@ export default async function vueSalle({ params }) {
       corps: () => el("div.inspection",
         el("p.petit.faible",
           icone("oeil", 12),
-          " Consultation en lecture seule. L'intéressé a été prévenu."),
-        editeur.noeud),
+          " Sa copie reste intacte : vous ne pouvez écrire que dans la marge, "
+          + "et il verra de quelle main. L'intéressé a été prévenu."),
+        el("div.inspection--annotable", editeur.noeud, marge.noeud)),
       actions: [{ libelle: "Rendre le cahier", variante: "primaire", valeur: true }],
       surFermeture: () => editeur.detruire()
     });
@@ -927,12 +1074,134 @@ export default async function vueSalle({ params }) {
     })));
   }
 
+  /* --- La privation de matériel ----------------------------------------------- */
+
+  /**
+   * Suis-je privé d'écrire, à cet instant ? Une seule source de vérité :
+   * tout ce qui peut s'écrire passe par ici, sans quoi on finirait avec un
+   * tableau verrouillé et un cahier qui s'ouvre quand même.
+   */
+  function prive() {
+    return !staff && privations.prive(maPrivation);
+  }
+
+  /** Ce qui manque à quelqu'un pour pouvoir travailler. */
+  function manqueDeQuoiEcrire(utilisateurId) {
+    if (!regles.bloquant || !offre(session, "cartable")) return [];
+    if (!attendu.supports.length && !attendu.fournitures.length) return [];
+    return nePeutPasEcrire(sacs.get(utilisateurId), attendu);
+  }
+
+  /**
+   * À l'entrée : celui qui n'a rien pour écrire l'apprend tout de suite. On
+   * n'ouvre la privation qu'une fois — ressortir et revenir ne remet pas le
+   * compteur à zéro.
+   */
+  async function ouvrirPrivationSiBesoin() {
+    if (staff) return;
+    const manquants = manqueDeQuoiEcrire(etat.utilisateur.id);
+    if (!manquants.length) return;
+    try {
+      maPrivation = await privations.ouvrir({
+        sessionId: session.id, classeId: classe.id, utilisateurId: etat.utilisateur.id,
+        minutes: regles.minutes, manquants
+      });
+    } catch (err) {
+      // Une privation qu'on ne peut pas inscrire ne doit pas fermer la salle.
+      maPrivation = null;
+    }
+  }
+
+  /**
+   * Le bandeau du privé, ou rien du tout. On ne le reconstruit qu'au
+   * changement d'état : le reste du temps, seul le décompte bouge.
+   */
+  let bandeauPrive = null;
+  function peindrePrivation() {
+    if (!prive()) {
+      if (bandeauPrive) { render(zonePrivation); bandeauPrive = null; }
+      return;
+    }
+    const secondes = privations.secondesRestantes(maPrivation);
+    if (bandeauPrive?.dataset.etat === maPrivation.state) {
+      bandeauPrive.majDelai(secondes);
+      return;
+    }
+    bandeauPrive = bandeauPrivation({
+      manquants: (maPrivation.missing || []).length
+        ? maPrivation.missing : manqueDeQuoiEcrire(etat.utilisateur.id),
+      privation: maPrivation, secondes,
+      surDemande: demanderSesAffaires,
+      surAffaires: () => ouvrirCartable()
+    });
+    bandeauPrive.dataset.etat = maPrivation.state;
+    render(zonePrivation, bandeauPrive);
+  }
+
+  /** « Puis-je aller les chercher ? » — la main levée du cadet démuni. */
+  async function demanderSesAffaires() {
+    if (!maPrivation) return;
+    try {
+      maPrivation = await privations.demander(maPrivation.id);
+      canalSession?.envoyer("privation", { user_id: etat.utilisateur.id });
+      toast("Demande transmise", { corps: "Le maître décidera." });
+      peindrePrivation();
+    } catch (err) {
+      erreur("Demande impossible", messageErreur(err));
+    }
+  }
+
+  /** La décision du maître. Accordée, la privation tombe sur-le-champ. */
+  async function trancherPrivation(privation, accorde) {
+    try {
+      await privations.trancher(privation.id, accorde, etat.utilisateur.id);
+      canalSession?.envoyer("privation", { user_id: privation.user_id });
+      await rafraichirPrivations();
+      peindrePanneau();
+      journal.ecrire({
+        class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
+        action: accorde ? "materiel.autorise" : "materiel.refuse",
+        meta: { membre: privation.user_id }
+      });
+    } catch (err) {
+      erreur("Décision non enregistrée", messageErreur(err));
+    }
+  }
+
+  async function leverPrivation(privation) {
+    try {
+      await privations.lever(privation.id, etat.utilisateur.id);
+      canalSession?.envoyer("privation", { user_id: privation.user_id });
+      await rafraichirPrivations();
+      peindrePanneau();
+    } catch (err) {
+      erreur("Levée impossible", messageErreur(err));
+    }
+  }
+
+  async function rafraichirPrivations() {
+    if (!offre(session, "cartable") || !regles.bloquant) return;
+    try {
+      const lignes = await privations.liste(session.id);
+      privationsSeance = new Map(lignes.map((l) => [l.user_id, l]));
+      if (!staff) {
+        maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
+        peindrePrivation();
+      }
+    } catch { /* la salle vit sans */ }
+  }
+
   /* --- Cartable et papiers ---------------------------------------------------- */
   async function ouvrirCartable() {
     await preparerAffaires({
       classe,
       surEnregistrement: async () => {
         sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+        // Le laissez-passer accordé a déjà levé la privation : rouvrir son sac
+        // sert alors à y remettre ce qui manquait, sous l'œil du maître, qui
+        // voit dans la liste des présents si c'est vraiment fait.
+        peindrePrivation();
+        await peindreScene();
         peindrePanneau();
       }
     });
@@ -956,6 +1225,7 @@ export default async function vueSalle({ params }) {
 
   function libelleScene(nom) {
     return { tableau: "Regarde le tableau", cahier: "Cahier commun",
+             moncahier: "Écrit dans son cahier",
              document: "Consulte un document", exercice: "Répond à l'exercice" }[nom] || "En ligne";
   }
 
@@ -1362,8 +1632,8 @@ export default async function vueSalle({ params }) {
     const mesSupports = await depotCahiers.deClasse(classe.id).catch(() => []);
     const sortie = await formulaire({
       titre: "Matériel demandé",
-      note: "Ce qui manquera se verra dans la liste des présents. Rien n'est bloqué : "
-        + "arriver les mains vides est une scène, pas une erreur système.",
+      note: "Ce qui manquera se verra dans la liste des présents. Vous décidez "
+        + "ensuite si l'oubli empêche de travailler, et pour combien de temps.",
       champs: [
         { cle: "supports", label: "Supports attendus", type: "textarea", lignes: 3,
           valeur: attendu.supports.map((x) => x.title).join("\n"),
@@ -1372,7 +1642,15 @@ export default async function vueSalle({ params }) {
         { cle: "fournitures", label: "Trousse", type: "textarea", lignes: 2,
           valeur: attendu.fournitures.join(", "),
           placeholder: "Plume, encre, règle",
-          aide: "Séparés par des virgules." }
+          aide: "Séparés par des virgules." },
+        { cle: "bloquant", label: "Sans de quoi écrire, on ne travaille pas",
+          type: "checkbox", valeur: regles.bloquant,
+          aide: "Le cadet démuni assiste au cours sans pouvoir rien noter. "
+            + "Vous seul pouvez l'autoriser à aller chercher ses affaires." },
+        { cle: "minutes", label: "Durée de la privation", type: "select",
+          valeur: String(regles.minutes),
+          options: MINUTES_OFFERTES.map((m) => ({ valeur: String(m), libelle: `${m} minutes` })),
+          aide: "Passé ce délai, elle tombe d'elle-même." }
       ],
       libelle: "Demander"
     });
@@ -1387,13 +1665,21 @@ export default async function vueSalle({ params }) {
     const fournitures = String(sortie.fournitures || "").split(",")
       .map((l) => l.trim()).filter(Boolean);
 
+    const materiel = {
+      supports, fournitures,
+      bloquant: Boolean(sortie.bloquant),
+      minutes: Number(sortie.minutes) || 15
+    };
+
     try {
       const maj = await depotClasses.majorer(classe.id, {
-        settings: { ...(classe.settings || {}), materiel: { supports, fournitures } }
+        settings: { ...(classe.settings || {}), materiel }
       });
-      classe.settings = maj?.settings || { ...(classe.settings || {}), materiel: { supports, fournitures } };
+      classe.settings = maj?.settings || { ...(classe.settings || {}), materiel };
       attendu.supports = supports;
       attendu.fournitures = fournitures;
+      regles.bloquant = materiel.bloquant;
+      regles.minutes = materiel.minutes;
       succes("Matériel demandé");
       notifications.diffuser(classe.id, {
         kind: "materiel", titre: "Matériel à apporter",
@@ -1620,7 +1906,8 @@ export default async function vueSalle({ params }) {
         { table: "attendance", filtre: `session_id=eq.${session.id}` },
         { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
         { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
-        { table: "session_ejections", filtre: `session_id=eq.${session.id}` }
+        { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
+        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table, type, nouveau }) => {
         switch (table) {
@@ -1637,6 +1924,16 @@ export default async function vueSalle({ params }) {
           case "class_bags":
             sacs = await depotCartable.liste(classe.id).catch(() => sacs);
             if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
+            break;
+          case "supply_blocks":
+            // Le maître a tranché, ou quelqu'un a levé la main : les deux
+            // camps doivent le voir sans recharger la salle.
+            await rafraichirPrivations();
+            if (!staff) {
+              maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
+              peindrePrivation();
+              await peindreScene();
+            } else if (ongletPanneau === "eleves") peindrePanneau();
             break;
           case "session_ejections":
             listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
@@ -1801,14 +2098,37 @@ export default async function vueSalle({ params }) {
     }, 1200);
   }
 
+  await ouvrirPrivationSiBesoin();
+  await rafraichirPrivations();
+
   brancherCanalSession();
   peindreBandeau();
+  peindrePrivation();
   peindrePanneau();
 
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
 
   tictac = setInterval(() => {
+    // La privation tombe d'elle-même : au dernier battement, la salle se
+    // rouvre sans que personne ait rien à faire.
+    if (maPrivation && !staff) {
+      const etaitPrive = Boolean(bandeauPrive);
+      peindrePrivation();
+      if (etaitPrive && !prive()) {
+        peindreScene();
+        toast("Votre privation est levée", { type: "ok" });
+      }
+    }
+    // Côté estrade, le décompte n'a pas besoin de la seconde près, et
+    // repeindre la liste des présents à chaque battement gênerait plus
+    // qu'autre chose.
+    if (staff && privationsSeance.size && ongletPanneau === "eleves"
+        && Date.now() - dernierRafraichiPrivations > 5000) {
+      dernierRafraichiPrivations = Date.now();
+      peindrePanneau();
+    }
+
     if (minuterie?.state === "running") {
       peindreBandeau();
       if (minuterie.kind === "countdown" && calculerMinuterie() <= 0) {

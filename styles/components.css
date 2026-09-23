@@ -425,3 +425,28 @@ label.btn input[type="file"] { display: none; }
   font-family: var(--f-titre); font-style: italic;
   color: var(--texte-faible); font-size: var(--t-sm);
 }
+
+/* --- Relevé de notes ------------------------------------------------------ */
+/* Le chiffre d'abord, l'appréciation à côté : c'est dans cet ordre qu'on lit
+   un bulletin, et c'est l'appréciation qu'on relit. */
+.releve { display: flex; flex-direction: column; }
+.releve__moyenne {
+  display: flex; align-items: baseline; gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--ligne-laiton);
+}
+.releve__chiffre {
+  font-family: var(--f-mono); font-size: var(--t-2xl); font-weight: 600;
+  color: var(--laiton-clair); font-variant-numeric: tabular-nums;
+}
+.releve__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+}
+.releve__note {
+  flex: 0 0 auto; min-width: 52px;
+  font-family: var(--f-mono); font-size: var(--t-lg); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.releve__note small { font-size: var(--t-xs); color: var(--texte-faible); font-weight: 400; }

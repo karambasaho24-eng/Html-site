@@ -377,6 +377,94 @@ export const cartable = {
   }
 };
 
+/* ===========================================================================
+   La privation de matériel
+
+   Le cartable constatait l'oubli ; ceci lui donne un prix. Une privation
+   court pendant un nombre de minutes fixé par la classe, et le maître seul
+   peut l'abréger — c'est lui qui autorise à aller chercher ses affaires.
+   ========================================================================= */
+export const privations = {
+  liste: (sessionId) => T("supply_blocks").liste({ session_id: sessionId },
+    { ordre: "started_at", sens: "desc" }),
+
+  async pour(sessionId, utilisateurId) {
+    const lignes = await T("supply_blocks").liste({ session_id: sessionId, user_id: utilisateurId });
+    return lignes[0] || null;
+  },
+
+  /**
+   * Ouvre la privation à l'entrée en séance, ou rend celle qui court déjà.
+   * On ne la rouvre jamais : revenir dans la salle ne remet pas le compteur
+   * à zéro, sans quoi il suffirait de sortir et de rentrer pour l'effacer.
+   */
+  async ouvrir({ sessionId, classeId, utilisateurId, minutes, manquants }) {
+    const existante = await this.pour(sessionId, utilisateurId);
+    if (existante) return existante;
+    return T("supply_blocks").creer({
+      session_id: sessionId, class_id: classeId, user_id: utilisateurId,
+      state: "blocked", minutes, missing: manquants,
+      // Le pilote local ne connaît pas les valeurs par défaut du schéma :
+      // sans cette date posée ici, le décompte partirait d'un NaN et la
+      // privation ne commencerait jamais.
+      started_at: new Date().toISOString()
+    });
+  },
+
+  /** « Puis-je aller chercher mes affaires ? » */
+  demander: (id) => T("supply_blocks").majorer(id, { state: "asked" }),
+
+  /** La réponse du maître : on y va, ou on reste à sa place. */
+  trancher: (id, accorde, decideur) => T("supply_blocks").majorer(id, {
+    state: accorde ? "granted" : "denied",
+    decided_at: new Date().toISOString(), decided_by: decideur
+  }),
+
+  /** Le maître lève la privation sans qu'on ait rien demandé. */
+  lever: (id, decideur) => T("supply_blocks").majorer(id, {
+    state: "lifted", decided_at: new Date().toISOString(), decided_by: decideur
+  }),
+
+  /**
+   * Reste-t-il du temps à purger ? La privation tombe d'elle-même à
+   * l'échéance : le maître n'a pas à y repenser.
+   */
+  secondesRestantes(privation) {
+    if (!privation) return 0;
+    // Lever la main n'affranchit pas : on reste privé tant qu'on n'a pas
+    // obtenu le laissez-passer. Seuls « granted » et « lifted » rendent la
+    // plume — le refus, lui, laisse le temps courir.
+    if (!["blocked", "asked", "denied"].includes(privation.state)) return 0;
+    const depart = new Date(privation.started_at || privation.created_at || Date.now()).getTime();
+    if (!Number.isFinite(depart)) return 0;
+    const fin = depart + (privation.minutes || 15) * 60000;
+    return Math.max(0, Math.round((fin - Date.now()) / 1000));
+  },
+
+  /** Privé d'écrire, ici et maintenant. */
+  prive(privation) {
+    return this.secondesRestantes(privation) > 0;
+  }
+};
+
+/* ===========================================================================
+   Les annotations du maître
+
+   Il écrit SUR le cahier, jamais dedans : la copie du cadet reste mot pour
+   mot ce qu'il a écrit, et la main qui corrige se distingue toujours.
+   ========================================================================= */
+export const annotations = {
+  dePage: (pageId) => T("page_annotations").liste({ page_id: pageId }, { ordre: "created_at" }),
+  dePages: (pageIds) => pageIds.length
+    ? T("page_annotations").liste({ page_id: pageIds }, { ordre: "created_at" })
+    : Promise.resolve([]),
+  ecrire: (donnees) => T("page_annotations").creer(donnees),
+  majorer: (id, patch) => T("page_annotations").majorer(id, {
+    ...patch, updated_at: new Date().toISOString()
+  }),
+  effacer: (id) => T("page_annotations").supprimer(id)
+};
+
 /** Accepte l'ancienne forme (liste d'identifiants) comme la nouvelle. */
 function normaliserSac(valeur) {
   if (!valeur) return {};

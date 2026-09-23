@@ -19,6 +19,7 @@ import { livret } from "../data/index.js";
 import { listeEntrees, inscrireAuLivret, tableauClassement, noteCoupure } from "../features/livret.js";
 import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
+import { blocNotes, porterUneNote } from "../features/bulletin.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
 
 const ONGLETS = [
@@ -31,6 +32,7 @@ const ONGLETS = [
   { cle: "cahier", libelle: "Cahier commun" },
   { cle: "documents", libelle: "Documents" },
   { cle: "exercices", libelle: "Exercices" },
+  { cle: "notes", libelle: "Notes" },
   { cle: "annonces", libelle: "Annonces" },
   { cle: "reglages", libelle: "Réglages", staff: true }
 ];
@@ -104,13 +106,69 @@ export default async function vueClasse({ params, requete }) {
       apercu: ongletApercu, identite: ongletIdentite,
       livret: ongletLivret, classement: ongletClassement, membres: ongletMembres,
       sessions: ongletSessions, cahier: ongletCahier, documents: ongletDocuments,
-      exercices: ongletExercices, annonces: ongletAnnonces, reglages: ongletReglages
+      exercices: ongletExercices, notes: ongletNotes,
+      annonces: ongletAnnonces, reglages: ongletReglages
     };
     try {
       render(contenu, await (rendus[ongletActif] || ongletApercu)());
     } catch (err) {
       render(contenu, blocVide("Chargement impossible", messageErreur(err)));
     }
+  }
+
+  /* --- Notes ---------------------------------------------------------------- */
+
+  /**
+   * Le relevé. Un cadet ne voit que le sien : comparer les moyennes à voix
+   * haute est une scène de cour de récréation, pas d'académie. L'encadrement,
+   * lui, voit la classe entière et peut noter depuis ici, hors séance —
+   * parce qu'on corrige rarement pendant qu'on fait cours.
+   */
+  async function ongletNotes() {
+    if (!staff) {
+      const bloc = blocNotes({ classeId: classe.id, utilisateurId: etat.utilisateur.id });
+      return el("section",
+        el("h2", "Mes notes"),
+        el("p.doux.petit", { style: { marginBottom: "var(--e-4)" } },
+          "Ce que l'encadrement a porté à votre relevé, séance après séance."),
+        bloc.noeud);
+    }
+
+    const equipe = await depotMembres.liste(classe.id).catch(() => []);
+    const cadets = equipe.filter((m) => m.role !== "teacher" && m.status === "active");
+    if (!cadets.length) return blocVide("Personne à noter", "Aucun élève actif dans cette classe.");
+
+    const zone = el("div");
+    let choisi = cadets[0];
+
+    async function peindre() {
+      const bloc = blocNotes({ classeId: classe.id, utilisateurId: choisi.user_id, peutNoter: true });
+      render(zone,
+        el("div.page__entete", { style: { marginBottom: "var(--e-4)" } },
+          el("div.page__titre",
+            el("h3", choisi.profil?.display_name || "Cadet"),
+            el("span.doux.petit", "Relevé de ses notes dans cette classe")),
+          el("button.btn.btn--primaire", {
+            onclick: async () => {
+              const portee = await porterUneNote({
+                classe,
+                participant: { user_id: choisi.user_id, nom: choisi.profil?.display_name }
+              });
+              if (portee) bloc.recharger();
+            }
+          }, icone("balance", 15), "Porter une note")),
+        bloc.noeud);
+    }
+
+    await peindre();
+    return el("section",
+      el("h2", "Notes de la classe"),
+      el("div.onglets", { role: "tablist", style: { marginBottom: "var(--e-4)" } },
+        cadets.map((m) => el("button.onglet", {
+          role: "tab", "aria-selected": String(m.user_id === choisi.user_id),
+          onclick: async () => { choisi = m; await peindre(); }
+        }, m.profil?.display_name || "Cadet"))),
+      zone);
   }
 
   /* --- Aperçu -------------------------------------------------------------- */

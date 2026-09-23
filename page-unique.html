@@ -970,6 +970,31 @@ label.btn input[type="file"] { display: none; }
   color: var(--texte-faible); font-size: var(--t-sm);
 }
 
+/* --- Relevé de notes ------------------------------------------------------ */
+/* Le chiffre d'abord, l'appréciation à côté : c'est dans cet ordre qu'on lit
+   un bulletin, et c'est l'appréciation qu'on relit. */
+.releve { display: flex; flex-direction: column; }
+.releve__moyenne {
+  display: flex; align-items: baseline; gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 1px solid var(--ligne-laiton);
+}
+.releve__chiffre {
+  font-family: var(--f-mono); font-size: var(--t-2xl); font-weight: 600;
+  color: var(--laiton-clair); font-variant-numeric: tabular-nums;
+}
+.releve__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+}
+.releve__note {
+  flex: 0 0 auto; min-width: 52px;
+  font-family: var(--f-mono); font-size: var(--t-lg); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.releve__note small { font-size: var(--t-xs); color: var(--texte-faible); font-weight: 400; }
+
 /* ---- notebook.css ---- */
 /* ===========================================================================
    Cahier — surface de parchemin, reliure, pages
@@ -2179,7 +2204,9 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 
 .salle {
   display: grid;
-  grid-template-rows: auto 1fr;
+  /* Bandeau, puis la bande de privation — vide et haute de zéro la plupart du
+     temps —, puis la salle elle-même. */
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
 }
@@ -2402,6 +2429,87 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   color: var(--texte-doux);
 }
 .journal__heure { color: var(--laiton); flex: 0 0 auto; }
+
+/* --- Privation de matériel ------------------------------------------------ */
+/* Un bandeau, pas une modale : on reste dans le cours, on n'en est pas sorti.
+   Celui qui a oublié ses affaires assiste — c'est bien la punition. */
+.privation {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-4);
+  background: linear-gradient(180deg, rgba(139,42,42,.24), rgba(139,42,42,.12));
+  border-bottom: 1px solid var(--oxblood);
+  flex-wrap: wrap;
+}
+.privation__sceau { color: var(--alerte); display: grid; place-content: center; flex: 0 0 auto; }
+.privation__dit { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.privation__titre { font-family: var(--f-titre); font-size: var(--t-md); }
+.privation__detail { font-size: var(--t-xs); color: var(--texte-doux); }
+.privation__detail b { color: var(--texte); font-variant-numeric: tabular-nums; }
+.privation__refus { font-size: var(--t-xs); color: var(--alerte); }
+.privation__gestes { display: flex; align-items: center; gap: var(--e-2); flex: 0 0 auto; }
+
+.privation__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  border-bottom: 1px solid var(--ligne);
+}
+.privation__ligne--demande { background: rgba(201,162,39,.10); }
+.privation__choix { display: flex; gap: 2px; flex: 0 0 auto; }
+
+/* --- Annotations du maître ------------------------------------------------ */
+/* L'encre rouge dans la marge. Elle ne remplace jamais le texte du cadet :
+   elle se tient à côté, et on voit d'un coup d'œil quelle main a écrit. */
+.marge { display: flex; flex-direction: column; gap: var(--e-2); min-width: 0; }
+.marge__vide { font-size: var(--t-xs); color: var(--texte-faible); font-style: italic; }
+.annotation {
+  border-left: 2px solid var(--oxblood);
+  padding: 2px var(--e-3);
+  font-family: var(--f-main, var(--f-ui)); font-size: var(--t-sm);
+  color: #e8b4b4;
+}
+.annotation[data-encre="verte"] { border-left-color: #4a7c59; color: #a8d5b5; }
+.annotation[data-encre="bleue"] { border-left-color: #3b5f8a; color: #a8c4e8; }
+.annotation__main { display: block; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--texte-faible); }
+
+/* --- Mon cahier, en séance ------------------------------------------------ */
+/* On écrit dans son propre cahier pendant le cours. La rangée du haut montre
+   les dos de ceux qu'on a dans son sac : on choisit le sien à la couleur,
+   comme on le ferait en fouillant son cartable. */
+.mon-cahier { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.mon-cahier__rangee {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  overflow-x: auto;
+}
+.mon-cahier__dos {
+  flex: 0 0 auto;
+  padding: 3px var(--e-3);
+  font-size: var(--t-xs); font-family: var(--f-titre);
+  color: var(--texte-doux);
+  background: var(--encre-800);
+  border: 1px solid var(--ligne-forte);
+  border-left: 3px solid var(--laiton);
+  border-radius: var(--r-xs);
+  white-space: nowrap;
+}
+.mon-cahier__dos[data-couleur="oxblood"] { border-left-color: var(--oxblood); }
+.mon-cahier__dos[data-couleur="bleu"]    { border-left-color: #3b5f8a; }
+.mon-cahier__dos[data-couleur="vert"]    { border-left-color: #4a7c59; }
+.mon-cahier__dos[data-couleur="olive"]   { border-left-color: #6b7040; }
+.mon-cahier__dos[aria-pressed="true"] {
+  color: var(--texte); background: var(--encre-700); border-color: var(--ligne-laiton);
+}
+.mon-cahier .cahier { flex: 1; min-height: 0; }
+.marge__liste { display: flex; flex-direction: column; gap: var(--e-2); }
+.marge__saisie { display: flex; flex-direction: column; gap: var(--e-2); margin-top: var(--e-2); }
+.marge__pied { display: flex; gap: var(--e-2); align-items: center; }
+.marge__pied .saisie { flex: 1; min-width: 0; }
+/* Le cahier et sa marge côte à côte : la correction se lit en regard du
+   texte, jamais à sa place. */
+.inspection--annotable { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--e-4); }
+@media (max-width: 860px) { .inspection--annotable { grid-template-columns: 1fr; } }
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -2998,7 +3106,9 @@ var init_contrat = __esm({
       "class_bags",
       "papers",
       "paper_handoffs",
-      "session_ejections"
+      "session_ejections",
+      "supply_blocks",
+      "page_annotations"
     ];
     ErreurDonnees = class extends Error {
       constructor(message, code = null, cause = null) {
@@ -4067,6 +4177,7 @@ var data_exports = {};
 __export(data_exports, {
   ErreurDonnees: () => ErreurDonnees,
   annonces: () => annonces,
+  annotations: () => annotations,
   auth: () => auth,
   cahiers: () => cahiers,
   cartable: () => cartable,
@@ -4091,6 +4202,7 @@ __export(data_exports, {
   personnages: () => personnages,
   pilote: () => pilote,
   presence: () => presence,
+  privations: () => privations,
   profils: () => profils,
   questions: () => questions,
   rbac: () => rbac,
@@ -4121,7 +4233,7 @@ function normaliserSac(valeur) {
   if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
   return valeur;
 }
-var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
+var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, privations, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
 var init_data = __esm({
   "src/data/index.js"() {
     init_config();
@@ -4445,6 +4557,77 @@ var init_data = __esm({
           fournitures: (attendu.fournitures || []).filter((f) => !fournitures.has(f.toLowerCase()))
         };
       }
+    };
+    privations = {
+      liste: (sessionId) => T("supply_blocks").liste(
+        { session_id: sessionId },
+        { ordre: "started_at", sens: "desc" }
+      ),
+      async pour(sessionId, utilisateurId) {
+        const lignes = await T("supply_blocks").liste({ session_id: sessionId, user_id: utilisateurId });
+        return lignes[0] || null;
+      },
+      /**
+       * Ouvre la privation à l'entrée en séance, ou rend celle qui court déjà.
+       * On ne la rouvre jamais : revenir dans la salle ne remet pas le compteur
+       * à zéro, sans quoi il suffirait de sortir et de rentrer pour l'effacer.
+       */
+      async ouvrir({ sessionId, classeId, utilisateurId, minutes, manquants }) {
+        const existante = await this.pour(sessionId, utilisateurId);
+        if (existante) return existante;
+        return T("supply_blocks").creer({
+          session_id: sessionId,
+          class_id: classeId,
+          user_id: utilisateurId,
+          state: "blocked",
+          minutes,
+          missing: manquants,
+          // Le pilote local ne connaît pas les valeurs par défaut du schéma :
+          // sans cette date posée ici, le décompte partirait d'un NaN et la
+          // privation ne commencerait jamais.
+          started_at: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      },
+      /** « Puis-je aller chercher mes affaires ? » */
+      demander: (id) => T("supply_blocks").majorer(id, { state: "asked" }),
+      /** La réponse du maître : on y va, ou on reste à sa place. */
+      trancher: (id, accorde, decideur) => T("supply_blocks").majorer(id, {
+        state: accorde ? "granted" : "denied",
+        decided_at: (/* @__PURE__ */ new Date()).toISOString(),
+        decided_by: decideur
+      }),
+      /** Le maître lève la privation sans qu'on ait rien demandé. */
+      lever: (id, decideur) => T("supply_blocks").majorer(id, {
+        state: "lifted",
+        decided_at: (/* @__PURE__ */ new Date()).toISOString(),
+        decided_by: decideur
+      }),
+      /**
+       * Reste-t-il du temps à purger ? La privation tombe d'elle-même à
+       * l'échéance : le maître n'a pas à y repenser.
+       */
+      secondesRestantes(privation) {
+        if (!privation) return 0;
+        if (!["blocked", "asked", "denied"].includes(privation.state)) return 0;
+        const depart = new Date(privation.started_at || privation.created_at || Date.now()).getTime();
+        if (!Number.isFinite(depart)) return 0;
+        const fin = depart + (privation.minutes || 15) * 6e4;
+        return Math.max(0, Math.round((fin - Date.now()) / 1e3));
+      },
+      /** Privé d'écrire, ici et maintenant. */
+      prive(privation) {
+        return this.secondesRestantes(privation) > 0;
+      }
+    };
+    annotations = {
+      dePage: (pageId) => T("page_annotations").liste({ page_id: pageId }, { ordre: "created_at" }),
+      dePages: (pageIds) => pageIds.length ? T("page_annotations").liste({ page_id: pageIds }, { ordre: "created_at" }) : Promise.resolve([]),
+      ecrire: (donnees) => T("page_annotations").creer(donnees),
+      majorer: (id, patch) => T("page_annotations").majorer(id, {
+        ...patch,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }),
+      effacer: (id) => T("page_annotations").supprimer(id)
     };
     papiers = {
       mesPapiers: (auteurId) => T("papers").liste({ author_id: auteurId }, { ordre: "created_at", sens: "desc" }),
@@ -9829,6 +10012,142 @@ var init_livret = __esm({
   }
 });
 
+// src/features/bulletin.js
+async function porterUneNote({ classe, session = null, participant }) {
+  const sortie = await formulaire({
+    titre: `Noter ${participant.nom || "ce cadet"}`,
+    note: "La note et l'appr\xE9ciation lui seront visibles, et resteront \xE0 son relev\xE9.",
+    champs: [
+      {
+        cle: "label",
+        label: "Intitul\xE9",
+        requis: true,
+        placeholder: "R\xE9citation du r\xE8glement",
+        valeur: session?.title || ""
+      },
+      { cle: "score", label: "Note obtenue", type: "number", requis: true, placeholder: "14" },
+      {
+        cle: "max_score",
+        label: "Sur",
+        type: "select",
+        valeur: "20",
+        options: BAREMES.map((b) => ({ valeur: String(b), libelle: String(b) }))
+      },
+      {
+        cle: "comment",
+        label: "Appr\xE9ciation",
+        type: "textarea",
+        lignes: 3,
+        placeholder: "Sait sa le\xE7on, manque d'assurance \xE0 l'oral."
+      }
+    ],
+    libelle: "Porter la note"
+  });
+  if (!sortie) return null;
+  const max = Number(sortie.max_score) || 20;
+  const score = Number(sortie.score);
+  if (!Number.isFinite(score) || score < 0 || score > max) {
+    erreur("Note impossible", `Elle doit tenir entre 0 et ${max}.`);
+    return null;
+  }
+  try {
+    const ligne = await notes.creer({
+      class_id: classe.id,
+      user_id: participant.user_id,
+      session_id: session?.id || null,
+      source_kind: "manual",
+      label: sortie.label.trim(),
+      score,
+      max_score: max,
+      comment: (sortie.comment || "").trim() || null,
+      graded_by: etat.utilisateur.id
+    });
+    succes("Note port\xE9e", `${score}/${max} \u2014 ${sortie.label.trim()}`);
+    return ligne;
+  } catch (err) {
+    erreur("Note non enregistr\xE9e", messageErreur(err));
+    return null;
+  }
+}
+function moyenne(lignes) {
+  const utiles = lignes.filter((n) => Number(n.max_score) > 0);
+  if (!utiles.length) return null;
+  const somme = utiles.reduce((t, n) => t + Number(n.score) / Number(n.max_score) * 20, 0);
+  return Math.round(somme / utiles.length * 10) / 10;
+}
+function releveDeNotes({ lignes, surEffacement = null, vide = "Aucune note pour l'instant." }) {
+  if (!lignes.length) return el("p.petit.faible", vide);
+  const moy = moyenne(lignes);
+  return el(
+    "div.releve",
+    moy != null ? el(
+      "div.releve__moyenne",
+      el("span.releve__chiffre", String(moy).replace(".", ",")),
+      el("span.petit.faible", `moyenne sur 20 \xB7 ${lignes.length} note${lignes.length > 1 ? "s" : ""}`)
+    ) : null,
+    lignes.map((n) => el(
+      "div.releve__ligne",
+      el("span.releve__note", `${n.score}`, el("small", `/${n.max_score}`)),
+      el(
+        "div",
+        { style: { flex: "1", minWidth: "0" } },
+        el("div.tronque", n.label || "\xC9valuation"),
+        n.comment ? el("div.petit.faible", n.comment) : null
+      ),
+      surEffacement ? el("button.btn.btn--fantome.btn--icone", {
+        title: "Retirer cette note",
+        onclick: async () => {
+          if (!await confirmer({
+            titre: "Retirer la note",
+            message: `${n.label} \u2014 ${n.score}/${n.max_score}`,
+            libelle: "Retirer",
+            danger: true
+          })) return;
+          try {
+            await notes.supprimer(n.id);
+            surEffacement(n);
+          } catch (err) {
+            erreur("Retrait impossible", messageErreur(err));
+          }
+        }
+      }, icone("corbeille", 14)) : null
+    ))
+  );
+}
+function blocNotes({ classeId, utilisateurId, peutNoter = false }) {
+  const zone = el("div");
+  const racine = el("div", zone);
+  async function recharger() {
+    let lignes = [];
+    try {
+      lignes = await notes.liste(
+        utilisateurId ? { class_id: classeId, user_id: utilisateurId } : { class_id: classeId }
+      );
+    } catch {
+      lignes = [];
+    }
+    render(zone, releveDeNotes({
+      lignes,
+      surEffacement: peutNoter ? () => recharger() : null,
+      vide: peutNoter ? "Personne n'a encore \xE9t\xE9 not\xE9." : "Vous n'avez pas encore de note."
+    }));
+  }
+  recharger();
+  return { noeud: racine, recharger };
+}
+var BAREMES;
+var init_bulletin = __esm({
+  "src/features/bulletin.js"() {
+    init_dom();
+    init_icons();
+    init_data();
+    init_modal();
+    init_toast();
+    init_store();
+    BAREMES = [20, 10, 100, 5];
+  }
+});
+
 // src/vues/classe.js
 var classe_exports = {};
 __export(classe_exports, {
@@ -9926,6 +10245,7 @@ async function vueClasse({ params, requete: requete2 }) {
       cahier: ongletCahier,
       documents: ongletDocuments,
       exercices: ongletExercices,
+      notes: ongletNotes,
       annonces: ongletAnnonces,
       reglages: ongletReglages
     };
@@ -9934,6 +10254,69 @@ async function vueClasse({ params, requete: requete2 }) {
     } catch (err) {
       render(contenu, blocVide("Chargement impossible", messageErreur(err)));
     }
+  }
+  async function ongletNotes() {
+    if (!staff) {
+      const bloc = blocNotes({ classeId: classe.id, utilisateurId: etat.utilisateur.id });
+      return el(
+        "section",
+        el("h2", "Mes notes"),
+        el(
+          "p.doux.petit",
+          { style: { marginBottom: "var(--e-4)" } },
+          "Ce que l'encadrement a port\xE9 \xE0 votre relev\xE9, s\xE9ance apr\xE8s s\xE9ance."
+        ),
+        bloc.noeud
+      );
+    }
+    const equipe = await membres.liste(classe.id).catch(() => []);
+    const cadets = equipe.filter((m) => m.role !== "teacher" && m.status === "active");
+    if (!cadets.length) return blocVide("Personne \xE0 noter", "Aucun \xE9l\xE8ve actif dans cette classe.");
+    const zone = el("div");
+    let choisi = cadets[0];
+    async function peindre() {
+      const bloc = blocNotes({ classeId: classe.id, utilisateurId: choisi.user_id, peutNoter: true });
+      render(
+        zone,
+        el(
+          "div.page__entete",
+          { style: { marginBottom: "var(--e-4)" } },
+          el(
+            "div.page__titre",
+            el("h3", choisi.profil?.display_name || "Cadet"),
+            el("span.doux.petit", "Relev\xE9 de ses notes dans cette classe")
+          ),
+          el("button.btn.btn--primaire", {
+            onclick: async () => {
+              const portee = await porterUneNote({
+                classe,
+                participant: { user_id: choisi.user_id, nom: choisi.profil?.display_name }
+              });
+              if (portee) bloc.recharger();
+            }
+          }, icone("balance", 15), "Porter une note")
+        ),
+        bloc.noeud
+      );
+    }
+    await peindre();
+    return el(
+      "section",
+      el("h2", "Notes de la classe"),
+      el(
+        "div.onglets",
+        { role: "tablist", style: { marginBottom: "var(--e-4)" } },
+        cadets.map((m) => el("button.onglet", {
+          role: "tab",
+          "aria-selected": String(m.user_id === choisi.user_id),
+          onclick: async () => {
+            choisi = m;
+            await peindre();
+          }
+        }, m.profil?.display_name || "Cadet"))
+      ),
+      zone
+    );
   }
   async function ongletApercu() {
     const [equipe, listeSessions, listeAnnonces] = await Promise.all([
@@ -10750,6 +11133,7 @@ var init_classe = __esm({
     init_livret();
     init_rp();
     init_toast();
+    init_bulletin();
     init_util();
     ONGLETS = [
       { cle: "apercu", libelle: "Aper\xE7u" },
@@ -10761,6 +11145,7 @@ var init_classe = __esm({
       { cle: "cahier", libelle: "Cahier commun" },
       { cle: "documents", libelle: "Documents" },
       { cle: "exercices", libelle: "Exercices" },
+      { cle: "notes", libelle: "Notes" },
       { cle: "annonces", libelle: "Annonces" },
       { cle: "reglages", libelle: "R\xE9glages", staff: true }
     ];
@@ -11608,6 +11993,205 @@ var init_cartable = __esm({
   }
 });
 
+// src/features/privation.js
+function reglesMateriel(classe) {
+  const m = classe?.settings?.materiel || {};
+  return {
+    bloquant: Boolean(m.bloquant),
+    minutes: MINUTES_OFFERTES.includes(Number(m.minutes)) ? Number(m.minutes) : 15
+  };
+}
+function nePeutPasEcrire(sac, attendu) {
+  const supports = Object.keys(normaliser(sac?.notebooks));
+  const fournitures = (sac?.supplies || []).map((f) => String(f).toLowerCase());
+  const manque = [];
+  const supportsDemandes = (attendu?.supports || []).length;
+  if (supportsDemandes && !supports.length) manque.push("de quoi \xE9crire dessus");
+  if (!fournitures.some((f) => ECRIVENT.some((e) => f.includes(e)))) {
+    manque.push("de quoi \xE9crire avec");
+  }
+  return manque;
+}
+function normaliser(valeur) {
+  if (!valeur) return {};
+  if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
+  return valeur;
+}
+function formaterDelai(secondes) {
+  const m = Math.floor(secondes / 60);
+  const s = secondes % 60;
+  return `${m} min ${String(s).padStart(2, "0")}`;
+}
+function bandeauPrivation({ manquants, privation, secondes, surDemande, surAffaires }) {
+  const demande = privation?.state === "asked";
+  const refuse = privation?.state === "denied";
+  const delai = el("b", secondes > 0 ? `Encore ${formaterDelai(secondes)}.` : "Vous pouvez reprendre.");
+  const noeud = el(
+    "div.privation",
+    { role: "status" },
+    el("span.privation__sceau", { "aria-hidden": "true" }, icone("alerte", 16)),
+    el(
+      "div.privation__dit",
+      el("strong.privation__titre", "Vous n'avez pas de quoi travailler"),
+      el("span.privation__detail", `Il vous manque ${manquants.join(" et ")}. `, delai),
+      refuse ? el("span.privation__refus", "Le ma\xEEtre a refus\xE9 : restez \xE0 votre place.") : null
+    ),
+    el(
+      "div.privation__gestes",
+      demande ? el("span.etiq.etiq--attn", icone("main", 12), "Main lev\xE9e") : el(
+        "button.btn.btn--fantome",
+        { onclick: surDemande },
+        icone("main", 14),
+        "Demander \xE0 aller les chercher"
+      ),
+      el("button.btn", { onclick: surAffaires }, icone("sac", 14), "Mes affaires")
+    )
+  );
+  noeud.majDelai = (s) => {
+    delai.textContent = s > 0 ? `Encore ${formaterDelai(s)}.` : "Vous pouvez reprendre.";
+  };
+  return noeud;
+}
+function lignePrivation({ privation, nom, secondes, surAccord, surRefus, surLevee }) {
+  const demande = privation.state === "asked";
+  return el(
+    "div.privation__ligne",
+    { class: demande ? "privation__ligne--demande" : "" },
+    el(
+      "div",
+      { style: { flex: "1", minWidth: "0" } },
+      el("div.tronque", nom, demande ? el(
+        "span.etiq.etiq--attn",
+        { style: { marginLeft: "6px" } },
+        icone("main", 11),
+        "demande"
+      ) : null),
+      el(
+        "div.petit.faible",
+        (privation.missing || []).join(" et ") || "mat\xE9riel incomplet",
+        secondes > 0 ? ` \xB7 encore ${formaterDelai(secondes)}` : " \xB7 temps purg\xE9"
+      )
+    ),
+    demande ? el(
+      "div.privation__choix",
+      el("button.btn.btn--fantome.btn--icone", {
+        title: "L'autoriser \xE0 aller chercher ses affaires",
+        onclick: surAccord
+      }, icone("coche", 14)),
+      el("button.btn.btn--fantome.btn--icone", {
+        title: "Refuser : il reste \xE0 sa place",
+        onclick: surRefus
+      }, icone("croix", 14))
+    ) : el("button.btn.btn--fantome.btn--icone", {
+      title: "Lever la privation",
+      onclick: surLevee
+    }, icone("entree", 14))
+  );
+}
+var MINUTES_OFFERTES, ECRIVENT;
+var init_privation = __esm({
+  "src/features/privation.js"() {
+    init_dom();
+    init_icons();
+    MINUTES_OFFERTES = [5, 10, 15, 20, 30];
+    ECRIVENT = ["plume", "stylo", "crayon", "encre", "bic", "feutre"];
+  }
+});
+
+// src/features/annotation.js
+function creerMarge({ peutAnnoter, auteurId, nomAuteur = "Vous", noms = /* @__PURE__ */ new Map() }) {
+  const liste = el("div.marge__liste");
+  const zoneSaisie = el("div");
+  const racine = el(
+    "aside.marge",
+    el("span.controle-materiel__titre", icone("crayon", 12), " Dans la marge"),
+    liste,
+    zoneSaisie
+  );
+  let pageId = null;
+  async function suivre(page) {
+    pageId = page?.id || null;
+    await recharger();
+    peindreSaisie();
+  }
+  async function recharger() {
+    if (!pageId) {
+      render(liste, el("p.marge__vide", "Aucune page ouverte."));
+      return;
+    }
+    let lignes = [];
+    try {
+      lignes = await annotations.dePage(pageId);
+    } catch {
+      lignes = [];
+    }
+    render(liste, lignes.length ? lignes.map((a) => el(
+      "div.annotation",
+      { dataset: { encre: a.ink || "rouge" } },
+      el(
+        "span.annotation__main",
+        a.author_id === auteurId ? nomAuteur : noms.get(a.author_id) || "L'encadrement"
+      ),
+      a.body
+    )) : el("p.marge__vide", peutAnnoter ? "Rien dans la marge. Ce que vous \xE9crirez ici ne touchera pas sa copie." : "Rien dans la marge de cette page."));
+  }
+  function peindreSaisie() {
+    if (!peutAnnoter || !pageId) {
+      render(zoneSaisie);
+      return;
+    }
+    let texte, encre;
+    render(zoneSaisie, el(
+      "form.marge__saisie",
+      {
+        onsubmit: async (e) => {
+          e.preventDefault();
+          const corps = texte.value.trim();
+          if (!corps) return;
+          try {
+            await annotations.ecrire({
+              page_id: pageId,
+              author_id: auteurId,
+              body: corps,
+              ink: encre.value
+            });
+            texte.value = "";
+            await recharger();
+          } catch (err) {
+            erreur("Annotation non port\xE9e", messageErreur(err));
+          }
+        }
+      },
+      texte = el("textarea.saisie", {
+        rows: 2,
+        placeholder: "\xAB Revoyez la deuxi\xE8me ligne. \xBB",
+        required: true
+      }),
+      el(
+        "div.marge__pied",
+        encre = el("select.saisie", ENCRES.map((i) => el("option", { value: i.cle }, i.libelle))),
+        el("button.btn.btn--primaire", { type: "submit" }, icone("crayon", 14), "\xC9crire")
+      )
+    ));
+  }
+  render(liste, el("p.marge__vide", "Aucune page ouverte."));
+  return { noeud: racine, suivre };
+}
+var ENCRES;
+var init_annotation = __esm({
+  "src/features/annotation.js"() {
+    init_dom();
+    init_icons();
+    init_data();
+    init_toast();
+    ENCRES = [
+      { cle: "rouge", libelle: "Rouge \u2014 la correction" },
+      { cle: "verte", libelle: "Verte \u2014 l'encouragement" },
+      { cle: "bleue", libelle: "Bleue \u2014 la remarque" }
+    ];
+  }
+});
+
 // src/features/exercice-direct.js
 var exercice_direct_exports = {};
 __export(exercice_direct_exports, {
@@ -12036,6 +12620,11 @@ async function vueSalle({ params }) {
   let listeRenvois = [];
   let modeSeance = mode(session);
   const attendu = materielAttendu(classe);
+  const regles = reglesMateriel(classe);
+  let maPrivation = null;
+  let privationsSeance = /* @__PURE__ */ new Map();
+  let dernierRafraichiPrivations = 0;
+  const zonePrivation = el("div");
   const enRP = universDe(classe) !== "aucun";
   let fichesRP = enRP ? await personnages.index(classe.id).catch(() => /* @__PURE__ */ new Map()) : /* @__PURE__ */ new Map();
   const maFiche = () => fichesRP.get(etat.utilisateur.id) || null;
@@ -12053,6 +12642,7 @@ async function vueSalle({ params }) {
   const noeud = el(
     "div.salle",
     bandeau,
+    zonePrivation,
     el(
       "div.salle__corps",
       zoneScene,
@@ -12104,6 +12694,16 @@ async function vueSalle({ params }) {
           icone("interro", 15),
           "J'ai une question"
         ) : null,
+        !staff && contributeur ? el("button.btn", {
+          class: scene === "moncahier" ? "btn--primaire" : "",
+          onclick: async () => {
+            scene = scene === "moncahier" ? "tableau" : "moncahier";
+            if (suit && scene === "moncahier") basculerSuivi(false);
+            await peindreScene();
+            peindreBandeau();
+          },
+          title: "Prendre mes notes dans mon propre cahier"
+        }, icone("cahier", 15), "Mon cahier") : null,
         !staff && offre(session, "cartable") ? el("button.btn", {
           onclick: () => ouvrirCartable(),
           title: "Ce que j'ai apport\xE9 en s\xE9ance"
@@ -12164,10 +12764,85 @@ async function vueSalle({ params }) {
     editeurCommun?.detruire();
     editeurCommun = null;
     if (scene === "tableau") return peindreTableau();
+    if (scene === "moncahier") return peindreMonCahier();
     if (scene === "cahier") return peindreCahierCommun();
     if (scene === "document") return peindreDocument();
     if (scene === "exercice") return peindreExercice();
     return peindreTableau();
+  }
+  let cahierOuvertId = local.lire(`ojm.moncahier.${classe.id}`, null);
+  let editeurPersonnel = null;
+  async function peindreMonCahier() {
+    editeurPersonnel?.detruire();
+    editeurPersonnel = null;
+    const sac = sacs.get(etat.utilisateur.id);
+    const apportes = new Set(cartable.apportes(sac));
+    let mes = [];
+    try {
+      mes = await cahiers.mesCahiers(etat.utilisateur.id);
+    } catch {
+      mes = [];
+    }
+    const disponibles = mes.filter((c) => apportes.has(String(c.id)));
+    if (!disponibles.length) {
+      render(zoneScene, blocVide(
+        "Vous n'avez apport\xE9 aucun cahier",
+        offre(session, "cartable") ? "On n'\xE9crit que dans ce qu'on a dans son sac. Ouvrez-le pour y mettre un support." : "Cr\xE9ez un cahier depuis \xAB Mes cahiers \xBB, puis revenez.",
+        offre(session, "cartable") ? { libelle: "Ouvrir mon sac", action: () => ouvrirCartable() } : null
+      ));
+      return;
+    }
+    const choisi = disponibles.find((c) => String(c.id) === String(cahierOuvertId)) || disponibles[0];
+    cahierOuvertId = choisi.id;
+    local.ecrire(`ojm.moncahier.${classe.id}`, choisi.id);
+    const margePersonnelle = creerMarge({
+      peutAnnoter: false,
+      auteurId: etat.utilisateur.id,
+      nomAuteur: monNom(),
+      // Savoir QUI a corrigé fait partie de la correction : « l'encadrement »
+      // ne veut rien dire quand trois maîtres se relaient.
+      noms: new Map(equipe.map((m) => [
+        m.user_id,
+        nomAffiche(fichesRP.get(m.user_id), m.profil) || m.profil?.display_name || "L'encadrement"
+      ]))
+    });
+    editeurPersonnel = creerEditeurCahier({
+      cahier: choisi,
+      surPage: (page) => margePersonnelle.suivre(page),
+      // Privé de matériel, on ouvre quand même son cahier — on ne peut
+      // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
+      // exactement la punition qu'on joue.
+      peutEcrire: !prive(),
+      compact: true,
+      tempsReel: true,
+      rp: reglagesRP(classe)
+    });
+    render(
+      zoneScene,
+      el(
+        "div.mon-cahier",
+        disponibles.length > 1 ? el(
+          "div.mon-cahier__rangee",
+          el("span.petit.faible", "Dans mon sac :"),
+          disponibles.map((c) => el("button.mon-cahier__dos", {
+            type: "button",
+            dataset: { couleur: c.color || "olive", objet: c.support || "cahier" },
+            "aria-pressed": String(String(c.id) === String(choisi.id)),
+            onclick: async () => {
+              cahierOuvertId = c.id;
+              await peindreMonCahier();
+            }
+          }, c.title))
+        ) : null,
+        prive() ? el(
+          "p.petit.faible",
+          { style: { padding: "0 var(--e-4)" } },
+          icone("cadenas", 12),
+          " Vous pouvez relire, pas \xE9crire : il vous manque de quoi le faire."
+        ) : null,
+        el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
+      )
+    );
   }
   async function peindreTableau() {
     const pageCourante = pagesTableau[indexPage];
@@ -12175,7 +12850,7 @@ async function vueSalle({ params }) {
       render(zoneScene, blocVide("Tableau vide", "Aucune page de tableau."));
       return;
     }
-    const ecriture = peutDessiner(tableau);
+    const ecriture = peutDessiner(tableau) && !prive();
     moteurTableau = creerTableau({
       lectureSeule: !ecriture,
       fond: pageCourante.background === "slate" ? "ardoise" : pageCourante.background,
@@ -12659,7 +13334,23 @@ async function vueSalle({ params }) {
         el(
           "span.petit.faible",
           [...attendu.supports.map((x) => x.title), ...attendu.fournitures].join(" \xB7 ")
-        )
+        ),
+        regles.bloquant ? el("span.petit.faible", `Privation de ${regles.minutes} min en cas d'oubli.`) : null
+      ) : null,
+      // Ceux qui n'ont rien pour écrire, et ce qu'ils demandent. On les sort
+      // de la liste ordinaire : une main levée pour aller chercher sa plume
+      // ne se confond pas avec une main levée pour répondre.
+      staff && privationsSeance.size ? el(
+        "section.privations",
+        el("span.controle-materiel__titre", icone("alerte", 12), " Priv\xE9s de mat\xE9riel"),
+        [...privationsSeance.values()].filter((v) => privations.prive(v) || v.state === "asked").map((v) => lignePrivation({
+          privation: v,
+          nom: participants.find((x) => x.user_id === v.user_id)?.nom || equipe.find((x) => x.user_id === v.user_id)?.profil?.display_name || "Un cadet",
+          secondes: privations.secondesRestantes(v),
+          surAccord: () => trancherPrivation(v, true),
+          surRefus: () => trancherPrivation(v, false),
+          surLevee: () => leverPrivation(v)
+        }))
       ) : null,
       participants.map((p) => {
         const main = mainsParUtilisateur.get(p.user_id);
@@ -12748,6 +13439,11 @@ async function vueSalle({ params }) {
         icone: "papier",
         action: () => remettreUnPapier(participant)
       } : null,
+      staff ? {
+        libelle: "Porter une note",
+        icone: "balance",
+        action: () => porterUneNote({ classe, session, participant })
+      } : null,
       enRP ? {
         libelle: "Inscrire au livret",
         icone: "etoile",
@@ -12814,11 +13510,17 @@ async function vueSalle({ params }) {
       return;
     }
     const ligne = Array.isArray(cahier) ? cahier[0] : cahier;
+    const marge = creerMarge({
+      peutAnnoter: true,
+      auteurId: etat.utilisateur.id,
+      nomAuteur: monNom()
+    });
     const editeur = creerEditeurCahier({
       cahier: ligne,
       peutEcrire: false,
       compact: true,
-      rp: reglagesRP(classe)
+      rp: reglagesRP(classe),
+      surPage: (page) => marge.suivre(page)
     });
     await ouvrirModale({
       titre: `Le ${ligne.support || "cahier"} de ${participant.nom || "ce membre"}`,
@@ -12828,9 +13530,9 @@ async function vueSalle({ params }) {
         el(
           "p.petit.faible",
           icone("oeil", 12),
-          " Consultation en lecture seule. L'int\xE9ress\xE9 a \xE9t\xE9 pr\xE9venu."
+          " Sa copie reste intacte : vous ne pouvez \xE9crire que dans la marge, et il verra de quelle main. L'int\xE9ress\xE9 a \xE9t\xE9 pr\xE9venu."
         ),
-        editeur.noeud
+        el("div.inspection--annotable", editeur.noeud, marge.noeud)
       ),
       actions: [{ libelle: "Rendre le cahier", variante: "primaire", valeur: true }],
       surFermeture: () => editeur.detruire()
@@ -12906,11 +13608,111 @@ async function vueSalle({ params }) {
       }
     })));
   }
+  function prive() {
+    return !staff && privations.prive(maPrivation);
+  }
+  function manqueDeQuoiEcrire(utilisateurId) {
+    if (!regles.bloquant || !offre(session, "cartable")) return [];
+    if (!attendu.supports.length && !attendu.fournitures.length) return [];
+    return nePeutPasEcrire(sacs.get(utilisateurId), attendu);
+  }
+  async function ouvrirPrivationSiBesoin() {
+    if (staff) return;
+    const manquants = manqueDeQuoiEcrire(etat.utilisateur.id);
+    if (!manquants.length) return;
+    try {
+      maPrivation = await privations.ouvrir({
+        sessionId: session.id,
+        classeId: classe.id,
+        utilisateurId: etat.utilisateur.id,
+        minutes: regles.minutes,
+        manquants
+      });
+    } catch (err) {
+      maPrivation = null;
+    }
+  }
+  let bandeauPrive = null;
+  function peindrePrivation() {
+    if (!prive()) {
+      if (bandeauPrive) {
+        render(zonePrivation);
+        bandeauPrive = null;
+      }
+      return;
+    }
+    const secondes = privations.secondesRestantes(maPrivation);
+    if (bandeauPrive?.dataset.etat === maPrivation.state) {
+      bandeauPrive.majDelai(secondes);
+      return;
+    }
+    bandeauPrive = bandeauPrivation({
+      manquants: (maPrivation.missing || []).length ? maPrivation.missing : manqueDeQuoiEcrire(etat.utilisateur.id),
+      privation: maPrivation,
+      secondes,
+      surDemande: demanderSesAffaires,
+      surAffaires: () => ouvrirCartable()
+    });
+    bandeauPrive.dataset.etat = maPrivation.state;
+    render(zonePrivation, bandeauPrive);
+  }
+  async function demanderSesAffaires() {
+    if (!maPrivation) return;
+    try {
+      maPrivation = await privations.demander(maPrivation.id);
+      canalSession?.envoyer("privation", { user_id: etat.utilisateur.id });
+      toast("Demande transmise", { corps: "Le ma\xEEtre d\xE9cidera." });
+      peindrePrivation();
+    } catch (err) {
+      erreur("Demande impossible", messageErreur(err));
+    }
+  }
+  async function trancherPrivation(privation, accorde) {
+    try {
+      await privations.trancher(privation.id, accorde, etat.utilisateur.id);
+      canalSession?.envoyer("privation", { user_id: privation.user_id });
+      await rafraichirPrivations();
+      peindrePanneau();
+      journal.ecrire({
+        class_id: classe.id,
+        session_id: session.id,
+        user_id: etat.utilisateur.id,
+        action: accorde ? "materiel.autorise" : "materiel.refuse",
+        meta: { membre: privation.user_id }
+      });
+    } catch (err) {
+      erreur("D\xE9cision non enregistr\xE9e", messageErreur(err));
+    }
+  }
+  async function leverPrivation(privation) {
+    try {
+      await privations.lever(privation.id, etat.utilisateur.id);
+      canalSession?.envoyer("privation", { user_id: privation.user_id });
+      await rafraichirPrivations();
+      peindrePanneau();
+    } catch (err) {
+      erreur("Lev\xE9e impossible", messageErreur(err));
+    }
+  }
+  async function rafraichirPrivations() {
+    if (!offre(session, "cartable") || !regles.bloquant) return;
+    try {
+      const lignes = await privations.liste(session.id);
+      privationsSeance = new Map(lignes.map((l) => [l.user_id, l]));
+      if (!staff) {
+        maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
+        peindrePrivation();
+      }
+    } catch {
+    }
+  }
   async function ouvrirCartable() {
     await preparerAffaires({
       classe,
       surEnregistrement: async () => {
         sacs = await cartable.liste(classe.id).catch(() => sacs);
+        peindrePrivation();
+        await peindreScene();
         peindrePanneau();
       }
     });
@@ -12929,6 +13731,7 @@ async function vueSalle({ params }) {
     return {
       tableau: "Regarde le tableau",
       cahier: "Cahier commun",
+      moncahier: "\xC9crit dans son cahier",
       document: "Consulte un document",
       exercice: "R\xE9pond \xE0 l'exercice"
     }[nom] || "En ligne";
@@ -13361,7 +14164,7 @@ async function vueSalle({ params }) {
     const mesSupports = await cahiers.deClasse(classe.id).catch(() => []);
     const sortie = await formulaire({
       titre: "Mat\xE9riel demand\xE9",
-      note: "Ce qui manquera se verra dans la liste des pr\xE9sents. Rien n'est bloqu\xE9 : arriver les mains vides est une sc\xE8ne, pas une erreur syst\xE8me.",
+      note: "Ce qui manquera se verra dans la liste des pr\xE9sents. Vous d\xE9cidez ensuite si l'oubli emp\xEAche de travailler, et pour combien de temps.",
       champs: [
         {
           cle: "supports",
@@ -13380,6 +14183,21 @@ async function vueSalle({ params }) {
           valeur: attendu.fournitures.join(", "),
           placeholder: "Plume, encre, r\xE8gle",
           aide: "S\xE9par\xE9s par des virgules."
+        },
+        {
+          cle: "bloquant",
+          label: "Sans de quoi \xE9crire, on ne travaille pas",
+          type: "checkbox",
+          valeur: regles.bloquant,
+          aide: "Le cadet d\xE9muni assiste au cours sans pouvoir rien noter. Vous seul pouvez l'autoriser \xE0 aller chercher ses affaires."
+        },
+        {
+          cle: "minutes",
+          label: "Dur\xE9e de la privation",
+          type: "select",
+          valeur: String(regles.minutes),
+          options: MINUTES_OFFERTES.map((m) => ({ valeur: String(m), libelle: `${m} minutes` })),
+          aide: "Pass\xE9 ce d\xE9lai, elle tombe d'elle-m\xEAme."
         }
       ],
       libelle: "Demander"
@@ -13390,13 +14208,21 @@ async function vueSalle({ params }) {
       return { id: connu?.id || titre.toLowerCase(), title: titre };
     });
     const fournitures = String(sortie.fournitures || "").split(",").map((l) => l.trim()).filter(Boolean);
+    const materiel = {
+      supports,
+      fournitures,
+      bloquant: Boolean(sortie.bloquant),
+      minutes: Number(sortie.minutes) || 15
+    };
     try {
       const maj = await classes.majorer(classe.id, {
-        settings: { ...classe.settings || {}, materiel: { supports, fournitures } }
+        settings: { ...classe.settings || {}, materiel }
       });
-      classe.settings = maj?.settings || { ...classe.settings || {}, materiel: { supports, fournitures } };
+      classe.settings = maj?.settings || { ...classe.settings || {}, materiel };
       attendu.supports = supports;
       attendu.fournitures = fournitures;
+      regles.bloquant = materiel.bloquant;
+      regles.minutes = materiel.minutes;
       succes("Mat\xE9riel demand\xE9");
       notifications.diffuser(classe.id, {
         kind: "materiel",
@@ -13634,7 +14460,8 @@ async function vueSalle({ params }) {
         { table: "attendance", filtre: `session_id=eq.${session.id}` },
         { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
         { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
-        { table: "session_ejections", filtre: `session_id=eq.${session.id}` }
+        { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
+        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table: table2, type, nouveau }) => {
         switch (table2) {
@@ -13652,6 +14479,14 @@ async function vueSalle({ params }) {
           case "class_bags":
             sacs = await cartable.liste(classe.id).catch(() => sacs);
             if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
+            break;
+          case "supply_blocks":
+            await rafraichirPrivations();
+            if (!staff) {
+              maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
+              peindrePrivation();
+              await peindreScene();
+            } else if (ongletPanneau === "eleves") peindrePanneau();
             break;
           case "session_ejections":
             listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
@@ -13832,12 +14667,27 @@ async function vueSalle({ params }) {
       });
     }, 1200);
   }
+  await ouvrirPrivationSiBesoin();
+  await rafraichirPrivations();
   brancherCanalSession();
   peindreBandeau();
+  peindrePrivation();
   peindrePanneau();
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
   tictac = setInterval(() => {
+    if (maPrivation && !staff) {
+      const etaitPrive = Boolean(bandeauPrive);
+      peindrePrivation();
+      if (etaitPrive && !prive()) {
+        peindreScene();
+        toast("Votre privation est lev\xE9e", { type: "ok" });
+      }
+    }
+    if (staff && privationsSeance.size && ongletPanneau === "eleves" && Date.now() - dernierRafraichiPrivations > 5e3) {
+      dernierRafraichiPrivations = Date.now();
+      peindrePanneau();
+    }
     if (minuterie?.state === "running") {
       peindreBandeau();
       if (minuterie.kind === "countdown" && calculerMinuterie() <= 0) {
@@ -13889,7 +14739,10 @@ var init_salle = __esm({
     init_livret();
     init_modes();
     init_cartable();
+    init_privation();
     init_proximite();
+    init_annotation();
+    init_bulletin();
     init_papier();
     init_editeur_cahier();
     COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
@@ -16108,7 +16961,7 @@ async function vueProfil() {
     presence.historique(etat.utilisateur.id, 30).catch(() => []),
     favoris.liste(etat.utilisateur.id).catch(() => [])
   ]);
-  const moyenne = mesNotes.length ? mesNotes.reduce((s, n) => s + n.score / (n.max_score || 20) * 20, 0) / mesNotes.length : null;
+  const moyenne2 = mesNotes.length ? mesNotes.reduce((s, n) => s + n.score / (n.max_score || 20) * 20, 0) / mesNotes.length : null;
   const tempsTotal = monHistorique.reduce((s, p) => s + (p.seconds || 0), 0);
   const noeud = el(
     "div.page",
@@ -16203,16 +17056,16 @@ async function vueProfil() {
           "div.stats",
           statistique(etat.classes.length, L("classes")),
           statistique(monHistorique.length, "s\xE9ances"),
-          statistique(moyenne != null ? moyenne.toFixed(1) : "\u2014", "moyenne /20"),
+          statistique(moyenne2 != null ? moyenne2.toFixed(1) : "\u2014", "moyenne /20"),
           statistique(dureeLongue(tempsTotal), "temps de cours")
         ),
-        moyenne != null ? el(
+        moyenne2 != null ? el(
           "div.panneau",
           el("div.panneau__entete", el("span.panneau__titre", "Progression")),
           el(
             "div.panneau__corps",
             el("p.petit.doux", `Moyenne g\xE9n\xE9rale sur ${pluriel(mesNotes.length, "\xE9valuation")}.`),
-            jauge(moyenne, 20, { ok: moyenne >= 10 })
+            jauge(moyenne2, 20, { ok: moyenne2 >= 10 })
           )
         ) : null,
         mesFavoris.length ? el(

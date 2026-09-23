@@ -34,7 +34,7 @@ export const TABLES = [
   "timers", "notifications", "favorites", "activity_logs", "roles",
   "permissions", "role_permissions", "rp_profiles", "service_records",
   "sticky_notes", "class_bags", "papers", "paper_handoffs",
-  "session_ejections"
+  "session_ejections", "supply_blocks", "page_annotations"
 ];
 
 /** Erreur métier normalisée. */
