@@ -51,7 +51,12 @@ jobs:
       - name: Écarter l'atelier
         run: rm -rf supabase docs outils .github page-unique.html
 
+      # enablement: true allume Pages tout seul au premier passage — sans
+      # cela l'action demande un interrupteur à basculer à la main dans les
+      # réglages, et le flux échoue sur un « Not Found » peu parlant.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
