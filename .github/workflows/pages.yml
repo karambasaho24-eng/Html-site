@@ -51,12 +51,12 @@ jobs:
       - name: Écarter l'atelier
         run: rm -rf supabase docs outils .github page-unique.html
 
-      # enablement: true allume Pages tout seul au premier passage — sans
-      # cela l'action demande un interrupteur à basculer à la main dans les
-      # réglages, et le flux échoue sur un « Not Found » peu parlant.
+      # Pages doit être allumé une fois à la main : Settings › Pages ›
+      # Source : GitHub Actions. Le jeton du flux ne peut pas le faire à notre
+      # place — « Resource not accessible by integration » —, aucune option de
+      # l'action ne contourne cela. Tant que l'interrupteur est éteint, ce flux
+      # échoue sur « Get Pages site failed » ; il repart seul ensuite.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
