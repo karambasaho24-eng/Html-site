@@ -101,8 +101,7 @@ export default async function vueClasses() {
         { cle: "description", label: "Description", type: "textarea", placeholder: "Objet et déroulé de la formation." },
         { cle: "subject", label: "Matière", placeholder: "Droit pénal" },
         { cle: "level", label: "Niveau", placeholder: "Élèves avocats" },
-        { cle: "color", label: "Couleur", type: "select", valeur: "olive", options: TEINTES },
-        { cle: "require_approval", label: "Valider manuellement chaque inscription", type: "checkbox" }
+        { cle: "color", label: "Couleur", type: "select", valeur: "olive", options: TEINTES }
       ],
       libelle: "Créer"
     });
@@ -112,7 +111,10 @@ export default async function vueClasses() {
         name: sortie.name, description: sortie.description || null,
         subject: sortie.subject || null, level: sortie.level || null,
         color: sortie.color, icon: "balance", owner_id: etat.utilisateur.id,
-        locked: false, join_open: true, require_approval: Boolean(sortie.require_approval),
+        /* Entrée directe : qui tient le code entre, point. La validation
+           manuelle existe toujours — elle se lève dans les réglages de la
+           classe — mais elle ne barre plus la route au premier élève. */
+        locked: false, join_open: true, require_approval: false,
         archived: false, settings: {}
       }, etat.utilisateur.id);
       await peindre();

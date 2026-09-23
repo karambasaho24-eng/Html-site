@@ -18,17 +18,30 @@
 
 .tableau__scene {
   flex: 1; min-height: 0; position: relative;
-  display: grid; place-items: center;
+  display: grid; place-items: safe center;
   padding: var(--e-4);
-  overflow: hidden;
+  /* Quand la fenêtre devient si basse que le tableau atteint son plancher,
+     mieux vaut pouvoir le faire défiler que le regarder coupé. */
+  overflow: auto;
+  /* Repère de mesure pour le tableau : il se taille sur la place réellement
+     disponible, en largeur comme en hauteur. */
+  container-type: size;
 }
 
 .tableau__surface {
   position: relative;
   border-radius: var(--r-sm);
   box-shadow: var(--ombre-3), 0 0 0 6px #241c14, 0 0 0 7px #3b2f21;
-  max-width: 100%; max-height: 100%;
   background: #17231f;
+  /* Le tableau garde ses proportions et tient entier dans la scène : sur un
+     écran bas, il rapetisse au lieu de se faire couper par le bas — il n'y a
+     rien à faire défiler puisque tout est là. */
+  aspect-ratio: 1600 / 900;
+  /* Il prend la place disponible en gardant ses proportions, sans jamais
+     descendre sous une taille où l'on n'écrirait plus rien : sous ce
+     plancher, la scène défile. */
+  width: min(100cqw, max(100cqh * 1600 / 900, 420px));
+  max-width: 100%;
 }
 .tableau__surface[data-fond="ardoise"] { background: #17231f; }
 .tableau__surface[data-fond="craie"]   { background: #1b2430; }
@@ -40,7 +53,10 @@
     repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 32px);
 }
 
-.tableau__toile { display: block; touch-action: none; cursor: crosshair; max-width: 100%; }
+.tableau__toile {
+  display: block; touch-action: none; cursor: crosshair;
+  width: 100%; height: 100%;
+}
 .tableau__toile[data-lecture="1"] { cursor: default; }
 
 /* Curseurs distants */
