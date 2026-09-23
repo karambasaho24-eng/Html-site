@@ -523,3 +523,64 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   padding: 4px 0;
   font-size: var(--t-sm);
 }
+
+/* --- L'établi : deux plateaux, et l'objet qui passe de l'un à l'autre ------
+   Un inventaire où les choses se téléportent n'est pas un sac, c'est un
+   formulaire à cases. Les objets gardent donc leur nœud et VOLENT (voir
+   deplacer() dans cartable.js) : c'est bien le même objet qui traverse. */
+.etabli {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--e-4);
+  margin-top: var(--e-4);
+}
+@media (max-width: 720px) { .etabli { grid-template-columns: 1fr; } }
+
+.plateau {
+  display: flex; flex-direction: column; gap: var(--e-2);
+  min-height: 180px;
+  padding: var(--e-3);
+  border: 1px solid var(--ligne);
+  border-radius: var(--r-sm);
+  background: var(--encre-900);
+}
+.plateau--sac {
+  border-color: var(--ligne-laiton);
+  /* Le cartable ouvert, en fond : on voit dans quoi on range. */
+  background:
+    linear-gradient(180deg, rgba(13,16,19,.88), rgba(13,16,19,.96)),
+    url("../assets/objets/cartable-ouvert.png") center / contain no-repeat;
+}
+.plateau__titre {
+  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--texte-faible); font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.plateau__objets { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; flex: 1; }
+.plateau__vide { display: none; margin: auto; text-align: center; }
+.plateau--nu .plateau__vide { display: block; }
+
+/* L'objet vole : il doit pouvoir passer par-dessus tout le reste. */
+.objet { position: relative; will-change: transform; }
+
+/* Les images remplacent les figures dessinées dès qu'elles existent ; tant
+   qu'un fichier manque, l'url échoue et le dégradé reste visible dessous. */
+.objet__figure {
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.objet__figure--fourniture {
+  width: 34px; height: 34px;
+  border-radius: 2px;
+  /* En attendant l'image : un jeton de laiton bruni. Dessiner six objets en
+     CSS pour qu'ils soient remplacés demain serait du travail jeté ; un
+     substitut neutre et net vaut mieux qu'un carré vide. */
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at 34% 30%, rgba(226,194,92,.22), transparent 62%),
+    linear-gradient(160deg, #4a4033, #2a2620);
+  border: 1px solid var(--ligne-forte);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+/* Dès que le PNG existe, il recouvre le jeton et reprend la main. */
+.objet__figure--fourniture[style*="url"] { border-color: transparent; }
+.objet--fourniture { flex-direction: column; }

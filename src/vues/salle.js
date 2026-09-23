@@ -883,7 +883,8 @@ export default async function vueSalle({ params }) {
                 : (p.activite || libelleScene(p.scene))),
             controleMateriel && p.role !== "teacher"
               ? el("div.eleve__materiel",
-                  ligneMateriel(sacs.get(p.user_id), attendu, { court: true }))
+                  ligneMateriel(sacs.get(p.user_id), attendu,
+                    { court: true, session: session.id }))
               : null
           ),
           staff
@@ -1146,7 +1147,17 @@ export default async function vueSalle({ params }) {
   function manqueDeQuoiEcrire(utilisateurId) {
     if (!regles.bloquant || !offre(session, "cartable")) return [];
     if (!attendu.supports.length && !attendu.fournitures.length) return [];
-    return nePeutPasEcrire(sacs.get(utilisateurId), attendu);
+    const sac = sacs.get(utilisateurId);
+    // Posséder une plume et l'avoir sur soi ce matin sont deux choses. Un sac
+    // qui n'a pas été repris pour cette séance ne compte pas : sans quoi on
+    // s'équiperait une fois en septembre pour toute l'année.
+    return nePeutPasEcrire(
+      depotCartable.equipePour(sac, session.id) ? sac : null, attendu);
+  }
+
+  /** Ses affaires sont-elles équipées pour cette séance-ci ? */
+  function affairesEquipees(utilisateurId = etat.utilisateur.id) {
+    return depotCartable.equipePour(sacs.get(utilisateurId), session.id);
   }
 
   /**
@@ -1251,9 +1262,10 @@ export default async function vueSalle({ params }) {
   /* --- Cartable et papiers ---------------------------------------------------- */
   async function ouvrirCartable() {
     await preparerAffaires({
-      classe,
+      classe, session,
       surEnregistrement: async () => {
         sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+        await rafraichirPrivations();
         // Le laissez-passer accordé a déjà levé la privation : rouvrir son sac
         // sert alors à y remettre ce qui manquait, sous l'œil du maître, qui
         // voit dans la liste des présents si c'est vraiment fait.
@@ -2215,18 +2227,48 @@ export default async function vueSalle({ params }) {
     return sortirRenvoye(listeRenvois.find((r) => r.user_id === etat.utilisateur.id));
   }
 
-  // Le sac se prépare avant d'entrer, pas pendant. On le rappelle une fois.
-  if (!staff && offre(session, "cartable")
-      && (attendu.supports.length || attendu.fournitures.length)
-      && !sacs.get(etat.utilisateur.id)) {
-    setTimeout(() => {
-      toast("Vous n'avez pas préparé vos affaires", {
-        corps: "L'encadrement verra ce qui manque.", type: "attn", duree: 9000
-      });
-    }, 1200);
+  /**
+   * On s'équipe à chaque séance.
+   *
+   * Pas « on refait son sac » : le chargement est permanent, il revient
+   * pré-coché. Mais on repose la main dessus avant de s'asseoir, sinon
+   * s'équiper une fois en septembre vaudrait pour toute l'année — et le
+   * geste, répété à vide, ne voudrait plus rien dire.
+   *
+   * On ne l'impose que là où il compte : quand du matériel a été demandé.
+   * Ailleurs, le bouton « Mes affaires » suffit.
+   */
+  /**
+   * L'ordre compte, et il a failli être faux.
+   *
+   * Si l'on ouvre la privation avant de laisser le cadet s'équiper, on le
+   * punit d'un geste que l'application ne lui a pas encore proposé. La
+   * sanction doit porter sur ce qu'il DÉCLARE avoir sur lui, jamais sur
+   * l'état du sac à la seconde où il pousse la porte.
+   *
+   * Donc : quand il doit s'équiper, la privation attend qu'il ait répondu —
+   * et s'il referme sans rien prendre, elle tombe, ce qui est juste.
+   */
+  const doitSEquiper = !staff && offre(session, "cartable")
+    && (attendu.supports.length || attendu.fournitures.length)
+    && !affairesEquipees();
+
+  if (doitSEquiper) {
+    setTimeout(async () => {
+      await ouvrirCartable();
+      // Relire le sac ici plutôt que de compter sur le rappel d'enregistrement :
+      // celui-ci n'est pas attendu, et on jugerait alors sur l'état d'avant.
+      sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+      // Qu'il ait bouclé son sac ou refermé sans rien prendre, c'est
+      // maintenant qu'on regarde ce qu'il a.
+      await ouvrirPrivationSiBesoin();
+      await rafraichirPrivations();
+      peindrePrivation();
+      await peindreScene();
+    }, 900);
   }
 
-  await ouvrirPrivationSiBesoin();
+  if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
   releverCahiersTendus();
 

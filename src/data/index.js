@@ -348,11 +348,22 @@ export const cartable = {
    * l'encadrement demande « le cahier de manœuvre », et chacun apporte le
    * sien, qui porte un identifiant différent.
    */
-  async enregistrer(classeId, utilisateurId, { notebooks, supplies }) {
+  async enregistrer(classeId, utilisateurId, { notebooks, supplies, session = null }) {
     const existant = await this.pour(classeId, utilisateurId);
     const patch = { notebooks: normaliserSac(notebooks), supplies };
+    // S'équiper pour une séance laisse une trace datée : c'est elle qui
+    // distingue « j'ai ces affaires » de « je les ai sur moi aujourd'hui ».
+    if (session) {
+      patch.last_session = session;
+      patch.checked_at = new Date().toISOString();
+    }
     if (existant) return T("class_bags").majorer(existant.id, patch);
     return T("class_bags").creer({ class_id: classeId, user_id: utilisateurId, ...patch });
+  },
+
+  /** Ses affaires sont-elles équipées pour CETTE séance ? */
+  equipePour(sac, sessionId) {
+    return Boolean(sac && sessionId && String(sac.last_session) === String(sessionId));
   },
 
   /** Les identifiants des supports réellement apportés. */

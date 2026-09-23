@@ -2058,6 +2058,67 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   font-size: var(--t-sm);
 }
 
+/* --- L'établi : deux plateaux, et l'objet qui passe de l'un à l'autre ------
+   Un inventaire où les choses se téléportent n'est pas un sac, c'est un
+   formulaire à cases. Les objets gardent donc leur nœud et VOLENT (voir
+   deplacer() dans cartable.js) : c'est bien le même objet qui traverse. */
+.etabli {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--e-4);
+  margin-top: var(--e-4);
+}
+@media (max-width: 720px) { .etabli { grid-template-columns: 1fr; } }
+
+.plateau {
+  display: flex; flex-direction: column; gap: var(--e-2);
+  min-height: 180px;
+  padding: var(--e-3);
+  border: 1px solid var(--ligne);
+  border-radius: var(--r-sm);
+  background: var(--encre-900);
+}
+.plateau--sac {
+  border-color: var(--ligne-laiton);
+  /* Le cartable ouvert, en fond : on voit dans quoi on range. */
+  background:
+    linear-gradient(180deg, rgba(13,16,19,.88), rgba(13,16,19,.96)),
+    url("../assets/objets/cartable-ouvert.png") center / contain no-repeat;
+}
+.plateau__titre {
+  font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--texte-faible); font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+.plateau__objets { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; flex: 1; }
+.plateau__vide { display: none; margin: auto; text-align: center; }
+.plateau--nu .plateau__vide { display: block; }
+
+/* L'objet vole : il doit pouvoir passer par-dessus tout le reste. */
+.objet { position: relative; will-change: transform; }
+
+/* Les images remplacent les figures dessinées dès qu'elles existent ; tant
+   qu'un fichier manque, l'url échoue et le dégradé reste visible dessous. */
+.objet__figure {
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.objet__figure--fourniture {
+  width: 34px; height: 34px;
+  border-radius: 2px;
+  /* En attendant l'image : un jeton de laiton bruni. Dessiner six objets en
+     CSS pour qu'ils soient remplacés demain serait du travail jeté ; un
+     substitut neutre et net vaut mieux qu'un carré vide. */
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at 34% 30%, rgba(226,194,92,.22), transparent 62%),
+    linear-gradient(160deg, #4a4033, #2a2620);
+  border: 1px solid var(--ligne-forte);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+/* Dès que le PNG existe, il recouvre le jeton et reprend la main. */
+.objet__figure--fourniture[style*="url"] { border-color: transparent; }
+.objet--fourniture { flex-direction: column; }
+
 /* ---- board.css ---- */
 /* ===========================================================================
    Tableau interactif
@@ -4568,11 +4629,19 @@ var init_data = __esm({
        * l'encadrement demande « le cahier de manœuvre », et chacun apporte le
        * sien, qui porte un identifiant différent.
        */
-      async enregistrer(classeId, utilisateurId, { notebooks, supplies }) {
+      async enregistrer(classeId, utilisateurId, { notebooks, supplies, session = null }) {
         const existant = await this.pour(classeId, utilisateurId);
         const patch = { notebooks: normaliserSac(notebooks), supplies };
+        if (session) {
+          patch.last_session = session;
+          patch.checked_at = (/* @__PURE__ */ new Date()).toISOString();
+        }
         if (existant) return T("class_bags").majorer(existant.id, patch);
         return T("class_bags").creer({ class_id: classeId, user_id: utilisateurId, ...patch });
+      },
+      /** Ses affaires sont-elles équipées pour CETTE séance ? */
+      equipePour(sac, sessionId) {
+        return Boolean(sac && sessionId && String(sac.last_session) === String(sessionId));
       },
       /** Les identifiants des supports réellement apportés. */
       apportes(sac) {
@@ -11858,6 +11927,10 @@ var init_import_document = __esm({
 });
 
 // src/features/cartable.js
+function imageObjet(nom) {
+  const cle = String(nom).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `assets/objets/${cle}.png`;
+}
 function materielAttendu(classe) {
   const m = classe?.settings?.materiel || {};
   return {
@@ -11865,7 +11938,7 @@ function materielAttendu(classe) {
     fournitures: Array.isArray(m.fournitures) ? m.fournitures : []
   };
 }
-async function preparerAffaires({ classe, surEnregistrement = null }) {
+async function preparerAffaires({ classe, session = null, surEnregistrement = null }) {
   const attendu = materielAttendu(classe);
   const [mesSupports, sac] = await Promise.all([
     cahiers.mesCahiers(etat.utilisateur.id).catch(() => []),
@@ -11881,15 +11954,63 @@ async function preparerAffaires({ classe, surEnregistrement = null }) {
     attendu.supports.map((s) => String(s.title || "").trim().toLowerCase())
   );
   const zoneRabat = el("div.cartable__rabat");
+  const etagere = el("div.plateau__objets");
+  const dansLeSac = el("div.plateau__objets");
+  const noeuds = /* @__PURE__ */ new Map();
+  for (const c of mesSupports) noeuds.set(`s:${c.id}`, objetSupport(c));
+  for (const f of fournituresOffertes) noeuds.set(`f:${f}`, objetFourniture(f));
+  function estPris(cle) {
+    return cle.startsWith("s:") ? emportes.has(cle.slice(2)) : trousse.has(cle.slice(2));
+  }
+  function placer() {
+    for (const [cle, noeud] of noeuds) {
+      (estPris(cle) ? dansLeSac : etagere).appendChild(noeud);
+    }
+    majPlateaux();
+  }
+  function deplacer(cle) {
+    const noeud = noeuds.get(cle);
+    const avant = noeud.getBoundingClientRect();
+    const versLeSac = !estPris(cle);
+    if (cle.startsWith("s:")) {
+      const id = cle.slice(2);
+      if (versLeSac) emportes.set(id, mesSupports.find((c) => String(c.id) === id)?.title || "");
+      else emportes.delete(id);
+    } else {
+      const nom = cle.slice(2);
+      if (versLeSac) trousse.add(nom);
+      else trousse.delete(nom);
+    }
+    (versLeSac ? dansLeSac : etagere).appendChild(noeud);
+    noeud.setAttribute("aria-pressed", String(versLeSac));
+    noeud.classList.toggle("objet--pris", versLeSac);
+    const apres = noeud.getBoundingClientRect();
+    const dx = avant.left - apres.left;
+    const dy = avant.top - apres.top;
+    if (dx || dy) {
+      noeud.style.transition = "none";
+      noeud.style.transform = `translate(${dx}px, ${dy}px) scale(${versLeSac ? 1.12 : 0.92})`;
+      noeud.style.zIndex = "5";
+      requestAnimationFrame(() => {
+        noeud.style.transition = "transform 320ms cubic-bezier(.34,1.3,.5,1)";
+        noeud.style.transform = "";
+        setTimeout(() => {
+          noeud.style.zIndex = "";
+          noeud.style.transition = "";
+        }, 340);
+      });
+    }
+    majPlateaux();
+  }
   const enregistre = await ouvrirModale({
-    titre: "Pr\xE9parer mes affaires",
+    titre: session ? "\xC9quiper mes affaires" : "Pr\xE9parer mes affaires",
     large: true,
     corps: () => {
       const noeud = el(
         "div.cartable",
         el(
           "p.petit.faible",
-          "Ce que vous mettez dans votre sac est ce dont vous disposerez en s\xE9ance \u2014 et c'est aussi la seule chose que l'encadrement pourra vous demander d'ouvrir."
+          session ? "Ce que vous emportez en s\xE9ance. Le sac garde son contenu d'une fois sur l'autre \u2014 il faut seulement reposer la main dessus avant d'entrer." : "Ce que vous mettez dans votre sac est ce dont vous disposerez en s\xE9ance \u2014 et c'est aussi la seule chose que l'encadrement pourra vous demander d'ouvrir."
         ),
         attendu.supports.length || attendu.fournitures.length ? el(
           "div.cartable__consigne",
@@ -11903,41 +12024,36 @@ async function preparerAffaires({ classe, surEnregistrement = null }) {
           )
         ) : null,
         el(
-          "div.cartable__sac",
-          el("div.cartable__poignee", { "aria-hidden": "true" }),
-          zoneRabat,
+          "div.etabli",
           el(
-            "section.cartable__poche",
-            el("h3.cartable__titre", icone("cahier", 14), " Supports"),
-            mesSupports.length ? el("div.cartable__objets", mesSupports.map((c) => objetSupport(c))) : el(
-              "p.petit.faible",
-              `Votre \xE9tag\xE8re est vide : cr\xE9ez un ${L("cahier")} avant d'entrer en s\xE9ance.`
-            )
+            "section.plateau.plateau--etagere",
+            el("h3.plateau__titre", icone("grille", 13), " Sur l'\xE9tag\xE8re"),
+            etagere,
+            el("p.plateau__vide.petit.faible", "Tout est dans le sac.")
           ),
           el(
-            "section.cartable__poche.cartable__poche--trousse",
-            el("h3.cartable__titre", icone("crayon", 14), " Trousse"),
-            el(
-              "div.trousse",
-              el("div.trousse__rabat", { "aria-hidden": "true" }),
-              el("div.trousse__contenu", fournituresOffertes.map((f) => objetFourniture(f)))
-            )
+            "section.plateau.plateau--sac",
+            el("h3.plateau__titre", icone("sac", 13), " Dans mon sac"),
+            dansLeSac,
+            el("p.plateau__vide.petit.faible", "Le sac est vide. Cliquez un objet pour l'y mettre.")
           )
-        )
+        ),
+        zoneRabat
       );
-      majRabat();
+      placer();
       return noeud;
     },
     actions: [
       { libelle: "Annuler", valeur: null },
       {
-        libelle: "Boucler le sac",
+        libelle: session ? "Je les ai sur moi" : "Boucler le sac",
         variante: "primaire",
         action: async () => {
           try {
             await cartable.enregistrer(classe.id, etat.utilisateur.id, {
               notebooks: Object.fromEntries(emportes),
-              supplies: [...trousse]
+              supplies: [...trousse],
+              session: session?.id || null
             });
             return true;
           } catch (err) {
@@ -11949,51 +12065,51 @@ async function preparerAffaires({ classe, surEnregistrement = null }) {
     ]
   });
   function objetSupport(c) {
-    const pris = emportes.has(String(c.id));
     const demande = demandes.has(String(c.id)) || demandesParTitre.has(String(c.title || "").trim().toLowerCase());
     const bouton = el(
       "button.objet",
       {
         type: "button",
         dataset: { support: c.support || "cahier" },
-        "aria-pressed": String(pris),
+        "aria-pressed": String(emportes.has(String(c.id))),
         class: demande ? "objet--demande" : "",
-        onclick: (e) => {
-          const cle = String(c.id);
-          if (emportes.has(cle)) emportes.delete(cle);
-          else emportes.set(cle, c.title);
-          e.currentTarget.setAttribute("aria-pressed", String(emportes.has(cle)));
-          e.currentTarget.classList.toggle("objet--pris", emportes.has(cle));
-          majRabat();
-        }
+        onclick: () => deplacer(`s:${c.id}`)
       },
-      el("span.objet__figure", { dataset: { objet: c.support || "cahier" }, "aria-hidden": "true" }),
+      el("span.objet__figure", {
+        dataset: { objet: c.support || "cahier" },
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` }
+      }),
       el("span.objet__nom", c.title),
       el("span.objet__type", NOMS_SUPPORT2[c.support] || "Cahier"),
       demande ? el("span.objet__demande", "demand\xE9") : null
     );
-    if (pris) bouton.classList.add("objet--pris");
+    if (emportes.has(String(c.id))) bouton.classList.add("objet--pris");
     return bouton;
   }
   function objetFourniture(f) {
-    const pris = trousse.has(f);
     const demande = attendu.fournitures.some((x) => x.toLowerCase() === f.toLowerCase());
-    const bouton = el("button.fourniture", {
-      type: "button",
-      "aria-pressed": String(pris),
-      class: demande ? "fourniture--demande" : "",
-      onclick: (e) => {
-        if (trousse.has(f)) trousse.delete(f);
-        else trousse.add(f);
-        e.currentTarget.setAttribute("aria-pressed", String(trousse.has(f)));
-        e.currentTarget.classList.toggle("fourniture--prise", trousse.has(f));
-        majRabat();
-      }
-    }, f);
-    if (pris) bouton.classList.add("fourniture--prise");
+    const bouton = el(
+      "button.objet.objet--fourniture",
+      {
+        type: "button",
+        "aria-pressed": String(trousse.has(f)),
+        class: demande ? "objet--demande" : "",
+        onclick: () => deplacer(`f:${f}`)
+      },
+      el("span.objet__figure.objet__figure--fourniture", {
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(f)}")` }
+      }),
+      el("span.objet__nom", f),
+      demande ? el("span.objet__demande", "demand\xE9") : null
+    );
+    if (trousse.has(f)) bouton.classList.add("objet--pris");
     return bouton;
   }
-  function majRabat() {
+  function majPlateaux() {
+    etagere.parentElement?.classList.toggle("plateau--nu", !etagere.children.length);
+    dansLeSac.parentElement?.classList.toggle("plateau--nu", !dansLeSac.children.length);
     const manque = cartable.manquants(
       { notebooks: Object.fromEntries(emportes), supplies: [...trousse] },
       attendu
@@ -12014,7 +12130,7 @@ async function preparerAffaires({ classe, surEnregistrement = null }) {
     );
   }
   if (enregistre) {
-    succes("Sac boucl\xE9");
+    succes(session ? "Affaires \xE9quip\xE9es" : "Sac boucl\xE9");
     surEnregistrement?.({ notebooks: Object.fromEntries(emportes), supplies: [...trousse] });
   }
   return enregistre === true;
@@ -12025,6 +12141,13 @@ function ligneMateriel(sac, attendu, options = {}) {
       "span.etiq.etiq--attn",
       icone("alerte", 12),
       options.court ? "Sac non pr\xE9par\xE9" : "N'a pas pr\xE9par\xE9 son sac"
+    );
+  }
+  if (options.session && String(sac.last_session) !== String(options.session)) {
+    return el(
+      "span.etiq.etiq--attn",
+      icone("alerte", 12),
+      options.court ? "Pas \xE9quip\xE9" : "N'a pas repris ses affaires"
     );
   }
   const manque = cartable.manquants(sac, attendu);
@@ -13652,7 +13775,11 @@ async function vueSalle({ params }) {
             ),
             controleMateriel && p.role !== "teacher" ? el(
               "div.eleve__materiel",
-              ligneMateriel(sacs.get(p.user_id), attendu, { court: true })
+              ligneMateriel(
+                sacs.get(p.user_id),
+                attendu,
+                { court: true, session: session.id }
+              )
             ) : null
           ),
           staff ? el(
@@ -13895,7 +14022,14 @@ async function vueSalle({ params }) {
   function manqueDeQuoiEcrire(utilisateurId) {
     if (!regles.bloquant || !offre(session, "cartable")) return [];
     if (!attendu.supports.length && !attendu.fournitures.length) return [];
-    return nePeutPasEcrire(sacs.get(utilisateurId), attendu);
+    const sac = sacs.get(utilisateurId);
+    return nePeutPasEcrire(
+      cartable.equipePour(sac, session.id) ? sac : null,
+      attendu
+    );
+  }
+  function affairesEquipees(utilisateurId = etat.utilisateur.id) {
+    return cartable.equipePour(sacs.get(utilisateurId), session.id);
   }
   async function ouvrirPrivationSiBesoin() {
     if (staff) return;
@@ -13990,8 +14124,10 @@ async function vueSalle({ params }) {
   async function ouvrirCartable() {
     await preparerAffaires({
       classe,
+      session,
       surEnregistrement: async () => {
         sacs = await cartable.liste(classe.id).catch(() => sacs);
+        await rafraichirPrivations();
         peindrePrivation();
         await peindreScene();
         peindrePanneau();
@@ -14999,16 +15135,18 @@ async function vueSalle({ params }) {
   if (!staff && listeRenvois.some((r) => r.user_id === etat.utilisateur.id)) {
     return sortirRenvoye(listeRenvois.find((r) => r.user_id === etat.utilisateur.id));
   }
-  if (!staff && offre(session, "cartable") && (attendu.supports.length || attendu.fournitures.length) && !sacs.get(etat.utilisateur.id)) {
-    setTimeout(() => {
-      toast("Vous n'avez pas pr\xE9par\xE9 vos affaires", {
-        corps: "L'encadrement verra ce qui manque.",
-        type: "attn",
-        duree: 9e3
-      });
-    }, 1200);
+  const doitSEquiper = !staff && offre(session, "cartable") && (attendu.supports.length || attendu.fournitures.length) && !affairesEquipees();
+  if (doitSEquiper) {
+    setTimeout(async () => {
+      await ouvrirCartable();
+      sacs = await cartable.liste(classe.id).catch(() => sacs);
+      await ouvrirPrivationSiBesoin();
+      await rafraichirPrivations();
+      peindrePrivation();
+      await peindreScene();
+    }, 900);
   }
-  await ouvrirPrivationSiBesoin();
+  if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
   releverCahiersTendus();
   brancherCanalSession();
