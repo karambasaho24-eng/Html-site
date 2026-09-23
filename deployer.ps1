@@ -56,6 +56,21 @@ Write-Host ""
 Write-Host "2/2  Je publie sur Netlify..." -ForegroundColor Cyan
 npx -y "@netlify/mcp@latest" --site-id $siteId --proxy-path $proxy
 
+# $ErrorActionPreference ne voit pas l'echec d'un programme externe : sans ce
+# test, le script annoncait « Termine » juste apres un 401. Une bonne nouvelle
+# fausse est pire qu'une erreur.
+if ($LASTEXITCODE -ne 0) {
+  Write-Host ""
+  Write-Host "ECHEC : rien n'a ete publie." -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Si le message ci-dessus dit 401 Unauthorized, le jeton a expire" -ForegroundColor Yellow
+  Write-Host "— ils ne durent que quelques heures. Demandez-m'en un neuf, et"
+  Write-Host "remplacez le contenu de jeton-netlify.txt."
+  Write-Host ""
+  exit 1
+}
+
 Write-Host ""
-Write-Host "Termine.  https://classe-parallele.netlify.app" -ForegroundColor Green
+Write-Host "Publie.  https://classe-parallele.netlify.app" -ForegroundColor Green
+Write-Host "Version : $(git log --oneline -1)" -ForegroundColor DarkGray
 Write-Host ""
