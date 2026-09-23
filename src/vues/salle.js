@@ -41,6 +41,8 @@ import {
 import { exigerProximite } from "../features/proximite.js";
 import { creerMarge } from "../features/annotation.js";
 import { porterUneNote } from "../features/bulletin.js";
+import { tendreSonCahier, accueillirRemiseCahier } from "../features/tendre-cahier.js";
+import { remisesCahier } from "../data/index.js";
 import { composerPapier, tendrePapier } from "../features/papier.js";
 import { creerEditeurCahier as ouvrirCahierInspecte } from "../features/editeur-cahier.js";
 
@@ -260,7 +262,25 @@ export default async function vueSalle({ params }) {
     const apportes = new Set(depotCartable.apportes(sac));
     let mes = [];
     try { mes = await depotCahiers.mesCahiers(etat.utilisateur.id); } catch { mes = []; }
-    const disponibles = mes.filter((c) => apportes.has(String(c.id)));
+
+    // Ce qu'on nous a prêté s'ouvre aussi : un cahier qu'on a entre les mains
+    // n'a pas à passer par le cartable pour se lire.
+    let empruntes = [];
+    try {
+      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
+      empruntes = (await Promise.all(remises.map((r) =>
+        depotCahiers.lire(r.notebook_id).catch(() => null)))).filter(Boolean)
+        .map((c) => ({ ...c, emprunte: true }));
+    } catch { empruntes = []; }
+
+    // Ce que j'ai tendu et qui n'est pas revenu : je peux le reprendre.
+    let pretes = new Map();
+    try {
+      pretes = new Map((await remisesCahier.pretes(etat.utilisateur.id))
+        .map((r) => [String(r.notebook_id), r]));
+    } catch { pretes = new Map(); }
+
+    const disponibles = [...mes.filter((c) => apportes.has(String(c.id))), ...empruntes];
 
     if (!disponibles.length) {
       render(zoneScene, blocVide(
@@ -283,7 +303,10 @@ export default async function vueSalle({ params }) {
     // Ce que le maître a écrit dans la marge doit se lire par celui qu'on
     // corrige : une correction qu'il ne verrait pas ne corrigerait rien.
     const margePersonnelle = creerMarge({
-      peutAnnoter: false, auteurId: etat.utilisateur.id, nomAuteur: monNom(),
+      // Sur le sien, on lit ce qu'on y a porté. Sur un cahier qu'on nous a
+      // prêté, c'est le seul endroit où l'on a le droit d'écrire.
+      peutAnnoter: Boolean(choisi.emprunte),
+      auteurId: etat.utilisateur.id, nomAuteur: monNom(),
       // Savoir QUI a corrigé fait partie de la correction : « l'encadrement »
       // ne veut rien dire quand trois maîtres se relaient.
       noms: new Map(equipe.map((m) => [
@@ -297,24 +320,56 @@ export default async function vueSalle({ params }) {
       surPage: (page) => margePersonnelle.suivre(page),
       // Privé de matériel, on ouvre quand même son cahier — on ne peut
       // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
-      // exactement la punition qu'on joue.
-      peutEcrire: !prive(),
+      // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
+      // récrit jamais : la marge est faite pour ça.
+      peutEcrire: !prive() && !choisi.emprunte,
       compact: true,
       tempsReel: true,
       rp: reglagesRP(classe)
     });
 
+    const pret = pretes.get(String(choisi.id));
+    const rangeeGestes = el("div.mon-cahier__gestes",
+      choisi.emprunte
+        ? el("button.btn.btn--fantome", {
+            onclick: () => rendreCahier(choisi),
+            title: "Le rendre à qui vous l'a tendu"
+          }, icone("sortie", 14), "Le rendre")
+        : el("button.btn.btn--fantome", {
+            onclick: () => tendreCahier(),
+            title: "Le montrer, le prêter ou le donner à quelqu'un qui est là"
+          }, icone("main", 14), "Le tendre à quelqu'un"),
+      pret
+        ? el("button.btn.btn--fantome", {
+            onclick: () => reprendreCahier(pret),
+            title: "Il l'a entre les mains : le récupérer"
+          }, icone("entree", 14), "Le reprendre")
+        : null,
+      pret ? el("span.petit.faible", "Prêté — il l'a en main.") : null);
+
     render(zoneScene,
       el("div.mon-cahier",
-        disponibles.length > 1
+        rangeeGestes,
+        // On montre la rangée dès qu'il y a un choix à faire — ou un objet
+        // qui n'est pas à soi : savoir lequel on tient en main compte.
+        disponibles.length > 1 || disponibles.some((c) => c.emprunte)
           ? el("div.mon-cahier__rangee",
-              el("span.petit.faible", "Dans mon sac :"),
+              // Un cahier prêté n'est pas « dans mon sac » : il est en main.
+              el("span.petit.faible",
+                disponibles.every((c) => c.emprunte) ? "En main :" : "Dans mon sac :"),
               disponibles.map((c) => el("button.mon-cahier__dos", {
                 type: "button",
+                class: c.emprunte ? "mon-cahier__dos--emprunte" : "",
+                title: c.emprunte ? "On vous l'a tendu" : c.title,
                 dataset: { couleur: c.color || "olive", objet: c.support || "cahier" },
                 "aria-pressed": String(String(c.id) === String(choisi.id)),
                 onclick: async () => { cahierOuvertId = c.id; await peindreMonCahier(); }
               }, c.title)))
+          : null,
+        choisi.emprunte
+          ? el("p.petit.faible", { style: { padding: "0 var(--e-4)" } },
+              icone("main", 12), " Ce cahier n'est pas le vôtre : vous pouvez le lire "
+              + "et écrire dans sa marge, pas dans son texte.")
           : null,
         prive()
           ? el("p.petit.faible", { style: { padding: "0 var(--e-4)" } },
@@ -900,6 +955,8 @@ export default async function vueSalle({ params }) {
         ? { libelle: "Lui tendre un papier", icone: "papier",
             action: () => remettreUnPapier(participant) }
         : null,
+      { libelle: "Lui tendre un cahier", icone: "cahier",
+        action: () => tendreCahier(participant) },
       staff
         ? { libelle: "Porter une note", icone: "balance",
             action: () => porterUneNote({ classe, session, participant }) }
@@ -1205,6 +1262,68 @@ export default async function vueSalle({ params }) {
         peindrePanneau();
       }
     });
+  }
+
+  /* --- Tendre un cahier ------------------------------------------------------ */
+
+  /** Tendre le sien à quelqu'un qui se tient là. */
+  async function tendreCahier(destinataire = null) {
+    const remise = await tendreSonCahier({
+      classe, session, fiches: fichesRP,
+      candidats: (destinataire ? [destinataire] : participants)
+        .filter((p) => p.user_id !== etat.utilisateur.id)
+        .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }))
+    });
+    if (remise) {
+      canalSession?.envoyer("cahier-tendu", { pour: remise.to_user });
+      await peindreMonCahier().catch(() => {});
+    }
+  }
+
+  /** Reprendre ce qu'on a prêté. Le prêt s'arrête, la lecture avec. */
+  async function reprendreCahier(remise) {
+    try {
+      await remisesCahier.reprendre(remise.id);
+      toast("Cahier repris");
+      await peindreMonCahier();
+    } catch (err) {
+      erreur("Reprise impossible", messageErreur(err));
+    }
+  }
+
+  /** Rendre ce qu'on nous a prêté, de sa propre main. */
+  async function rendreCahier(support) {
+    try {
+      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
+      const sienne = remises.find((r) => String(r.notebook_id) === String(support.id));
+      if (!sienne) return;
+      await remisesCahier.rendre(sienne.id);
+      cahierOuvertId = null;
+      toast("Cahier rendu");
+      await peindreMonCahier();
+    } catch (err) {
+      erreur("Restitution impossible", messageErreur(err));
+    }
+  }
+
+  /**
+   * Ce qu'on nous tend. On regarde au chargement et à chaque remise : un
+   * cahier tendu qu'on ne verrait qu'au prochain rechargement ne serait pas
+   * tendu, il serait posté.
+   */
+  async function releverCahiersTendus() {
+    let enAttente = [];
+    try { enAttente = await remisesCahier.enAttente(etat.utilisateur.id); } catch { return; }
+    for (const remise of enAttente) {
+      const support = await depotCahiers.lire(remise.notebook_id).catch(() => null);
+      const donneur = equipe.find((m) => m.user_id === remise.from_user);
+      const issue = await accueillirRemiseCahier(remise, {
+        titre: support?.title,
+        de: nomAffiche(fichesRP.get(remise.from_user), donneur?.profil)
+          || donneur?.profil?.display_name
+      });
+      if (issue === "prise" && scene === "moncahier") await peindreMonCahier();
+    }
   }
 
   /** Rédiger puis tendre. Le papier existe avant le geste, jamais l'inverse. */
@@ -1907,7 +2026,8 @@ export default async function vueSalle({ params }) {
         { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
         { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
         { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
-        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` }
+        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
+        { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table, type, nouveau }) => {
         switch (table) {
@@ -1924,6 +2044,14 @@ export default async function vueSalle({ params }) {
           case "class_bags":
             sacs = await depotCartable.liste(classe.id).catch(() => sacs);
             if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
+            break;
+          case "notebook_handoffs":
+            if (nouveau?.to_user === etat.utilisateur.id && nouveau.state === "offered") {
+              await releverCahiersTendus();
+            } else if (scene === "moncahier") {
+              // Repris ou rendu : le dos disparaît de la rangée.
+              await peindreMonCahier();
+            }
             break;
           case "supply_blocks":
             // Le maître a tranché, ou quelqu'un a levé la main : les deux
@@ -2100,6 +2228,7 @@ export default async function vueSalle({ params }) {
 
   await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
+  releverCahiersTendus();
 
   brancherCanalSession();
   peindreBandeau();

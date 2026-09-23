@@ -310,3 +310,12 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    texte, jamais à sa place. */
 .inspection--annotable { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--e-4); }
 @media (max-width: 860px) { .inspection--annotable { grid-template-columns: 1fr; } }
+.mon-cahier__gestes {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-4) 0;
+}
+/* Un dos qui n'est pas à soi : l'objet est là, mais il est d'emprunt. */
+.mon-cahier__dos--emprunte {
+  border-style: dashed;
+  font-style: italic;
+}

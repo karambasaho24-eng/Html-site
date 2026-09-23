@@ -299,6 +299,29 @@ export async function creerPiloteLocal() {
 
   /* --- Procédures métier (équivalents des fonctions SQL) ----------------- */
   const procedures = {
+    /**
+     * Accepter un cahier qu'on nous tend. En base, seule une fonction
+     * SECURITY DEFINER peut changer un propriétaire ; ici il n'y a personne
+     * à convaincre, mais la même règle doit valoir pour que les deux pilotes
+     * se comportent pareil.
+     */
+    async accept_notebook_handoff({ handoff }) {
+      const ligne = await t("notebook_handoffs").lire(handoff);
+      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (ligne.to_user !== monId()) {
+        throw new ErreurDonnees("Ce cahier ne vous est pas tendu", "42501");
+      }
+      if (ligne.state !== "offered") {
+        throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
+      }
+      if (ligne.kind === "give") {
+        await t("notebooks").majorer(ligne.notebook_id, { owner_id: ligne.to_user });
+      }
+      return t("notebook_handoffs").majorer(handoff, {
+        state: "accepted", settled_at: new Date().toISOString()
+      });
+    },
+
     async join_class({ join_code }) {
       const code = String(join_code || "").toUpperCase().trim();
       const classe = (await t("classes").liste({ code })).find((c) => !c.archived);

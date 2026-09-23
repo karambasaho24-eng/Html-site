@@ -448,6 +448,44 @@ export const privations = {
 };
 
 /* ===========================================================================
+   Tendre son cahier
+
+   Montrer ne passe pas par ici : un regard n'a pas à laisser de trace.
+   Prêter et donner, si — il faut savoir chez qui l'objet se trouve.
+   ========================================================================= */
+export const remisesCahier = {
+  /** Ce qu'on me tend et qui attend ma réponse. */
+  enAttente: (utilisateurId) =>
+    T("notebook_handoffs").liste({ to_user: utilisateurId, state: "offered" },
+      { ordre: "created_at", sens: "desc" }),
+
+  /** Ce que j'ai entre les mains sans que ce soit à moi. */
+  empruntes: (utilisateurId) =>
+    T("notebook_handoffs").liste({ to_user: utilisateurId, state: "accepted" },
+      { ordre: "created_at", sens: "desc" }),
+
+  /** Ce que j'ai tendu et qui n'est pas revenu. */
+  pretes: (utilisateurId) =>
+    T("notebook_handoffs").liste({ from_user: utilisateurId, state: "accepted" },
+      { ordre: "created_at", sens: "desc" }),
+
+  tendre: (donnees) => T("notebook_handoffs").creer(donnees),
+
+  /** Seule la procédure peut changer un propriétaire : voir 0016. */
+  accepter: (id) => pilote.rpc("accept_notebook_handoff", { handoff: id }),
+
+  refuser: (id) => T("notebook_handoffs").majorer(id, {
+    state: "refused", settled_at: new Date().toISOString()
+  }),
+  rendre: (id) => T("notebook_handoffs").majorer(id, {
+    state: "returned", settled_at: new Date().toISOString()
+  }),
+  reprendre: (id) => T("notebook_handoffs").majorer(id, {
+    state: "cancelled", settled_at: new Date().toISOString()
+  })
+};
+
+/* ===========================================================================
    Les annotations du maître
 
    Il écrit SUR le cahier, jamais dedans : la copie du cadet reste mot pour

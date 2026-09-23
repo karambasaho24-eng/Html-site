@@ -2510,6 +2510,15 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    texte, jamais à sa place. */
 .inspection--annotable { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: var(--e-4); }
 @media (max-width: 860px) { .inspection--annotable { grid-template-columns: 1fr; } }
+.mon-cahier__gestes {
+  display: flex; align-items: center; gap: var(--e-2);
+  padding: var(--e-2) var(--e-4) 0;
+}
+/* Un dos qui n'est pas à soi : l'objet est là, mais il est d'emprunt. */
+.mon-cahier__dos--emprunte {
+  border-style: dashed;
+  font-style: italic;
+}
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -3108,7 +3117,8 @@ var init_contrat = __esm({
       "paper_handoffs",
       "session_ejections",
       "supply_blocks",
-      "page_annotations"
+      "page_annotations",
+      "notebook_handoffs"
     ];
     ErreurDonnees = class extends Error {
       constructor(message, code = null, cause = null) {
@@ -3610,6 +3620,29 @@ async function creerPiloteLocal() {
   }
   const monId = () => sessionCourante()?.user?.id || null;
   const procedures = {
+    /**
+     * Accepter un cahier qu'on nous tend. En base, seule une fonction
+     * SECURITY DEFINER peut changer un propriétaire ; ici il n'y a personne
+     * à convaincre, mais la même règle doit valoir pour que les deux pilotes
+     * se comportent pareil.
+     */
+    async accept_notebook_handoff({ handoff }) {
+      const ligne = await t("notebook_handoffs").lire(handoff);
+      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (ligne.to_user !== monId()) {
+        throw new ErreurDonnees("Ce cahier ne vous est pas tendu", "42501");
+      }
+      if (ligne.state !== "offered") {
+        throw new ErreurDonnees("Cette remise est d\xE9j\xE0 tranch\xE9e", "42501");
+      }
+      if (ligne.kind === "give") {
+        await t("notebooks").majorer(ligne.notebook_id, { owner_id: ligne.to_user });
+      }
+      return t("notebook_handoffs").majorer(handoff, {
+        state: "accepted",
+        settled_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    },
     async join_class({ join_code }) {
       const code = String(join_code || "").toUpperCase().trim();
       const classe = (await t("classes").liste({ code })).find((c) => !c.archived);
@@ -4206,6 +4239,7 @@ __export(data_exports, {
   profils: () => profils,
   questions: () => questions,
   rbac: () => rbac,
+  remisesCahier: () => remisesCahier,
   renvois: () => renvois,
   sessions: () => sessions,
   sondages: () => sondages,
@@ -4233,7 +4267,7 @@ function normaliserSac(valeur) {
   if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
   return valeur;
 }
-var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, privations, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
+var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, privations, remisesCahier, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
 var init_data = __esm({
   "src/data/index.js"() {
     init_config();
@@ -4618,6 +4652,38 @@ var init_data = __esm({
       prive(privation) {
         return this.secondesRestantes(privation) > 0;
       }
+    };
+    remisesCahier = {
+      /** Ce qu'on me tend et qui attend ma réponse. */
+      enAttente: (utilisateurId) => T("notebook_handoffs").liste(
+        { to_user: utilisateurId, state: "offered" },
+        { ordre: "created_at", sens: "desc" }
+      ),
+      /** Ce que j'ai entre les mains sans que ce soit à moi. */
+      empruntes: (utilisateurId) => T("notebook_handoffs").liste(
+        { to_user: utilisateurId, state: "accepted" },
+        { ordre: "created_at", sens: "desc" }
+      ),
+      /** Ce que j'ai tendu et qui n'est pas revenu. */
+      pretes: (utilisateurId) => T("notebook_handoffs").liste(
+        { from_user: utilisateurId, state: "accepted" },
+        { ordre: "created_at", sens: "desc" }
+      ),
+      tendre: (donnees) => T("notebook_handoffs").creer(donnees),
+      /** Seule la procédure peut changer un propriétaire : voir 0016. */
+      accepter: (id) => pilote.rpc("accept_notebook_handoff", { handoff: id }),
+      refuser: (id) => T("notebook_handoffs").majorer(id, {
+        state: "refused",
+        settled_at: (/* @__PURE__ */ new Date()).toISOString()
+      }),
+      rendre: (id) => T("notebook_handoffs").majorer(id, {
+        state: "returned",
+        settled_at: (/* @__PURE__ */ new Date()).toISOString()
+      }),
+      reprendre: (id) => T("notebook_handoffs").majorer(id, {
+        state: "cancelled",
+        settled_at: (/* @__PURE__ */ new Date()).toISOString()
+      })
     };
     annotations = {
       dePage: (pageId) => T("page_annotations").liste({ page_id: pageId }, { ordre: "created_at" }),
@@ -12192,6 +12258,169 @@ var init_annotation = __esm({
   }
 });
 
+// src/features/tendre-cahier.js
+async function tendreSonCahier({ classe = null, session = null, candidats = [], fiches = /* @__PURE__ */ new Map() }) {
+  const disponibles = candidats.filter((c) => c?.user_id && c.user_id !== etat.utilisateur.id);
+  if (!disponibles.length) {
+    toast("Personne \xE0 qui le tendre pour l'instant.");
+    return null;
+  }
+  let mes = [];
+  try {
+    mes = await cahiers.mesCahiers(etat.utilisateur.id);
+  } catch {
+    mes = [];
+  }
+  if (!mes.length) {
+    toast("Vous n'avez aucun support \xE0 tendre.");
+    return null;
+  }
+  let cahierChoisi = String(mes[0].id);
+  let destinataire = String(disponibles[0].user_id);
+  let geste = "lend";
+  const valide = await ouvrirModale({
+    titre: "Tendre un cahier",
+    corps: () => el(
+      "div",
+      el(
+        "p.petit.faible",
+        "Il le lira de ses yeux. Pr\xEAt\xE9, il peut \xE9crire dans la marge, jamais dans votre texte \u2014 et vous le reprenez quand vous voulez."
+      ),
+      el(
+        "label.champ",
+        el("span.champ__label", "Lequel"),
+        el("select.saisie", {
+          onchange: (e) => {
+            cahierChoisi = e.currentTarget.value;
+          }
+        }, mes.map((c) => el(
+          "option",
+          { value: String(c.id) },
+          `${c.title} \u2014 ${NOMS_SUPPORT3[c.support] || "cahier"}`
+        )))
+      ),
+      el(
+        "label.champ",
+        el("span.champ__label", "\xC0 qui"),
+        el("select.saisie", {
+          onchange: (e) => {
+            destinataire = e.currentTarget.value;
+          }
+        }, disponibles.map((c) => el(
+          "option",
+          { value: String(c.user_id) },
+          nomAffiche(fiches.get(c.user_id), c.profil || c) || c.nom || "Participant"
+        )))
+      ),
+      el(
+        "label.champ",
+        el("span.champ__label", "Le geste"),
+        el(
+          "select.saisie",
+          { onchange: (e) => {
+            geste = e.currentTarget.value;
+          } },
+          el("option", { value: "lend" }, "Le pr\xEAter \u2014 il me le rend"),
+          el("option", { value: "give" }, "Le donner \u2014 il est \xE0 lui")
+        ),
+        el("span.champ__aide", "Donn\xE9, il ne vous appartient plus : c'est \xE0 lui de vous le rendre.")
+      )
+    ),
+    actions: [
+      { libelle: "Annuler", valeur: false },
+      { libelle: "Continuer", variante: "primaire", valeur: true }
+    ]
+  });
+  if (!valide) return null;
+  const cible = disponibles.find((c) => String(c.user_id) === destinataire);
+  const support = mes.find((c) => String(c.id) === cahierChoisi);
+  if (geste === "give" && !await confirmer({
+    titre: "Donner ce cahier",
+    message: `\xAB ${support.title} \xBB ne sera plus \xE0 vous. Tout ce qu'il contient part avec.`,
+    libelle: "Le donner",
+    danger: true
+  })) return null;
+  const proche = await exigerProximite({
+    motif: "cahier",
+    cible: cible?.profil || cible,
+    personnage: fiches.get(cible?.user_id),
+    detail: `\xAB ${support.title} \xBB \u2014 ${geste === "give" ? "donn\xE9" : "pr\xEAt\xE9"}`
+  });
+  if (!proche) return null;
+  try {
+    const remise = await remisesCahier.tendre({
+      notebook_id: support.id,
+      from_user: etat.utilisateur.id,
+      to_user: cible.user_id,
+      class_id: classe?.id || null,
+      session_id: session?.id || null,
+      kind: geste,
+      state: "offered",
+      attested: true
+    });
+    succes(
+      geste === "give" ? "Cahier tendu" : "Cahier tendu",
+      "Il l'acceptera ou vous le rendra."
+    );
+    return remise;
+  } catch (err) {
+    erreur(
+      "Cahier non tendu",
+      /duplicate|unique/i.test(err?.message || "") ? "Ce cahier est d\xE9j\xE0 entre d'autres mains." : messageErreur(err)
+    );
+    return null;
+  }
+}
+async function accueillirRemiseCahier(remise, { titre, de }) {
+  const donne = remise.kind === "give";
+  const choix = await ouvrirModale({
+    titre: donne ? "On vous donne un cahier" : "On vous tend un cahier",
+    corps: () => el(
+      "div",
+      el(
+        "p",
+        el("b", de || "Quelqu'un"),
+        donne ? " vous donne " : " vous tend ",
+        el("b", `\xAB ${titre || "un cahier"} \xBB`),
+        "."
+      ),
+      el("p.petit.faible", donne ? "Accept\xE9, il sera \xE0 vous : vous pourrez y \xE9crire comme dans les v\xF4tres." : "Accept\xE9, vous pourrez le lire et \xE9crire dans sa marge \u2014 pas dans son texte. Il peut le reprendre \xE0 tout moment.")
+    ),
+    actions: [
+      { libelle: "Refuser", valeur: "refus" },
+      { libelle: donne ? "L'accepter" : "Le prendre", variante: "primaire", valeur: "prise" }
+    ]
+  });
+  if (!choix) return null;
+  try {
+    if (choix === "prise") {
+      await remisesCahier.accepter(remise.id);
+      succes(donne ? "Le cahier est \xE0 vous" : "Cahier en main");
+      return "prise";
+    }
+    await remisesCahier.refuser(remise.id);
+    toast("Vous l'avez refus\xE9.");
+    return "refus";
+  } catch (err) {
+    erreur("Remise impossible", messageErreur(err));
+    return null;
+  }
+}
+var NOMS_SUPPORT3;
+var init_tendre_cahier = __esm({
+  "src/features/tendre-cahier.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_data();
+    init_modal();
+    init_toast();
+    init_proximite();
+    init_rp();
+    NOMS_SUPPORT3 = { feuille: "feuille", cahier: "cahier", carnet: "carnet", dossier: "dossier" };
+  }
+});
+
 // src/features/exercice-direct.js
 var exercice_direct_exports = {};
 __export(exercice_direct_exports, {
@@ -12783,7 +13012,20 @@ async function vueSalle({ params }) {
     } catch {
       mes = [];
     }
-    const disponibles = mes.filter((c) => apportes.has(String(c.id)));
+    let empruntes = [];
+    try {
+      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
+      empruntes = (await Promise.all(remises.map((r) => cahiers.lire(r.notebook_id).catch(() => null)))).filter(Boolean).map((c) => ({ ...c, emprunte: true }));
+    } catch {
+      empruntes = [];
+    }
+    let pretes = /* @__PURE__ */ new Map();
+    try {
+      pretes = new Map((await remisesCahier.pretes(etat.utilisateur.id)).map((r) => [String(r.notebook_id), r]));
+    } catch {
+      pretes = /* @__PURE__ */ new Map();
+    }
+    const disponibles = [...mes.filter((c) => apportes.has(String(c.id))), ...empruntes];
     if (!disponibles.length) {
       render(zoneScene, blocVide(
         "Vous n'avez apport\xE9 aucun cahier",
@@ -12796,7 +13038,9 @@ async function vueSalle({ params }) {
     cahierOuvertId = choisi.id;
     local.ecrire(`ojm.moncahier.${classe.id}`, choisi.id);
     const margePersonnelle = creerMarge({
-      peutAnnoter: false,
+      // Sur le sien, on lit ce qu'on y a porté. Sur un cahier qu'on nous a
+      // prêté, c'est le seul endroit où l'on a le droit d'écrire.
+      peutAnnoter: Boolean(choisi.emprunte),
       auteurId: etat.utilisateur.id,
       nomAuteur: monNom(),
       // Savoir QUI a corrigé fait partie de la correction : « l'encadrement »
@@ -12811,21 +13055,47 @@ async function vueSalle({ params }) {
       surPage: (page) => margePersonnelle.suivre(page),
       // Privé de matériel, on ouvre quand même son cahier — on ne peut
       // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
-      // exactement la punition qu'on joue.
-      peutEcrire: !prive(),
+      // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
+      // récrit jamais : la marge est faite pour ça.
+      peutEcrire: !prive() && !choisi.emprunte,
       compact: true,
       tempsReel: true,
       rp: reglagesRP(classe)
     });
+    const pret = pretes.get(String(choisi.id));
+    const rangeeGestes = el(
+      "div.mon-cahier__gestes",
+      choisi.emprunte ? el("button.btn.btn--fantome", {
+        onclick: () => rendreCahier(choisi),
+        title: "Le rendre \xE0 qui vous l'a tendu"
+      }, icone("sortie", 14), "Le rendre") : el("button.btn.btn--fantome", {
+        onclick: () => tendreCahier(),
+        title: "Le montrer, le pr\xEAter ou le donner \xE0 quelqu'un qui est l\xE0"
+      }, icone("main", 14), "Le tendre \xE0 quelqu'un"),
+      pret ? el("button.btn.btn--fantome", {
+        onclick: () => reprendreCahier(pret),
+        title: "Il l'a entre les mains : le r\xE9cup\xE9rer"
+      }, icone("entree", 14), "Le reprendre") : null,
+      pret ? el("span.petit.faible", "Pr\xEAt\xE9 \u2014 il l'a en main.") : null
+    );
     render(
       zoneScene,
       el(
         "div.mon-cahier",
-        disponibles.length > 1 ? el(
+        rangeeGestes,
+        // On montre la rangée dès qu'il y a un choix à faire — ou un objet
+        // qui n'est pas à soi : savoir lequel on tient en main compte.
+        disponibles.length > 1 || disponibles.some((c) => c.emprunte) ? el(
           "div.mon-cahier__rangee",
-          el("span.petit.faible", "Dans mon sac :"),
+          // Un cahier prêté n'est pas « dans mon sac » : il est en main.
+          el(
+            "span.petit.faible",
+            disponibles.every((c) => c.emprunte) ? "En main :" : "Dans mon sac :"
+          ),
           disponibles.map((c) => el("button.mon-cahier__dos", {
             type: "button",
+            class: c.emprunte ? "mon-cahier__dos--emprunte" : "",
+            title: c.emprunte ? "On vous l'a tendu" : c.title,
             dataset: { couleur: c.color || "olive", objet: c.support || "cahier" },
             "aria-pressed": String(String(c.id) === String(choisi.id)),
             onclick: async () => {
@@ -12833,6 +13103,12 @@ async function vueSalle({ params }) {
               await peindreMonCahier();
             }
           }, c.title))
+        ) : null,
+        choisi.emprunte ? el(
+          "p.petit.faible",
+          { style: { padding: "0 var(--e-4)" } },
+          icone("main", 12),
+          " Ce cahier n'est pas le v\xF4tre : vous pouvez le lire et \xE9crire dans sa marge, pas dans son texte."
         ) : null,
         prive() ? el(
           "p.petit.faible",
@@ -13439,6 +13715,11 @@ async function vueSalle({ params }) {
         icone: "papier",
         action: () => remettreUnPapier(participant)
       } : null,
+      {
+        libelle: "Lui tendre un cahier",
+        icone: "cahier",
+        action: () => tendreCahier(participant)
+      },
       staff ? {
         libelle: "Porter une note",
         icone: "balance",
@@ -13716,6 +13997,58 @@ async function vueSalle({ params }) {
         peindrePanneau();
       }
     });
+  }
+  async function tendreCahier(destinataire = null) {
+    const remise = await tendreSonCahier({
+      classe,
+      session,
+      fiches: fichesRP,
+      candidats: (destinataire ? [destinataire] : participants).filter((p) => p.user_id !== etat.utilisateur.id).map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }))
+    });
+    if (remise) {
+      canalSession?.envoyer("cahier-tendu", { pour: remise.to_user });
+      await peindreMonCahier().catch(() => {
+      });
+    }
+  }
+  async function reprendreCahier(remise) {
+    try {
+      await remisesCahier.reprendre(remise.id);
+      toast("Cahier repris");
+      await peindreMonCahier();
+    } catch (err) {
+      erreur("Reprise impossible", messageErreur(err));
+    }
+  }
+  async function rendreCahier(support) {
+    try {
+      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
+      const sienne = remises.find((r) => String(r.notebook_id) === String(support.id));
+      if (!sienne) return;
+      await remisesCahier.rendre(sienne.id);
+      cahierOuvertId = null;
+      toast("Cahier rendu");
+      await peindreMonCahier();
+    } catch (err) {
+      erreur("Restitution impossible", messageErreur(err));
+    }
+  }
+  async function releverCahiersTendus() {
+    let enAttente = [];
+    try {
+      enAttente = await remisesCahier.enAttente(etat.utilisateur.id);
+    } catch {
+      return;
+    }
+    for (const remise of enAttente) {
+      const support = await cahiers.lire(remise.notebook_id).catch(() => null);
+      const donneur = equipe.find((m) => m.user_id === remise.from_user);
+      const issue = await accueillirRemiseCahier(remise, {
+        titre: support?.title,
+        de: nomAffiche(fichesRP.get(remise.from_user), donneur?.profil) || donneur?.profil?.display_name
+      });
+      if (issue === "prise" && scene === "moncahier") await peindreMonCahier();
+    }
   }
   async function remettreUnPapier(destinataire = null) {
     const papier = await composerPapier({ classe });
@@ -14461,7 +14794,8 @@ async function vueSalle({ params }) {
         { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
         { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
         { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
-        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` }
+        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
+        { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table: table2, type, nouveau }) => {
         switch (table2) {
@@ -14479,6 +14813,13 @@ async function vueSalle({ params }) {
           case "class_bags":
             sacs = await cartable.liste(classe.id).catch(() => sacs);
             if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
+            break;
+          case "notebook_handoffs":
+            if (nouveau?.to_user === etat.utilisateur.id && nouveau.state === "offered") {
+              await releverCahiersTendus();
+            } else if (scene === "moncahier") {
+              await peindreMonCahier();
+            }
             break;
           case "supply_blocks":
             await rafraichirPrivations();
@@ -14669,6 +15010,7 @@ async function vueSalle({ params }) {
   }
   await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
+  releverCahiersTendus();
   brancherCanalSession();
   peindreBandeau();
   peindrePrivation();
@@ -14743,6 +15085,8 @@ var init_salle = __esm({
     init_proximite();
     init_annotation();
     init_bulletin();
+    init_tendre_cahier();
+    init_data();
     init_papier();
     init_editeur_cahier();
     COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
