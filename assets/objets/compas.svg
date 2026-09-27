@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="regle">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="compas">
   <defs>
     <linearGradient id="plaque" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#151b21"/><stop offset="1" stop-color="#0a0d10"/></linearGradient>
@@ -11,20 +11,21 @@
     <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
       <stop offset="1" stop-color="#7d5f15"/></linearGradient>
-    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
-      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="acier" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2e7ec"/><stop offset=".5" stop-color="#a5aeb7"/>
+      <stop offset="1" stop-color="#6d767f"/></linearGradient>
   </defs>
   <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
   <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
-  <rect x="4" y="27" width="56" height="11" rx="1.5" fill="url(#bois)"/>
-  <rect x="4" y="27" width="56" height="3" fill="#fff" opacity=".16"/>
-  <rect x="4" y="35.5" width="56" height="2.5" fill="url(#laiton)"/>
-  <g stroke="#3a2f1c" stroke-opacity=".75" stroke-width=".9">
-    <path d="M8 27v5M12 27v3M16 27v3M20 27v5M24 27v3M28 27v3M32 27v5M36 27v3M40 27v3M44 27v5M48 27v3M52 27v3M56 27v5"/>
-  </g>
-  <path d="M4 33h56" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1"/>
-  <ellipse cx="32" cy="42" rx="27" ry="2" fill="#000" opacity=".3"/>
+  <path d="M32 14l10 34" stroke="url(#laiton)" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M32 14L22 48" stroke="url(#laiton)" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M42 46l1 6-3-4z" fill="url(#acier)"/>
+  <path d="M22 46l-1 6 3-4z" fill="url(#acier)"/>
+  <circle cx="32" cy="14" r="4.6" fill="url(#laiton)"/>
+  <circle cx="32" cy="14" r="1.8" fill="#4a3a12"/>
+  <rect x="28" y="24" width="8" height="3" rx="1.5" fill="url(#acier)"/>
+  <path d="M31 17l-8 27" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".9"/>
+  <ellipse cx="32" cy="54" rx="16" ry="2" fill="#000" opacity=".28"/>
   <rect width="64" height="64" rx="10" fill="url(#lum)"/>
   <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
 </svg>

@@ -80,26 +80,101 @@ export function creerEditeurCahier(options) {
     el("section.feuillet", barreFeuillet, zoneFeuillet)
   );
 
-  /* --- Sauvegarde ---------------------------------------------------------- */
-  const sauvegarder = debounce(async () => {
-    if (!pageCourante || !peutEcrire) return;
-    const patch = {
-      title: pageCourante.title,
-      body: pageCourante.body,
-      attachments: pageCourante.attachments || []
+  /* --- Sauvegarde ----------------------------------------------------------
+   * Deux règles, apprises d'un texte perdu.
+   *
+   * 1. L'enregistrement est attaché à UNE page, pas au cahier. La version
+   *    précédente différait un appel qui relisait `pageCourante` au moment de
+   *    partir : en changeant de page dans la seconde, on écrivait la nouvelle
+   *    à la place de l'ancienne — et ce qui venait d'être écrit disparaissait
+   *    sans un mot. C'est le bug qui faisait « perdre » des pages entières.
+   *
+   * 2. Le brouillon local part à chaque frappe, pas seulement en cas d'échec.
+   *    localStorage est synchrone : il survit à la fermeture brutale de
+   *    l'onglet, ce qu'une requête réseau ne fait jamais.
+   * ------------------------------------------------------------------------ */
+  const enAttente = new Map();      // pageId -> patch qui n'est pas encore en base
+  let ecritureEnCours = false;
+
+  function patchDe(page) {
+    return {
+      title: page.title || "",
+      body: page.body || "",
+      attachments: page.attachments || []
     };
-    etiquetteSauvegarde.textContent = "Enregistrement…";
-    try {
-      const maj = await depotPages.majorer(pageCourante.id, patch);
-      pageCourante.updated_at = maj.updated_at;
-      etiquetteSauvegarde.textContent = `Enregistré à ${heure(maj.updated_at || Date.now())}`;
-      brouillonRetirer(pageCourante.id);
-    } catch (err) {
-      etiquetteSauvegarde.textContent = "Non enregistré — conservé localement";
-      brouillonEcrire(pageCourante.id, patch);
-      console.warn("[cahier] sauvegarde différée", err);
+  }
+
+  const memePatch = (a, b) => a && b && JSON.stringify(a) === JSON.stringify(b);
+
+  /** Note une modification : brouillon tout de suite, base à la trêve. */
+  function noter(page) {
+    if (!peutEcrire || !page) return;
+    const patch = patchDe(page);
+    enAttente.set(page.id, patch);
+    brouillonEcrire(page.id, patch);
+    refleter(page.id);
+    direEtat("Modifié…");
+    ecrireBientot();
+  }
+
+  const ecrireBientot = debounce(() => { vider(); }, 900);
+
+  /** Écrit tout ce qui attend — page par page, jamais l'une pour l'autre. */
+  async function vider() {
+    if (!peutEcrire || ecritureEnCours || !enAttente.size) return;
+    ecritureEnCours = true;
+    direEtat("Enregistrement…");
+
+    let dernierEchec = null;
+    for (const [pageId, patch] of [...enAttente]) {
+      try {
+        const maj = await depotPages.majorer(pageId, patch);
+        // Si rien n'a été frappé pendant l'écriture, la page est à jour.
+        if (memePatch(enAttente.get(pageId), patch)) {
+          enAttente.delete(pageId);
+          brouillonRetirer(pageId);
+        }
+        const quand = maj?.updated_at || new Date().toISOString();
+        const i = listePages.findIndex((p) => p.id === pageId);
+        if (i >= 0) listePages[i].updated_at = quand;
+        if (pageCourante?.id === pageId) pageCourante.updated_at = quand;
+      } catch (err) {
+        dernierEchec = err;
+        console.warn("[cahier] écriture refusée", err);
+      }
     }
-  }, 900);
+    ecritureEnCours = false;
+
+    // Une fausse bonne nouvelle est pire qu'une erreur : on ne dit
+    // « enregistré » que si la base l'a confirmé.
+    if (dernierEchec) direEtat("Non enregistré — gardé sur cet appareil", true, messageErreur(dernierEchec));
+    else direEtat(`Enregistré à ${heure(Date.now())}`);
+
+    if (enAttente.size) ecrireBientot();
+  }
+
+  /** Vide la file sans attendre la trêve. */
+  function viderMaintenant() {
+    ecrireBientot.annuler();
+    vider();
+  }
+
+  function direEtat(mot, echec = false, detail = "") {
+    etiquetteSauvegarde.textContent = mot;
+    etiquetteSauvegarde.classList.toggle("sauvegarde--echec", Boolean(echec));
+    etiquetteSauvegarde.title = detail;
+  }
+
+  /**
+   * Reporte sur la liste ce qui vient d'être tapé. Sans cela, quitter une page
+   * puis y revenir affichait la version du serveur : le texte semblait effacé
+   * alors qu'il n'avait simplement jamais été relu depuis la mémoire.
+   */
+  function refleter(pageId) {
+    const i = listePages.findIndex((p) => p.id === pageId);
+    if (i < 0 || pageCourante?.id !== pageId) return;
+    Object.assign(listePages[i], patchDe(pageCourante));
+  }
 
   function brouillonEcrire(pageId, donnees) {
     local.ecrire(`ojm.brouillon.${pageId}`, { ...donnees, horodatage: Date.now() });
@@ -110,6 +185,12 @@ export function creerEditeurCahier(options) {
   /* --- Chargement ---------------------------------------------------------- */
   async function charger(idCible = null) {
     listePages = await depotPages.liste(cahier.id);
+    // Une relecture du serveur ne doit jamais écraser ce qui n'y est pas
+    // encore arrivé.
+    for (const [pageId, patch] of enAttente) {
+      const i = listePages.findIndex((p) => p.id === pageId);
+      if (i >= 0) Object.assign(listePages[i], patch);
+    }
     if (!listePages.length && peutEcrire) {
       await depotPages.creer(cahier.id, { title: "Page 1", created_by: etat.utilisateur?.id });
       listePages = await depotPages.liste(cahier.id);
@@ -207,15 +288,27 @@ export function creerEditeurCahier(options) {
     const page = listePages.find((p) => p.id === pageId);
     if (!page) return;
 
+    // On quitte une page : ce qu'elle porte part maintenant, tant qu'on sait
+    // encore de quelle page il s'agit.
+    if (pageCourante && pageCourante.id !== pageId) viderMaintenant();
+
     const avant = listePages.findIndex((p) => p.id === pageCourante?.id);
     const apres = listePages.findIndex((p) => p.id === pageId);
     if (sens === "auto") sens = avant < 0 || apres < 0 || apres === avant
       ? null : (apres > avant ? "avant" : "arriere");
 
+    // Un brouillon plus récent que la base, c'est du texte écrit hors ligne
+    // ou perdu par une fermeture brutale. On le remonte, ET on le remet dans
+    // la file : sinon il resterait prisonnier de cet appareil.
     const brouillon = brouillonLire(pageId);
-    pageCourante = brouillon && new Date(brouillon.horodatage) > new Date(page.updated_at || 0)
-      ? { ...page, ...brouillon }
-      : { ...page };
+    const orphelin = brouillon
+      && new Date(brouillon.horodatage) > new Date(page.updated_at || 0);
+    pageCourante = orphelin ? { ...page, ...brouillon } : { ...page };
+    if (orphelin && peutEcrire) {
+      enAttente.set(pageId, patchDe(pageCourante));
+      refleter(pageId);
+      ecrireBientot();
+    }
 
     peindreTranche();
     peindreBarre();
@@ -358,7 +451,7 @@ export function creerEditeurCahier(options) {
       role: "textbox", "aria-multiline": "true", "aria-label": "Contenu de la page",
       oninput: capturerCorps,
       onfocus: () => { enEdition = true; },
-      onblur: () => { enEdition = false; sauvegarder.immediat(); },
+      onblur: () => { enEdition = false; viderMaintenant(); },
       onpaste: (e) => {
         // On ne colle que du texte : aucun HTML étranger n'entre dans la page.
         e.preventDefault();
@@ -378,7 +471,7 @@ export function creerEditeurCahier(options) {
         const index = listePages.findIndex((p) => p.id === pageCourante.id);
         if (index >= 0) listePages[index].title = e.target.value;
         peindreTranche();
-        sauvegarder();
+        noter(pageCourante);
       }
     });
 
@@ -566,7 +659,7 @@ export function creerEditeurCahier(options) {
   function capturerCorps() {
     if (!pageCourante || !corps) return;
     pageCourante.body = assainirHTML(corps.innerHTML);
-    sauvegarder();
+    noter(pageCourante);
   }
 
   /**
@@ -686,8 +779,9 @@ export function creerEditeurCahier(options) {
             && nouveau.title === pageCourante.title;
           if (identique) return;
 
-          // Une modification distante n'écrase jamais une saisie en cours.
-          if (enEdition) {
+          // Une modification distante n'écrase jamais une saisie en cours,
+          // ni un texte qui n'est pas encore parti.
+          if (enEdition || enAttente.has(pageCourante.id)) {
             toast("Cette page a été modifiée ailleurs", {
               corps: "Votre saisie est conservée ; rechargez la page pour voir la version à jour.",
               type: "attn"
@@ -700,8 +794,12 @@ export function creerEditeurCahier(options) {
     });
   }
 
-  const surFermeture = () => sauvegarder.immediat();
+  // Trois occasions de partir : fermer, masquer l'onglet, basculer sur le
+  // jeu. Le brouillon est déjà écrit, mais autant tenter la base.
+  const surFermeture = () => viderMaintenant();
+  const surMasquage = () => { if (document.visibilityState === "hidden") viderMaintenant(); };
   window.addEventListener("pagehide", surFermeture);
+  document.addEventListener("visibilitychange", surMasquage);
 
   charger();
 
@@ -711,9 +809,12 @@ export function creerEditeurCahier(options) {
     allerPage(pageId) { ouvrirPage(pageId); },
     pageCourante: () => pageCourante,
     pages: () => listePages,
+    /** Reste-t-il quelque chose qui n'est pas en base ? */
+    enSuspens: () => enAttente.size,
     detruire() {
-      sauvegarder.immediat();
+      viderMaintenant();
       window.removeEventListener("pagehide", surFermeture);
+      document.removeEventListener("visibilitychange", surMasquage);
       abonnement?.fermer();
     }
   };

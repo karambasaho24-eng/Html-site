@@ -83,7 +83,7 @@ function peindreRail() {
     lienRail("/", "accueil", "Accueil", "accueil"),
     lienRail("/cahiers", "cahiers", `Mes ${L("cahiers")}`, "cahiers"),
     lienRail("/classes", "classes", `Mes ${L("classes")}`, "classe", classesActives.length || null),
-    lienRail("/cartable", "cartable", "Mon cartable", "sac"),
+    lienRail("/affaires", "affaires", "Mes affaires", "sac"),
     lienRail("/papiers", "papiers", "Ma sacoche", "papier"),
     lienRail("/documents", "documents", "Documents", "documents"),
     lienRail("/exercices", "exercices", L("Exercices"), "exercices"),
@@ -110,7 +110,7 @@ function peindreFil() {
   const titres = {
     accueil: "Accueil", cahiers: `Mes ${L("cahiers")}`, cahier: L("Cahier"),
     classes: `Mes ${L("classes")}`, classe: L("Classe"), salle: "Session en direct",
-    papiers: "Ma sacoche", cartable: "Mon cartable",
+    papiers: "Ma sacoche", affaires: "Mes affaires",
     documents: "Documents", exercices: L("Exercices"), exercice: L("Exercice"),
     archives: "Archives", profil: "Profil", reglages: "Réglages",
     professeur: `Espace ${L("professeur")}`, bibliotheque: "Bibliothèque",

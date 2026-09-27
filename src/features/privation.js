@@ -17,13 +17,16 @@
  * ------------------------------------------------------------------------- */
 import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
+import { fiche } from "./affaires.js";
+import { typesDuSac } from "./materiel.js";
 
 /** Les durées proposées. Au-delà, on prive quelqu'un de tout le cours. */
 export const MINUTES_OFFERTES = [5, 10, 15, 20, 30];
 
-/** La règle telle que la classe l'a fixée. Par défaut, rien ne bloque. */
-export function reglesMateriel(classe) {
-  const m = classe?.settings?.materiel || {};
+/** La règle telle qu'elle a été fixée — pour cette séance d'abord. Par défaut,
+ *  rien ne bloque. */
+export function reglesMateriel(classe, session = null) {
+  const m = session?.materiel || classe?.settings?.materiel || {};
   return {
     bloquant: Boolean(m.bloquant),
     minutes: MINUTES_OFFERTES.includes(Number(m.minutes)) ? Number(m.minutes) : 15
@@ -31,35 +34,36 @@ export function reglesMateriel(classe) {
 }
 
 /**
- * De quoi écrire : un support ET une fourniture qui trace.
+ * De quoi écrire : un support ET quelque chose qui trace.
  *
- * On ne bloque pas sur n'importe quel oubli. Oublier sa règle n'empêche pas
- * de prendre des notes ; oublier son cahier ou sa plume, si. La privation
- * doit se justifier d'un mot — « tu n'as rien pour écrire » — sinon elle
- * passe pour de l'arbitraire.
+ * On ne bloque pas sur n'importe quel oubli. Oublier sa règle n'empêche pas de
+ * prendre des notes ; oublier son cahier ou sa plume, si. La privation doit se
+ * justifier d'un mot — « tu n'as rien pour écrire » — sinon elle passe pour de
+ * l'arbitraire.
+ *
+ * Un crayon suffit toujours : il n'a besoin de rien. Une plume réclame de
+ * l'encre, et c'est précisément ce qui donne une raison de préparer son sac.
+ *
+ * Le site juge sur la DÉCLARATION, jamais sur ce qu'il croit savoir du jeu : il
+ * regarde ce qui a été mis dans le cartable, et rien d'autre.
  */
-const ECRIVENT = ["plume", "stylo", "crayon", "encre", "bic", "feutre"];
-
 export function nePeutPasEcrire(sac, attendu) {
   const supports = Object.keys(normaliser(sac?.notebooks));
-  const fournitures = (sac?.supplies || []).map((f) => String(f).toLowerCase());
+  const types = typesDuSac(sac);
   const manque = [];
 
   // Un support était demandé et n'a pas été apporté : rien où écrire.
   const supportsDemandes = (attendu?.supports || []).length;
   if (supportsDemandes && !supports.length) manque.push("de quoi écrire dessus");
 
-  // Rien qui trace dans la trousse.
-  if (!fournitures.some((f) => ECRIVENT.some((e) => f.includes(e)))) {
+  const quiTracent = [...types].filter((k) => fiche(k)?.ecrit);
+  if (!quiTracent.length) {
     manque.push("de quoi écrire avec");
+  } else if (quiTracent.every((k) => fiche(k)?.encre) && !types.has("encrier")) {
+    // Une plume sans encrier ne trace pas. C'est une scène, pas un détail.
+    manque.push("de l'encre");
   }
   return manque;
-}
-
-function normaliser(valeur) {
-  if (!valeur) return {};
-  if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
-  return valeur;
 }
 
 /** « 12 min 04 » — on montre les secondes : une punition qui s'écoule se supporte. */

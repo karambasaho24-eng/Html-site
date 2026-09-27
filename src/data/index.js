@@ -343,6 +343,9 @@ export const cartable = {
 
   /**
    * `notebooks` est un objet { identifiant: intitulé }, et non une liste.
+   * `supplies` suit la même forme : { identifiant: { kind, label } }. C'est ce
+   * qui permet à la base de tester la présence d'un objet avec l'opérateur `?`
+   * — donc de confisquer ce qui a été apporté, et seulement cela.
    * L'identifiant sert à l'inspection (les politiques SQL testent la présence
    * de la clé avec l'opérateur `?`), l'intitulé sert au contrôle du matériel :
    * l'encadrement demande « le cahier de manœuvre », et chacun apporte le
@@ -350,7 +353,7 @@ export const cartable = {
    */
   async enregistrer(classeId, utilisateurId, { notebooks, supplies, session = null }) {
     const existant = await this.pour(classeId, utilisateurId);
-    const patch = { notebooks: normaliserSac(notebooks), supplies };
+    const patch = { notebooks: normaliserSac(notebooks), supplies: normaliserTrousse(supplies) };
     // S'équiper pour une séance laisse une trace datée : c'est elle qui
     // distingue « j'ai ces affaires » de « je les ai sur moi aujourd'hui ».
     if (session) {
@@ -386,6 +389,175 @@ export const cartable = {
       fournitures: (attendu.fournitures || []).filter((f) => !fournitures.has(f.toLowerCase()))
     };
   }
+};
+
+/* ===========================================================================
+   Les affaires
+
+   Ce qu'on possède, et où c'est. Le cartable dit ce qu'on a DÉCLARÉ emporter ;
+   ceci dit ce qui existe. Les deux se répondent : on boucle son sac en
+   choisissant parmi ses affaires, et la déclaration en garde la trace.
+   ========================================================================= */
+export const affaires = {
+  miennes: (utilisateurId) =>
+    T("belongings").liste({ owner_id: utilisateurId }, { ordre: "created_at" }),
+
+  /** Ce que j'ai entre les mains sans que ce soit à moi. */
+  enMain: (utilisateurId) => T("belongings").liste({ holder_id: utilisateurId }),
+
+  /** Tout ce dont je dispose, d'où que ça vienne. */
+  async toutes(utilisateurId) {
+    const [aMoi, pretees] = await Promise.all([
+      this.miennes(utilisateurId),
+      this.enMain(utilisateurId).catch(() => [])
+    ]);
+    const vus = new Set(aMoi.map((o) => String(o.id)));
+    return [...aMoi, ...pretees.filter((o) => !vus.has(String(o.id)))];
+  },
+
+  lire: (id) => T("belongings").lire(id),
+
+  creer: (donnees) => T("belongings").creer({
+    state: "owned", quantity: 1, carried: false, is_container: false,
+    container_id: null, label: "", meta: {}, ...donnees
+  }),
+
+  majorer: (id, patch) => T("belongings").majorer(id, patch),
+  supprimer: (id) => T("belongings").supprimer(id),
+
+  /** Ranger un objet dans un contenant, ou le sortir (contenant nul). */
+  ranger: (id, contenantId) => T("belongings").majorer(id, { container_id: contenantId || null }),
+
+  /** Porter un contenant sur soi, ou le laisser. */
+  porter: (id, oui) => T("belongings").majorer(id, { carried: Boolean(oui) }),
+
+  /**
+   * Entamer un consommable. Le niveau ne descend jamais sous zéro : un encrier
+   * vide est vide, il ne devient pas négatif — et c'est cet état-là qui se joue.
+   */
+  async consommer(objet, pas = 1) {
+    const avant = Number(objet?.level);
+    if (!Number.isFinite(avant)) return objet;
+    const apres = Math.max(0, Math.min(100, Math.round(avant - pas)));
+    if (apres === avant) return objet;
+    return T("belongings").majorer(objet.id, { level: apres });
+  },
+
+  /**
+   * Remplir son encrier au flacon. Ce qui entre dans l'un sort de l'autre :
+   * sans cela, l'encre se créerait toute seule et l'objet ne pèserait plus rien.
+   */
+  async remplir(encrier, flacon) {
+    const place = 100 - Number(encrier.level || 0);
+    if (place <= 0) return { verse: 0 };
+    const dispo = Number(flacon?.level || 0);
+    if (dispo <= 0) return { verse: 0 };
+    const verse = Math.min(place, dispo);
+    await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
+    await T("belongings").majorer(flacon.id, { level: dispo - verse });
+    return { verse };
+  },
+
+  perdre: (id) => T("belongings").majorer(id, { state: "lost", container_id: null, carried: false }),
+  retrouver: (id) => T("belongings").majorer(id, { state: "owned" }),
+
+  /** Confisquer : geste d'autorité, vérifié côté base. */
+  confisquer: (id, classeId, motif) =>
+    pilote.rpc("confiscate_belonging", { target: id, target_class: classeId, motif: motif || null }),
+  restituer: (id) => pilote.rpc("release_belonging", { target: id }),
+
+  /**
+   * La dotation de départ. Personne n'arrive à l'école les mains vides : sans
+   * cela, la première visite montre une étagère nue et une consigne qu'on ne
+   * peut pas satisfaire. On ne la repose jamais deux fois.
+   */
+  async assurerDotation(utilisateurId, dotation) {
+    const deja = await this.miennes(utilisateurId).catch(() => []);
+    if (deja.length) return deja;
+
+    const parType = new Map();
+    for (const item of dotation) {
+      const cree = await this.creer({
+        owner_id: utilisateurId,
+        kind: item.kind,
+        label: item.label || "",
+        category: item.category || "autre",
+        is_container: Boolean(item.contenant),
+        carried: Boolean(item.carried),
+        container_id: item.dans ? (parType.get(item.dans)?.id || null) : null,
+        level: item.level ?? null,
+        quantity: item.quantity ?? 1
+      });
+      parType.set(item.kind, cree);
+    }
+    return this.miennes(utilisateurId);
+  }
+};
+
+/* ===========================================================================
+   Ce qui passe de main en main
+
+   Un seul dépôt pour les deux directions : « tiens, prends ma règle » et
+   « tu me prêtes ta règle ? » aboutissent au même transfert.
+   ========================================================================= */
+export const remisesObjet = {
+  /** Ce qu'on me tend, ou ce qu'on me demande, et qui attend ma réponse. */
+  enAttente: (utilisateurId) =>
+    T("belonging_handoffs").liste({ to_user: utilisateurId, state: "offered" },
+      { ordre: "created_at", sens: "desc" }),
+
+  /** Ce que j'ai proposé ou demandé et qui n'a pas été tranché. */
+  mesDemandes: (utilisateurId) =>
+    T("belonging_handoffs").liste({ from_user: utilisateurId, state: "offered" },
+      { ordre: "created_at", sens: "desc" }),
+
+  /** Ce que j'ai emprunté et qui n'est pas rendu. */
+  async aRendre(utilisateurId) {
+    const lignes = await T("belonging_handoffs").liste({ state: "accepted", kind: "lend" },
+      { ordre: "created_at", sens: "desc" });
+    return lignes.filter((l) =>
+      (l.direction === "offer" && l.to_user === utilisateurId)
+      || (l.direction === "request" && l.from_user === utilisateurId));
+  },
+
+  /** Ce que j'ai prêté et qui n'est pas revenu. */
+  async pretes(utilisateurId) {
+    const lignes = await T("belonging_handoffs").liste({ state: "accepted", kind: "lend" },
+      { ordre: "created_at", sens: "desc" });
+    return lignes.filter((l) =>
+      (l.direction === "offer" && l.from_user === utilisateurId)
+      || (l.direction === "request" && l.to_user === utilisateurId));
+  },
+
+  /** L'historique léger : les transferts tranchés qui me concernent. */
+  async histoire(utilisateurId, limite = 40) {
+    const lignes = await T("belonging_handoffs").liste({}, { ordre: "created_at", sens: "desc", limite: 200 });
+    return lignes
+      .filter((l) => l.from_user === utilisateurId || l.to_user === utilisateurId)
+      .filter((l) => l.state !== "offered")
+      .slice(0, limite);
+  },
+
+  tendre: (donnees) => T("belonging_handoffs").creer({
+    state: "offered", direction: "offer", kind: "lend", attested: false, ...donnees
+  }),
+
+  demander: (donnees) => T("belonging_handoffs").creer({
+    state: "offered", direction: "request", kind: "lend", attested: false, ...donnees
+  }),
+
+  /** Seule la procédure déplace un objet : voir 0018. */
+  accepter: (id, choisi = null) =>
+    pilote.rpc("accept_belonging_handoff", { handoff: id, chosen: choisi || null }),
+
+  rendre: (id) => pilote.rpc("return_belonging_handoff", { handoff: id }),
+
+  refuser: (id) => T("belonging_handoffs").majorer(id, {
+    state: "refused", settled_at: new Date().toISOString()
+  }),
+  reprendre: (id) => T("belonging_handoffs").majorer(id, {
+    state: "cancelled", settled_at: new Date().toISOString()
+  })
 };
 
 /* ===========================================================================
@@ -518,6 +690,21 @@ export const annotations = {
 function normaliserSac(valeur) {
   if (!valeur) return {};
   if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
+  return valeur;
+}
+
+/**
+ * La trousse déclarée. Longtemps une liste de mots (« Plume », « Encre ») ;
+ * maintenant une carte d'objets réels. On accepte les deux : une classe
+ * configurée l'an dernier ne doit pas perdre sa consigne, et un sac bouclé
+ * hier doit rester lisible.
+ */
+function normaliserTrousse(valeur) {
+  if (!valeur) return {};
+  if (Array.isArray(valeur)) {
+    return Object.fromEntries(valeur.map((v) =>
+      typeof v === "string" ? [v, { kind: null, label: v }] : [String(v.id), { kind: v.kind, label: v.label }]));
+  }
   return valeur;
 }
 

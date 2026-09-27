@@ -1,10 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
-
-  <path d="M20 34h34l8 10h46v70H20z" fill="#d6c6a8"/>
-  <path d="M20 34h34l8 10H20z" fill="#6f5a3c" opacity=".55"/>
-  <rect x="30" y="40" width="68" height="62" fill="#f3ead9" opacity=".55"/>
-  <path d="M20 44h88v70H20z" fill="#d6c6a8"/>
-  <path d="M64 44v70" stroke="#6f5a3c" stroke-width="3" opacity=".5"/>
-  <path d="M20 78h88" stroke="#6f5a3c" stroke-width="2" opacity=".35"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="dossier">
+  <defs>
+    <linearGradient id="plaque" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151b21"/><stop offset="1" stop-color="#0a0d10"/></linearGradient>
+    <radialGradient id="lum" cx="30%" cy="16%" r="78%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".085"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sol" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="boisSombre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d6a3d"/><stop offset="1" stop-color="#4d3720"/></linearGradient>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
+  <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
+  <path d="M12 18h18l4 4h18a2 2 0 0 1 2 2v28a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V20a2 2 0 0 1 2-2z" fill="url(#bois)" opacity=".9"/>
+  <path d="M16 26h32v4H16z" fill="url(#papier)" opacity=".7"/>
+  <path d="M14 34h34M14 39h28" stroke="#6d5a38" stroke-opacity=".6" stroke-width="1.2"/>
+  <path d="M10 44h44v10a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2z" fill="url(#boisSombre)"/>
+  <path d="M10 44h44" fill="none" stroke="#000" stroke-opacity=".3" stroke-width="1"/>
+  <rect x="38" y="47" width="12" height="5" rx="1" fill="url(#papier)" opacity=".75"/>
+  <rect width="64" height="64" rx="10" fill="url(#lum)"/>
+  <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
 </svg>

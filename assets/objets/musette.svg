@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="regle">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="musette">
   <defs>
     <linearGradient id="plaque" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#151b21"/><stop offset="1" stop-color="#0a0d10"/></linearGradient>
@@ -8,23 +8,23 @@
     <radialGradient id="sol" cx="50%" cy="50%" r="50%">
       <stop offset="0" stop-color="#000" stop-opacity=".55"/>
       <stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <linearGradient id="toile" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#78854f"/><stop offset=".5" stop-color="#5c6a3c"/>
+      <stop offset="1" stop-color="#3a4326"/></linearGradient>
     <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
       <stop offset="1" stop-color="#7d5f15"/></linearGradient>
-    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
-      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
   </defs>
   <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
   <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
-  <rect x="4" y="27" width="56" height="11" rx="1.5" fill="url(#bois)"/>
-  <rect x="4" y="27" width="56" height="3" fill="#fff" opacity=".16"/>
-  <rect x="4" y="35.5" width="56" height="2.5" fill="url(#laiton)"/>
-  <g stroke="#3a2f1c" stroke-opacity=".75" stroke-width=".9">
-    <path d="M8 27v5M12 27v3M16 27v3M20 27v5M24 27v3M28 27v3M32 27v5M36 27v3M40 27v3M44 27v5M48 27v3M52 27v3M56 27v5"/>
-  </g>
-  <path d="M4 33h56" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1"/>
-  <ellipse cx="32" cy="42" rx="27" ry="2" fill="#000" opacity=".3"/>
+  <path d="M13 27h38a2 2 0 0 1 2 2v20a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4V29a2 2 0 0 1 2-2z" fill="url(#toile)"/>
+  <path d="M11 29h42v9a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2z" fill="url(#toile)" opacity=".75"/>
+  <path d="M11 37h42" fill="none" stroke="#000" stroke-opacity=".34" stroke-width="1"/>
+  <path d="M20 27c0-7 4-11 12-11s12 4 12 11" fill="none" stroke="url(#toile)" stroke-width="3"/>
+  <rect x="28" y="36" width="8" height="8" rx="1.5" fill="#3a4326"/>
+  <circle cx="32" cy="40" r="1.8" fill="url(#laiton)"/>
+  <path d="M16 44h6v7h-6zM42 44h6v7h-6z" fill="#000" opacity=".16"/>
+  <path d="M13 31h38" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width=".9"/>
   <rect width="64" height="64" rx="10" fill="url(#lum)"/>
   <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
 </svg>
