@@ -845,3 +845,24 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 }
 .consigne__ligne .objet__figure { width: 24px; height: 24px; flex: 0 0 auto; }
 .consigne__ligne .saisie { flex: 1; min-width: 0; }
+
+/* --- Les photographies ----------------------------------------------------
+   Chaque objet est photographié sur le même fond sombre que l'interface : on
+   arrondit à peine le bord pour qu'il se pose comme un objet sur la table, et
+   on lui donne un format carré — une photographie écrasée dans un rectangle
+   étroit perd justement ce qui la rend lisible. */
+.objet__figure[style*=".jpg"],
+.objet__figure[style*="image/jpeg"],
+.casier__figure[style*=".jpg"],
+.casier__figure[style*="image/jpeg"] {
+  border-radius: 6px;
+  background-size: cover;
+}
+.objet .objet__figure[style*=".jpg"],
+.objet .objet__figure[style*="image/jpeg"] {
+  width: 48px; height: 48px;
+}
+.objet-vignette .objet__figure[style*=".jpg"],
+.objet-vignette .objet__figure[style*="image/jpeg"] {
+  width: 36px; height: 36px;
+}

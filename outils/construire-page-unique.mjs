@@ -48,6 +48,16 @@ function embarquerObjets() {
     carte[fichier.replace(/\.svg$/, "")] =
       "data:image/svg+xml," + encodeURIComponent(svg);
   }
+  // Les photographies ensuite : elles prennent le pas sur le dessin du meme
+  // nom, exactement comme dans imageObjet().
+  const photos = resolve(dossier, "photos");
+  try {
+    for (const fichier of readdirSync(photos)) {
+      if (!fichier.endsWith(".jpg")) continue;
+      carte[fichier.replace(/\.jpg$/, "")] =
+        "data:image/jpeg;base64," + readFileSync(resolve(photos, fichier)).toString("base64");
+    }
+  } catch { /* pas de photographies : les dessins suffisent */ }
   return carte;
 }
 

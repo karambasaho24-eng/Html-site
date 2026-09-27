@@ -64,6 +64,8 @@ export const CATALOGUE = {
   /* --- Écrire ------------------------------------------------------------- */
   plume:     { libelle: "Plume",     categorie: "ecriture", ecrit: true, encre: true,
                aide: "Bec d'acier, manche de bois. Sans encre, elle gratte." },
+  "stylo-plume": { libelle: "Stylo plume", categorie: "ecriture", ecrit: true, encre: true,
+               aide: "Corps laqué, agrafe de laiton. Il boit à l'encrier comme la plume." },
   crayon:    { libelle: "Crayon",    categorie: "ecriture", ecrit: true,
                aide: "Mine de graphite. Il écrit toujours." },
   encrier:   { libelle: "Encrier",   categorie: "ecriture", consomme: true,
@@ -80,6 +82,8 @@ export const CATALOGUE = {
   /* --- Papier ------------------------------------------------------------- */
   feuilles:  { libelle: "Feuilles",  categorie: "papier", nombre: true,
                aide: "Une pile de feuilles vierges." },
+  pochette:  { libelle: "Pochette de documents", categorie: "papier", contenant: true,
+               aide: "Toile olive, rabat de cuir. On y glisse ses feuilles." },
   chemise:   { libelle: "Chemise",   categorie: "papier", contenant: true,
                aide: "Carton souple à rabats, pour tenir des papiers ensemble." },
 
@@ -150,12 +154,31 @@ export function imageObjet(kind) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "autre";
 
-  // La page autonome n'a pas de fichiers a cote : elle transporte les dessins
+  // La page autonome n'a pas de fichiers a cote : elle transporte les images
   // avec elle, en data-uri. Ailleurs, on va les chercher normalement.
   const embarques = globalThis.__OJM_OBJETS__;
   if (embarques && embarques[cle]) return embarques[cle];
+
+  // Une photographie quand elle existe, le dessin sinon. Les photographies
+  // sont les objets eux-memes ; les dessins restent en repli, pour qu'un type
+  // ajoute au catalogue ne s'affiche jamais comme une case vide.
+  if (PHOTOS.has(cle)) return `assets/objets/photos/${cle}.jpg`;
   return `assets/objets/${cle}.svg`;
 }
+
+/**
+ * Les objets photographies. Tous sortent de la meme seance : meme fond
+ * (#0d1013), meme lumiere venue du haut-gauche, memes matieres. La liste est
+ * tenue a la main : un fichier absent ferait une case vide, et un navigateur
+ * ne dit pas qu'une image manque — il n'affiche rien.
+ */
+export const PHOTOS = new Set([
+  "boulier", "buvard", "cahier", "cahier-ouvert", "carnet", "cartable",
+  "cartable-ouvert", "compas", "craie", "crayon", "dossier", "encre",
+  "encrier", "equerre", "feuille", "feuilles", "gomme", "musette", "plume",
+  "pochette", "rapporteur", "regle", "regle-a-calcul", "sacoche",
+  "stylo-plume", "trousse", "trousse-ouverte"
+]);
 
 /* ===========================================================================
    La dotation de départ
