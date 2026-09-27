@@ -219,6 +219,19 @@ L'instrument de calcul est une **règle à calcul** (et un boulier en second) :
 réglette coulissante, curseur, graduations. Aucun écran, aucune pile — rien qui
 n'existerait pas dans cet univers.
 
+### 4.4 bis Les objets conditionnent les actions (migration 0019)
+
+Posséder ne suffit pas : il faut avoir l'objet **devant soi**.
+
+- **Lieu** de chaque objet et cahier : `range` (chez soi ou dans un contenant), `bureau` (sorti pendant une activité), `salle` (laissé derrière soi). `src/features/portee.js` répond à « où est-il, pour moi, maintenant ? » et « puis-je faire ceci ? ».
+- **Actions et outils** : écrire → crayon / plume / stylo-plume (+ encrier) ; effacer → gomme ; tracer → règle, équerre, compas ; calculer → règle à calcul, boulier ; tableau (professeur) → craie. Sans l'outil, rien ne s'écrit : le cahier se verrouille avec « Vous n'avez aucun outil d'écriture ».
+- **Bureau de séance** (`src/features/bureau.js`) : on ouvre son sac et on sort ce qu'on veut. En séance, seul ce qui est sur le bureau sert. En quittant la salle ou à la fin de la séance, ce qui est resté sur le bureau reste **dans la salle**.
+- **Contenance** : chaque contenant a une capacité, chaque objet un volume (petit, moyen, encombrant). L'établi affiche `occupé/capacité` et refuse ce qui ne rentre pas ; les cahiers se rangent dans un contenant comme le reste.
+- **Oublis** : « Mes affaires » affiche la section *Laissé ailleurs* (❌ indisponible, 📍 dernière position). Récupérer exige que la salle soit ouverte (séance en cours, ouverture par l'encadrement, laissez-passer) et une attestation de présence. Un cahier oublié ne s'ouvre pas.
+- **Encadrement** : menu *Objets trouvés* (classe et salle) → autoriser l'accès 30 min, laisser entrer une personne 20 min, restituer un objet. Rien ne revient tout seul.
+- **Professeur** : reçoit une fois une sacoche avec craie, crayon, gomme, feuilles et un dossier de professeur — pas « tous les objets ».
+- **Dossiers** : onglet *Dossiers* de la sacoche. Un dossier est un objet nommé par le joueur ; on y classe des papiers ; oublié, il n'est plus accessible, ni son contenu.
+
 ### 4.5 Les objets qui circulent
 
 **Le principe, partout le même : un objet n'est jamais à deux endroits.**

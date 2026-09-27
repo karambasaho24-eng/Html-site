@@ -34,13 +34,14 @@ import { personnages } from "../data/index.js";
 import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
 import { inscrireAuLivret } from "../features/livret.js";
 import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
-import { preparerAffaires, ligneMateriel } from "../features/cartable.js";
+import { preparerAffaires, ligneMateriel, assurerMaterielProfesseur } from "../features/cartable.js";
 import { materielAttendu, consigneAEnregistrer, typeDepuisTexte, NIVEAUX, ecart, idsDuSac }
   from "../features/materiel.js";
 import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES }
   from "../features/affaires.js";
 import { tendreObjet, demanderObjet, confisquerObjet } from "../features/transfert.js";
 import { creerBureau } from "../features/bureau.js";
+import { ouvrirObjetsTrouves } from "../features/objets-trouves.js";
 import { affaires as depotAffaires } from "../data/index.js";
 import {
   MINUTES_OFFERTES, reglesMateriel, nePeutPasEcrire, bandeauPrivation, lignePrivation
@@ -2003,6 +2004,7 @@ export default async function vueSalle({ params }) {
       { libelle: "Appel et présences", icone: "eleves", action: ouvrirPresences },
       offre(session, "cartable")
         ? { libelle: "Demander du matériel", icone: "sac", action: definirMateriel } : null,
+      { libelle: "Objets trouvés", icone: "main", action: () => ouvrirObjetsTrouves({ classe }) },
       enRP ? { libelle: "Inscrire au livret", icone: "etoile", action: () => inscrire() } : null
     ].filter(Boolean));
   }
@@ -2655,6 +2657,8 @@ export default async function vueSalle({ params }) {
     }, 900);
   }
 
+  // Le professeur a sa craie : sans elle, il n'écrirait pas au tableau.
+  if (staff) await assurerMaterielProfesseur(etat.utilisateur.id).catch(() => false);
   await bureau.charger();
   mesAffaires = bureau.objets();
 

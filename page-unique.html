@@ -2283,6 +2283,10 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   font-family: var(--f-mono); font-size: 9px; letter-spacing: .1em;
   color: rgba(255,255,255,.45);
 }
+.casier__compte--plein { color: var(--attn, #d9a441); font-weight: 700; }
+/* Ce qui est ailleurs : visible, mais hors d'atteinte. */
+.objet--ailleurs { opacity: .55; cursor: not-allowed; filter: grayscale(.6); }
+.objet--ailleurs .objet__type { color: var(--attn, #d9a441); }
 .casier__etat {
   margin-left: auto; margin-right: 18px;
   font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
@@ -2528,6 +2532,111 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 .casier__entete .vitrine { margin: -2px 2px -2px -2px; }
 .affaire .vitrine { margin: 2px 0; }
 .cartable__apercu .vitrine { margin-right: var(--e-2); }
+
+/* ===========================================================================
+   Le bureau : ce qui est sorti du sac
+   ========================================================================= */
+.bureau {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: 6px var(--e-4);
+  border-bottom: 1px solid var(--ligne);
+  background:
+    linear-gradient(180deg, rgba(120,86,48,.18), rgba(60,40,20,.10)),
+    var(--encre-850);
+  min-height: 58px;
+}
+.bureau__sac {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  padding: 2px 10px 2px 2px;
+  background: rgba(0,0,0,.25); border: 1px solid var(--ligne-forte);
+  border-radius: 8px; cursor: pointer; color: var(--texte); font: inherit;
+}
+.bureau__sac:hover { border-color: var(--ligne-laiton); }
+.bureau__sans-sac { width: 42px; height: 42px; display: grid; place-items: center; color: var(--texte-faible); }
+.bureau__mot { font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.bureau__plateau {
+  flex: 1; min-width: 0;
+  display: flex; gap: 6px; overflow-x: auto; padding: 2px 0;
+}
+.bureau__objet {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  padding: 3px 8px 3px 3px;
+  background: rgba(255,255,255,.04); border: 1px solid var(--ligne);
+  border-radius: 6px; cursor: pointer; color: var(--texte-doux); font: inherit;
+  animation: bureau-pose 260ms cubic-bezier(.34,1.3,.5,1) both;
+}
+.bureau__objet:hover { border-color: var(--ligne-forte); color: var(--texte); }
+.bureau__objet .objet__figure { width: 34px; height: 34px; border-radius: 5px; }
+.bureau__nom { font-size: 11px; white-space: nowrap; }
+.bureau__vide { padding: 0 4px; }
+@keyframes bureau-pose { from { transform: translateY(-8px) scale(.9); opacity: 0; } }
+
+.sac-ouvert__sacs { display: flex; gap: var(--e-2); margin-bottom: var(--e-3); }
+.sac-ouvert__grille {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--e-2); margin-top: var(--e-3);
+}
+.sac-ouvert__objet {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: var(--e-2); cursor: pointer; font: inherit; color: var(--texte);
+  background: rgba(255,255,255,.04); border: 1px solid var(--ligne); border-radius: 8px;
+  transition: transform 200ms ease, opacity 200ms ease, border-color var(--transition);
+}
+.sac-ouvert__objet:hover { border-color: var(--ligne-laiton); transform: translateY(-2px); }
+.sac-ouvert__objet .objet__figure { width: 56px; height: 56px; border-radius: 6px; }
+.sac-ouvert__objet--sort { transform: translateY(-18px) scale(1.08); opacity: 0; }
+.sac-ouvert__nom { font-size: 12px; font-weight: 600; text-align: center; }
+.sac-ouvert__type { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--texte-faible); }
+
+/* Ce qu'on ne peut pas faire, dit à l'endroit où l'on essaie. */
+.manque-outil {
+  display: flex; align-items: center; gap: var(--e-3);
+  margin: 0 var(--e-4) var(--e-3); padding: var(--e-3);
+  border: 1px solid rgba(201,150,63,.45); border-radius: var(--r-2);
+  background: rgba(201,150,63,.08);
+}
+.manque-outil p { margin: 2px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .bureau__objet { animation: none; }
+  .sac-ouvert__objet { transition: none; }
+}
+
+/* Laissé ailleurs : ni sur soi ni chez soi. */
+.affaires__section--restes {
+  border-left: 2px solid var(--attn); padding-left: var(--e-3);
+}
+.affaire--reste .affaire__ligne { flex-wrap: wrap; gap: 8px; }
+.affaire__nom { font-weight: 600; }
+.affaire__lieu { color: var(--attn); }
+
+/* Objets trouvés d'une salle. */
+.trouves__porte { display: flex; align-items: center; gap: 8px; margin: var(--e-3) 0; flex-wrap: wrap; }
+.trouves__liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trouves__ligne {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px;
+}
+.trouves__figure {
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 4px;
+  background-size: cover; background-position: center;
+}
+.trouves__quoi { display: flex; flex-direction: column; min-width: 0; }
+
+/* Dossiers : ce qui classe des papiers. */
+.dossiers__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: var(--e-3); }
+.dossier-carte {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 10px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1); border-radius: 6px;
+}
+.dossier-carte:hover { border-color: var(--laiton-clair); }
+.dossier-carte__figure { width: 100%; height: 90px; border-radius: 4px; background-size: cover; background-position: center; }
+.dossier-carte__nom { font-weight: 600; }
+.dossier-carte--hors { opacity: .6; }
+.dossier-carte--hors .dossier-carte__figure { filter: grayscale(.8); }
+.dossier-carte__lieu { color: var(--attn); }
+.dossier__papiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dossier__papier { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* ---- board.css ---- */
 /* ===========================================================================
@@ -3590,7 +3699,8 @@ var init_contrat = __esm({
       "page_annotations",
       "notebook_handoffs",
       "belongings",
-      "belonging_handoffs"
+      "belonging_handoffs",
+      "dossier_items"
     ];
     ErreurDonnees = class extends Error {
       constructor(message, code = null, cause = null) {
@@ -3902,6 +4012,69 @@ function analyserFiltreTemps(expression) {
   }
   return (ligne) => String(ligne?.[colonne]) === brut;
 }
+function tailleDuContenu(contenantId, sauf) {
+  let total = 0;
+  for (const t of ["belongings", "notebooks"]) {
+    for (const l of charger(t)) {
+      if (String(l.container_id || "") === String(contenantId) && l.id !== sauf) total += Number(l.size || 1);
+    }
+  }
+  return total;
+}
+function dansLeSac(contenantId) {
+  const objets = charger("belongings");
+  let courant2 = contenantId;
+  for (let i = 0; i < 8 && courant2; i++) {
+    const b = objets.find((o) => o.id === courant2);
+    if (!b) return false;
+    if (b.carried && (b.place || "range") === "range") return true;
+    courant2 = b.container_id;
+  }
+  return false;
+}
+function gardeDuLieu(ancien, nouveau) {
+  const lieu = (o) => o?.place || "range";
+  if (ancien && lieu(ancien) === "salle" && !recuperationEnCours) {
+    if (lieu(nouveau) !== "salle" || (nouveau.container_id || null) !== (ancien.container_id || null)) {
+      throw new ErreurDonnees("Cet objet est rest\xE9 en salle : il faut aller le r\xE9cup\xE9rer.", "42501");
+    }
+  }
+  if (nouveau.container_id) {
+    if (nouveau.container_id === nouveau.id) {
+      throw new ErreurDonnees("Un contenant ne se range pas dans lui-m\xEAme", "22023");
+    }
+    const hote = charger("belongings").find((o) => o.id === nouveau.container_id);
+    if (!hote || !hote.is_container) throw new ErreurDonnees("Cet objet n'est pas un contenant", "22023");
+    if (hote.owner_id !== nouveau.owner_id) {
+      throw new ErreurDonnees("On ne range pas ses affaires chez quelqu'un d'autre", "42501");
+    }
+    const change = !ancien || ancien.container_id !== nouveau.container_id || Number(nouveau.size || 1) > Number(ancien.size || 1);
+    if (hote.capacity != null && change && tailleDuContenu(nouveau.container_id, nouveau.id) + Number(nouveau.size || 1) > hote.capacity) {
+      throw new ErreurDonnees(`Il n'y a plus de place dans ${hote.label || hote.kind}`, "22023");
+    }
+    Object.assign(nouveau, {
+      place: "range",
+      place_session: null,
+      place_class: null,
+      place_label: null,
+      place_at: null
+    });
+  }
+  if (lieu(nouveau) === "bureau" && lieu(ancien) !== "bureau") {
+    if (ancien && lieu(ancien) === "range" && !recuperationEnCours && (!ancien.container_id || !dansLeSac(ancien.container_id))) {
+      throw new ErreurDonnees("On ne sort que ce qu'on a dans son sac.", "42501");
+    }
+    if (!nouveau.place_session) {
+      throw new ErreurDonnees("Sortir un objet suppose une activit\xE9 en cours", "22023");
+    }
+    nouveau.place_at = (/* @__PURE__ */ new Date()).toISOString();
+  }
+  if (lieu(nouveau) === "salle" && lieu(ancien) !== "salle") {
+    if (!nouveau.place_class) throw new ErreurDonnees("Un objet laiss\xE9 en salle doit dire laquelle", "22023");
+    nouveau.place_at = (/* @__PURE__ */ new Date()).toISOString();
+  }
+  return nouveau;
+}
 function depot2(nom) {
   return {
     nom,
@@ -3931,6 +4104,7 @@ function depot2(nom) {
         ...objet,
         id: objet.id || uid()
       };
+      if (GARDES[nom]) GARDES[nom](null, ligne);
       if (nom === "classes" && !ligne.code) {
         do {
           ligne.code = genererCode();
@@ -3970,7 +4144,8 @@ function depot2(nom) {
       const i = lignes.findIndex((l) => l.id === id);
       if (i < 0) throw new ErreurDonnees("\xC9l\xE9ment introuvable", "P0002");
       const ancien = { ...lignes[i] };
-      lignes[i] = { ...lignes[i], ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+      const fusion = { ...lignes[i], ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() };
+      lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
       sauver(nom, lignes);
       signaler(nom, "UPDATE", lignes[i], ancien);
       return { ...lignes[i] };
@@ -4141,14 +4316,21 @@ async function creerPiloteLocal() {
       if (objet.state === "confiscated") {
         throw new ErreurDonnees("Cet objet est confisqu\xE9", "42501");
       }
-      await t("belongings").majorer(objet.id, ligne.kind === "give" ? {
-        owner_id: cible,
-        former_owner: source,
-        holder_id: null,
-        state: "owned",
-        container_id: null,
-        carried: false
-      } : { holder_id: cible, state: "lent", container_id: null, carried: false });
+      if (objet.place === "salle") {
+        throw new ErreurDonnees("Cet objet est rest\xE9 en salle : on ne tend pas ce qu'on n'a pas.", "42501");
+      }
+      const lieu = await procedures._lieu_de_remise(ligne);
+      recuperationEnCours = true;
+      try {
+        await t("belongings").majorer(objet.id, {
+          ...ligne.kind === "give" ? { owner_id: cible, former_owner: source, holder_id: null, state: "owned" } : { holder_id: cible, state: "lent" },
+          container_id: null,
+          carried: false,
+          ...lieu
+        });
+      } finally {
+        recuperationEnCours = false;
+      }
       const maj = await t("belonging_handoffs").majorer(handoff, {
         state: "accepted",
         settled_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -4176,12 +4358,22 @@ async function creerPiloteLocal() {
         throw new ErreurDonnees("Un objet donn\xE9 ne se reprend pas : il faut le redemander", "42501");
       }
       const objet = await t("belongings").lire(ligne.belonging_id);
-      await t("belongings").majorer(ligne.belonging_id, {
-        holder_id: null,
-        state: "owned",
-        container_id: null,
-        carried: false
-      });
+      if (objet?.place === "salle") {
+        throw new ErreurDonnees("Cet objet est rest\xE9 en salle : il faut d'abord aller le chercher.", "42501");
+      }
+      const lieu = await procedures._lieu_de_remise(ligne);
+      recuperationEnCours = true;
+      try {
+        await t("belongings").majorer(ligne.belonging_id, {
+          holder_id: null,
+          state: "owned",
+          container_id: null,
+          carried: false,
+          ...lieu
+        });
+      } finally {
+        recuperationEnCours = false;
+      }
       const maj = await t("belonging_handoffs").majorer(handoff, {
         state: "returned",
         settled_at: (/* @__PURE__ */ new Date()).toISOString()
@@ -4250,6 +4442,107 @@ async function creerPiloteLocal() {
         read_at: null
       });
       return maj;
+    },
+    /** Équivalent de app_lieu_de_remise. */
+    async _lieu_de_remise(ligne) {
+      const s = ligne.session_id ? await t("class_sessions").lire(ligne.session_id) : null;
+      return s?.status === "live" ? {
+        place: "bureau",
+        place_session: ligne.session_id,
+        place_class: ligne.class_id || s.class_id,
+        place_label: null
+      } : { place: "range", place_session: null, place_class: null, place_label: null };
+    },
+    /** Équivalent de app_salle_ouverte. */
+    async _salle_ouverte(classeId, pour) {
+      const live = await t("class_sessions").liste({ class_id: classeId, status: "live" });
+      if (live.length) return true;
+      const c = await t("classes").lire(classeId);
+      const r = c?.settings || {};
+      const maintenant = Date.now();
+      if (r.salle_ouverte_jusqua && new Date(r.salle_ouverte_jusqua).getTime() > maintenant) return true;
+      const passe = r.passes?.[pour];
+      return Boolean(passe && new Date(passe).getTime() > maintenant);
+    },
+    async _sac_avec_place(proprietaire, besoin) {
+      const sacs = (await t("belongings").liste({ owner_id: proprietaire })).filter((b) => b.is_container && b.carried && (b.place || "range") === "range" && ["owned", "borrowed"].includes(b.state || "owned")).sort((a, b) => (b.capacity || 0) - (a.capacity || 0));
+      return sacs.find((b) => (b.capacity || 0) - tailleDuContenu(b.id) >= besoin)?.id || null;
+    },
+    async _recuperer(table2, id, message) {
+      const ligne = await t(table2).lire(id);
+      if (!ligne) throw new ErreurDonnees("Introuvable", "P0002");
+      if (ligne.owner_id !== monId() && ligne.holder_id !== monId()) {
+        throw new ErreurDonnees("Ce n'est pas \xE0 vous", "42501");
+      }
+      if ((ligne.place || "range") === "range") return ligne;
+      if (!ligne.place_class || !await procedures._salle_ouverte(ligne.place_class, monId())) {
+        throw new ErreurDonnees(message, "42501");
+      }
+      recuperationEnCours = true;
+      try {
+        return await t(table2).majorer(id, {
+          place: "range",
+          place_session: null,
+          place_class: null,
+          place_label: null,
+          place_at: null,
+          container_id: await procedures._sac_avec_place(ligne.owner_id, Number(ligne.size || 1))
+        });
+      } finally {
+        recuperationEnCours = false;
+      }
+    },
+    recover_belonging: ({ target }) => procedures._recuperer("belongings", target, "La salle est ferm\xE9e : l'objet y reste."),
+    recover_notebook: ({ target }) => procedures._recuperer("notebooks", target, "La salle est ferm\xE9e : le cahier y reste."),
+    async forgotten_in_class({ target_class }) {
+      const objets = (await t("belongings").liste({ place_class: target_class })).filter((o) => ["salle", "bureau"].includes(o.place)).map((o) => ({
+        genre: "objet",
+        id: o.id,
+        owner_id: o.owner_id,
+        kind: o.kind,
+        label: o.label,
+        place: o.place,
+        place_at: o.place_at
+      }));
+      const supports = (await t("notebooks").liste({ place_class: target_class })).filter((o) => ["salle", "bureau"].includes(o.place)).map((o) => ({
+        genre: "cahier",
+        id: o.id,
+        owner_id: o.owner_id,
+        kind: o.support || "cahier",
+        label: o.title,
+        place: o.place,
+        place_at: o.place_at
+      }));
+      return [...objets, ...supports].sort((a, b) => String(b.place_at).localeCompare(String(a.place_at)));
+    },
+    async restitute_forgotten({ genre, target }) {
+      const table2 = genre === "cahier" ? "notebooks" : "belongings";
+      const ligne = await t(table2).lire(target);
+      if (!ligne?.place_class) throw new ErreurDonnees("Rien \xE0 rendre", "P0002");
+      const classe = ligne.place_class;
+      recuperationEnCours = true;
+      try {
+        await t(table2).majorer(target, {
+          place: "range",
+          place_session: null,
+          place_class: null,
+          place_label: null,
+          place_at: null,
+          container_id: await procedures._sac_avec_place(ligne.owner_id, Number(ligne.size || 1))
+        });
+      } finally {
+        recuperationEnCours = false;
+      }
+      await t("notifications").creer({
+        user_id: ligne.owner_id,
+        class_id: classe,
+        kind: "affaires",
+        title: "On vous a rendu ce que vous aviez oubli\xE9",
+        body: ligne.title || ligne.label || ligne.kind,
+        link: "/affaires",
+        read_at: null
+      });
+      return true;
     },
     async join_class({ join_code }) {
       const code = String(join_code || "").toUpperCase().trim();
@@ -4786,7 +5079,7 @@ async function amorcerRbac(t) {
   await attribuer("student", permsEleve);
   await attribuer("observer", permsObs);
 }
-var PREFIXE, CANAL, diffuseur, ecouteursLocaux, ONGLET, BASE_FICHIERS, basePromesse, CLE_SESSION, CLE_COMPTES;
+var PREFIXE, CANAL, diffuseur, ecouteursLocaux, ONGLET, recuperationEnCours, GARDES, BASE_FICHIERS, basePromesse, CLE_SESSION, CLE_COMPTES;
 var init_local = __esm({
   "src/data/local.js"() {
     init_contrat();
@@ -4806,6 +5099,8 @@ var init_local = __esm({
       }
     });
     ONGLET = uid();
+    recuperationEnCours = false;
+    GARDES = { belongings: gardeDuLieu, notebooks: gardeDuLieu };
     BASE_FICHIERS = "ojm-fichiers";
     basePromesse = null;
     CLE_SESSION = "ojm.local.session";
@@ -4817,12 +5112,14 @@ var init_local = __esm({
 var data_exports = {};
 __export(data_exports, {
   ErreurDonnees: () => ErreurDonnees,
+  VOLUME_SUPPORT: () => VOLUME_SUPPORT,
   affaires: () => affaires,
   annonces: () => annonces,
   annotations: () => annotations,
   auth: () => auth,
   cahiers: () => cahiers,
   cartable: () => cartable,
+  classement: () => classement,
   classes: () => classes,
   cours: () => cours,
   documents: () => documents,
@@ -4851,6 +5148,7 @@ __export(data_exports, {
   remisesCahier: () => remisesCahier,
   remisesObjet: () => remisesObjet,
   renvois: () => renvois,
+  salles: () => salles,
   sessions: () => sessions,
   sondages: () => sondages,
   tableaux: () => tableaux,
@@ -4884,7 +5182,7 @@ function normaliserTrousse(valeur) {
   }
   return valeur;
 }
-var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, affaires, remisesObjet, privations, remisesCahier, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
+var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, affaires, VOLUME_SUPPORT, salles, classement, remisesObjet, privations, remisesCahier, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
 var init_data = __esm({
   "src/data/index.js"() {
     init_config();
@@ -5114,8 +5412,34 @@ var init_data = __esm({
         archived: false,
         support: "cahier",
         max_pages: 10,
+        place: "range",
+        size: VOLUME_SUPPORT[donnees.support || "cahier"] || 4,
         ...donnees
       }),
+      /* Un cahier est un objet comme un autre : il est rangé, sur le bureau, ou
+         resté en salle. Oublié, on ne l'a pas — même s'il est à soi. */
+      sortir: (cahier, { session, classe }) => T("notebooks").majorer(cahier.id, {
+        place: "bureau",
+        place_session: session.id,
+        place_class: classe.id,
+        place_label: classe.name || null,
+        container_id: null
+      }),
+      rangerDans: (cahier, contenantId) => T("notebooks").majorer(cahier.id, {
+        container_id: contenantId,
+        place: "range",
+        place_session: null,
+        place_class: null,
+        place_label: null
+      }),
+      laisser: (cahier, { classe }) => T("notebooks").majorer(cahier.id, {
+        place: "salle",
+        place_class: classe.id,
+        place_label: classe.name || null,
+        place_session: null,
+        container_id: null
+      }),
+      recuperer: (id) => pilote.rpc("recover_notebook", { target: id }),
       /** Inspection d'un support apporté au cartable, par l'encadrement. */
       inspecter: (cahierId, classeId) => pilote.rpc("inspect_notebook", { target_notebook: cahierId, target_class: classeId }),
       majorer: (id, patch) => T("notebooks").majorer(id, patch),
@@ -5242,8 +5566,43 @@ var init_data = __esm({
         container_id: null,
         label: "",
         meta: {},
+        place: "range",
+        size: 1,
         ...donnees
       }),
+      /* --- Les lieux ------------------------------------------------------------
+         Trois lieux : rangé (dans un contenant, ou chez soi), sur le bureau
+         pendant une activité, laissé en salle. La base refuse les passages
+         impossibles (voir app_garde_du_lieu, 0019) ; ces fonctions ne font que
+         demander. */
+      /** Sortir de son sac et poser devant soi, pour cette activité. */
+      sortir: (objet, { session, classe }) => T("belongings").majorer(objet.id, {
+        place: "bureau",
+        place_session: session.id,
+        place_class: classe.id,
+        place_label: classe.name || null,
+        container_id: null,
+        // D'où il vient : c'est là qu'on le remettra en rangeant.
+        meta: { ...objet.meta || {}, depuis: objet.container_id || null }
+      }),
+      /** Remettre dans un contenant — le sac, la trousse, un dossier. */
+      rangerDans: (objet, contenantId) => T("belongings").majorer(objet.id, {
+        container_id: contenantId,
+        place: "range",
+        place_session: null,
+        place_class: null,
+        place_label: null
+      }),
+      /** Partir en laissant l'objet derrière soi. Il reste dans la salle. */
+      laisser: (objet, { classe }) => T("belongings").majorer(objet.id, {
+        place: "salle",
+        place_class: classe.id,
+        place_label: classe.name || null,
+        place_session: null,
+        container_id: null
+      }),
+      /** Revenir le chercher. La base vérifie que la salle est ouverte. */
+      recuperer: (id) => pilote.rpc("recover_belonging", { target: id }),
       majorer: (id, patch) => T("belongings").majorer(id, patch),
       supprimer: (id) => T("belongings").supprimer(id),
       /** Ranger un objet dans un contenant, ou le sortir (contenant nul). */
@@ -5299,12 +5658,67 @@ var init_data = __esm({
             carried: Boolean(item.carried),
             container_id: item.dans ? parType.get(item.dans)?.id || null : null,
             level: item.level ?? null,
-            quantity: item.quantity ?? 1
+            quantity: item.quantity ?? 1,
+            size: item.size ?? 1,
+            capacity: item.capacity ?? null
           });
           parType.set(item.kind, cree);
         }
         return this.miennes(utilisateurId);
       }
+    };
+    VOLUME_SUPPORT = { feuille: 1, carnet: 3, cahier: 4, dossier: 5 };
+    salles = {
+      /** Ce qui traîne dans la salle — réservé à l'encadrement. */
+      async oublies(classeId) {
+        const lignes = await pilote.rpc("forgotten_in_class", { target_class: classeId });
+        return Array.isArray(lignes) ? lignes : [];
+      },
+      /** Rendre à son propriétaire ce qu'il a laissé. Geste volontaire. */
+      restituer: (genre, id) => pilote.rpc("restitute_forgotten", { genre, target: id }),
+      /** La salle est-elle ouverte, pour moi, maintenant ? Lecture seule : la
+       *  base refait le même calcul avant toute récupération. */
+      ouverte(classe, seanceEnCours, utilisateurId) {
+        if (seanceEnCours && seanceEnCours.status === "live") return true;
+        const r = classe?.settings || {};
+        const maintenant = Date.now();
+        if (r.salle_ouverte_jusqua && new Date(r.salle_ouverte_jusqua).getTime() > maintenant) return true;
+        const passe = r.passes?.[utilisateurId];
+        return Boolean(passe && new Date(passe).getTime() > maintenant);
+      },
+      /** Ouvrir la salle un moment : chacun peut venir y reprendre ses affaires. */
+      async ouvrir(classe, minutes = 30) {
+        const jusqua = new Date(Date.now() + minutes * 6e4).toISOString();
+        const settings = { ...classe.settings || {}, salle_ouverte_jusqua: jusqua };
+        const maj = await T("classes").majorer(classe.id, { settings });
+        classe.settings = maj?.settings || settings;
+        return jusqua;
+      },
+      async fermer(classe) {
+        const settings = { ...classe.settings || {}, salle_ouverte_jusqua: null };
+        const maj = await T("classes").majorer(classe.id, { settings });
+        classe.settings = maj?.settings || settings;
+      },
+      /** Autoriser une seule personne à entrer, pour un temps. */
+      async laissezPasser(classe, utilisateurId, minutes = 20) {
+        const jusqua = new Date(Date.now() + minutes * 6e4).toISOString();
+        const settings = {
+          ...classe.settings || {},
+          passes: { ...classe.settings?.passes || {}, [utilisateurId]: jusqua }
+        };
+        const maj = await T("classes").majorer(classe.id, { settings });
+        classe.settings = maj?.settings || settings;
+        return jusqua;
+      }
+    };
+    classement = {
+      contenu: (dossierId) => T("dossier_items").liste({ dossier_id: dossierId }, { ordre: "created_at" }),
+      deDossiers: (ids) => ids.length ? T("dossier_items").liste({ dossier_id: ids }, { ordre: "created_at" }) : Promise.resolve([]),
+      ranger: (dossierId, paperId, utilisateurId) => T("dossier_items").inserer(
+        { dossier_id: dossierId, paper_id: paperId, added_by: utilisateurId },
+        "dossier_id,paper_id"
+      ),
+      sortir: (id) => T("dossier_items").supprimer(id)
     };
     remisesObjet = {
       /** Ce qu'on me tend, ou ce qu'on me demande, et qui attend ma réponse. */
@@ -7294,10 +7708,6 @@ function indisponible(objet, moiId) {
   if (objet.state === "lent" && String(objet.holder_id || "") !== String(moiId)) return true;
   return false;
 }
-function encrierEnService(objets, moiId) {
-  const index = indexer(objets);
-  return objets.find((o) => o.kind === "encrier" && !indisponible(o, moiId) && surMoi(o, index)) || null;
-}
 function etatObjet(objet, moiId) {
   if (!objet) return null;
   if (objet.state === "lent") {
@@ -7405,7 +7815,7 @@ function vignetteObjet(objet, { moiId = null, compacte = false, figure = true } 
     etat2 ? el("span.etiq", { class: etat2.etiq }, etat2.libelle) : null
   );
 }
-var CATEGORIES, CATALOGUE, TYPES, fiche, PHOTOS, DOTATION, KITS_SUGGERES, ETATS, SCENES, INCLINAISONS;
+var CATEGORIES, CATALOGUE, TYPES, fiche, PHOTOS, DOTATION, DOTATION_PROFESSEUR, KITS_SUGGERES, ETATS, SCENES, INCLINAISONS;
 var init_affaires = __esm({
   "src/features/affaires.js"() {
     init_dom();
@@ -7424,42 +7834,56 @@ var init_affaires = __esm({
     CATALOGUE = {
       /* --- Ce qui porte le reste --------------------------------------------- */
       cartable: {
+        volume: 12,
+        capacite: 24,
         libelle: "Cartable",
         categorie: "contenant",
         contenant: true,
         aide: "Cuir fauve, deux sangles, poign\xE9e rigide."
       },
       sacoche: {
+        volume: 8,
+        capacite: 12,
         libelle: "Sacoche",
         categorie: "contenant",
         contenant: true,
         aide: "En bandouli\xE8re, pour les papiers."
       },
       musette: {
+        volume: 10,
+        capacite: 20,
         libelle: "Musette",
         categorie: "contenant",
         contenant: true,
         aide: "Toile r\xE9glementaire, large ouverture."
       },
       mallette: {
+        volume: 12,
+        capacite: 20,
         libelle: "Mallette",
         categorie: "contenant",
         contenant: true,
         aide: "Rigide, fermoirs en laiton. Pour se pr\xE9senter."
       },
       trousse: {
+        volume: 4,
+        capacite: 8,
         libelle: "Trousse",
         categorie: "contenant",
         contenant: true,
         aide: "Toile huil\xE9e olive. Elle se met dans le cartable."
       },
       etui: {
+        volume: 3,
+        capacite: 6,
         libelle: "\xC9tui",
         categorie: "contenant",
         contenant: true,
         aide: "Long et \xE9troit, pour les instruments."
       },
       boite: {
+        volume: 10,
+        capacite: 30,
         libelle: "Bo\xEEte",
         categorie: "contenant",
         contenant: true,
@@ -7467,6 +7891,7 @@ var init_affaires = __esm({
       },
       /* --- Écrire ------------------------------------------------------------- */
       plume: {
+        volume: 1,
         libelle: "Plume",
         categorie: "ecriture",
         ecrit: true,
@@ -7474,6 +7899,7 @@ var init_affaires = __esm({
         aide: "Bec d'acier, manche de bois. Sans encre, elle gratte."
       },
       "stylo-plume": {
+        volume: 1,
         libelle: "Stylo plume",
         categorie: "ecriture",
         ecrit: true,
@@ -7481,24 +7907,28 @@ var init_affaires = __esm({
         aide: "Corps laqu\xE9, agrafe de laiton. Il boit \xE0 l'encrier comme la plume."
       },
       crayon: {
+        volume: 1,
         libelle: "Crayon",
         categorie: "ecriture",
         ecrit: true,
         aide: "Mine de graphite. Il \xE9crit toujours."
       },
       encrier: {
+        volume: 2,
         libelle: "Encrier",
         categorie: "ecriture",
         consomme: true,
         aide: "C'est lui qui se vide quand on \xE9crit \xE0 la plume."
       },
       encre: {
+        volume: 2,
         libelle: "Flacon d'encre",
         categorie: "ecriture",
         consomme: true,
         aide: "De quoi remplir l'encrier plusieurs fois."
       },
       craie: {
+        volume: 1,
         libelle: "Craie",
         categorie: "ecriture",
         ecrit: true,
@@ -7506,78 +7936,102 @@ var init_affaires = __esm({
         aide: "Pour le tableau. Elle s'use."
       },
       gomme: {
+        volume: 1,
         libelle: "Gomme",
         categorie: "ecriture",
         aide: "Caoutchouc gris. Elle laisse des miettes."
       },
       buvard: {
+        volume: 2,
         libelle: "Buvard",
         categorie: "ecriture",
         aide: "On le pose sur l'encre fra\xEEche avant de tourner la page."
       },
       /* --- Papier ------------------------------------------------------------- */
       feuilles: {
+        volume: 2,
         libelle: "Feuilles",
         categorie: "papier",
         nombre: true,
         aide: "Une pile de feuilles vierges."
       },
       pochette: {
+        volume: 3,
+        capacite: 6,
         libelle: "Pochette de documents",
         categorie: "papier",
         contenant: true,
         aide: "Toile olive, rabat de cuir. On y glisse ses feuilles."
       },
+      dossier: {
+        volume: 3,
+        capacite: 6,
+        libelle: "Dossier",
+        categorie: "papier",
+        contenant: true,
+        papiers: true,
+        aide: "Carton rigide, cordon et bouton. On y classe ses papiers."
+      },
       chemise: {
+        volume: 2,
+        capacite: 4,
         libelle: "Chemise",
         categorie: "papier",
         contenant: true,
+        papiers: true,
         aide: "Carton souple \xE0 rabats, pour tenir des papiers ensemble."
       },
       /* --- Calculer ----------------------------------------------------------- */
       "regle-a-calcul": {
+        volume: 3,
         libelle: "R\xE8gle \xE0 calcul",
         categorie: "mathematiques",
         aide: "R\xE9glette coulissante et curseur. Aucune pile, aucun \xE9cran."
       },
       boulier: {
+        volume: 8,
         libelle: "Boulier",
         categorie: "mathematiques",
         aide: "Cadre de bois, tringles d'acier, boules d'os."
       },
       /* --- Tracer ------------------------------------------------------------- */
       regle: {
+        volume: 2,
         libelle: "R\xE8gle",
         categorie: "geometrie",
         aide: "Buis gradu\xE9, ar\xEAte de laiton."
       },
-      equerre: { libelle: "\xC9querre", categorie: "geometrie", aide: "Bois clair, angle droit." },
-      compas: { libelle: "Compas", categorie: "geometrie", aide: "Laiton et acier, vis de serrage." },
-      rapporteur: { libelle: "Rapporteur", categorie: "geometrie", aide: "Demi-disque de corne gradu\xE9e." },
+      equerre: { volume: 2, libelle: "\xC9querre", categorie: "geometrie", aide: "Bois clair, angle droit." },
+      compas: { volume: 2, libelle: "Compas", categorie: "geometrie", aide: "Laiton et acier, vis de serrage." },
+      rapporteur: { volume: 2, libelle: "Rapporteur", categorie: "geometrie", aide: "Demi-disque de corne gradu\xE9e." },
       /* --- Administrer -------------------------------------------------------- */
       registre: {
+        volume: 5,
         libelle: "Registre",
         categorie: "administratif",
         aide: "Grand format reli\xE9. On y consigne, on n'y rature pas."
       },
       cachet: {
+        volume: 2,
         libelle: "Cachet",
         categorie: "administratif",
         aide: "Tampon de laiton \xE0 manche de bois."
       },
       /* --- Servir ------------------------------------------------------------- */
-      carte: { libelle: "Carte", categorie: "mission", aide: "Pli\xE9e en huit, us\xE9e aux plis." },
-      boussole: { libelle: "Boussole", categorie: "mission", aide: "Bo\xEEtier de cuivre, couvercle \xE0 charni\xE8re." },
-      lorgnette: { libelle: "Lorgnette", categorie: "mission", aide: "Laiton et cuir, trois \xE9l\xE9ments." },
+      carte: { volume: 1, libelle: "Carte", categorie: "mission", aide: "Pli\xE9e en huit, us\xE9e aux plis." },
+      boussole: { volume: 1, libelle: "Boussole", categorie: "mission", aide: "Bo\xEEtier de cuivre, couvercle \xE0 charni\xE8re." },
+      lorgnette: { volume: 3, libelle: "Lorgnette", categorie: "mission", aide: "Laiton et cuir, trois \xE9l\xE9ments." },
       lanterne: {
+        volume: 6,
         libelle: "Lanterne",
         categorie: "mission",
         consomme: true,
         aide: "\xC0 huile. Elle \xE9claire tant qu'il en reste."
       },
       /* --- À soi -------------------------------------------------------------- */
-      montre: { libelle: "Montre", categorie: "personnel", aide: "\xC0 gousset, cha\xEEne de laiton." },
+      montre: { volume: 1, libelle: "Montre", categorie: "personnel", aide: "\xC0 gousset, cha\xEEne de laiton." },
       gourde: {
+        volume: 4,
         libelle: "Gourde",
         categorie: "personnel",
         consomme: true,
@@ -7625,6 +8079,14 @@ var init_affaires = __esm({
       { kind: "regle", dans: "trousse" },
       { kind: "buvard", dans: "cartable" },
       { kind: "feuilles", dans: "cartable", quantity: 20 }
+    ];
+    DOTATION_PROFESSEUR = [
+      { kind: "sacoche", carried: true, label: "Sacoche du professeur" },
+      { kind: "craie", dans: "sacoche", quantity: 12 },
+      { kind: "crayon", dans: "sacoche" },
+      { kind: "gomme", dans: "sacoche" },
+      { kind: "feuilles", dans: "sacoche", quantity: 20 },
+      { kind: "dossier", dans: "sacoche", label: "Dossier de professeur" }
     ];
     KITS_SUGGERES = [
       { nom: "\xC9crire", objets: ["plume", "encrier", "buvard", "feuilles"] },
@@ -7738,11 +8200,6 @@ function typesDuSac(sac) {
   }
   return new Set(Object.values(contenu).map((v) => typeof v === "string" ? typeDepuisTexte(v) : v?.kind).filter(Boolean));
 }
-function idsDuSac(sac) {
-  const contenu = sac?.supplies;
-  if (!contenu || Array.isArray(contenu)) return /* @__PURE__ */ new Set();
-  return new Set(Object.keys(contenu));
-}
 function ecart(sac, attendu) {
   const types = typesDuSac(sac);
   const contenu = sac?.notebooks;
@@ -7798,9 +8255,58 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
     }
     return carte;
   };
-  const utilisables = objets.filter((o) => !indisponible(o, moi));
+  const ailleurs = (o) => (o.place || "range") !== "range";
+  const utilisables = objets.filter((o) => !indisponible(o, moi) && !ailleurs(o));
+  const absents = objets.filter((o) => !indisponible(o, moi) && ailleurs(o));
   const contenants = () => utilisables.filter((o) => fiche(o.kind)?.contenant);
+  const supportsLibres = mesSupports.filter((c) => !ailleurs(c));
+  const supportsAbsents = mesSupports.filter((c) => ailleurs(c));
+  const rangement = /* @__PURE__ */ new Map();
+  for (const c of supportsLibres) {
+    rangement.set(String(c.id), c.container_id ? String(c.container_id) : null);
+  }
+  const volumeObjet = (o) => Number(o.size ?? fiche(o.kind)?.volume ?? 1);
+  const volumeSupport = (c) => Number(c?.size ?? VOLUME_SUPPORT[c?.support || "cahier"] ?? 4);
+  const capaciteDe = (c) => Number(c?.capacity ?? fiche(c?.kind)?.capacite ?? 99);
+  function occupe(contenantId) {
+    const carte = index();
+    let total = 0;
+    for (const o of objets) {
+      if (String(carte.get(String(o.id))?.container_id || "") === String(contenantId)) total += volumeObjet(o);
+    }
+    for (const [id, dans] of rangement) {
+      if (String(dans || "") === String(contenantId)) {
+        total += volumeSupport(mesSupports.find((c) => String(c.id) === id));
+      }
+    }
+    return total;
+  }
+  function tientDans(contenantId, volume) {
+    const c = objets.find((o) => String(o.id) === String(contenantId));
+    return occupe(contenantId) + volume <= capaciteDe(c);
+  }
+  function plein(contenantId, nom) {
+    const c = objets.find((o) => String(o.id) === String(contenantId));
+    toast(`${nomObjet(c)} est plein`, {
+      corps: `${nom} n'y rentre pas (${occupe(contenantId)}/${capaciteDe(c)}). Retirez quelque chose, ou ouvrez un autre contenant.`,
+      type: "attn"
+    });
+  }
+  function supportSurMoi(id) {
+    const dans = rangement.get(String(id));
+    return Boolean(dans) && estSurMoi(dans);
+  }
+  function supportsEmportes() {
+    const sortie = {};
+    for (const c of supportsLibres) if (supportSurMoi(c.id)) sortie[String(c.id)] = c.title || "";
+    return sortie;
+  }
   let cible = premierContenantPorte();
+  for (const [id] of emportes) {
+    const c = supportsLibres.find((x) => String(x.id) === String(id));
+    if (!c || rangement.get(String(id)) || !cible) continue;
+    if (tientDans(cible, volumeSupport(c))) rangement.set(String(id), cible);
+  }
   function premierContenantPorte() {
     const carte = index();
     const porte = contenants().find((o) => carte.get(String(o.id))?.carried);
@@ -7813,9 +8319,9 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   }
   const noeuds = /* @__PURE__ */ new Map();
   for (const o of utilisables) noeuds.set(`o:${o.id}`, noeudObjet(o));
-  for (const c of mesSupports) noeuds.set(`s:${c.id}`, noeudSupport(c));
+  for (const c of supportsLibres) noeuds.set(`s:${c.id}`, noeudSupport(c));
   const etagere = el("div.plateau__objets");
-  const dansLeSac = el("div.plateau__sac");
+  const dansLeSac3 = el("div.plateau__sac");
   const zoneRabat = el("div.cartable__rabat");
   const zoneKits = el("div.cartable__kits");
   const enregistre = await ouvrirModale({
@@ -7845,7 +8351,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
           el(
             "section.plateau.plateau--sac",
             el("h3.plateau__titre", icone("sac", 13), " Sur moi"),
-            dansLeSac,
+            dansLeSac3,
             el("p.plateau__vide.petit.faible", "Vous n'emportez rien. Cliquez un objet pour le prendre.")
           )
         ),
@@ -7866,7 +8372,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   });
   if (enregistre) {
     succes(session ? "Affaires \xE9quip\xE9es" : "Sac boucl\xE9");
-    surEnregistrement?.({ notebooks: Object.fromEntries(emportes), supplies: declaration() });
+    surEnregistrement?.({ notebooks: supportsEmportes(), supplies: declaration() });
   }
   return enregistre === true;
   function declaration() {
@@ -7879,16 +8385,28 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   }
   async function enregistrer() {
     try {
-      for (const o of objets) {
+      const gestes = [];
+      for (const o of utilisables) {
         const p = place.get(String(o.id));
         const bouge = String(p.container_id || "") !== String(o.container_id || "") || p.carried !== Boolean(o.carried);
-        if (!bouge) continue;
-        await affaires.majorer(o.id, { container_id: p.container_id, carried: p.carried });
-        o.container_id = p.container_id;
-        o.carried = p.carried;
+        if (bouge) gestes.push({ sort: !p.container_id, faire: async () => {
+          await affaires.majorer(o.id, { container_id: p.container_id, carried: p.carried });
+          o.container_id = p.container_id;
+          o.carried = p.carried;
+        } });
       }
+      for (const c of supportsLibres) {
+        const dans = rangement.get(String(c.id)) || null;
+        if (String(dans || "") === String(c.container_id || "")) continue;
+        gestes.push({ sort: !dans, faire: async () => {
+          await cahiers.rangerDans(c, dans);
+          c.container_id = dans;
+        } });
+      }
+      for (const g of gestes.filter((x) => x.sort)) await g.faire();
+      for (const g of gestes.filter((x) => !x.sort)) await g.faire();
       await cartable.enregistrer(classe.id, moi, {
-        notebooks: Object.fromEntries(emportes),
+        notebooks: supportsEmportes(),
         supplies: declaration(),
         session: session?.id || null
       });
@@ -7901,22 +8419,22 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   function replacer() {
     const carte = index();
     render(etagere, []);
-    render(dansLeSac, []);
-    for (const c of mesSupports) {
-      (emportes.has(String(c.id)) ? dansLeSac : etagere).appendChild(noeuds.get(`s:${c.id}`));
+    render(dansLeSac3, []);
+    for (const c of supportsLibres) {
+      if (!supportSurMoi(c.id)) etagere.appendChild(noeuds.get(`s:${c.id}`));
     }
     const portes = contenants().filter((o) => {
       const p = carte.get(String(o.id));
       return p?.carried && !p.container_id;
     });
-    for (const contenantPorte of portes) dansLeSac.appendChild(casier(contenantPorte, carte));
+    for (const contenantPorte of portes) dansLeSac3.appendChild(casier(contenantPorte, carte));
     const enVrac = utilisables.filter((o) => !fiche(o.kind)?.contenant && estSurMoi(o.id) && !carte.get(String(o.id))?.container_id);
     if (enVrac.length) {
-      dansLeSac.appendChild(el(
+      dansLeSac3.appendChild(el(
         "div.casier.casier--vrac",
         el("div.casier__entete", el("span.casier__nom", icone("main", 12), " En main"))
       ));
-      const vrac = dansLeSac.lastChild;
+      const vrac = dansLeSac3.lastChild;
       const objetsVrac = el("div.casier__objets");
       vrac.appendChild(objetsVrac);
       for (const o of enVrac) objetsVrac.appendChild(noeuds.get(`o:${o.id}`));
@@ -7925,11 +8443,16 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       if (estSurMoi(o.id)) continue;
       etagere.appendChild(noeuds.get(`o:${o.id}`));
     }
+    for (const o of absents) etagere.appendChild(noeudAilleurs(nomObjet(o), o.kind, o));
+    for (const c of supportsAbsents) etagere.appendChild(noeudAilleurs(c.title, c.support || "cahier", c));
     majPlateaux();
   }
   function casier(contenantPorte, carte) {
     const dedans = utilisables.filter((o) => String(carte.get(String(o.id))?.container_id || "") === String(contenantPorte.id));
+    const supportsDedans = supportsLibres.filter((c) => String(rangement.get(String(c.id)) || "") === String(contenantPorte.id));
     const ouvert = String(cible) === String(contenantPorte.id);
+    const pris = occupe(contenantPorte.id);
+    const contenance = capaciteDe(contenantPorte);
     const objetsDedans = el("div.casier__objets");
     const noeud = el(
       "div.casier",
@@ -7951,7 +8474,10 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
         // on range une plume, et on la voit entrer dans la trousse.
         vitrine(contenantPorte, dedans, { taille: 96 }),
         el("span.casier__nom", nomObjet(contenantPorte)),
-        el("span.casier__compte", dedans.length ? `${dedans.length}` : "vide"),
+        el("span.casier__compte", {
+          class: pris >= contenance ? "casier__compte--plein" : "",
+          title: "Place occup\xE9e sur la contenance"
+        }, `${pris}/${contenance}`),
         el("span.casier__etat", ouvert ? "ouvert" : "")
       ),
       objetsDedans,
@@ -7967,7 +8493,8 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       if (fiche(o.kind)?.contenant) objetsDedans.appendChild(casier(o, carte));
       else objetsDedans.appendChild(noeuds.get(`o:${o.id}`));
     }
-    if (!dedans.length) {
+    for (const c of supportsDedans) objetsDedans.appendChild(noeuds.get(`s:${c.id}`));
+    if (!dedans.length && !supportsDedans.length) {
       objetsDedans.appendChild(el(
         "p.casier__vide.petit.faible",
         ouvert ? "Cliquez un objet \xE0 gauche pour l'y mettre." : "Rien dedans."
@@ -8012,6 +8539,10 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       });
       return;
     }
+    if (!dedans && !tientDans(cible, volumeObjet(objet))) {
+      plein(cible, nomObjet(objet));
+      return;
+    }
     animer(noeud, () => {
       place.set(String(objet.id), dedans ? { container_id: null, carried: false } : { container_id: cible, carried: false });
       replacer();
@@ -8022,7 +8553,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
     const p = place.get(String(contenantPorte.id));
     if (prendre) {
       const carte = index();
-      const hote = contenants().find((o) => carte.get(String(o.id))?.carried && !carte.get(String(o.id))?.container_id && String(o.id) !== String(contenantPorte.id) && o.kind !== contenantPorte.kind);
+      const hote = contenants().find((o) => carte.get(String(o.id))?.carried && !carte.get(String(o.id))?.container_id && String(o.id) !== String(contenantPorte.id) && o.kind !== contenantPorte.kind && tientDans(o.id, volumeObjet(contenantPorte)));
       place.set(String(contenantPorte.id), {
         container_id: hote ? String(hote.id) : null,
         carried: true
@@ -8036,13 +8567,44 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   }
   function basculerSupport(c) {
     const noeud = noeuds.get(`s:${c.id}`);
-    const dedans = emportes.has(String(c.id));
+    const dedans = supportSurMoi(c.id);
+    if (!dedans) {
+      if (!cible) {
+        toast("Prenez d'abord un contenant", {
+          corps: "Un cahier se range dans un cartable, une sacoche, un dossier.",
+          type: "attn"
+        });
+        return;
+      }
+      if (!tientDans(cible, volumeSupport(c))) {
+        plein(cible, c.title || "Ce cahier");
+        return;
+      }
+    }
     animer(noeud, () => {
-      if (dedans) emportes.delete(String(c.id));
-      else emportes.set(String(c.id), c.title || "");
+      rangement.set(String(c.id), dedans ? null : cible);
       replacer();
       return !dedans;
     });
+  }
+  function noeudAilleurs(nom, kind, o) {
+    const ou = o.place === "bureau" && session && String(o.place_session) === String(session.id) ? "Sur votre bureau" : `Rest\xE9 : ${o.place_label || "une salle"}`;
+    return el(
+      "button.objet.objet--ailleurs",
+      {
+        type: "button",
+        disabled: true,
+        dataset: { kind },
+        title: `${nom} n'est pas chez vous. Il faut aller le reprendre l\xE0 o\xF9 il est.`
+      },
+      el("span.objet__figure", {
+        dataset: { objet: kind },
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(kind)}")` }
+      }),
+      el("span.objet__nom", nom),
+      el("span.objet__type", "\u{1F4CD} " + ou)
+    );
   }
   function noeudObjet(o) {
     const f = fiche(o.kind) || {};
@@ -8177,33 +8739,43 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       poserContenant(cartablePossede, true);
     }
     let pris = 0;
+    const refus = [];
     for (const kind of kit.objets) {
       const o = utilisables.find((x) => x.kind === kind && !estSurMoi(x.id));
       if (!o) continue;
       if (fiche(kind)?.contenant) poserContenant(o, true);
-      else place.set(String(o.id), { container_id: cible, carried: false });
+      else if (tientDans(cible, volumeObjet(o))) place.set(String(o.id), { container_id: cible, carried: false });
+      else {
+        refus.push(nomObjet(o));
+        continue;
+      }
       pris++;
     }
     if (kit.nom === "Consigne") {
       for (const s of attendu.supports || []) {
-        const c = mesSupports.find((x) => String(x.id) === String(s.id) || String(x.title || "").trim().toLowerCase() === String(s.title || "").trim().toLowerCase());
-        if (c && !emportes.has(String(c.id))) {
-          emportes.set(String(c.id), c.title || "");
+        const c = supportsLibres.find((x) => String(x.id) === String(s.id) || String(x.title || "").trim().toLowerCase() === String(s.title || "").trim().toLowerCase());
+        if (!c || supportSurMoi(c.id)) continue;
+        if (tientDans(cible, volumeSupport(c))) {
+          rangement.set(String(c.id), cible);
           pris++;
-        }
+        } else refus.push(c.title || "un cahier");
       }
     }
     replacer();
-    toast(pris ? `${pris} objet${pris > 1 ? "s" : ""} pris` : "Vous les avez d\xE9j\xE0 tous.");
+    if (refus.length) {
+      toast("Tout ne rentre pas", { corps: `Plus de place pour : ${refus.join(", ")}.`, type: "attn", duree: 6e3 });
+    } else {
+      toast(pris ? `${pris} objet${pris > 1 ? "s" : ""} pris` : "Vous les avez d\xE9j\xE0 tous.");
+    }
   }
   function majPlateaux() {
     etagere.parentElement?.classList.toggle("plateau--nu", !etagere.children.length);
-    dansLeSac.parentElement?.classList.toggle("plateau--nu", !dansLeSac.children.length);
+    dansLeSac3.parentElement?.classList.toggle("plateau--nu", !dansLeSac3.children.length);
     const manque = ecart(
-      { notebooks: Object.fromEntries(emportes), supplies: declaration() },
+      { notebooks: supportsEmportes(), supplies: declaration() },
       attendu
     );
-    const total = Object.keys(declaration()).length + emportes.size;
+    const total = Object.keys(declaration()).length + Object.keys(supportsEmportes()).length;
     render(
       zoneRabat,
       el(
@@ -8214,14 +8786,37 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
     );
   }
 }
-function dotationComplete() {
-  return DOTATION.map((item) => {
+async function assurerMaterielProfesseur(moi) {
+  const miens = await affaires.toutes(moi).catch(() => null);
+  if (!miens || miens.some((o) => o.kind === "craie" && String(o.owner_id) === String(moi))) return false;
+  const crees = /* @__PURE__ */ new Map();
+  for (const item of dotationComplete(DOTATION_PROFESSEUR)) {
+    const cree = await affaires.creer({
+      owner_id: moi,
+      kind: item.kind,
+      label: item.label || "",
+      category: item.category,
+      is_container: item.contenant,
+      carried: Boolean(item.carried),
+      container_id: item.dans ? crees.get(item.dans)?.id || null : null,
+      quantity: item.quantity ?? 1,
+      size: item.size,
+      capacity: item.capacity
+    });
+    crees.set(item.kind, cree);
+  }
+  return true;
+}
+function dotationComplete(liste = DOTATION) {
+  return liste.map((item) => {
     const f = CATALOGUE[item.kind] || {};
     return {
       ...item,
-      label: f.libelle || item.kind,
+      label: item.label || f.libelle || item.kind,
       category: f.categorie || "autre",
-      contenant: Boolean(f.contenant)
+      contenant: Boolean(f.contenant),
+      size: f.volume || 1,
+      capacity: f.capacite ?? null
     };
   });
 }
@@ -8459,7 +9054,7 @@ function exigerProximite({ motif = "cahier", cible = null, personnage = null, de
         el("span.proximite__onde"),
         el("span.proximite__silhouette.proximite__silhouette--autre")
       ),
-      el(
+      f.phrase ? el("p.proximite__phrase", f.phrase) : el(
         "p.proximite__phrase",
         "Cette action se fait en pr\xE9sence. Approchez votre personnage de ",
         el("strong", qui),
@@ -8527,6 +9122,13 @@ var init_proximite = __esm({
         geste: "Le lui demander",
         attestation: "Je m'adresse \xE0 cette personne, en jeu, et je lui demande cet objet.",
         note: "Elle choisira lequel sortir de son sac, ou refusera."
+      },
+      salle: {
+        titre: "Retournez dans la salle",
+        geste: "Le reprendre",
+        phrase: "On ne reprend pas \xE0 distance ce qu'on a laiss\xE9. Menez votre personnage dans la salle avant de continuer.",
+        attestation: "Mon personnage est dans la salle, en jeu, et reprend ce qu'il y a laiss\xE9.",
+        note: "La salle doit \xEAtre ouverte : une s\xE9ance, une ouverture par l'encadrement ou un laissez-passer."
       },
       renvoi: {
         titre: "Rapprochez-vous du joueur",
@@ -9625,16 +10227,16 @@ function barreConsole() {
     const sac = classe ? await cartable.pour(classe.id, etat.utilisateur.id).catch(() => null) : null;
     const apportes = new Set(cartable.apportes(sac));
     const mes = await cahiers.mesCahiers(etat.utilisateur.id).catch(() => []);
-    const dansLeSac = mes.filter((c) => apportes.has(String(c.id)));
+    const dansLeSac3 = mes.filter((c) => apportes.has(String(c.id)));
     const ailleurs = mes.filter((c) => !apportes.has(String(c.id)));
     menu(ancre, [
-      { titre: dansLeSac.length ? "Dans mon sac" : `Mes ${L("cahiers")}` },
-      ...(dansLeSac.length ? dansLeSac : ailleurs).slice(0, 6).map((c) => ({
+      { titre: dansLeSac3.length ? "Dans mon sac" : `Mes ${L("cahiers")}` },
+      ...(dansLeSac3.length ? dansLeSac3 : ailleurs).slice(0, 6).map((c) => ({
         libelle: c.title,
         icone: "cahier",
         action: () => aller(`/cahier/${c.id}`)
       })),
-      ...dansLeSac.length && ailleurs.length ? [
+      ...dansLeSac3.length && ailleurs.length ? [
         { separateur: true },
         { titre: "Rest\xE9s chez moi" },
         ...ailleurs.slice(0, 4).map((c) => ({
@@ -11102,7 +11704,14 @@ function creerEditeurCahier(options) {
     compact = false,
     tempsReel = false,
     actionsSupplementaires = null,
-    rp = REGLAGES_RP_DEFAUT
+    rp = REGLAGES_RP_DEFAUT,
+    // La garde : une fonction (action) → { ok, message, conseil }. Quand elle
+    // est fournie, les objets gouvernent les gestes — effacer demande une
+    // gomme, calculer un instrument. Sans elle, le cahier est libre.
+    garde = null,
+    // Pourquoi on ne peut pas écrire, quand c'est faute d'outil. Affiché au
+    // clic : le joueur doit savoir quoi jouer, pas seulement que c'est fermé.
+    manqueEcriture = null
   } = options;
   let corps = null;
   let piedTranche = null;
@@ -11116,6 +11725,7 @@ function creerEditeurCahier(options) {
   let reglure = local.lire(`ojm.reglure.${cahier.id}`, "reglure");
   let abonnement = null;
   let enEdition = false;
+  let longueurSeche = 0;
   const trancheListe = el("div.tranche__pages");
   const zoneFeuillet = el("div.feuillet__zone");
   const barreFeuillet = el("div.feuillet__barre");
@@ -11173,6 +11783,7 @@ function creerEditeurCahier(options) {
         if (memePatch(enAttente.get(pageId), patch)) {
           enAttente.delete(pageId);
           brouillonRetirer(pageId);
+          if (pageCourante?.id === pageId) longueurSeche = texteBrut(patch.body).length;
         }
         const quand = maj?.updated_at || (/* @__PURE__ */ new Date()).toISOString();
         const i = listePages.findIndex((p) => p.id === pageId);
@@ -11324,6 +11935,7 @@ function creerEditeurCahier(options) {
       refleter(pageId);
       ecrireBientot();
     }
+    longueurSeche = texteBrut(pageCourante.body || "").length;
     peindreTranche();
     peindreBarre();
     penseBetesPage = [];
@@ -11400,7 +12012,14 @@ function creerEditeurCahier(options) {
           ].filter(Boolean))
         }, icone("drapeau", 15)),
         outil("Annuler", "annuler", commande("undo")),
-        outil("Refaire", "refaire", commande("redo"))
+        outil("Refaire", "refaire", commande("redo")),
+        garde ? sep() : null,
+        garde ? outil("Faire un calcul", "grille", calculer, "\xD7\xF7") : null
+      ) : manqueEcriture ? el(
+        "span.etiq.etiq--attn",
+        { title: manqueEcriture.conseil || "" },
+        icone("crayon", 13),
+        manqueEcriture.message
       ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
       el("span.pousse"),
       actionsSupplementaires ? actionsSupplementaires(pageCourante) : null,
@@ -11461,6 +12080,17 @@ function creerEditeurCahier(options) {
       "aria-multiline": "true",
       "aria-label": "Contenu de la page",
       oninput: capturerCorps,
+      onbeforeinput: (e) => {
+        if (!garde || !String(e.inputType).startsWith("delete")) return;
+        if (texteBrut(corps.innerHTML).length > longueurSeche) return;
+        const verdict = garde("effacer");
+        if (verdict.ok) return;
+        e.preventDefault();
+        signalerManque(verdict);
+      },
+      onclick: () => {
+        if (!peutEcrire && manqueEcriture) signalerManque(manqueEcriture);
+      },
       onfocus: () => {
         enEdition = true;
       },
@@ -11647,6 +12277,46 @@ function creerEditeurCahier(options) {
     } catch (err) {
       erreur("Pense-b\xEAte non coll\xE9", messageErreur(err));
     }
+  }
+  let dernierSignal = 0;
+  function signalerManque(verdict) {
+    if (Date.now() - dernierSignal < 2500) return;
+    dernierSignal = Date.now();
+    toast(verdict.message || "Impossible", { corps: verdict.conseil || "", type: "attn", duree: 6e3 });
+  }
+  async function calculer() {
+    const verdict = garde?.("calculer");
+    if (verdict && !verdict.ok) {
+      signalerManque(verdict);
+      return;
+    }
+    const expression = await demander({
+      titre: "Faire un calcul",
+      label: "Op\xE9ration",
+      placeholder: "12 \xD7 7 + 3",
+      aide: "Chiffres, + \u2212 \xD7 \xF7, parenth\xE8ses. Le r\xE9sultat s'\xE9crira dans la page."
+    });
+    if (!expression) return;
+    const normale = expression.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/,/g, ".");
+    if (!/^[\d\s+\-*/().]+$/.test(normale)) {
+      toast("Ce n'est pas une op\xE9ration", { type: "attn" });
+      return;
+    }
+    let resultat;
+    try {
+      resultat = Function(`"use strict"; return (${normale});`)();
+    } catch {
+      toast("Op\xE9ration illisible", { type: "attn" });
+      return;
+    }
+    if (!Number.isFinite(resultat)) {
+      toast("R\xE9sultat impossible", { type: "attn" });
+      return;
+    }
+    const arrondi = Math.round(resultat * 1e6) / 1e6;
+    corps?.focus();
+    document.execCommand("insertText", false, `${expression.trim()} = ${String(arrondi).replace(".", ",")}`);
+    capturerCorps();
   }
   function capturerCorps() {
     if (!pageCourante || !corps) return;
@@ -12062,6 +12732,155 @@ var init_cahiers = __esm({
   }
 });
 
+// src/features/portee.js
+function contexte({ session = null, classe = null } = {}) {
+  const enCours = session && (session.status === "live" || !session.status);
+  return {
+    seance: enCours ? session.id : null,
+    classe: enCours ? classe?.id || session.class_id || null : null,
+    libelle: enCours ? classe?.name || session.title || "la s\xE9ance" : null
+  };
+}
+function dansLeSac2(objet, index) {
+  let courant2 = objet?.container_id ? index.get(String(objet.container_id)) : null;
+  for (let i = 0; i < 8 && courant2; i++) {
+    if (courant2.carried && (courant2.place || "range") === "range") return true;
+    courant2 = courant2.container_id ? index.get(String(courant2.container_id)) : null;
+  }
+  return false;
+}
+function situer(objet, { moiId, ctx, index }) {
+  if (!objet) return { ok: false, lieu: "perdu" };
+  if (objet.state === "lost") return { ok: false, lieu: "perdu" };
+  if (objet.state === "confiscated") return { ok: false, lieu: "confisque" };
+  if (objet.state === "lent" && String(objet.holder_id || "") !== String(moiId)) {
+    return { ok: false, lieu: "prete" };
+  }
+  const place = objet.place || "range";
+  if (place === "salle") return { ok: false, lieu: "salle", ou: objet.place_label || "une salle" };
+  if (place === "bureau") {
+    if (ctx.seance && String(objet.place_session) === String(ctx.seance)) return { ok: true, lieu: "bureau" };
+    return { ok: false, lieu: "salle", ou: objet.place_label || "une salle" };
+  }
+  if (ctx.seance) {
+    return dansLeSac2(objet, index) ? { ok: false, lieu: "sac" } : { ok: false, lieu: "maison" };
+  }
+  return { ok: true, lieu: dansLeSac2(objet, index) ? "sac" : "maison" };
+}
+function lieuEnMots(situation) {
+  switch (situation.lieu) {
+    case "bureau":
+      return "Sur le bureau";
+    case "sac":
+      return "Dans le sac";
+    case "maison":
+      return "Chez vous";
+    case "salle":
+      return `Rest\xE9 : ${situation.ou}`;
+    case "prete":
+      return "Pr\xEAt\xE9";
+    case "perdu":
+      return "Perdu";
+    case "confisque":
+      return "Confisqu\xE9";
+    default:
+      return "";
+  }
+}
+function peutFaire(action, objets, { moiId, ctx }) {
+  const types = OUTILS_REQUIS[action] || [];
+  const index = indexer(objets);
+  const candidats = objets.filter((o) => types.includes(o.kind));
+  const situes = candidats.map((o) => ({ o, s: situer(o, { moiId, ctx, index }) }));
+  const prets = situes.filter((x) => x.s.ok);
+  if (action === "ecrire" && prets.length) {
+    const autonome = prets.find((x) => !fiche(x.o.kind)?.encre);
+    if (autonome) return { ok: true, avec: autonome.o };
+    const encrier = objets.find((o) => o.kind === "encrier" && Number(o.level ?? 100) > 0 && situer(o, { moiId, ctx, index }).ok);
+    if (encrier) return { ok: true, avec: prets[0].o, encrier };
+    const encrierVide = objets.find((o) => o.kind === "encrier" && situer(o, { moiId, ctx, index }).ok);
+    return {
+      ok: false,
+      message: encrierVide ? "Votre encrier est vide." : "Votre plume n'a pas d'encre.",
+      conseil: encrierVide ? "Remplissez-le au flacon, ou demandez de l'encre." : ctx.seance ? "Sortez votre encrier de votre sac, ou prenez un crayon." : "Il vous faut un encrier."
+    };
+  }
+  if (prets.length) return { ok: true, avec: prets[0].o };
+  const auSac = situes.find((x) => x.s.lieu === "sac");
+  const oublie = situes.find((x) => x.s.lieu === "salle");
+  const prete = situes.find((x) => x.s.lieu === "prete");
+  const exemples = types.slice(0, 2).map((k) => nomType(k).toLowerCase()).join(" ou ");
+  let conseil;
+  if (auSac) conseil = `Sortez ${article(auSac.o)} de votre sac.`;
+  else if (oublie) conseil = `${nomObjet(oublie.o)} est rest\xE9${fem(oublie.o)} : ${oublie.s.ou}. Allez le chercher, ou empruntez-en un${fem(oublie.o) ? "e" : ""}.`;
+  else if (prete) conseil = `Vous avez pr\xEAt\xE9 ${article(prete.o)}. R\xE9cup\xE9rez-le, ou empruntez-en un autre.`;
+  else if (ctx.seance) conseil = `Vous n'avez pas emport\xE9 de ${exemples}. Empruntez-en \xE0 quelqu'un.`;
+  else conseil = `Procurez-vous un ${exemples}.`;
+  return { ok: false, message: PHRASE_MANQUE[action] || `Impossible de ${LIBELLE_ACTION[action]}.`, conseil };
+}
+function supportAPortee(cahier, { moiId, ctx, objets = [], pretesParMoi = /* @__PURE__ */ new Set() }) {
+  if (!cahier) return { ok: false, lieu: "perdu" };
+  if (pretesParMoi.has(String(cahier.id))) return { ok: false, lieu: "prete" };
+  const index = indexer(objets);
+  return situer({ ...cahier, state: "owned" }, { moiId, ctx, index });
+}
+var OUTILS_REQUIS, LIBELLE_ACTION, PHRASE_MANQUE, FEMININS, fem, article;
+var init_portee = __esm({
+  "src/features/portee.js"() {
+    init_affaires();
+    OUTILS_REQUIS = {
+      ecrire: ["crayon", "stylo-plume", "plume"],
+      effacer: ["gomme"],
+      craie: ["craie"],
+      ligne: ["regle"],
+      angle: ["equerre", "regle"],
+      cercle: ["compas"],
+      calculer: ["regle-a-calcul", "boulier"]
+    };
+    LIBELLE_ACTION = {
+      ecrire: "\xE9crire",
+      effacer: "effacer",
+      craie: "\xE9crire au tableau",
+      ligne: "tracer une droite",
+      angle: "tracer un angle droit",
+      cercle: "tracer un cercle",
+      calculer: "calculer"
+    };
+    PHRASE_MANQUE = {
+      ecrire: "Vous n'avez aucun outil d'\xE9criture.",
+      effacer: "Vous n'avez pas de gomme.",
+      craie: "Vous n'avez pas de craie.",
+      ligne: "Il vous faut une r\xE8gle pour tracer droit.",
+      angle: "Il vous faut une \xE9querre.",
+      cercle: "Il vous faut un compas.",
+      calculer: "Vous n'avez rien pour calculer."
+    };
+    FEMININS = /* @__PURE__ */ new Set([
+      "plume",
+      "gomme",
+      "regle",
+      "equerre",
+      "craie",
+      "regle-a-calcul",
+      "boussole",
+      "lorgnette",
+      "lanterne",
+      "montre",
+      "gourde",
+      "carte",
+      "trousse",
+      "sacoche",
+      "musette",
+      "mallette",
+      "boite",
+      "chemise",
+      "pochette"
+    ]);
+    fem = (o) => FEMININS.has(o.kind) ? "e" : "";
+    article = (o) => `${FEMININS.has(o.kind) ? "votre" : "votre"} ${nomObjet(o).toLowerCase()}`;
+  }
+});
+
 // src/vues/cahier.js
 var cahier_exports = {};
 __export(cahier_exports, {
@@ -12082,11 +12901,49 @@ async function vueCahier({ params }) {
   if (cahier.class_id && etat.classeActive?.id !== cahier.class_id) {
     await activerClasse(cahier.class_id);
   }
-  const peutEcrire = peutEcrireCahier(cahier);
   const partage = cahier.kind === "shared";
+  const moiId = etat.utilisateur?.id;
+  const mien = !partage && String(cahier.owner_id) === String(moiId);
+  let objets = [];
+  let ecriture = { ok: true };
+  let ctxOutils = contexte();
+  if (mien) {
+    const ctx = contexte({ session: etat.sessionActive, classe: etat.classeActive });
+    objets = await affaires.toutes(moiId).catch(() => []);
+    if (!objets.length) {
+      objets = await affaires.assurerDotation(moiId, dotationComplete()).catch(() => []);
+    }
+    let pretes = /* @__PURE__ */ new Set();
+    try {
+      pretes = new Set((await remisesCahier.pretes(moiId)).map((r) => String(r.notebook_id)));
+    } catch {
+    }
+    const ou = supportAPortee(cahier, { moiId, ctx, objets, pretesParMoi: pretes });
+    if (!ou.ok && ou.lieu !== "sac") {
+      const raison = {
+        salle: `Vous l'avez laiss\xE9 : ${ou.ou}. Il faut y retourner pour le reprendre \u2014 la salle doit \xEAtre ouverte.`,
+        prete: "Vous l'avez pr\xEAt\xE9. Il vous reviendra quand on vous le rendra.",
+        maison: "Il n'est pas dans votre sac : il est rest\xE9 chez vous.",
+        perdu: "Il est perdu."
+      }[ou.lieu] || lieuEnMots(ou);
+      return {
+        noeud: el("div.page", blocVide(
+          `${cahier.title} n'est pas entre vos mains`,
+          raison,
+          { libelle: "Voir mes affaires", action: () => aller("/affaires") }
+        )),
+        titre: cahier.title
+      };
+    }
+    ctxOutils = ou.lieu === "sac" ? contexte() : ctx;
+    ecriture = peutFaire("ecrire", objets, { moiId, ctx: ctxOutils });
+  }
+  const peutEcrire = peutEcrireCahier(cahier) && ecriture.ok;
   const editeur = creerEditeurCahier({
     cahier,
     peutEcrire,
+    manqueEcriture: peutEcrireCahier(cahier) && !ecriture.ok ? ecriture : null,
+    garde: mien ? (action) => peutFaire(action, objets, { moiId, ctx: ctxOutils }) : null,
     rp: reglagesRP(etat.classeActive),
     pageInitiale: new URLSearchParams(location.hash.split("?")[1] || "").get("page"),
     tempsReel: partage,
@@ -12126,6 +12983,8 @@ var init_cahier = __esm({
     init_dom();
     init_icons();
     init_data();
+    init_cartable();
+    init_portee();
     init_store();
     init_rp();
     init_editeur_cahier();
@@ -12135,6 +12994,209 @@ var init_cahier = __esm({
     init_session();
     init_fragments();
     init_interface();
+  }
+});
+
+// src/features/dossiers.js
+function dossierAPortee(dossier, objets, moiId, ctx = contexte()) {
+  return situer(dossier, { moiId, ctx, index: indexer(objets) });
+}
+async function creerDossier(moiId) {
+  const nom = await demander({
+    titre: "Nouveau dossier",
+    label: "Nom du dossier",
+    valeur: "",
+    placeholder: "Rapports de patrouille, Convocations\u2026",
+    aide: "Il sera rang\xE9 chez vous. Mettez-le dans votre sac pour l'emporter."
+  });
+  if (nom === null) return null;
+  const f = fiche("dossier") || {};
+  try {
+    const cree = await affaires.creer({
+      owner_id: moiId,
+      kind: "dossier",
+      label: nom.trim() || "Dossier",
+      category: "contenant",
+      is_container: true,
+      carried: false,
+      size: f.volume || 3,
+      capacity: f.capacite ?? 6
+    });
+    succes("Dossier cr\xE9\xE9");
+    return cree;
+  } catch (err) {
+    erreur("Impossible", messageErreur(err));
+    return null;
+  }
+}
+async function panneauDossiers({ moiId, connus = [] }) {
+  const zone = el("div.dossiers");
+  async function peindre() {
+    const objets = await affaires.toutes(moiId).catch(() => []);
+    const dossiers2 = objets.filter(estDossier);
+    const contenus = await classement.deDossiers(dossiers2.map((d) => d.id)).catch(() => []);
+    render(
+      zone,
+      el(
+        "div.ligne-flex",
+        el(
+          "p.petit.faible",
+          "Un dossier se range dans le sac comme un cahier. Oubli\xE9 quelque part, il n'est plus accessible \u2014 ni lui, ni ce qu'il contient."
+        ),
+        el("span.pousse"),
+        el("button.btn.btn--primaire.btn--petit", {
+          onclick: async () => {
+            if (await creerDossier(moiId)) peindre();
+          }
+        }, icone("plus", 13), " Nouveau dossier")
+      ),
+      dossiers2.length ? el("div.dossiers__liste", dossiers2.map((d) => {
+        const ou = dossierAPortee(d, objets, moiId);
+        const n = contenus.filter((c) => String(c.dossier_id) === String(d.id)).length;
+        return el(
+          "button.dossier-carte",
+          {
+            type: "button",
+            class: ou.ok ? "" : "dossier-carte--hors",
+            onclick: () => ou.ok ? ouvrirDossier(d, { moiId, connus, surChange: peindre }) : toast(`${nomObjet(d)} est indisponible`, {
+              corps: `\u{1F4CD} ${lieuEnMots(ou)}. Il faut aller le reprendre pour l'ouvrir.`,
+              type: "attn",
+              duree: 6e3
+            })
+          },
+          el("span.dossier-carte__figure", { style: { backgroundImage: `url("${imageObjet(d.kind)}")` } }),
+          el("span.dossier-carte__nom", ou.ok ? "" : "\u274C ", nomObjet(d)),
+          el("span.petit.faible", `${n} papier${n > 1 ? "s" : ""}`),
+          el("span.petit", { class: ou.ok ? "faible" : "dossier-carte__lieu" }, "\u{1F4CD} ", lieuEnMots(ou))
+        );
+      })) : el("p.petit.faible", "Aucun dossier. Cr\xE9ez-en un pour y classer vos papiers.")
+    );
+  }
+  await peindre();
+  return zone;
+}
+async function ouvrirDossier(dossier, { moiId, connus = [], surChange = null }) {
+  const zone = el("div");
+  async function peindre() {
+    const lignes = await classement.contenu(dossier.id).catch(() => []);
+    const index = new Map(connus.map((p) => [String(p.id), p]));
+    const manquants = lignes.map((l) => l.paper_id).filter((id) => !index.has(String(id)));
+    for (const id of manquants) {
+      const p = await papiers.lire(id).catch(() => null);
+      if (p) index.set(String(p.id), p);
+    }
+    render(
+      zone,
+      lignes.length ? el("ul.dossier__papiers", lignes.map((l) => {
+        const p = index.get(String(l.paper_id));
+        return el(
+          "li.dossier__papier",
+          el("button.btn.btn--fantome.btn--petit", {
+            type: "button",
+            disabled: !p,
+            onclick: () => p && ouvrirModale({
+              titre: p.title || "Papier",
+              large: true,
+              corps: () => rendrePapier(p, {}),
+              actions: [{ libelle: "Refermer", valeur: true }]
+            })
+          }, icone("papier", 13), " ", p?.title || "Papier illisible"),
+          el("span.petit.faible", " ", MODELES[p?.model]?.libelle || "", " \xB7 class\xE9 ", depuis(l.created_at)),
+          el("span.pousse"),
+          el("button.btn.btn--fantome.btn--petit", {
+            onclick: async () => {
+              try {
+                await classement.sortir(l.id);
+                await peindre();
+                surChange?.();
+              } catch (err) {
+                erreur("Impossible", messageErreur(err));
+              }
+            }
+          }, "Retirer")
+        );
+      })) : el("p.petit.faible", "Ce dossier est vide."),
+      el(
+        "div.ligne-flex",
+        { style: { marginTop: "var(--e-3)" } },
+        el("button.btn.btn--petit", {
+          onclick: (e) => {
+            const deja = new Set(lignes.map((l) => String(l.paper_id)));
+            const libres = connus.filter((p) => !deja.has(String(p.id)));
+            if (!libres.length) {
+              toast("Aucun papier \xE0 classer");
+              return;
+            }
+            menu(e.currentTarget, [
+              { titre: "Classer dans ce dossier" },
+              ...libres.slice(0, 30).map((p) => ({
+                libelle: p.title || "Papier",
+                icone: "papier",
+                action: async () => {
+                  try {
+                    await classement.ranger(dossier.id, p.id, moiId);
+                    await peindre();
+                    surChange?.();
+                  } catch (err) {
+                    erreur("Impossible", messageErreur(err));
+                  }
+                }
+              }))
+            ]);
+          }
+        }, icone("plus", 12), " Classer un papier")
+      )
+    );
+  }
+  await ouvrirModale({
+    titre: nomObjet(dossier),
+    corps: () => {
+      peindre();
+      return zone;
+    },
+    actions: [{ libelle: "Refermer", valeur: true }]
+  });
+}
+async function classerPapier(papier, { moiId, ancre }) {
+  const objets = await affaires.toutes(moiId).catch(() => []);
+  const dossiers2 = objets.filter(estDossier).map((d) => ({ d, ou: dossierAPortee(d, objets, moiId) }));
+  if (!dossiers2.length) {
+    toast("Vous n'avez pas de dossier", { corps: "Cr\xE9ez-en un dans l'onglet Dossiers.", type: "attn" });
+    return;
+  }
+  menu(ancre, [
+    { titre: "Classer dans\u2026" },
+    ...dossiers2.map(({ d, ou }) => ({
+      libelle: ou.ok ? nomObjet(d) : `${nomObjet(d)} \u2014 indisponible`,
+      icone: "sac",
+      action: async () => {
+        if (!ou.ok) {
+          toast(`${nomObjet(d)} n'est pas sous la main`, { corps: `\u{1F4CD} ${lieuEnMots(ou)}`, type: "attn" });
+          return;
+        }
+        try {
+          await classement.ranger(d.id, papier.id, moiId);
+          succes(`Class\xE9 dans ${nomObjet(d)}`);
+        } catch (err) {
+          erreur("Impossible", messageErreur(err));
+        }
+      }
+    }))
+  ]);
+}
+var estDossier;
+var init_dossiers = __esm({
+  "src/features/dossiers.js"() {
+    init_dom();
+    init_icons();
+    init_data();
+    init_modal();
+    init_toast();
+    init_util();
+    init_affaires();
+    init_portee();
+    init_papier();
+    estDossier = (o) => Boolean(fiche(o?.kind)?.papiers);
   }
 });
 
@@ -12184,7 +13246,8 @@ async function vuePapiers() {
       onglets2,
       [
         { cle: "recus", libelle: "Re\xE7us", compteur: enAttente },
-        { cle: "mes", libelle: "R\xE9dig\xE9s par moi", compteur: mesPapiers.length }
+        { cle: "mes", libelle: "R\xE9dig\xE9s par moi", compteur: mesPapiers.length },
+        { cle: "dossiers", libelle: "Dossiers" }
       ].map((o) => el("button.onglet", {
         role: "tab",
         "aria-selected": String(o.cle === onglet),
@@ -12194,6 +13257,13 @@ async function vuePapiers() {
         }
       }, o.libelle, o.compteur ? el("span.pastille-compteur", String(o.compteur)) : null))
     );
+    if (onglet === "dossiers") {
+      render(zone, el("p.petit.faible", "\u2026"));
+      panneauDossiers({ moiId: etat.utilisateur.id, connus: papiersConnus() }).then((n) => {
+        if (onglet === "dossiers") render(zone, n);
+      });
+      return;
+    }
     render(zone, onglet === "recus" ? panneauRecus() : panneauMes());
   }
   function panneauRecus() {
@@ -12270,8 +13340,19 @@ async function vuePapiers() {
       }))
     )));
   }
+  function papiersConnus() {
+    return [
+      ...mesPapiers,
+      ...recus.filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)
+    ];
+  }
   function actions2(ancre, papier) {
     menu(ancre, [
+      {
+        libelle: "Le classer dans un dossier",
+        icone: "sac",
+        action: () => classerPapier(papier, { moiId: etat.utilisateur.id, ancre })
+      },
       { libelle: "Le tendre \xE0 quelqu'un", icone: "main", action: () => remettre(papier) },
       { libelle: "Le reprendre", icone: "crayon", action: () => modifier(papier) },
       {
@@ -12393,6 +13474,7 @@ var init_papiers = __esm({
     init_util();
     init_lexique();
     init_papier();
+    init_dossiers();
     ETATS2 = {
       offered: { libelle: "En attente", etiq: "etiq--attn" },
       accepted: { libelle: "Gard\xE9", etiq: "etiq--ok" },
@@ -12449,7 +13531,7 @@ async function vueAffaires() {
   peindre();
   const abonnement = temps.sabonner({
     cle: `affaires:${moi}`,
-    tables: [{ table: "belongings" }, { table: "belonging_handoffs" }],
+    tables: [{ table: "belongings" }, { table: "belonging_handoffs" }, { table: "notebooks" }],
     surChangement: async () => {
       await charger2();
       peindre();
@@ -12485,7 +13567,9 @@ async function vueAffaires() {
       for (const [k, v] of index) if (!fiches.has(k)) fiches.set(k, v);
     }
   }
-  const nomDe = (userId) => nomAffiche(fiches.get(userId), gens.get(userId)) || "Quelqu'un";
+  function nomDe(userId) {
+    return nomAffiche(fiches.get(userId), gens.get(userId)) || "Quelqu'un";
+  }
   function peindre() {
     const enAttente = aRepondre.length;
     const aRendreN = aRendre.length;
@@ -12525,9 +13609,14 @@ async function vueAffaires() {
       if (!recherche) return true;
       return aplatir(nomObjet(o) + " " + nomType(o.kind)).includes(aplatir(recherche));
     });
-    const surSoi = filtres.filter((o) => !indisponible(o, moi) && surMoi(o, index));
-    const chezMoi = filtres.filter((o) => !indisponible(o, moi) && !surMoi(o, index));
+    const laisse = (x) => (x.place || "range") !== "range";
+    const surSoi = filtres.filter((o) => !indisponible(o, moi) && !laisse(o) && surMoi(o, index));
+    const chezMoi = filtres.filter((o) => !indisponible(o, moi) && !laisse(o) && !surMoi(o, index));
     const ailleurs = filtres.filter((o) => indisponible(o, moi));
+    const restes = [
+      ...filtres.filter((o) => !indisponible(o, moi) && laisse(o)).map((o) => ({ genre: "objet", o })),
+      ...supports.filter(laisse).map((o) => ({ genre: "cahier", o }))
+    ];
     return el(
       "div",
       el(
@@ -12559,6 +13648,7 @@ async function vueAffaires() {
         { libelle: "Me procurer un objet", action: procurer }
       ) : el(
         "div",
+        restes.length ? sectionRestes(restes) : null,
         section("Sur moi", "Ce que j'emporte, rang\xE9 comme je l'ai rang\xE9.", surSoi, { hierarchie: true }),
         section("Chez moi", "Pos\xE9 quelque part, pas dans mon sac.", chezMoi),
         ailleurs.length ? section("Ailleurs", "Pr\xEAt\xE9, perdu ou confisqu\xE9 : je n'en dispose pas.", ailleurs) : null
@@ -12572,6 +13662,70 @@ async function vueAffaires() {
         )
       )
     );
+  }
+  function sectionRestes(restes) {
+    return el(
+      "section.affaires__section.affaires__section--restes",
+      el("h3.affaires__titre", "Laiss\xE9 ailleurs", el("span.affaires__compte", String(restes.length))),
+      el(
+        "p.petit.faible",
+        "Indisponible : ce n'est ni sur vous ni chez vous. Il faut retourner le chercher, et la salle doit \xEAtre ouverte."
+      ),
+      el("div.affaires__liste", restes.map(({ genre, o }) => {
+        const nom = genre === "cahier" ? o.title || "Cahier" : nomObjet(o);
+        const classe = espaces.find((c) => String(c.id) === String(o.place_class));
+        const ouverte = Boolean(classe) && salles.ouverte(classe, seances.get(classe.id), moi);
+        const surLeBureau = o.place === "bureau" && seances.get(o.place_class)?.id && String(seances.get(o.place_class).id) === String(o.place_session);
+        return el(
+          "div.affaire.affaire--reste",
+          el(
+            "div.affaire__ligne",
+            el("span.affaire__nom", "\u274C ", nom, " ", el("span.faible.petit", "indisponible")),
+            el(
+              "span.affaire__lieu.petit",
+              "\u{1F4CD} ",
+              surLeBureau ? "Sur votre bureau \u2014 " : "Derni\xE8re position : ",
+              o.place_label || classe?.name || "une salle",
+              o.place_at ? el("span.faible", " \xB7 ", depuis(o.place_at)) : null
+            ),
+            el("span.pousse"),
+            el(
+              "span.etiq",
+              { class: ouverte ? "etiq--ok" : "etiq--attn" },
+              ouverte ? "Salle ouverte" : "Salle ferm\xE9e"
+            ),
+            el("button.btn.btn--petit", {
+              class: ouverte ? "btn--primaire" : "btn--fantome",
+              onclick: () => recuperer(genre, o, nom, classe, ouverte)
+            }, "R\xE9cup\xE9rer")
+          )
+        );
+      }))
+    );
+  }
+  async function recuperer(genre, o, nom, classe, ouverte) {
+    if (!ouverte) {
+      toast("La salle est ferm\xE9e", {
+        corps: `${nom} y reste. Attendez qu'elle rouvre, ou qu'un encadrant vous laisse entrer ou vous le rende.`,
+        type: "attn",
+        duree: 7e3
+      });
+      return;
+    }
+    const proche = await exigerProximite({
+      motif: "salle",
+      detail: `${nom} \u2014 ${o.place_label || classe?.name || "la salle"}`
+    });
+    if (!proche) return;
+    try {
+      if (genre === "cahier") await cahiers.recuperer(o.id);
+      else await affaires.recuperer(o.id);
+      succes(`${nom} r\xE9cup\xE9r\xE9`);
+      await charger2();
+      peindre();
+    } catch (err) {
+      erreur("Impossible de le reprendre", messageErreur(err));
+    }
   }
   function section(titre, aide, liste, { hierarchie = false } = {}) {
     if (!liste.length) {
@@ -12628,7 +13782,7 @@ async function vueAffaires() {
         action: () => remplir(o)
       } : null,
       f.nombre ? { libelle: "Combien j'en ai", icone: "grille", action: () => compter(o) } : null,
-      !confisque ? {
+      !confisque && (o.place || "range") !== "salle" ? {
         libelle: "Le tendre \xE0 quelqu'un",
         icone: "main",
         action: () => tendre(o)
@@ -13032,6 +14186,7 @@ var init_affaires2 = __esm({
     init_router();
     init_lexique();
     init_data();
+    init_proximite();
     init_fragments();
     init_modal();
     init_toast();
@@ -13527,14 +14682,14 @@ async function inscrireAuLivret({ classe, membres: membres2, auteurId, sessionId
     return null;
   }
 }
-function tableauClassement(classement, { nomDe, coupure = 10, moiId = null }) {
-  if (!classement.length) {
+function tableauClassement(classement2, { nomDe, coupure = 10, moiId = null }) {
+  if (!classement2.length) {
     return blocVide(
       "Classement vide",
       "Il s'\xE9tablit \xE0 partir des aptitudes inscrites au livret. \xC9valuez un premier axe pour l'ouvrir."
     );
   }
-  return el("div.liste", classement.map((ligne) => {
+  return el("div.liste", classement2.map((ligne) => {
     const dansLesPremiers = ligne.rang <= coupure;
     const moi = ligne.user_id === moiId;
     return el(
@@ -13718,6 +14873,117 @@ var init_bulletin = __esm({
     init_toast();
     init_store();
     BAREMES = [20, 10, 100, 5];
+  }
+});
+
+// src/features/objets-trouves.js
+async function ouvrirObjetsTrouves({ classe }) {
+  const zone = el("div.trouves");
+  let gens = /* @__PURE__ */ new Map();
+  let fiches = /* @__PURE__ */ new Map();
+  try {
+    gens = new Map((await membres.liste(classe.id)).map((m) => [m.user_id, m.profil]));
+    fiches = await personnages.index(classe.id).catch(() => /* @__PURE__ */ new Map());
+  } catch {
+  }
+  const nomDe = (id) => nomAffiche(fiches.get(id), gens.get(id)) || "Quelqu'un";
+  async function peindre() {
+    render(zone, el("p.petit.faible", "On fait le tour de la salle\u2026"));
+    let restes = [];
+    try {
+      restes = await salles.oublies(classe.id);
+    } catch (err) {
+      render(zone, el("p.petit", messageErreur(err)));
+      return;
+    }
+    const seance = await sessions.enCours(classe.id).catch(() => null);
+    const jusqua = classe.settings?.salle_ouverte_jusqua;
+    const ouverte = seance?.status === "live" || jusqua && new Date(jusqua).getTime() > Date.now();
+    render(
+      zone,
+      el(
+        "div.trouves__porte",
+        el(
+          "span.etiq",
+          { class: ouverte ? "etiq--ok" : "etiq--attn" },
+          icone(ouverte ? "entree" : "bouclier", 12),
+          ouverte ? seance?.status === "live" ? " Ouverte : une s\xE9ance s'y tient" : ` Ouverte jusqu'\xE0 ${new Date(jusqua).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " Ferm\xE9e"
+        ),
+        el("span.pousse"),
+        seance?.status === "live" ? null : ouverte ? el(
+          "button.btn.btn--petit",
+          { onclick: () => agir(() => salles.fermer(classe), "Salle ferm\xE9e") },
+          "Fermer la salle"
+        ) : el("button.btn.btn--petit.btn--primaire", {
+          onclick: () => agir(() => salles.ouvrir(classe, 30), "Salle ouverte 30 minutes")
+        }, "Autoriser l'acc\xE8s \xE0 la salle (30 min)")
+      ),
+      restes.length ? el("ul.trouves__liste", restes.map((r) => el(
+        "li.trouves__ligne",
+        el("span.trouves__figure", { style: { backgroundImage: `url("${imageObjet(r.kind || "cahier")}")` } }),
+        el(
+          "div.trouves__quoi",
+          el("b", r.label || nomType(r.kind)),
+          el(
+            "span.petit.faible",
+            " \xE0 ",
+            nomDe(r.owner_id),
+            r.place === "bureau" ? " \xB7 sur son bureau" : " \xB7 rest\xE9 dans la salle",
+            r.place_at ? ` \xB7 ${depuis(r.place_at)}` : ""
+          )
+        ),
+        el("span.pousse"),
+        ouverte ? null : el("button.btn.btn--petit.btn--fantome", {
+          title: "Lui seul peut entrer, pendant 20 minutes",
+          onclick: () => agir(
+            () => salles.laissezPasser(classe, r.owner_id, 20),
+            `${nomDe(r.owner_id)} peut entrer 20 minutes`
+          )
+        }, "Laisser entrer"),
+        el("button.btn.btn--petit", {
+          onclick: () => agir(
+            () => salles.restituer(r.genre, r.id),
+            `Rendu \xE0 ${nomDe(r.owner_id)}`
+          )
+        }, icone("main", 12), " Restituer l'objet")
+      ))) : el("p.petit.faible", "Rien n'a \xE9t\xE9 oubli\xE9 ici.")
+    );
+  }
+  async function agir(geste, message) {
+    try {
+      await geste();
+      succes(message);
+      await peindre();
+    } catch (err) {
+      erreur("Impossible", messageErreur(err));
+    }
+  }
+  await ouvrirModale({
+    titre: `Objets trouv\xE9s \u2014 ${classe.name}`,
+    corps: () => {
+      peindre();
+      return el(
+        "div",
+        el(
+          "p.petit.faible",
+          "Ce qui a \xE9t\xE9 laiss\xE9 reste ici. Personne ne le reprend \xE0 distance : il faut que la salle soit ouverte et que son propri\xE9taire y revienne \u2014 ou que vous le lui rendiez."
+        ),
+        zone
+      );
+    },
+    actions: [{ libelle: "Fermer", valeur: true }]
+  });
+}
+var init_objets_trouves = __esm({
+  "src/features/objets-trouves.js"() {
+    init_dom();
+    init_icons();
+    init_modal();
+    init_toast();
+    init_util();
+    init_rp();
+    init_data();
+    init_affaires();
   }
 });
 
@@ -14197,7 +15463,7 @@ async function vueClasse({ params, requete: requete2 }) {
   }
   async function ongletClassement() {
     const { nomDe } = await annuaire();
-    const classement = await livret.classement(classe.id);
+    const classement2 = await livret.classement(classe.id);
     return el(
       "div.pile",
       el(
@@ -14205,14 +15471,14 @@ async function vueClasse({ params, requete: requete2 }) {
         el(
           "div.panneau__entete",
           el("span.panneau__titre", `Classement \u2014 ${classe.name}`),
-          el("span.petit.faible", `${classement.length} class\xE9${classement.length > 1 ? "s" : ""}`)
+          el("span.petit.faible", `${classement2.length} class\xE9${classement2.length > 1 ? "s" : ""}`)
         ),
         el(
           "div.panneau__corps.panneau__corps--serre",
-          tableauClassement(classement, { nomDe, moiId: etat.utilisateur.id })
+          tableauClassement(classement2, { nomDe, moiId: etat.utilisateur.id })
         )
       ),
-      classement.length ? noteCoupure(10) : null,
+      classement2.length ? noteCoupure(10) : null,
       el(
         "p.petit.faible",
         "Le rang se calcule sur la moyenne des aptitudes inscrites au livret, en pourcentage du maximum possible \u2014 un cadet \xE9valu\xE9 sur peu d'axes n'est ni avantag\xE9 ni p\xE9nalis\xE9."
@@ -14766,7 +16032,9 @@ async function vueClasse({ params, requete: requete2 }) {
       { separateur: true },
       { libelle: "Modifier la classe", icone: "crayon", action: modifierClasse },
       { libelle: "Publier une annonce", icone: "megaphone", action: publierAnnonce },
-      { libelle: "Pr\xE9sences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) }
+      { libelle: "Pr\xE9sences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) },
+      { separateur: true },
+      { libelle: "Objets trouv\xE9s dans la salle", icone: "sac", action: () => ouvrirObjetsTrouves({ classe }) }
     ]);
   }
   peindreOnglets();
@@ -14800,6 +16068,7 @@ var init_classe = __esm({
     init_rp();
     init_toast();
     init_bulletin();
+    init_objets_trouves();
     init_util();
     ONGLETS = [
       { cle: "apercu", libelle: "Aper\xE7u" },
@@ -14825,8 +16094,22 @@ function creerTableau(options = {}) {
     surElementTermine = null,
     surFragment = null,
     surCurseur = null,
-    fond = "ardoise"
+    fond = "ardoise",
+    // (outil) → { ok, message, conseil }. Le tableau ne dessine rien que
+    // l'objet correspondant ne permette : pas de craie, pas de trait.
+    garde = null,
+    surRefus = null
   } = options;
+  let dernierRefus = 0;
+  function refuse(outilVoulu) {
+    const verdict = garde?.(outilVoulu);
+    if (!verdict || verdict.ok) return false;
+    if (Date.now() - dernierRefus > 2500) {
+      dernierRefus = Date.now();
+      surRefus?.(verdict);
+    }
+    return true;
+  }
   const toile = el("canvas.tableau__toile", {
     width: LARGEUR,
     height: HAUTEUR,
@@ -14997,6 +16280,7 @@ function creerTableau(options = {}) {
   toile.addEventListener("pointerdown", (evenement) => {
     if (!ecriture) return;
     if (evenement.button !== 0 && evenement.pointerType === "mouse") return;
+    if (refuse(outil)) return;
     toile.setPointerCapture(evenement.pointerId);
     const [x, y] = coordonnees(evenement);
     if (outil === "gomme") {
@@ -15033,7 +16317,7 @@ function creerTableau(options = {}) {
     const [x, y] = coordonnees(evenement);
     if (ecriture) diffuserCurseur(x, y);
     if (!enCours) {
-      if (ecriture && outil === "gomme" && evenement.buttons === 1) effacerA(x, y);
+      if (ecriture && outil === "gomme" && evenement.buttons === 1 && !refuse("gomme")) effacerA(x, y);
       return;
     }
     if (enCours.kind === "trait") {
@@ -15454,6 +16738,195 @@ var init_import_document = __esm({
     PDFJS_CDN = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.min.mjs";
     WORKER_CDN = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
     pdfjs = null;
+  }
+});
+
+// src/features/bureau.js
+function creerBureau({ classe, session, surChange = null }) {
+  const moi = etat.utilisateur.id;
+  const ctx = contexte({ session, classe });
+  let objets = [];
+  let supports = [];
+  const noeud = el("div.bureau", { role: "region", "aria-label": "Mon bureau" });
+  async function charger2() {
+    [objets, supports] = await Promise.all([
+      affaires.toutes(moi).catch(() => objets),
+      cahiers.mesCahiers(moi).catch(() => supports)
+    ]);
+    peindre();
+    return api;
+  }
+  const index = () => indexer(objets);
+  const surLeBureau = () => objets.filter((o) => situer(o, { moiId: moi, ctx, index: index() }).lieu === "bureau");
+  const cahiersSurLeBureau = () => supports.filter((c) => c.place === "bureau" && String(c.place_session) === String(ctx.seance));
+  const dansMonSac = () => objets.filter((o) => !fiche(o.kind)?.contenant && situer(o, { moiId: moi, ctx, index: index() }).lieu === "sac");
+  const cahiersDansMonSac = () => supports.filter((c) => (c.place || "range") === "range" && dansLeSac2(c, index()));
+  const sacsPortes = () => objets.filter((o) => fiche(o.kind)?.contenant && o.carried && (o.place || "range") === "range" && !o.container_id);
+  async function sortir(chose, genre) {
+    try {
+      if (genre === "cahier") Object.assign(chose, await cahiers.sortir(chose, { session, classe }));
+      else Object.assign(chose, await affaires.sortir(chose, { session, classe }));
+      peindre();
+      surChange?.();
+      return true;
+    } catch (err) {
+      erreur("Impossible de le sortir", messageErreur(err));
+      return false;
+    }
+  }
+  function ouRanger(chose) {
+    const ix = index();
+    const place = (c) => Number(c.capacity ?? fiche(c.kind)?.capacite ?? 0) - objets.filter((o) => String(o.container_id || "") === String(c.id)).reduce((t, o) => t + Number(o.size || 1), 0) - supports.filter((s) => String(s.container_id || "") === String(c.id)).reduce((t, s) => t + Number(s.size || 4), 0);
+    const taille = Number(chose.size || 1);
+    const origine = chose.meta?.depuis ? ix.get(String(chose.meta.depuis)) : null;
+    if (origine && (origine.carried || dansLeSac2(origine, ix)) && place(origine) >= taille) return origine;
+    const contenants = objets.filter((o) => fiche(o.kind)?.contenant && (o.place || "range") === "range" && (o.carried || dansLeSac2(o, ix)));
+    return contenants.find((c) => place(c) >= taille) || null;
+  }
+  async function ranger(chose, genre) {
+    const cible = ouRanger(chose);
+    if (!cible) {
+      toast("Plus de place dans votre sac", {
+        corps: "Rangez autre chose, ou gardez-le en main.",
+        type: "attn"
+      });
+      return false;
+    }
+    try {
+      if (genre === "cahier") Object.assign(chose, await cahiers.rangerDans(chose, cible.id));
+      else Object.assign(chose, await affaires.rangerDans(chose, cible.id));
+      peindre();
+      surChange?.();
+      return true;
+    } catch (err) {
+      erreur("Impossible de le ranger", messageErreur(err));
+      return false;
+    }
+  }
+  async function rangerTout() {
+    for (const o of surLeBureau()) await ranger(o, "objet");
+    for (const c of cahiersSurLeBureau()) await ranger(c, "cahier");
+  }
+  async function laisserTout() {
+    const restes = [...surLeBureau().map((o) => ["objet", o]), ...cahiersSurLeBureau().map((c) => ["cahier", c])];
+    for (const [genre, chose] of restes) {
+      try {
+        if (genre === "cahier") await cahiers.laisser(chose, { classe });
+        else await affaires.laisser(chose, { classe });
+      } catch {
+      }
+    }
+    if (restes.length) {
+      toast("Vous avez laiss\xE9 des affaires sur le bureau", {
+        corps: `${restes.map(([g, c]) => g === "cahier" ? c.title : nomObjet(c)).join(", ")} \u2014 rest\xE9s : ${classe.name}.`,
+        type: "attn",
+        duree: 12e3
+      });
+    }
+    return restes.length;
+  }
+  async function ouvrirSac() {
+    const grille = el("div.sac-ouvert__grille");
+    const peindreSac = () => {
+      const choses = [...cahiersDansMonSac().map((c) => ["cahier", c]), ...dansMonSac().map((o) => ["objet", o])];
+      render(grille, choses.length ? choses.map(([genre, c]) => el(
+        "button.sac-ouvert__objet",
+        {
+          type: "button",
+          title: `Sortir ${genre === "cahier" ? c.title : nomObjet(c)}`,
+          onclick: async (e) => {
+            const bouton = e.currentTarget;
+            bouton.disabled = true;
+            bouton.classList.add("sac-ouvert__objet--sort");
+            if (await sortir(c, genre)) setTimeout(peindreSac, 220);
+            else bouton.disabled = false;
+          }
+        },
+        el("span.objet__figure", {
+          "aria-hidden": "true",
+          style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
+        }),
+        el("span.sac-ouvert__nom", genre === "cahier" ? c.title : nomObjet(c)),
+        el("span.sac-ouvert__type", genre === "cahier" ? NOMS_SUPPORT4[c.support] || "Cahier" : nomType(c.kind))
+      )) : el("p.petit.faible", sacsPortes().length ? "Votre sac est vide." : "Vous n'avez pas pris de sac. Ce que vous n'avez pas emport\xE9 est rest\xE9 chez vous."));
+    };
+    peindreSac();
+    await ouvrirModale({
+      titre: "Mon sac",
+      corps: () => el(
+        "div.sac-ouvert",
+        el("div.sac-ouvert__sacs", sacsPortes().map((s) => vitrine(
+          s,
+          objets.filter((o) => String(o.container_id || "") === String(s.id)),
+          { taille: 88 }
+        ))),
+        el("p.petit.faible", "Cliquez ce que vous voulez sortir. Il sera pos\xE9 sur votre bureau."),
+        grille
+      ),
+      actions: [{ libelle: "Refermer le sac", variante: "primaire", valeur: true }]
+    });
+  }
+  function peindre() {
+    const devant = [...cahiersSurLeBureau().map((c) => ["cahier", c]), ...surLeBureau().map((o) => ["objet", o])];
+    const sac = sacsPortes()[0];
+    render(
+      noeud,
+      el(
+        "button.bureau__sac",
+        { type: "button", onclick: ouvrirSac, title: "Ouvrir mon sac" },
+        sac ? vitrine(
+          sac,
+          objets.filter((o) => String(o.container_id || "") === String(sac.id)),
+          { taille: 42, titre: false }
+        ) : el("span.bureau__sans-sac", icone("sac", 18)),
+        el("span.bureau__mot", "Mon sac")
+      ),
+      el("div.bureau__plateau", devant.length ? devant.map(([genre, c]) => el(
+        "button.bureau__objet",
+        {
+          type: "button",
+          title: `Ranger ${genre === "cahier" ? c.title : nomObjet(c)} dans le sac`,
+          onclick: () => ranger(c, genre)
+        },
+        el("span.objet__figure", {
+          "aria-hidden": "true",
+          style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
+        }),
+        el("span.bureau__nom", genre === "cahier" ? c.title : nomObjet(c))
+      )) : el("span.petit.faible.bureau__vide", "Votre bureau est vide. Ouvrez votre sac pour sortir vos affaires.")),
+      devant.length ? el("button.btn.btn--fantome.btn--petit", {
+        type: "button",
+        onclick: rangerTout,
+        title: "Tout remettre dans le sac"
+      }, icone("sac", 13), "Tout ranger") : null
+    );
+  }
+  const api = {
+    noeud,
+    charger: charger2,
+    ouvrirSac,
+    rangerTout,
+    laisserTout,
+    objets: () => objets,
+    supports: () => supports,
+    cahiersSurLeBureau,
+    ctx,
+    peutFaire: (action) => peutFaire(action, objets, { moiId: moi, ctx })
+  };
+  return api;
+}
+var NOMS_SUPPORT4;
+var init_bureau = __esm({
+  "src/features/bureau.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_data();
+    init_modal();
+    init_toast();
+    init_affaires();
+    init_portee();
+    NOMS_SUPPORT4 = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
   }
 });
 
@@ -16094,6 +17567,15 @@ async function vueSalle({ params }) {
   let privationsSeance = /* @__PURE__ */ new Map();
   let dernierRafraichiPrivations = 0;
   const zonePrivation = el("div");
+  const bureau = creerBureau({
+    classe,
+    session,
+    surChange: async () => {
+      mesAffaires = bureau.objets();
+      if (scene === "moncahier") await peindreMonCahier();
+      if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
+    }
+  });
   const enRP = universDe(classe) !== "aucun";
   let fichesRP = enRP ? await personnages.index(classe.id).catch(() => /* @__PURE__ */ new Map()) : /* @__PURE__ */ new Map();
   const maFiche = () => fichesRP.get(etat.utilisateur.id) || null;
@@ -16111,7 +17593,7 @@ async function vueSalle({ params }) {
   const noeud = el(
     "div.salle",
     bandeau,
-    zonePrivation,
+    el("div", zonePrivation, bureau.noeud),
     el(
       "div.salle__corps",
       zoneScene,
@@ -16243,17 +17725,11 @@ async function vueSalle({ params }) {
   let editeurPersonnel = null;
   const CARACTERES_PAR_POINT = 350;
   let fraisEncre = 0;
-  const monEncrier = () => encrierEnService(mesAffaires, etat.utilisateur.id);
-  function jEcrisALaPlume() {
-    const surMoiIds = idsDuSac(sacs.get(etat.utilisateur.id));
-    const portes = mesAffaires.filter((o) => surMoiIds.has(String(o.id)));
-    const quiTracent = portes.filter((o) => fiche(o.kind)?.ecrit);
-    return quiTracent.length > 0 && quiTracent.every((o) => fiche(o.kind)?.encre);
-  }
+  const monEncrier = () => bureau.peutFaire("ecrire").encrier || null;
+  const jEcrisALaPlume = () => Boolean(bureau.peutFaire("ecrire").encrier);
   function aSec() {
-    if (!jEcrisALaPlume()) return false;
-    const encrier = monEncrier();
-    return Boolean(encrier) && Number(encrier.level || 0) <= 0;
+    const v = bureau.peutFaire("ecrire");
+    return !v.ok && /encrier est vide/.test(v.message || "");
   }
   const boireUnPeu = debounce(async () => {
     const encrier = monEncrier();
@@ -16282,25 +17758,27 @@ async function vueSalle({ params }) {
   }, 1400);
   async function remplirMonEncrier() {
     const encrier = monEncrier();
-    const flacon = mesAffaires.find((o) => o.kind === "encre" && Number(o.level || 0) > 0);
-    if (!encrier) {
-      toast("Vous n'avez pas d'encrier sur vous.");
+    const flacon = bureau.objets().find((o) => o.kind === "encre" && Number(o.level || 0) > 0 && o.place === "bureau" && String(o.place_session) === String(session.id));
+    const encrierPose = encrier || bureau.objets().find((o) => o.kind === "encrier" && o.place === "bureau" && String(o.place_session) === String(session.id));
+    if (!encrierPose) {
+      toast("Votre encrier n'est pas sur le bureau.");
       return;
     }
     if (!flacon) {
-      toast("Aucun flacon d'encre", {
-        corps: "Demandez-en \xE0 quelqu'un, ou allez en chercher.",
+      toast("Aucun flacon d'encre sur le bureau", {
+        corps: "Sortez-le de votre sac, ou demandez de l'encre \xE0 quelqu'un.",
         type: "attn"
       });
       return;
     }
     try {
-      const { verse } = await affaires.remplir(encrier, flacon);
+      const { verse } = await affaires.remplir(encrierPose, flacon);
       if (!verse) {
         toast("L'encrier est d\xE9j\xE0 plein.");
         return;
       }
-      mesAffaires = await affaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+      await bureau.charger();
+      mesAffaires = bureau.objets();
       succes(`Encrier rempli (+${verse} %)`);
       await peindreMonCahier();
     } catch (err) {
@@ -16310,14 +17788,8 @@ async function vueSalle({ params }) {
   async function peindreMonCahier() {
     editeurPersonnel?.detruire();
     editeurPersonnel = null;
-    const sac = sacs.get(etat.utilisateur.id);
-    const apportes = new Set(cartable.apportes(sac));
-    let mes = [];
-    try {
-      mes = await cahiers.mesCahiers(etat.utilisateur.id);
-    } catch {
-      mes = [];
-    }
+    await bureau.charger();
+    mesAffaires = bureau.objets();
     let empruntes = [];
     try {
       const remises = await remisesCahier.empruntes(etat.utilisateur.id);
@@ -16331,12 +17803,12 @@ async function vueSalle({ params }) {
     } catch {
       pretes = /* @__PURE__ */ new Map();
     }
-    const disponibles = [...mes.filter((c) => apportes.has(String(c.id))), ...empruntes];
+    const disponibles = [...bureau.cahiersSurLeBureau(), ...empruntes];
     if (!disponibles.length) {
       render(zoneScene, blocVide(
-        "Vous n'avez apport\xE9 aucun cahier",
-        offre(session, "cartable") ? "On n'\xE9crit que dans ce qu'on a dans son sac. Ouvrez-le pour y mettre un support." : "Cr\xE9ez un cahier depuis \xAB Mes cahiers \xBB, puis revenez.",
-        offre(session, "cartable") ? { libelle: "Ouvrir mon sac", action: () => ouvrirCartable() } : null
+        "Aucun cahier sur votre bureau",
+        "On n'\xE9crit que dans ce qu'on a devant soi. Ouvrez votre sac et sortez-en un cahier ; s'il n'y est pas, c'est qu'il est rest\xE9 ailleurs.",
+        { libelle: "Ouvrir mon sac", action: () => bureau.ouvrirSac() }
       ));
       return;
     }
@@ -16356,6 +17828,7 @@ async function vueSalle({ params }) {
         nomAffiche(fichesRP.get(m.user_id), m.profil) || m.profil?.display_name || "L'encadrement"
       ]))
     });
+    const ecriture = bureau.peutFaire("ecrire");
     editeurPersonnel = creerEditeurCahier({
       cahier: choisi,
       surPage: (page) => margePersonnelle.suivre(page),
@@ -16363,7 +17836,11 @@ async function vueSalle({ params }) {
       // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
       // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
       // récrit jamais : la marge est faite pour ça.
-      peutEcrire: !prive() && !choisi.emprunte && !aSec(),
+      // Et il faut de quoi écrire, sur le bureau. Pas de stylo, pas
+      // d'écriture : rien ne s'ajoute à la page, et on dit pourquoi.
+      peutEcrire: !prive() && !choisi.emprunte && ecriture.ok,
+      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? ecriture : null,
+      garde: (action) => bureau.peutFaire(action),
       compact: true,
       tempsReel: true,
       rp: reglagesRP(classe)
@@ -16421,6 +17898,25 @@ async function vueSalle({ params }) {
           { style: { padding: "0 var(--e-4)" } },
           icone("cadenas", 12),
           " Vous pouvez relire, pas \xE9crire : il vous manque de quoi le faire."
+        ) : null,
+        // Pas d'outil d'écriture sur le bureau : on le dit là où on essaie,
+        // avec le geste qui répare juste à côté.
+        !prive() && !choisi.emprunte && !ecriture.ok && !aSec() ? el(
+          "div.manque-outil",
+          icone("crayon", 18),
+          el(
+            "div",
+            el("strong", ecriture.message),
+            el("p.petit.faible", ecriture.conseil || "")
+          ),
+          el("span.pousse"),
+          el("button.btn", { onclick: () => bureau.ouvrirSac() }, icone("sac", 14), "Ouvrir mon sac"),
+          el(
+            "button.btn.btn--fantome",
+            { onclick: () => demanderUnObjet() },
+            icone("main", 14),
+            "Emprunter"
+          )
         ) : null,
         // Une plume à sec : on le dit là où on s'en aperçoit, avec le geste
         // qui répare juste à côté.
@@ -16483,6 +17979,17 @@ async function vueSalle({ params }) {
     const ecriture = peutDessiner(tableau) && !prive();
     moteurTableau = creerTableau({
       lectureSeule: !ecriture,
+      // Au tableau, on écrit à la craie ; on trace droit à la règle, rond au
+      // compas, et on efface avec de quoi effacer. Ce qui manque sur le bureau
+      // ne se dessine pas.
+      garde: (outil) => {
+        const besoin = { gomme: "effacer", ligne: "ligne", fleche: "ligne", rect: "angle", ellipse: "cercle" }[outil];
+        const craie = staff ? bureau.peutFaire("craie") : { ok: true };
+        if (outil !== "gomme" && !craie.ok) return craie;
+        if (outil === "gomme" && !staff) return { ok: true };
+        return besoin ? bureau.peutFaire(besoin) : { ok: true };
+      },
+      surRefus: (verdict) => toast(verdict.message, { corps: verdict.conseil || "", type: "attn", duree: 6e3 }),
       fond: pageCourante.background === "slate" ? "ardoise" : pageCourante.background,
       surElementTermine: async (element) => {
         try {
@@ -17961,6 +19468,7 @@ async function vueSalle({ params }) {
       { separateur: true },
       { libelle: "Appel et pr\xE9sences", icone: "eleves", action: ouvrirPresences },
       offre(session, "cartable") ? { libelle: "Demander du mat\xE9riel", icone: "sac", action: definirMateriel } : null,
+      { libelle: "Objets trouv\xE9s", icone: "main", action: () => ouvrirObjetsTrouves({ classe }) },
       enRP ? { libelle: "Inscrire au livret", icone: "etoile", action: () => inscrire() } : null
     ].filter(Boolean));
   }
@@ -18603,6 +20111,7 @@ async function vueSalle({ params }) {
   }
   function surFinDeSession() {
     if (staff) return;
+    bureau.laisserTout();
     definir({ sessionActive: null });
     toast("Session termin\xE9e", { corps: "Le professeur a clos la s\xE9ance.", type: "attn", duree: 8e3 });
     aller(`/classe/${classe.id}`);
@@ -18629,6 +20138,9 @@ async function vueSalle({ params }) {
       await peindreScene();
     }, 900);
   }
+  if (staff) await assurerMaterielProfesseur(etat.utilisateur.id).catch(() => false);
+  await bureau.charger();
+  mesAffaires = bureau.objets();
   if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
   releverCahiersTendus();
@@ -18666,6 +20178,7 @@ async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} \u2014 ${classe.name}`,
     nettoyer: () => {
+      bureau.laisserTout();
       clearInterval(tictac);
       canalSession?.fermer();
       canalTableau?.fermer();
@@ -18705,6 +20218,8 @@ var init_salle = __esm({
     init_materiel();
     init_affaires();
     init_transfert();
+    init_bureau();
+    init_objets_trouves();
     init_data();
     init_privation();
     init_proximite();
@@ -18737,7 +20252,7 @@ async function vueDocuments({ requete: requete2 }) {
       "Documents",
       "PDF, images et fiches. Le professeur les distribue, les affiche en cours ou les convertit en pages de cahier.",
       peutImporter ? [
-        el("button.btn", { onclick: creerDossier }, icone("dossier", 15), "Nouveau dossier"),
+        el("button.btn", { onclick: creerDossier2 }, icone("dossier", 15), "Nouveau dossier"),
         el("button.btn.btn--primaire", { onclick: () => selecteur.click() }, icone("televerser", 15), "Importer")
       ] : null
     ),
@@ -19078,7 +20593,7 @@ async function vueDocuments({ requete: requete2 }) {
       } }
     ]);
   }
-  async function creerDossier() {
+  async function creerDossier2() {
     if (!classeFiltre) {
       erreur("Choisissez d'abord une classe");
       return;

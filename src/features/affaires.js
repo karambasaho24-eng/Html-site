@@ -86,7 +86,7 @@ export const CATALOGUE = {
                aide: "Toile olive, rabat de cuir. On y glisse ses feuilles." },
   dossier:   { volume: 3, capacite: 6, libelle: "Dossier",   categorie: "papier", contenant: true, papiers: true,
                aide: "Carton rigide, cordon et bouton. On y classe ses papiers." },
-  chemise:   { volume: 2, capacite: 4, libelle: "Chemise",   categorie: "papier", contenant: true,
+  chemise:   { volume: 2, capacite: 4, libelle: "Chemise",   categorie: "papier", contenant: true, papiers: true,
                aide: "Carton souple à rabats, pour tenir des papiers ensemble." },
 
   /* --- Calculer ----------------------------------------------------------- */
@@ -199,6 +199,20 @@ export const DOTATION = [
   { kind: "regle",   dans: "trousse" },
   { kind: "buvard",  dans: "cartable" },
   { kind: "feuilles", dans: "cartable", quantity: 20 }
+];
+
+/**
+ * Le matériel du professeur : de quoi écrire au tableau et sur une copie, pas
+ * davantage. Il n'a pas « tous les objets » ; ce qu'il lui faut en plus, il se
+ * le procure comme n'importe qui.
+ */
+export const DOTATION_PROFESSEUR = [
+  { kind: "sacoche",  carried: true, label: "Sacoche du professeur" },
+  { kind: "craie",    dans: "sacoche", quantity: 12 },
+  { kind: "crayon",   dans: "sacoche" },
+  { kind: "gomme",    dans: "sacoche" },
+  { kind: "feuilles", dans: "sacoche", quantity: 20 },
+  { kind: "dossier",  dans: "sacoche", label: "Dossier de professeur" }
 ];
 
 /* ===========================================================================

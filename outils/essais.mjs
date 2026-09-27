@@ -477,6 +477,160 @@ try {
   await depot(maitre, `return d.sessions.terminer("${seance}");`);
 
   /* =======================================================================
+     13. La place des choses : les objets conditionnent les actions
+     ===================================================================== */
+  journal.push("\n13. La place des choses");
+  const seanceA = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours A", "cours")).id;`);
+
+  // Le cadet s'installe : il sort de son sac un crayon et un cahier.
+  const installe = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    const seance = { id: "${seanceA}", status: "live", class_id: classe.id };
+    const ctx = p.contexte({ session: seance, classe });
+    const moi = etat.utilisateur.id;
+    let mien = await d.affaires.miennes(moi);
+    // Le sac tel qu'on le boucle : le cartable sur l'epaule, la trousse
+    // dedans, le crayon dans la trousse.
+    const cartable = mien.find((o) => o.kind === "cartable");
+    const trousse = mien.find((o) => o.kind === "trousse");
+    await d.affaires.porter(cartable.id, true);
+    await d.affaires.rangerDans(trousse, cartable.id);
+    await d.affaires.rangerDans(mien.find((o) => o.kind === "crayon" && o.owner_id === moi), trousse.id);
+    mien = await d.affaires.miennes(moi);
+    const avant = p.peutFaire("ecrire", mien, { moiId: moi, ctx });
+    const cahier = await d.cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier du jour",
+      container_id: cartable.id });
+    const crayon = mien.find((o) => o.kind === "crayon" && o.owner_id === moi);
+    await d.affaires.sortir(crayon, { session: seance, classe });
+    await d.cahiers.sortir(cahier, { session: seance, classe });
+    mien = await d.affaires.miennes(moi);
+    const apres = p.peutFaire("ecrire", mien, { moiId: moi, ctx });
+    const effacer = p.peutFaire("effacer", mien, { moiId: moi, ctx });
+    // Un compas resté chez soi ne se pose pas sur le bureau.
+    const compas = await d.affaires.creer({ owner_id: moi, kind: "compas", label: "", size: 1 });
+    let horsSac = "accepte";
+    try { await d.affaires.sortir(compas, { session: seance, classe }); } catch (e) { horsSac = "refus"; }
+    return { avant: avant.ok, conseil: avant.conseil || "", apres: apres.ok, effacer: effacer.ok,
+      horsSac, cahier: cahier.id, crayon: crayon.id };
+  `);
+  verifier("en seance, un crayon au fond du sac ne suffit pas", installe.avant === false, installe.conseil);
+  verifier("le conseil dit de le sortir du sac", /sac/i.test(installe.conseil), installe.conseil);
+  verifier("sorti sur le bureau, le crayon permet d'ecrire", installe.apres === true);
+  verifier("sans gomme sur le bureau, on n'efface pas", installe.effacer === false);
+  verifier("on ne pose pas sur le bureau ce qui n'est pas dans le sac", installe.horsSac === "refus");
+
+  // Il part en laissant crayon et cahier sur la table.
+  await depot(cadet, `
+    const classe = await d.classes.lire("${classeId}");
+    await d.affaires.laisser({ id: "${installe.crayon}" }, { classe });
+    await d.cahiers.laisser({ id: "${installe.cahier}" }, { classe });
+    return true;
+  `);
+  await depot(maitre, `return d.sessions.terminer("${seanceA}");`);
+  const seanceB = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours B", "cours")).id;`);
+
+  const suivante = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    const ctx = p.contexte({ session: { id: "${seanceB}", status: "live" }, classe });
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    // On retire la plume du jeu : seul le crayon oublie aurait permis d'ecrire.
+    const plume = mien.find((o) => o.kind === "plume");
+    const crayon = mien.find((o) => o.id === "${installe.crayon}");
+    const sans = mien.filter((o) => o.id !== plume.id);
+    const v = p.peutFaire("ecrire", sans, { moiId: moi, ctx });
+    return { ok: v.ok, conseil: v.conseil || "", lieu: p.situer(crayon, { moiId: moi, ctx, index: a.indexer(mien) }).lieu };
+  `);
+  verifier("le crayon oublie reste dans la salle", suivante.lieu === "salle", suivante.lieu);
+  verifier("a l'activite suivante, sans crayon, on n'ecrit pas", suivante.ok === false, suivante.conseil);
+  await depot(maitre, `return d.sessions.terminer("${seanceB}");`);
+
+  const ferme = await depot(cadet, `
+    try { await d.affaires.recuperer("${installe.crayon}"); return "repris"; }
+    catch (e) { return "refus : " + e.message; }
+  `);
+  verifier("salle fermee : on ne recupere pas son crayon", ferme.startsWith("refus"), ferme);
+
+  await cadet.goto(`${RACINE}#/cahier/${installe.cahier}`);
+  await cadet.waitForTimeout(1500);
+  verifier("le cahier oublie ne s'ouvre pas",
+    (await cadet.locator("text=n'est pas entre vos mains").count()) === 1);
+
+  const trouves = await depot(maitre, `
+    const liste = await d.salles.oublies("${classeId}");
+    const classe = await d.classes.lire("${classeId}");
+    await d.salles.ouvrir(classe, 30);
+    return liste.map((x) => x.id);
+  `);
+  verifier("le professeur voit les objets oublies", trouves.includes(installe.crayon)
+    && trouves.includes(installe.cahier), JSON.stringify(trouves));
+
+  const repris = await depot(cadet, `
+    const o = await d.affaires.recuperer("${installe.crayon}");
+    return { place: o.place, dans: o.container_id };
+  `);
+  verifier("salle ouverte : le crayon se recupere", repris.place === "range", JSON.stringify(repris));
+
+  const rendu = await depot(maitre, `
+    const classe = await d.classes.lire("${classeId}");
+    await d.salles.fermer(classe);
+    await d.salles.restituer("cahier", "${installe.cahier}");
+    const c = await d.cahiers.lire("${installe.cahier}");
+    return c.place;
+  `);
+  verifier("le professeur restitue le cahier a son proprietaire", rendu === "range", String(rendu));
+
+  const contenance = await depot(cadet, `
+    const moi = etat.utilisateur.id;
+    const etui = await d.affaires.creer({ owner_id: moi, kind: "etui", size: 3, capacity: 6,
+      is_container: true, carried: true });
+    let n = 0;
+    try {
+      for (let i = 0; i < 8; i++) {
+        const x = await d.affaires.creer({ owner_id: moi, kind: "crayon", size: 1 });
+        await d.affaires.rangerDans(x, etui.id);
+        n++;
+      }
+    } catch (e) { return { n, refus: e.message }; }
+    return { n, refus: null };
+  `);
+  verifier("un etui plein refuse le crayon de trop", contenance.n === 6 && contenance.refus,
+    JSON.stringify(contenance));
+
+  const dossier = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const moi = etat.utilisateur.id;
+    const classe = await d.classes.lire("${classeId}");
+    const dos = await d.affaires.creer({ owner_id: moi, kind: "dossier", label: "Rapports",
+      size: 3, capacity: 6, is_container: true });
+    const papier = await d.papiers.creer({ author_id: moi, title: "Rapport de patrouille", model: "note", body: "RAS" });
+    await d.classement.ranger(dos.id, papier.id, moi);
+    const dedans = (await d.classement.contenu(dos.id)).length;
+    await d.affaires.laisser(dos, { classe });
+    const mien = await d.affaires.miennes(moi);
+    const ou = p.situer(mien.find((o) => o.id === dos.id), { moiId: moi, ctx: p.contexte(), index: a.indexer(mien) });
+    return { dedans, ok: ou.ok, lieu: ou.lieu };
+  `);
+  verifier("un papier se classe dans un dossier", dossier.dedans === 1);
+  verifier("un dossier oublie n'est plus accessible", dossier.ok === false && dossier.lieu === "salle",
+    JSON.stringify(dossier));
+
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(1500);
+  verifier("mes affaires montrent ce qui est reste en salle",
+    (await cadet.locator(".affaires__section--restes").count()) === 1
+    && (await cadet.locator("text=Dernière position").count()) >= 1);
+  await cadet.screenshot({ path: `${process.env.CAPTURES || "/tmp"}/affaires-restes.png`, fullPage: true }).catch(() => {});
+  await cadet.goto(`${RACINE}#/papiers`);
+  await cadet.waitForTimeout(900);
+  await cadet.click('button.onglet:has-text("Dossiers")');
+  await cadet.waitForTimeout(900);
+  verifier("l'onglet dossiers montre le dossier oublie comme indisponible",
+    (await cadet.locator(".dossier-carte--hors").count()) >= 1);
+
+  /* =======================================================================
      12. Les ecrans repondent
      ===================================================================== */
   journal.push("\n12. Les ecrans");

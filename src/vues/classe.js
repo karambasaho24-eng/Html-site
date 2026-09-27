@@ -20,6 +20,7 @@ import { listeEntrees, inscrireAuLivret, tableauClassement, noteCoupure } from "
 import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { blocNotes, porterUneNote } from "../features/bulletin.js";
+import { ouvrirObjetsTrouves } from "../features/objets-trouves.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
 
 const ONGLETS = [
@@ -939,7 +940,9 @@ export default async function vueClasse({ params, requete }) {
       { separateur: true },
       { libelle: "Modifier la classe", icone: "crayon", action: modifierClasse },
       { libelle: "Publier une annonce", icone: "megaphone", action: publierAnnonce },
-      { libelle: "Présences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) }
+      { libelle: "Présences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) },
+      { separateur: true },
+      { libelle: "Objets trouvés dans la salle", icone: "sac", action: () => ouvrirObjetsTrouves({ classe }) }
     ]);
   }
 

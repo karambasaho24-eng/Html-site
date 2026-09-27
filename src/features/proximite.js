@@ -40,6 +40,13 @@ const FORMULES = {
     attestation: "Je m'adresse à cette personne, en jeu, et je lui demande cet objet.",
     note: "Elle choisira lequel sortir de son sac, ou refusera."
   },
+  salle: {
+    titre: "Retournez dans la salle",
+    geste: "Le reprendre",
+    phrase: "On ne reprend pas à distance ce qu'on a laissé. Menez votre personnage dans la salle avant de continuer.",
+    attestation: "Mon personnage est dans la salle, en jeu, et reprend ce qu'il y a laissé.",
+    note: "La salle doit être ouverte : une séance, une ouverture par l'encadrement ou un laissez-passer."
+  },
   renvoi: {
     titre: "Rapprochez-vous du joueur",
     geste: "Prononcer le renvoi",
@@ -72,9 +79,11 @@ export function exigerProximite({ motif = "cahier", cible = null, personnage = n
         el("span.proximite__onde"),
         el("span.proximite__silhouette.proximite__silhouette--autre")
       ),
-      el("p.proximite__phrase",
-        "Cette action se fait en présence. Approchez votre personnage de ",
-        el("strong", qui), " avant de continuer."),
+      f.phrase
+        ? el("p.proximite__phrase", f.phrase)
+        : el("p.proximite__phrase",
+            "Cette action se fait en présence. Approchez votre personnage de ",
+            el("strong", qui), " avant de continuer."),
       detail ? el("p.petit.faible", detail) : null,
       el("label.case.proximite__case",
         el("input", {

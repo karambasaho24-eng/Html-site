@@ -27,7 +27,7 @@ import { cahiers, cartable as depotCartable, affaires as depotAffaires, VOLUME_S
 import { ouvrirModale, menu } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 import {
-  CATALOGUE, DOTATION, KITS_SUGGERES, fiche, nomObjet, nomType,
+  CATALOGUE, DOTATION, DOTATION_PROFESSEUR, KITS_SUGGERES, fiche, nomObjet, nomType,
   imageObjet, indexer, surMoi, indisponible, niveauEnMots, etatObjet, vitrine
 } from "./affaires.js";
 import { materielAttendu, ecart } from "./materiel.js";
@@ -675,9 +675,31 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
   }
 }
 
+/**
+ * Le professeur reçoit une fois son matériel — craie, crayon, gomme, feuilles,
+ * dossier — dans une sacoche qu'il porte. Seulement s'il n'a pas de craie :
+ * on ne double pas ce qu'il possède déjà, et on ne lui donne rien d'autre.
+ */
+export async function assurerMaterielProfesseur(moi) {
+  const miens = await depotAffaires.toutes(moi).catch(() => null);
+  if (!miens || miens.some((o) => o.kind === "craie" && String(o.owner_id) === String(moi))) return false;
+  const crees = new Map();
+  for (const item of dotationComplete(DOTATION_PROFESSEUR)) {
+    const cree = await depotAffaires.creer({
+      owner_id: moi, kind: item.kind, label: item.label || "",
+      category: item.category, is_container: item.contenant,
+      carried: Boolean(item.carried),
+      container_id: item.dans ? (crees.get(item.dans)?.id || null) : null,
+      quantity: item.quantity ?? 1, size: item.size, capacity: item.capacity
+    });
+    crees.set(item.kind, cree);
+  }
+  return true;
+}
+
 /** La dotation, enrichie de ce que le catalogue sait de chaque objet. */
-export function dotationComplete() {
-  return DOTATION.map((item) => {
+export function dotationComplete(liste = DOTATION) {
+  return liste.map((item) => {
     const f = CATALOGUE[item.kind] || {};
     return {
       ...item,

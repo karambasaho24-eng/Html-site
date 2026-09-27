@@ -976,3 +976,40 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   .bureau__objet { animation: none; }
   .sac-ouvert__objet { transition: none; }
 }
+
+/* Laissé ailleurs : ni sur soi ni chez soi. */
+.affaires__section--restes {
+  border-left: 2px solid var(--attn); padding-left: var(--e-3);
+}
+.affaire--reste .affaire__ligne { flex-wrap: wrap; gap: 8px; }
+.affaire__nom { font-weight: 600; }
+.affaire__lieu { color: var(--attn); }
+
+/* Objets trouvés d'une salle. */
+.trouves__porte { display: flex; align-items: center; gap: 8px; margin: var(--e-3) 0; flex-wrap: wrap; }
+.trouves__liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.trouves__ligne {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px;
+}
+.trouves__figure {
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 4px;
+  background-size: cover; background-position: center;
+}
+.trouves__quoi { display: flex; flex-direction: column; min-width: 0; }
+
+/* Dossiers : ce qui classe des papiers. */
+.dossiers__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: var(--e-3); }
+.dossier-carte {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 10px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.1); border-radius: 6px;
+}
+.dossier-carte:hover { border-color: var(--laiton-clair); }
+.dossier-carte__figure { width: 100%; height: 90px; border-radius: 4px; background-size: cover; background-position: center; }
+.dossier-carte__nom { font-weight: 600; }
+.dossier-carte--hors { opacity: .6; }
+.dossier-carte--hors .dossier-carte__figure { filter: grayscale(.8); }
+.dossier-carte__lieu { color: var(--attn); }
+.dossier__papiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dossier__papier { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

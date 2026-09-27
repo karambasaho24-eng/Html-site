@@ -20,8 +20,9 @@ import { L } from "../core/lexique.js";
 import {
   affaires as depotAffaires, remisesObjet, cartable as depotCartable,
   cahiers as depotCahiers, profils as depotProfils, membres as depotMembres,
-  personnages, sessions as depotSessions, classes as depotClasses, temps
+  personnages, sessions as depotSessions, classes as depotClasses, temps, salles
 } from "../data/index.js";
+import { exigerProximite } from "../features/proximite.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { menu, confirmer, demander } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
@@ -81,7 +82,7 @@ export default async function vueAffaires() {
   // fait qu'un prêt est un geste et non un formulaire.
   const abonnement = temps.sabonner({
     cle: `affaires:${moi}`,
-    tables: [{ table: "belongings" }, { table: "belonging_handoffs" }],
+    tables: [{ table: "belongings" }, { table: "belonging_handoffs" }, { table: "notebooks" }],
     surChangement: async () => { await charger(); peindre(); }
   });
 
@@ -127,7 +128,9 @@ export default async function vueAffaires() {
     }
   }
 
-  const nomDe = (userId) => nomAffiche(fiches.get(userId), gens.get(userId)) || "Quelqu'un";
+  function nomDe(userId) {
+    return nomAffiche(fiches.get(userId), gens.get(userId)) || "Quelqu'un";
+  }
 
   function peindre() {
     const enAttente = aRepondre.length;
@@ -168,9 +171,16 @@ export default async function vueAffaires() {
       return aplatir(nomObjet(o) + " " + nomType(o.kind)).includes(aplatir(recherche));
     });
 
-    const surSoi   = filtres.filter((o) => !indisponible(o, moi) && surMoi(o, index));
-    const chezMoi  = filtres.filter((o) => !indisponible(o, moi) && !surMoi(o, index));
+    // Ce qu'on a laissé dans une salle — ou sur un bureau — n'est ni sur moi
+    // ni chez moi. Il n'est pas dans l'inventaire : il est LÀ-BAS.
+    const laisse = (x) => (x.place || "range") !== "range";
+    const surSoi   = filtres.filter((o) => !indisponible(o, moi) && !laisse(o) && surMoi(o, index));
+    const chezMoi  = filtres.filter((o) => !indisponible(o, moi) && !laisse(o) && !surMoi(o, index));
     const ailleurs = filtres.filter((o) => indisponible(o, moi));
+    const restes = [
+      ...filtres.filter((o) => !indisponible(o, moi) && laisse(o)).map((o) => ({ genre: "objet", o })),
+      ...supports.filter(laisse).map((o) => ({ genre: "cahier", o }))
+    ];
 
     return el("div",
       el("div.barre-filtres",
@@ -191,6 +201,7 @@ export default async function vueAffaires() {
             "L'intendance fournit le nécessaire : un cartable, une trousse, de quoi écrire.",
             { libelle: "Me procurer un objet", action: procurer })
         : el("div",
+            restes.length ? sectionRestes(restes) : null,
             section("Sur moi", "Ce que j'emporte, rangé comme je l'ai rangé.", surSoi, { hierarchie: true }),
             section("Chez moi", "Posé quelque part, pas dans mon sac.", chezMoi),
             ailleurs.length
@@ -204,6 +215,59 @@ export default async function vueAffaires() {
           + "le donner en change le propriétaire. C'est ce qui permet de dire, "
           + "plus tard, où il est passé."))
     );
+  }
+
+  /* --- Ce qui est resté là-bas ------------------------------------------ */
+
+  function sectionRestes(restes) {
+    return el("section.affaires__section.affaires__section--restes",
+      el("h3.affaires__titre", "Laissé ailleurs", el("span.affaires__compte", String(restes.length))),
+      el("p.petit.faible",
+        "Indisponible : ce n'est ni sur vous ni chez vous. Il faut retourner le chercher, "
+        + "et la salle doit être ouverte."),
+      el("div.affaires__liste", restes.map(({ genre, o }) => {
+        const nom = genre === "cahier" ? (o.title || "Cahier") : nomObjet(o);
+        const classe = espaces.find((c) => String(c.id) === String(o.place_class));
+        const ouverte = Boolean(classe) && salles.ouverte(classe, seances.get(classe.id), moi);
+        const surLeBureau = o.place === "bureau" && seances.get(o.place_class)?.id
+          && String(seances.get(o.place_class).id) === String(o.place_session);
+        return el("div.affaire.affaire--reste",
+          el("div.affaire__ligne",
+            el("span.affaire__nom", "❌ ", nom, " ", el("span.faible.petit", "indisponible")),
+            el("span.affaire__lieu.petit",
+              "📍 ", surLeBureau ? "Sur votre bureau — " : "Dernière position : ",
+              o.place_label || classe?.name || "une salle",
+              o.place_at ? el("span.faible", " · ", depuis(o.place_at)) : null),
+            el("span.pousse"),
+            el("span.etiq", { class: ouverte ? "etiq--ok" : "etiq--attn" },
+              ouverte ? "Salle ouverte" : "Salle fermée"),
+            el("button.btn.btn--petit", {
+              class: ouverte ? "btn--primaire" : "btn--fantome",
+              onclick: () => recuperer(genre, o, nom, classe, ouverte)
+            }, "Récupérer")));
+      }))
+    );
+  }
+
+  async function recuperer(genre, o, nom, classe, ouverte) {
+    if (!ouverte) {
+      toast("La salle est fermée", {
+        corps: `${nom} y reste. Attendez qu'elle rouvre, ou qu'un encadrant vous laisse entrer `
+          + "ou vous le rende.",
+        type: "attn", duree: 7000
+      });
+      return;
+    }
+    const proche = await exigerProximite({
+      motif: "salle", detail: `${nom} — ${o.place_label || classe?.name || "la salle"}`
+    });
+    if (!proche) return;
+    try {
+      if (genre === "cahier") await depotCahiers.recuperer(o.id);
+      else await depotAffaires.recuperer(o.id);
+      succes(`${nom} récupéré`);
+      await charger(); peindre();
+    } catch (err) { erreur("Impossible de le reprendre", messageErreur(err)); }
   }
 
   function section(titre, aide, liste, { hierarchie = false } = {}) {
@@ -274,7 +338,7 @@ export default async function vueAffaires() {
 
       f.nombre ? { libelle: "Combien j'en ai", icone: "grille", action: () => compter(o) } : null,
 
-      !confisque ? {
+      !confisque && (o.place || "range") !== "salle" ? {
         libelle: "Le tendre à quelqu'un", icone: "main", action: () => tendre(o)
       } : null,
 
