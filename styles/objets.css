@@ -547,7 +547,7 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   /* Le cartable ouvert, en fond : on voit dans quoi on range. */
   background:
     linear-gradient(180deg, rgba(13,16,19,.88), rgba(13,16,19,.96)),
-    url("../assets/objets/cartable-ouvert.png") center / contain no-repeat;
+    url("../assets/objets/cartable-ouvert.svg") center / contain no-repeat;
 }
 .plateau__titre {
   font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
@@ -568,6 +568,15 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   background-position: center;
   background-repeat: no-repeat;
 }
+/* Les dessins sont maintenant livres avec le depot : l'image ne manque plus
+   jamais, et le degrade qui servait de substitut n'a plus lieu d'etre. Il
+   reste neanmoins dessous, au cas ou un fichier disparaitrait. */
+.objet__figure[style*="url"] {
+  background-color: transparent;
+  box-shadow: none;
+}
+.objet__figure[style*="url"]::before,
+.objet__figure[style*="url"]::after { content: none; }
 .objet__figure--fourniture {
   width: 34px; height: 34px;
   border-radius: 2px;
@@ -584,3 +593,26 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 /* Dès que le PNG existe, il recouvre le jeton et reprend la main. */
 .objet__figure--fourniture[style*="url"] { border-color: transparent; }
 .objet--fourniture { flex-direction: column; }
+
+/* --- La page « Mon cartable » ---------------------------------------------
+   Le sac ne s'ouvrait que depuis une séance en cours : hors séance, on ne
+   pouvait pas le préparer, alors que c'est justement ce qu'on fait AVANT. */
+.carte--cartable { display: flex; flex-direction: column; gap: var(--e-3); }
+.cartable__apercu {
+  display: flex; flex-wrap: wrap; gap: var(--e-2);
+  min-height: 54px; align-items: flex-start;
+  padding: var(--e-2);
+  border: 1px dashed var(--ligne-forte);
+  border-radius: var(--r-sm);
+  background: var(--encre-900);
+}
+.cartable__vignette {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 52px; text-align: center;
+}
+.cartable__vignette .objet__figure { width: 38px; height: 38px; }
+.cartable__vignette-nom {
+  font-size: 9px; color: var(--texte-faible);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.carte__pied { display: flex; gap: var(--e-2); margin-top: auto; flex-wrap: wrap; }

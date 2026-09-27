@@ -32,7 +32,7 @@ export function imageObjet(nom) {
   const cle = String(nom).toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `assets/objets/${cle}.png`;
+  return `assets/objets/${cle}.svg`;
 }
 
 const NOMS_SUPPORT = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };

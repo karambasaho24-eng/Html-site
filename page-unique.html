@@ -2081,7 +2081,7 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   /* Le cartable ouvert, en fond : on voit dans quoi on range. */
   background:
     linear-gradient(180deg, rgba(13,16,19,.88), rgba(13,16,19,.96)),
-    url("../assets/objets/cartable-ouvert.png") center / contain no-repeat;
+    url("../assets/objets/cartable-ouvert.svg") center / contain no-repeat;
 }
 .plateau__titre {
   font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
@@ -2102,6 +2102,15 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   background-position: center;
   background-repeat: no-repeat;
 }
+/* Les dessins sont maintenant livres avec le depot : l'image ne manque plus
+   jamais, et le degrade qui servait de substitut n'a plus lieu d'etre. Il
+   reste neanmoins dessous, au cas ou un fichier disparaitrait. */
+.objet__figure[style*="url"] {
+  background-color: transparent;
+  box-shadow: none;
+}
+.objet__figure[style*="url"]::before,
+.objet__figure[style*="url"]::after { content: none; }
 .objet__figure--fourniture {
   width: 34px; height: 34px;
   border-radius: 2px;
@@ -2118,6 +2127,29 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 /* Dès que le PNG existe, il recouvre le jeton et reprend la main. */
 .objet__figure--fourniture[style*="url"] { border-color: transparent; }
 .objet--fourniture { flex-direction: column; }
+
+/* --- La page « Mon cartable » ---------------------------------------------
+   Le sac ne s'ouvrait que depuis une séance en cours : hors séance, on ne
+   pouvait pas le préparer, alors que c'est justement ce qu'on fait AVANT. */
+.carte--cartable { display: flex; flex-direction: column; gap: var(--e-3); }
+.cartable__apercu {
+  display: flex; flex-wrap: wrap; gap: var(--e-2);
+  min-height: 54px; align-items: flex-start;
+  padding: var(--e-2);
+  border: 1px dashed var(--ligne-forte);
+  border-radius: var(--r-sm);
+  background: var(--encre-900);
+}
+.cartable__vignette {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 52px; text-align: center;
+}
+.cartable__vignette .objet__figure { width: 38px; height: 38px; }
+.cartable__vignette-nom {
+  font-size: 9px; color: var(--texte-faible);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.carte__pied { display: flex; gap: var(--e-2); margin-top: auto; flex-wrap: wrap; }
 
 /* ---- board.css ---- */
 /* ===========================================================================
@@ -6739,6 +6771,7 @@ function peindreRail() {
     lienRail("/", "accueil", "Accueil", "accueil"),
     lienRail("/cahiers", "cahiers", `Mes ${L("cahiers")}`, "cahiers"),
     lienRail("/classes", "classes", `Mes ${L("classes")}`, "classe", classesActives.length || null),
+    lienRail("/cartable", "cartable", "Mon cartable", "sac"),
     lienRail("/papiers", "papiers", "Ma sacoche", "papier"),
     lienRail("/documents", "documents", "Documents", "documents"),
     lienRail("/exercices", "exercices", L("Exercices"), "exercices"),
@@ -6766,6 +6799,7 @@ function peindreFil() {
     classe: L("Classe"),
     salle: "Session en direct",
     papiers: "Ma sacoche",
+    cartable: "Mon cartable",
     documents: "Documents",
     exercices: L("Exercices"),
     exercice: L("Exercice"),
@@ -9606,6 +9640,386 @@ var init_papiers = __esm({
   }
 });
 
+// src/features/cartable.js
+function imageObjet(nom) {
+  const cle = String(nom).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `assets/objets/${cle}.svg`;
+}
+function materielAttendu(classe) {
+  const m = classe?.settings?.materiel || {};
+  return {
+    supports: Array.isArray(m.supports) ? m.supports : [],
+    fournitures: Array.isArray(m.fournitures) ? m.fournitures : []
+  };
+}
+async function preparerAffaires({ classe, session = null, surEnregistrement = null }) {
+  const attendu = materielAttendu(classe);
+  const [mesSupports, sac] = await Promise.all([
+    cahiers.mesCahiers(etat.utilisateur.id).catch(() => []),
+    cartable.pour(classe.id, etat.utilisateur.id).catch(() => null)
+  ]);
+  const emportes = new Map(Object.entries(
+    Array.isArray(sac?.notebooks) ? Object.fromEntries((sac.notebooks || []).map((id) => [String(id), ""])) : sac?.notebooks || {}
+  ));
+  const trousse = new Set((sac?.supplies || []).map(String));
+  const fournituresOffertes = [.../* @__PURE__ */ new Set([...TROUSSE_DEFAUT, ...attendu.fournitures])];
+  const demandes = new Set(attendu.supports.map((s) => String(s.id)));
+  const demandesParTitre = new Set(
+    attendu.supports.map((s) => String(s.title || "").trim().toLowerCase())
+  );
+  const zoneRabat = el("div.cartable__rabat");
+  const etagere = el("div.plateau__objets");
+  const dansLeSac = el("div.plateau__objets");
+  const noeuds = /* @__PURE__ */ new Map();
+  for (const c of mesSupports) noeuds.set(`s:${c.id}`, objetSupport(c));
+  for (const f of fournituresOffertes) noeuds.set(`f:${f}`, objetFourniture(f));
+  function estPris(cle) {
+    return cle.startsWith("s:") ? emportes.has(cle.slice(2)) : trousse.has(cle.slice(2));
+  }
+  function placer() {
+    for (const [cle, noeud] of noeuds) {
+      (estPris(cle) ? dansLeSac : etagere).appendChild(noeud);
+    }
+    majPlateaux();
+  }
+  function deplacer(cle) {
+    const noeud = noeuds.get(cle);
+    const avant = noeud.getBoundingClientRect();
+    const versLeSac = !estPris(cle);
+    if (cle.startsWith("s:")) {
+      const id = cle.slice(2);
+      if (versLeSac) emportes.set(id, mesSupports.find((c) => String(c.id) === id)?.title || "");
+      else emportes.delete(id);
+    } else {
+      const nom = cle.slice(2);
+      if (versLeSac) trousse.add(nom);
+      else trousse.delete(nom);
+    }
+    (versLeSac ? dansLeSac : etagere).appendChild(noeud);
+    noeud.setAttribute("aria-pressed", String(versLeSac));
+    noeud.classList.toggle("objet--pris", versLeSac);
+    const apres = noeud.getBoundingClientRect();
+    const dx = avant.left - apres.left;
+    const dy = avant.top - apres.top;
+    if (dx || dy) {
+      noeud.style.transition = "none";
+      noeud.style.transform = `translate(${dx}px, ${dy}px) scale(${versLeSac ? 1.12 : 0.92})`;
+      noeud.style.zIndex = "5";
+      requestAnimationFrame(() => {
+        noeud.style.transition = "transform 320ms cubic-bezier(.34,1.3,.5,1)";
+        noeud.style.transform = "";
+        setTimeout(() => {
+          noeud.style.zIndex = "";
+          noeud.style.transition = "";
+        }, 340);
+      });
+    }
+    majPlateaux();
+  }
+  const enregistre = await ouvrirModale({
+    titre: session ? "\xC9quiper mes affaires" : "Pr\xE9parer mes affaires",
+    large: true,
+    corps: () => {
+      const noeud = el(
+        "div.cartable",
+        el(
+          "p.petit.faible",
+          session ? "Ce que vous emportez en s\xE9ance. Le sac garde son contenu d'une fois sur l'autre \u2014 il faut seulement reposer la main dessus avant d'entrer." : "Ce que vous mettez dans votre sac est ce dont vous disposerez en s\xE9ance \u2014 et c'est aussi la seule chose que l'encadrement pourra vous demander d'ouvrir."
+        ),
+        attendu.supports.length || attendu.fournitures.length ? el(
+          "div.cartable__consigne",
+          el("span.etiq.etiq--attn", icone("alerte", 12), "Demand\xE9 pour cette s\xE9ance"),
+          el(
+            "p.petit",
+            [
+              ...attendu.supports.map((s) => s.title),
+              ...attendu.fournitures
+            ].join(" \xB7 ") || "\u2014"
+          )
+        ) : null,
+        el(
+          "div.etabli",
+          el(
+            "section.plateau.plateau--etagere",
+            el("h3.plateau__titre", icone("grille", 13), " Sur l'\xE9tag\xE8re"),
+            etagere,
+            el("p.plateau__vide.petit.faible", "Tout est dans le sac.")
+          ),
+          el(
+            "section.plateau.plateau--sac",
+            el("h3.plateau__titre", icone("sac", 13), " Dans mon sac"),
+            dansLeSac,
+            el("p.plateau__vide.petit.faible", "Le sac est vide. Cliquez un objet pour l'y mettre.")
+          )
+        ),
+        zoneRabat
+      );
+      placer();
+      return noeud;
+    },
+    actions: [
+      { libelle: "Annuler", valeur: null },
+      {
+        libelle: session ? "Je les ai sur moi" : "Boucler le sac",
+        variante: "primaire",
+        action: async () => {
+          try {
+            await cartable.enregistrer(classe.id, etat.utilisateur.id, {
+              notebooks: Object.fromEntries(emportes),
+              supplies: [...trousse],
+              session: session?.id || null
+            });
+            return true;
+          } catch (err) {
+            erreur("Sac non enregistr\xE9", messageErreur(err));
+            return false;
+          }
+        }
+      }
+    ]
+  });
+  function objetSupport(c) {
+    const demande = demandes.has(String(c.id)) || demandesParTitre.has(String(c.title || "").trim().toLowerCase());
+    const bouton = el(
+      "button.objet",
+      {
+        type: "button",
+        dataset: { support: c.support || "cahier" },
+        "aria-pressed": String(emportes.has(String(c.id))),
+        class: demande ? "objet--demande" : "",
+        onclick: () => deplacer(`s:${c.id}`)
+      },
+      el("span.objet__figure", {
+        dataset: { objet: c.support || "cahier" },
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` }
+      }),
+      el("span.objet__nom", c.title),
+      el("span.objet__type", NOMS_SUPPORT2[c.support] || "Cahier"),
+      demande ? el("span.objet__demande", "demand\xE9") : null
+    );
+    if (emportes.has(String(c.id))) bouton.classList.add("objet--pris");
+    return bouton;
+  }
+  function objetFourniture(f) {
+    const demande = attendu.fournitures.some((x) => x.toLowerCase() === f.toLowerCase());
+    const bouton = el(
+      "button.objet.objet--fourniture",
+      {
+        type: "button",
+        "aria-pressed": String(trousse.has(f)),
+        class: demande ? "objet--demande" : "",
+        onclick: () => deplacer(`f:${f}`)
+      },
+      el("span.objet__figure.objet__figure--fourniture", {
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(f)}")` }
+      }),
+      el("span.objet__nom", f),
+      demande ? el("span.objet__demande", "demand\xE9") : null
+    );
+    if (trousse.has(f)) bouton.classList.add("objet--pris");
+    return bouton;
+  }
+  function majPlateaux() {
+    etagere.parentElement?.classList.toggle("plateau--nu", !etagere.children.length);
+    dansLeSac.parentElement?.classList.toggle("plateau--nu", !dansLeSac.children.length);
+    const manque = cartable.manquants(
+      { notebooks: Object.fromEntries(emportes), supplies: [...trousse] },
+      attendu
+    );
+    const total = emportes.size + trousse.size;
+    render(
+      zoneRabat,
+      el(
+        "span.cartable__compte",
+        total ? `${total} objet${total > 1 ? "s" : ""} dans le sac` : "Sac vide"
+      ),
+      manque.supports.length || manque.fournitures.length ? el(
+        "span.cartable__manque",
+        icone("alerte", 12),
+        " Il manque : ",
+        [...manque.supports.map((s) => s.title), ...manque.fournitures].join(", ")
+      ) : el("span.cartable__complet", icone("coche", 12), " Rien n'a \xE9t\xE9 oubli\xE9")
+    );
+  }
+  if (enregistre) {
+    succes(session ? "Affaires \xE9quip\xE9es" : "Sac boucl\xE9");
+    surEnregistrement?.({ notebooks: Object.fromEntries(emportes), supplies: [...trousse] });
+  }
+  return enregistre === true;
+}
+function ligneMateriel(sac, attendu, options = {}) {
+  if (!sac) {
+    return el(
+      "span.etiq.etiq--attn",
+      icone("alerte", 12),
+      options.court ? "Sac non pr\xE9par\xE9" : "N'a pas pr\xE9par\xE9 son sac"
+    );
+  }
+  if (options.session && String(sac.last_session) !== String(options.session)) {
+    return el(
+      "span.etiq.etiq--attn",
+      icone("alerte", 12),
+      options.court ? "Pas \xE9quip\xE9" : "N'a pas repris ses affaires"
+    );
+  }
+  const manque = cartable.manquants(sac, attendu);
+  const nb = manque.supports.length + manque.fournitures.length;
+  if (!nb) {
+    return el(
+      "span.etiq.etiq--ok",
+      icone("coche", 12),
+      options.court ? "En ordre" : "Mat\xE9riel complet"
+    );
+  }
+  const noms = [...manque.supports.map((s) => s.title), ...manque.fournitures];
+  return el(
+    "span.etiq.etiq--attn",
+    { title: `Manque : ${noms.join(", ")}` },
+    icone("alerte", 12),
+    options.court ? `${nb} oubli${nb > 1 ? "s" : ""}` : `Oubli\xE9 : ${noms.join(", ")}`
+  );
+}
+var TROUSSE_DEFAUT, NOMS_SUPPORT2;
+var init_cartable = __esm({
+  "src/features/cartable.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_data();
+    init_modal();
+    init_toast();
+    init_lexique();
+    TROUSSE_DEFAUT = ["Plume", "Encre", "Crayon", "Gomme", "R\xE8gle", "Buvard"];
+    NOMS_SUPPORT2 = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
+  }
+});
+
+// src/vues/cartable.js
+var cartable_exports = {};
+__export(cartable_exports, {
+  default: () => vueCartable
+});
+async function vueCartable() {
+  const conteneur2 = el("div");
+  const noeud = el(
+    "div.page",
+    entete(
+      "Mon cartable",
+      "Ce que j'emporte",
+      el(
+        "p.doux.petit",
+        `Pr\xE9parez vos affaires avant d'entrer en s\xE9ance. Ce que vous mettez ici est ce dont vous disposerez en cours \u2014 et la seule chose que l'encadrement pourra vous demander d'ouvrir.`
+      )
+    ),
+    conteneur2
+  );
+  await peindre();
+  return { noeud, titre: "Mon cartable" };
+  async function peindre() {
+    render(conteneur2, el("p.faible.petit", "Chargement..."));
+    const classes2 = etat.classes.filter((c) => !c.archived);
+    if (!classes2.length) {
+      render(conteneur2, blocVide(
+        `Aucune ${L("classe")}`,
+        `Rejoignez une ${L("classe")} avec son code : c'est elle qui dit ce qu'il faut apporter.`,
+        { libelle: `Mes ${L("classes")}`, action: () => aller("/classes") }
+      ));
+      return;
+    }
+    let mesSupports = [];
+    try {
+      mesSupports = await cahiers.mesCahiers(etat.utilisateur.id);
+    } catch {
+      mesSupports = [];
+    }
+    const sacs = /* @__PURE__ */ new Map();
+    for (const c of classes2) {
+      try {
+        sacs.set(c.id, await cartable.pour(c.id, etat.utilisateur.id));
+      } catch {
+        sacs.set(c.id, null);
+      }
+    }
+    render(
+      conteneur2,
+      el("div.grille.grille--2", classes2.map((c) => carteClasse2(c, sacs.get(c.id), mesSupports)))
+    );
+  }
+  function carteClasse2(classe, sac, mesSupports) {
+    const attendu = materielAttendu(classe);
+    const manque = cartable.manquants(sac, attendu);
+    const nbManque = manque.supports.length + manque.fournitures.length;
+    const emportes = Object.entries(
+      Array.isArray(sac?.notebooks) ? Object.fromEntries((sac.notebooks || []).map((id) => [String(id), ""])) : sac?.notebooks || {}
+    );
+    const trousse = (sac?.supplies || []).map(String);
+    const demande = attendu.supports.length || attendu.fournitures.length;
+    return el(
+      "article.carte.carte--cartable",
+      el(
+        "header.carte__entete",
+        el("h3.carte__titre", classe.name),
+        sac ? nbManque ? el("span.etiq.etiq--attn", icone("alerte", 12), `${nbManque} oubli${nbManque > 1 ? "s" : ""}`) : el("span.etiq.etiq--ok", icone("coche", 12), "En ordre") : el("span.etiq.etiq--attn", icone("alerte", 12), "Sac vide")
+      ),
+      demande ? el(
+        "p.petit.faible",
+        icone("sac", 11),
+        " Demand\xE9 : ",
+        [...attendu.supports.map((s) => s.title), ...attendu.fournitures].join(" \xB7 ")
+      ) : el("p.petit.faible", "Rien n'a \xE9t\xE9 demand\xE9 pour cette " + L("classe") + "."),
+      el(
+        "div.cartable__apercu",
+        emportes.length || trousse.length ? [
+          ...emportes.map(([id, titre]) => vignette(
+            mesSupports.find((s) => String(s.id) === id)?.support || "cahier",
+            titre || mesSupports.find((s) => String(s.id) === id)?.title || "Support"
+          )),
+          ...trousse.map((f) => vignette(f, f))
+        ] : el("p.petit.faible", "Vous n'emportez rien pour l'instant.")
+      ),
+      el(
+        "div.carte__pied",
+        el("button.btn.btn--primaire", {
+          onclick: async () => {
+            await preparerAffaires({ classe });
+            await peindre();
+          }
+        }, icone("sac", 15), sac ? "Revoir mon sac" : "Pr\xE9parer mon sac"),
+        el("button.btn.btn--fantome", {
+          onclick: () => aller(`/classe/${classe.id}`)
+        }, "La " + L("classe"))
+      )
+    );
+  }
+  function vignette(objet, titre) {
+    return el(
+      "span.cartable__vignette",
+      { title: titre },
+      el("span.objet__figure", {
+        dataset: { objet: TROUSSE_DEFAUT.includes(titre) ? "fourniture" : objet },
+        "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageObjet(objet)}")` }
+      }),
+      el("span.cartable__vignette-nom", titre)
+    );
+  }
+}
+var init_cartable2 = __esm({
+  "src/vues/cartable.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_router();
+    init_lexique();
+    init_data();
+    init_fragments();
+    init_cartable();
+    init_toast();
+  }
+});
+
 // src/vues/classes.js
 var classes_exports = {};
 __export(classes_exports, {
@@ -11923,262 +12337,6 @@ var init_import_document = __esm({
     PDFJS_CDN = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.min.mjs";
     WORKER_CDN = "https://esm.sh/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs";
     pdfjs = null;
-  }
-});
-
-// src/features/cartable.js
-function imageObjet(nom) {
-  const cle = String(nom).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `assets/objets/${cle}.png`;
-}
-function materielAttendu(classe) {
-  const m = classe?.settings?.materiel || {};
-  return {
-    supports: Array.isArray(m.supports) ? m.supports : [],
-    fournitures: Array.isArray(m.fournitures) ? m.fournitures : []
-  };
-}
-async function preparerAffaires({ classe, session = null, surEnregistrement = null }) {
-  const attendu = materielAttendu(classe);
-  const [mesSupports, sac] = await Promise.all([
-    cahiers.mesCahiers(etat.utilisateur.id).catch(() => []),
-    cartable.pour(classe.id, etat.utilisateur.id).catch(() => null)
-  ]);
-  const emportes = new Map(Object.entries(
-    Array.isArray(sac?.notebooks) ? Object.fromEntries((sac.notebooks || []).map((id) => [String(id), ""])) : sac?.notebooks || {}
-  ));
-  const trousse = new Set((sac?.supplies || []).map(String));
-  const fournituresOffertes = [.../* @__PURE__ */ new Set([...TROUSSE_DEFAUT, ...attendu.fournitures])];
-  const demandes = new Set(attendu.supports.map((s) => String(s.id)));
-  const demandesParTitre = new Set(
-    attendu.supports.map((s) => String(s.title || "").trim().toLowerCase())
-  );
-  const zoneRabat = el("div.cartable__rabat");
-  const etagere = el("div.plateau__objets");
-  const dansLeSac = el("div.plateau__objets");
-  const noeuds = /* @__PURE__ */ new Map();
-  for (const c of mesSupports) noeuds.set(`s:${c.id}`, objetSupport(c));
-  for (const f of fournituresOffertes) noeuds.set(`f:${f}`, objetFourniture(f));
-  function estPris(cle) {
-    return cle.startsWith("s:") ? emportes.has(cle.slice(2)) : trousse.has(cle.slice(2));
-  }
-  function placer() {
-    for (const [cle, noeud] of noeuds) {
-      (estPris(cle) ? dansLeSac : etagere).appendChild(noeud);
-    }
-    majPlateaux();
-  }
-  function deplacer(cle) {
-    const noeud = noeuds.get(cle);
-    const avant = noeud.getBoundingClientRect();
-    const versLeSac = !estPris(cle);
-    if (cle.startsWith("s:")) {
-      const id = cle.slice(2);
-      if (versLeSac) emportes.set(id, mesSupports.find((c) => String(c.id) === id)?.title || "");
-      else emportes.delete(id);
-    } else {
-      const nom = cle.slice(2);
-      if (versLeSac) trousse.add(nom);
-      else trousse.delete(nom);
-    }
-    (versLeSac ? dansLeSac : etagere).appendChild(noeud);
-    noeud.setAttribute("aria-pressed", String(versLeSac));
-    noeud.classList.toggle("objet--pris", versLeSac);
-    const apres = noeud.getBoundingClientRect();
-    const dx = avant.left - apres.left;
-    const dy = avant.top - apres.top;
-    if (dx || dy) {
-      noeud.style.transition = "none";
-      noeud.style.transform = `translate(${dx}px, ${dy}px) scale(${versLeSac ? 1.12 : 0.92})`;
-      noeud.style.zIndex = "5";
-      requestAnimationFrame(() => {
-        noeud.style.transition = "transform 320ms cubic-bezier(.34,1.3,.5,1)";
-        noeud.style.transform = "";
-        setTimeout(() => {
-          noeud.style.zIndex = "";
-          noeud.style.transition = "";
-        }, 340);
-      });
-    }
-    majPlateaux();
-  }
-  const enregistre = await ouvrirModale({
-    titre: session ? "\xC9quiper mes affaires" : "Pr\xE9parer mes affaires",
-    large: true,
-    corps: () => {
-      const noeud = el(
-        "div.cartable",
-        el(
-          "p.petit.faible",
-          session ? "Ce que vous emportez en s\xE9ance. Le sac garde son contenu d'une fois sur l'autre \u2014 il faut seulement reposer la main dessus avant d'entrer." : "Ce que vous mettez dans votre sac est ce dont vous disposerez en s\xE9ance \u2014 et c'est aussi la seule chose que l'encadrement pourra vous demander d'ouvrir."
-        ),
-        attendu.supports.length || attendu.fournitures.length ? el(
-          "div.cartable__consigne",
-          el("span.etiq.etiq--attn", icone("alerte", 12), "Demand\xE9 pour cette s\xE9ance"),
-          el(
-            "p.petit",
-            [
-              ...attendu.supports.map((s) => s.title),
-              ...attendu.fournitures
-            ].join(" \xB7 ") || "\u2014"
-          )
-        ) : null,
-        el(
-          "div.etabli",
-          el(
-            "section.plateau.plateau--etagere",
-            el("h3.plateau__titre", icone("grille", 13), " Sur l'\xE9tag\xE8re"),
-            etagere,
-            el("p.plateau__vide.petit.faible", "Tout est dans le sac.")
-          ),
-          el(
-            "section.plateau.plateau--sac",
-            el("h3.plateau__titre", icone("sac", 13), " Dans mon sac"),
-            dansLeSac,
-            el("p.plateau__vide.petit.faible", "Le sac est vide. Cliquez un objet pour l'y mettre.")
-          )
-        ),
-        zoneRabat
-      );
-      placer();
-      return noeud;
-    },
-    actions: [
-      { libelle: "Annuler", valeur: null },
-      {
-        libelle: session ? "Je les ai sur moi" : "Boucler le sac",
-        variante: "primaire",
-        action: async () => {
-          try {
-            await cartable.enregistrer(classe.id, etat.utilisateur.id, {
-              notebooks: Object.fromEntries(emportes),
-              supplies: [...trousse],
-              session: session?.id || null
-            });
-            return true;
-          } catch (err) {
-            erreur("Sac non enregistr\xE9", messageErreur(err));
-            return false;
-          }
-        }
-      }
-    ]
-  });
-  function objetSupport(c) {
-    const demande = demandes.has(String(c.id)) || demandesParTitre.has(String(c.title || "").trim().toLowerCase());
-    const bouton = el(
-      "button.objet",
-      {
-        type: "button",
-        dataset: { support: c.support || "cahier" },
-        "aria-pressed": String(emportes.has(String(c.id))),
-        class: demande ? "objet--demande" : "",
-        onclick: () => deplacer(`s:${c.id}`)
-      },
-      el("span.objet__figure", {
-        dataset: { objet: c.support || "cahier" },
-        "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` }
-      }),
-      el("span.objet__nom", c.title),
-      el("span.objet__type", NOMS_SUPPORT2[c.support] || "Cahier"),
-      demande ? el("span.objet__demande", "demand\xE9") : null
-    );
-    if (emportes.has(String(c.id))) bouton.classList.add("objet--pris");
-    return bouton;
-  }
-  function objetFourniture(f) {
-    const demande = attendu.fournitures.some((x) => x.toLowerCase() === f.toLowerCase());
-    const bouton = el(
-      "button.objet.objet--fourniture",
-      {
-        type: "button",
-        "aria-pressed": String(trousse.has(f)),
-        class: demande ? "objet--demande" : "",
-        onclick: () => deplacer(`f:${f}`)
-      },
-      el("span.objet__figure.objet__figure--fourniture", {
-        "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(f)}")` }
-      }),
-      el("span.objet__nom", f),
-      demande ? el("span.objet__demande", "demand\xE9") : null
-    );
-    if (trousse.has(f)) bouton.classList.add("objet--pris");
-    return bouton;
-  }
-  function majPlateaux() {
-    etagere.parentElement?.classList.toggle("plateau--nu", !etagere.children.length);
-    dansLeSac.parentElement?.classList.toggle("plateau--nu", !dansLeSac.children.length);
-    const manque = cartable.manquants(
-      { notebooks: Object.fromEntries(emportes), supplies: [...trousse] },
-      attendu
-    );
-    const total = emportes.size + trousse.size;
-    render(
-      zoneRabat,
-      el(
-        "span.cartable__compte",
-        total ? `${total} objet${total > 1 ? "s" : ""} dans le sac` : "Sac vide"
-      ),
-      manque.supports.length || manque.fournitures.length ? el(
-        "span.cartable__manque",
-        icone("alerte", 12),
-        " Il manque : ",
-        [...manque.supports.map((s) => s.title), ...manque.fournitures].join(", ")
-      ) : el("span.cartable__complet", icone("coche", 12), " Rien n'a \xE9t\xE9 oubli\xE9")
-    );
-  }
-  if (enregistre) {
-    succes(session ? "Affaires \xE9quip\xE9es" : "Sac boucl\xE9");
-    surEnregistrement?.({ notebooks: Object.fromEntries(emportes), supplies: [...trousse] });
-  }
-  return enregistre === true;
-}
-function ligneMateriel(sac, attendu, options = {}) {
-  if (!sac) {
-    return el(
-      "span.etiq.etiq--attn",
-      icone("alerte", 12),
-      options.court ? "Sac non pr\xE9par\xE9" : "N'a pas pr\xE9par\xE9 son sac"
-    );
-  }
-  if (options.session && String(sac.last_session) !== String(options.session)) {
-    return el(
-      "span.etiq.etiq--attn",
-      icone("alerte", 12),
-      options.court ? "Pas \xE9quip\xE9" : "N'a pas repris ses affaires"
-    );
-  }
-  const manque = cartable.manquants(sac, attendu);
-  const nb = manque.supports.length + manque.fournitures.length;
-  if (!nb) {
-    return el(
-      "span.etiq.etiq--ok",
-      icone("coche", 12),
-      options.court ? "En ordre" : "Mat\xE9riel complet"
-    );
-  }
-  const noms = [...manque.supports.map((s) => s.title), ...manque.fournitures];
-  return el(
-    "span.etiq.etiq--attn",
-    { title: `Manque : ${noms.join(", ")}` },
-    icone("alerte", 12),
-    options.court ? `${nb} oubli${nb > 1 ? "s" : ""}` : `Oubli\xE9 : ${noms.join(", ")}`
-  );
-}
-var TROUSSE_DEFAUT, NOMS_SUPPORT2;
-var init_cartable = __esm({
-  "src/features/cartable.js"() {
-    init_dom();
-    init_icons();
-    init_store();
-    init_data();
-    init_modal();
-    init_toast();
-    init_lexique();
-    TROUSSE_DEFAUT = ["Plume", "Encre", "Crayon", "Gomme", "R\xE8gle", "Buvard"];
-    NOMS_SUPPORT2 = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
   }
 });
 
@@ -18157,6 +18315,7 @@ function declarerRoutes() {
   definirRoute("/cahiers", { nom: "cahiers", vue: () => Promise.resolve().then(() => (init_cahiers(), cahiers_exports)), prive: true });
   definirRoute("/cahier/:id", { nom: "cahier", vue: () => Promise.resolve().then(() => (init_cahier(), cahier_exports)), prive: true });
   definirRoute("/papiers", { nom: "papiers", vue: () => Promise.resolve().then(() => (init_papiers(), papiers_exports)), prive: true });
+  definirRoute("/cartable", { nom: "cartable", vue: () => Promise.resolve().then(() => (init_cartable2(), cartable_exports)), prive: true });
   definirRoute("/classes", { nom: "classes", vue: () => Promise.resolve().then(() => (init_classes(), classes_exports)), prive: true });
   definirRoute("/classe/:id", { nom: "classe", vue: () => Promise.resolve().then(() => (init_classe(), classe_exports)), prive: true });
   definirRoute("/classe/:id/salle", { nom: "salle", vue: () => Promise.resolve().then(() => (init_salle(), salle_exports)), prive: true });

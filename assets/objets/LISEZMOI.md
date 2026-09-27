@@ -1,26 +1,30 @@
 # Les images des objets
 
-Déposez ici les PNG générés, sous ces noms exacts. Le code les cherche tels
-quels ; tant qu'un fichier manque, la figure dessinée en CSS reste affichée à
-sa place — rien ne casse, l'objet est simplement moins beau.
+Les quatorze dessins sont **livres avec le depot**, en SVG. Il n'y a rien a
+telecharger, rien a installer : ils s'affichent des le premier chargement.
 
-## Le sac et la trousse
-- `cartable.png` — cartable fermé
-- `cartable-ouvert.png` — cartable ouvert, rabat relevé
-- `trousse.png` — trousse fermée
-- `trousse-ouverte.png` — trousse dépliée, passants vides
+Le code les cherche par leur nom, calcule depuis l'intitule de l'objet
+(`imageObjet()` dans `src/features/cartable.js`) : minuscules, sans accent.
+« Regle » devient donc `regle.svg`.
+
+## Le sac
+`cartable.svg` · `cartable-ouvert.svg` · `trousse.svg` · `trousse-ouverte.svg`
 
 ## La trousse
-- `plume.png` · `encre.png` · `crayon.png` · `gomme.png` · `regle.png` · `buvard.png`
-
-Les noms des fournitures suivent `TROUSSE_DEFAUT` dans
-`src/features/cartable.js`, passés en minuscules et sans accent : « Plume » →
-`plume.png`, « Règle » → `regle.png`.
+`plume.svg` · `encre.svg` · `crayon.svg` · `gomme.svg` · `regle.svg` · `buvard.svg`
 
 ## Les supports
-- `feuille.png` · `cahier.png` · `carnet.png` · `dossier.png`
+`feuille.svg` · `cahier.svg` · `carnet.svg` · `dossier.svg`
 
-## Format
-PNG, 256 × 256, fond `#0d1013` uni (celui de l'application) ou transparent.
-Vérifiez chaque image réduite à 32 px : si l'objet n'y est plus reconnaissable,
-c'est l'angle qu'il faut reprendre, pas le niveau de détail.
+## Pourquoi du SVG plutot que des images generees
+
+Ces objets s'affichent a 24 pixels de haut dans le cartable. A cette taille,
+une photographie devient une tache brune : c'est la silhouette qui porte la
+reconnaissance, pas le grain du cuir. Le SVG donne des formes franches a
+n'importe quelle taille, pese quelques centaines d'octets, et se recolore en
+changeant une ligne.
+
+Si vous voulez les remplacer par des dessins plus riches, gardez ces noms et
+posez les fichiers ici — en `.svg`. Verifiez chaque image reduite a 32 px : si
+l'objet n'y est plus reconnaissable, c'est l'angle qu'il faut reprendre, pas le
+niveau de detail.
