@@ -711,10 +711,45 @@ try {
   await cadet.keyboard.press("Escape");
   await cadet.waitForTimeout(400);
 
+  // En petite fenêtre (au-dessus du jeu) : la console remplace la scène.
+  await cadet.setViewportSize({ width: 460, height: 640 });
+  await cadet.waitForTimeout(900);
+  verifier("en petite fenetre, la salle devient une console",
+    await cadet.locator(".salle > .console").isVisible() && !(await cadet.locator(".salle > .scene").isVisible()));
+  await cadet.screenshot({ path: `${CAPT}/petit-1-salle-bureau.png` });
+  await cadet.click('.console__barre [aria-label="Sac"]');
+  await cadet.waitForTimeout(700);
+  verifier("le sac s'ouvre dans la console", await cadet.locator('.console__contenu[data-panneau="sac"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/petit-2-salle-sac.png` });
+  await cadet.click('.console__barre [aria-label="Cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("le cahier s'ouvre dans la console", await cadet.locator('.console .parchemin').count() >= 1);
+  await cadet.screenshot({ path: `${CAPT}/petit-3-salle-cahier.png` });
+  await cadet.setViewportSize({ width: 380, height: 300 });
+  await cadet.waitForTimeout(900);
+  await cadet.screenshot({ path: `${CAPT}/petit-4-salle-mini.png` });
+  verifier("en toute petite fenetre, la barre des gestes reste la",
+    await cadet.locator(".console__barre").isVisible());
+  await cadet.setViewportSize({ width: 1440, height: 900 });
+  await cadet.waitForTimeout(900);
+  verifier("revenu en grand, la scene reprend sa place", await cadet.locator(".salle > .scene").isVisible());
+
   await depot(maitre, `return d.sessions.terminer("${seanceC}");`);
   await cadet.waitForTimeout(1500);
   await cadet.setViewportSize({ width: 1280, height: 800 });
   await maitre.setViewportSize({ width: 1280, height: 800 });
+
+  // Chez moi : le bureau de la chambre, et la barre des gestes.
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1800);
+  verifier("chez moi, on arrive devant son bureau", await cadet.locator(".chez-moi .scene").isVisible());
+  verifier("la barre des gestes est la", await cadet.locator(".actions .actions__geste").count() === 6);
+  await cadet.click('.actions__geste[data-geste="sac"]');
+  await cadet.waitForTimeout(700);
+  verifier("le geste Sac ouvre le sac de la chambre", await cadet.locator('.chez-moi .scene[data-etat="sac"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/chez-moi-sac.png` });
+  await cadet.click('.actions__geste[data-geste="bureau"]');
+  await cadet.waitForTimeout(500);
 
   await cadet.goto(`${RACINE}#/affaires`);
   await cadet.waitForTimeout(1500);

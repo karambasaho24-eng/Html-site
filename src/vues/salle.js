@@ -25,7 +25,13 @@ import { encadre, peutDessiner, peutContribuer, estObservateur } from "../core/p
 import { creerTableau, OUTILS, TEINTES, EPAISSEURS } from "../features/tableau.js";
 import { compterPagesPdf, pdfEnImages } from "../features/import-document.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
-import { modePleineVue, modeImmersif } from "../ui/chassis.js";
+import { modePleineVue, modeImmersif, definirStatut } from "../ui/chassis.js";
+import { compteurPersonnes, ouvrirBande, pictogramme } from "../features/personnes.js";
+import { pictoBureau } from "../ui/barre-actions.js";
+import {
+  creerConsole, panneauBureau, panneauSac, panneauNote, panneauDocumentsConsole, panneauPersonnes
+} from "../features/console.js";
+import { observer } from "../core/store.js";
 import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
 import { ecrireUneNote } from "../features/note-rapide.js";
 import { panneauDossiers } from "../features/dossiers.js";
@@ -127,6 +133,7 @@ export default async function vueSalle({ params }) {
       mesAffaires = bureau.objets();
       decor?.peindre();
       peindreDock();
+      if (["bureau", "sac"].includes(consoleSalle?.ouvert())) consoleSalle.rafraichir();
       if (scene === "moncahier") await peindreMonCahier();
       if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
     }
@@ -170,6 +177,7 @@ export default async function vueSalle({ params }) {
 
   const decor = creerScene({
     bureau, classe, session, staff,
+    meneur: () => modeSeance.meneur || L("Professeur"),
     participants: () => participants,
     nomDe: nomPersonne,
     surTableau: () => appliquerFenetre("document"),
@@ -184,12 +192,67 @@ export default async function vueSalle({ params }) {
     if (voulue !== fenetre) appliquerFenetre(voulue);
   });
 
+  /* --- En petite fenêtre : la console, un panneau à la fois ------------------ */
+  const gensPresents = () => participants.filter((p) => p.user_id !== etat.utilisateur.id);
+  const consoleSalle = creerConsole({
+    defaut: "bureau",
+    panneaux: [
+      { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
+        surCahier: (c) => { cahierOuvertId = c.id; consoleSalle.ouvrir("cahier"); },
+        surSac: () => consoleSalle.ouvrir("sac"),
+        surDossier: () => ouvrirMesDossiers()
+      }) },
+      { cle: "sac", mot: "Sac", image: "cartable", rendre: panneauSac(bureau) },
+      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: (zone) => montrerDansConsole(zone, "moncahier") },
+      { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
+      { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
+      { cle: "personnes", mot: "Personnes", figure: () => pictoPersonneConsole(), rendre: panneauPersonnes({
+        gens: gensPresents, nomDe: nomPersonne,
+        roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
+        gestes: (p) => [
+          { libelle: "Note", action: () => consoleSalle.ouvrir("note") },
+          offre(session, "papiers") ? { libelle: "Document", action: () => remettreUnPapier(p) } : null,
+          { libelle: "Objet", action: () => tendreUnObjet(p) },
+          staff ? { libelle: "Plus…", action: () => menuParticipant(document.activeElement, p, false) } : null
+        ].filter(Boolean)
+      }) },
+      { cle: "tableau", mot: "Tableau", figure: () => icone("tableau", 22), rendre: (zone) => montrerDansConsole(zone, "tableau") },
+      { cle: "plus", mot: "Plus", figure: () => icone("points", 20), geste: () => menuPlusConsole() }
+    ]
+  });
+
+  /** Le tableau ou mon cahier, déplacés tels quels dans le panneau. */
+  async function montrerDansConsole(zone, voulue) {
+    zone.classList.add("console__corps--plein");
+    zone.appendChild(zoneScene);
+    if (scene !== voulue) {
+      scene = voulue;
+      if (voulue === "tableau" && !staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
+      else await peindreScene();
+    }
+  }
+
+  function menuPlusConsole() {
+    const ancre = consoleSalle.noeud.querySelector('[aria-label="Plus"]');
+    menu(ancre, [
+      !staff && contributeur ? { libelle: maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander, icone: "main", action: () => basculerMain() } : null,
+      !staff && contributeur && (session.mode || "cours") === "cours" ? { libelle: "J'ai une question", icone: "interro", action: () => poserQuestion() } : null,
+      staff ? { libelle: session.estrade?.present ? "Je quitte l'avant" : "Je suis devant la classe", icone: "entree",
+        action: () => basculerEstrade(!session.estrade?.present) } : null,
+      staff ? { libelle: "Outils", icone: "reglages", action: () => menuProfesseur(ancre) } : null,
+      staff ? { libelle: "Terminer la séance", icone: "stop", danger: true, action: () => terminerSession() } : null,
+      { separateur: true },
+      { libelle: "Quitter la salle", icone: "sortie", action: () => aller(`/classe/${classe.id}`) }
+    ].filter(Boolean));
+  }
+
   const noeud = el("div.salle",
     bandeau,
     el("div", zonePrivation, bureau.noeud),
     corps,
     decor.noeud,
-    dock
+    dock,
+    consoleSalle.noeud
   );
 
   /* --- Bandeau --------------------------------------------------------------- */
@@ -2773,6 +2836,9 @@ export default async function vueSalle({ params }) {
     ].filter(Boolean));
   }
 
+  function pictoBureauConsole() { return pictoBureau(); }
+  function pictoPersonneConsole() { return pictogramme(); }
+
   /* --- Le dock : les gestes essentiels, sous forme d'objets --------------------- */
   function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null }) {
     return el("button.dock__chose", {
@@ -2796,14 +2862,24 @@ export default async function vueSalle({ params }) {
     const present = Boolean(session.estrade?.present);
     const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
 
+    // En haut, une ligne : le responsable est-il devant ? combien sommes-nous ?
+    definirStatut([
+      staff
+        ? el("button.presence", { type: "button", class: present ? "presence--oui" : "",
+            title: present ? "Je quitte l'avant de la classe" : "Je me place devant la classe",
+            onclick: () => basculerEstrade(!present) },
+            el("span.presence__long", present ? "Devant la classe" : "Pas devant la classe"))
+        : el("span.presence", { class: present ? "presence--oui" : "" },
+            el("span.presence__long", present ? `${modeSeance.meneur || L("Professeur")} présent` : `${modeSeance.meneur || L("Professeur")} absent`)),
+      compteurPersonnes(autres.length, (e) => ouvrirBande(e.currentTarget, {
+        personnes: autres, nomDe: nomPersonne,
+        roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
+        surChoix: (p, b) => menuPersonne(b, p)
+      }))
+    ]);
+    consoleSalle.peindreBarre();
+
     render(dock,
-      el("div.dock__statut",
-        el("b", session.title),
-        staff
-          ? el("span", `${classe.name} · ${pluriel(autres.length, "présent", "présents")}`)
-          : el("span.dock__prof", { class: present ? "dock__prof--present" : "" },
-              present ? "Professeur devant vous" : "Professeur absent de l'avant")),
-      el("span.dock__sep"),
       el("div.dock__groupe",
         chose({ image: sac?.kind || "cartable", mot: "Sac", actif: fenetre === "sac", manque: !sac,
           titre: fenetre === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
@@ -2835,10 +2911,15 @@ export default async function vueSalle({ params }) {
         (session.mode || "cours") === "cours"
           ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() })
           : null) : null,
-      autres.length ? el("span.dock__sep") : null,
-      autres.length ? el("div.dock__gens", autres.slice(0, 7).map((p) => el("button.estrade__eleve", {
-        type: "button", title: nomPersonne(p), onclick: (e) => menuPersonne(e.currentTarget, p)
-      }, silhouetteDe(p, nomPersonne(p)), el("span.estrade__nom", nomPersonne(p))))) : null,
+      el("span.dock__sep"),
+      el("div.dock__groupe",
+        chose({ signe: pictoPersonneConsole(), mot: `${autres.length} ${autres.length > 1 ? "personnes" : "personne"}`,
+          titre: "Personnes présentes",
+          action: (b) => ouvrirBande(b, {
+            personnes: autres, nomDe: nomPersonne,
+            roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
+            surChoix: (p, x) => menuPersonne(x, p)
+          }) })),
       el("span.dock__pousse"),
       staff ? el("div.dock__groupe",
         chose({ signe: icone("reglages", 24), mot: "Outils", titre: "Outils du professeur",
@@ -2945,6 +3026,15 @@ export default async function vueSalle({ params }) {
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
 
+  // La taille de la fenêtre change le comportement : en petit, la console ;
+  // en grand, la scène — et la zone de scène revient à sa place.
+  const petit = () => ["compact", "mini"].includes(etat.taille);
+  var lacherTaille = observer("taille", async () => {
+    if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
+    else { consoleSalle.fermer(); await appliquerFenetre(fenetre); }
+  });
+  if (petit()) consoleSalle.demarrer();
+
   tictac = setInterval(() => {
     // La privation tombe d'elle-même : au dernier battement, la salle se
     // rouvre sans que personne ait rien à faire.
@@ -2982,6 +3072,8 @@ export default async function vueSalle({ params }) {
     titre: `${session.title} — ${classe.name}`,
     nettoyer: () => {
       modeImmersif(false);
+      definirStatut(null);
+      lacherTaille?.();
       // On sort de la salle : ce qui n'a pas été rangé y reste.
       bureau.laisserTout();
       clearInterval(tictac);

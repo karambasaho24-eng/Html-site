@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
- * Les trois modes d'une séance.
+ * Les modes d'une séance — l'école n'est qu'un contexte parmi d'autres.
  *
  * On n'anime pas une réunion comme on fait cours, et une distribution de
  * papiers n'est ni l'un ni l'autre. Le mode ne verrouille rien par sécurité —
@@ -23,6 +23,7 @@ export const MODES = {
     libelle: "Réunion",
     resume: "Une conférence à l'écrit : chacun parle à son tour.",
     icone: "reunion",
+    meneur: "Président de séance",
     // En réunion, la file est publique : on voit qui attend, et depuis quand.
     parole: { demander: "Demander la parole", annuler: "Me retirer du tour", file: "Tour de parole" },
     outils: {
@@ -32,10 +33,33 @@ export const MODES = {
     // Un vote en réunion n'est pas un sondage de cours.
     motSondage: "Mise aux voix"
   },
+  mission: {
+    libelle: "Mission",
+    resume: "Un briefing : on écoute l'ordre, on reçoit ses papiers, on s'équipe.",
+    icone: "drapeau",
+    meneur: "Chef de mission",
+    parole: { demander: "Demander la parole", annuler: "Me retirer", file: "Demandes" },
+    outils: {
+      tableau: true, cahierCommun: false, documents: true, exercices: false,
+      sondage: false, minuterie: true, papiers: true, cartable: true
+    }
+  },
+  entretien: {
+    libelle: "Entretien",
+    resume: "Une rencontre, un guichet, un échange entre citoyens : on se parle, on se remet des papiers.",
+    icone: "echange",
+    meneur: "Hôte",
+    parole: { demander: "Demander la parole", annuler: "Me retirer", file: "Demandes" },
+    outils: {
+      tableau: false, cahierCommun: false, documents: true, exercices: false,
+      sondage: false, minuterie: false, papiers: true, cartable: true
+    }
+  },
   distribution: {
     libelle: "Distribution",
     resume: "On se présente, on reçoit son papier, on s'en va.",
     icone: "papier",
+    meneur: "Préposé",
     parole: { demander: "Me signaler", annuler: "Me retirer", file: "File d'attente" },
     outils: {
       tableau: false, cahierCommun: false, documents: true, exercices: false,

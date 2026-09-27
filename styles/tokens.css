@@ -89,6 +89,45 @@
   --transition: 140ms cubic-bezier(.4, 0, .2, 1);
 }
 
+/* --- Argent et graphite ---------------------------------------------------
+   L'interface est en métal, le monde est en matière. Le laiton d'origine
+   devient de l'argent brossé ; le bronze ancien ne reste qu'en touche rare.
+   Les noms « laiton » sont conservés pour ne pas réécrire mille règles : ils
+   désignent désormais l'accent métallique. */
+:root {
+  --encre-1000: #070809;
+  --encre-900:  #0c0e10;
+  --encre-850:  #111417;
+  --encre-800:  #16191d;
+  --encre-700:  #1c2024;
+  --encre-600:  #262b30;
+  --encre-500:  #343a41;
+  --encre-400:  #4a525b;
+
+  --laiton:        #b8bec6;
+  --laiton-sombre: #7f868f;
+  --laiton-clair:  #e3e7ec;
+  --ligne-laiton:  rgba(196, 203, 212, .26);
+  --bronze:        #a47c46;
+  --bronze-clair:  #c79b5c;
+
+  --argent-1: #eef1f4;
+  --argent-2: #c9ced5;
+  --argent-3: #9aa1aa;
+  --argent-4: #6c737c;
+  --metal: linear-gradient(180deg, #e9ecf0 0%, #c3c8cf 46%, #a9afb7 54%, #d2d6dc 100%);
+  --metal-sombre: linear-gradient(180deg, #2a2f35 0%, #1d2126 50%, #16191d 100%);
+  --filet: linear-gradient(90deg, transparent, rgba(214,220,228,.38) 20%, rgba(214,220,228,.38) 80%, transparent);
+
+  --texte:        #e9e7e2;
+  --texte-doux:   #aeb2b8;
+  --texte-faible: #767c84;
+  --ligne:        #23282d;
+  --ligne-forte:  #353c43;
+
+  --courbe: cubic-bezier(.2, .7, .2, 1);
+}
+
 /* --- Densités pour cohabiter avec la fenêtre Roblox ----------------------- */
 :root[data-density="moyen"]   { --h-barre: 46px; --l-rail: 196px; --t-md: .84rem; }
 :root[data-density="compact"] { --h-barre: 40px; --l-rail: 60px;  --t-md: .82rem; --e-5: 16px; --e-6: 20px; }

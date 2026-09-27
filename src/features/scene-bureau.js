@@ -18,6 +18,7 @@ import { etat } from "../core/store.js";
 import { toast } from "../ui/toast.js";
 import { fiche, nomObjet, imageDetouree } from "./affaires.js";
 import { OUTILS_REQUIS } from "./portee.js";
+import { L } from "../core/lexique.js";
 
 /* --- L'échelle des choses --------------------------------------------------
    Largeur de chaque objet, en fraction de la largeur du pupitre. Un crayon
@@ -69,7 +70,11 @@ export function creerScene({
   bureau, classe, session, staff = false,
   participants = () => [], nomDe = () => "",
   surTableau = null, surCahier = null, surDossier = null, surNote = null,
-  surPersonne = null, surEstrade = null
+  surPersonne = null, surEstrade = null,
+  // Chez soi, pas de tableau ni d'estrade : le mur porte autre chose.
+  avant = null,
+  // Qui mène : professeur, président de séance, chef de mission…
+  meneur = null
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -89,7 +94,7 @@ export function creerScene({
 
   const noeud = el("div.scene", { dataset: { etat: etatScene } },
     el("div.scene__mur", { "aria-hidden": "true" }),
-    el("div.scene__avant",
+    avant ? el("div.scene__avant.scene__avant--mur", avant) : el("div.scene__avant",
       el("button.scene__tableau", {
         type: "button", title: "Regarder le tableau",
         onclick: () => surTableau?.()
@@ -199,6 +204,7 @@ export function creerScene({
     const f = fiche(chose.kind) || {};
     if (f.papiers) return "Ouvrir le dossier";
     if (chose.kind === "feuilles" || chose.kind === "feuille") return "Écrire une note";
+    if (f.contenant && bureau.porter) return "Prendre ce sac";
     return enMain ? "Reposer" : "Prendre en main";
   }
 
@@ -208,6 +214,7 @@ export function creerScene({
     const f = fiche(chose.kind) || {};
     if (f.papiers) { surDossier?.(chose); return; }
     if (chose.kind === "feuilles" || chose.kind === "feuille") { surNote?.(); return; }
+    if (f.contenant && bureau.porter) { bureau.porter(chose); return; }
     bureau.prendre(bureau.enMain()?.id === chose.id ? null : chose);
   }
 
@@ -371,30 +378,23 @@ export function creerScene({
      ==================================================================== */
   function peindreEstrade() {
     const present = Boolean(estrade?.present);
+    const qui = (typeof meneur === "function" ? meneur() : meneur) || L("Professeur");
     if (staff) {
-      // Le professeur voit la classe ; il dit s'il se tient devant elle.
-      const eleves = participants().filter((p) => p.user_id !== etat.utilisateur.id);
+      // Le responsable dit d'un geste s'il se tient devant la classe.
       render(zoneEstrade,
-        el("div.estrade__classe", eleves.slice(0, 14).map((p) => el("button.estrade__eleve", {
-          type: "button", title: nomDe(p), onclick: (e) => surPersonne?.(e.currentTarget, p)
-        }, silhouette(p), el("span.estrade__nom", nomDe(p))))),
-        el("button.estrade__bascule", {
-          type: "button", class: present ? "estrade__bascule--present" : "",
+        el("span.estrade__lumiere", { "aria-hidden": "true", style: { opacity: present ? "1" : "0" } }),
+        el("button.presence.estrade__bascule", {
+          type: "button", class: present ? "presence--oui estrade__bascule--present" : "",
+          title: present ? "Je quitte l'avant de la classe" : "Je me place devant la classe",
           onclick: () => surEstrade?.(!present)
-        }, el("span.estrade__voyant", { "aria-hidden": "true" }),
-          present ? "Je suis devant la classe" : "Je ne suis pas devant la classe"));
+        }, present ? "Devant la classe" : "Pas devant la classe"));
       return;
     }
-    const prof = participants().find((p) => String(p.user_id) === String(estrade?.user_id));
     render(zoneEstrade,
       el("div.estrade__prof", { class: present ? "estrade__prof--present" : "estrade__prof--absent" },
         el("span.estrade__lumiere", { "aria-hidden": "true" }),
-        present ? silhouette(prof || { profil: { display_name: estrade.nom } }, true)
-                : el("span.estrade__vide", { "aria-hidden": "true" }),
-        el("span.estrade__etat",
-          present
-            ? [el("b", estrade.nom || nomDe(prof) || "Le professeur"), " est devant vous"]
-            : "Le professeur n'est pas à l'avant de la classe")));
+        el("span.presence", { class: present ? "presence--oui" : "" },
+          present ? `${estrade.nom || qui} · devant la classe` : `${qui} absent`)));
   }
 
   const silhouette = (p, grand = false) => silhouetteDe(p, nomDe(p), grand);
@@ -447,7 +447,7 @@ export function creerScene({
     noeud.dataset.etat = etatScene;
     peindrePupitre();
     peindreSac();
-    peindreEstrade();
+    if (!avant) peindreEstrade();
     peindreRail();
   }
 

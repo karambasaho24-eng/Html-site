@@ -244,6 +244,15 @@ La salle ne s'ouvre plus sur une interface de site mais sur **ce que le personna
 - **note rapide** (`src/features/note-rapide.js`) : écrire → toucher la personne → tendre. Il faut un outil et une feuille sur le bureau ; la feuille quitte la pile. Le destinataire voit « 📄 Une note vous a été remise. »
 - **fenêtres** : compacte (le dock seul), bureau, cahier, sac, document, étendue (l'ancienne interface complète). Le bouton « détacher » pose la fenêtre au-dessus de Roblox (Document Picture-in-Picture, Chrome/Edge).
 
+### 4.4 quater L'application autour du bureau (voir docs/INTERFACE.md)
+
+- **Plus de tableau de bord.** Une ligne de contexte en haut (où je suis, présence du responsable, `👥 n`, notifications, « au-dessus du jeu », ⋯) ; la vue ; la **barre des gestes** en bas : Bureau · Sac · Cahier · Note · Documents · Personnes. Le reste (espaces, cahiers, archives, encadrement, réglages) est dans le tiroir ⋯.
+- **Chez moi** remplace l'accueil : le même pupitre que la salle, dans la chambre ; le sac à côté ; au mur, une plaque encadrée d'argent avec ce qui se passe en ce moment (séance ouverte → « Y aller », papiers remis, notifications, rejoindre un espace). On prépare son sac physiquement.
+- **La taille décide du comportement** (`chassis[data-taille]` : grand / moyen / compact / mini). En compact et mini — dont la fenêtre posée au-dessus de Roblox —, la scène laisse place à la **console** (`src/features/console.js`) : un panneau à la fois (bureau, sac, cahier, note, documents, personnes ; en salle aussi tableau et ⋯), la barre en dessous ; en mini, le panneau s'ouvre par-dessus.
+- **Personnes** : pictogrammes et noms sur une bande défilante (`src/features/personnes.js`), jamais de gros profils. **Présence** : une pastille « ● Professeur présent / ○ absent » — le mot dépend du contexte (président de séance, chef de mission, hôte…).
+- **Contextes** : cours, réunion, mission, entretien, distribution (migration 0021).
+- **Design** : graphite, argent brossé pour les commandes et les cadres, bois et papier pour les objets.
+
 ### 4.5 Les objets qui circulent
 
 **Le principe, partout le même : un objet n'est jamais à deux endroits.**
