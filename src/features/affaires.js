@@ -352,7 +352,8 @@ export function imageDetouree(kind) {
   const embarques = globalThis.__OJM_OBJETS__;
   if (embarques && embarques[`detoure:${cle}`]) return embarques[`detoure:${cle}`];
   if (PHOTOS.has(cle)) return `assets/objets/detoures/${cle}.webp`;
-  return imageObjet(kind);
+  if (embarques && embarques[`sans-fond:${cle}`]) return embarques[`sans-fond:${cle}`];
+  return `assets/objets/sans-fond/${cle}.svg`;
 }
 
 /* ===========================================================================

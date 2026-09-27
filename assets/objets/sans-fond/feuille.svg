@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="feuille">
+  <defs>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+  </defs>
+  
+  <path d="M17 12h22l8 8v32H17z" fill="url(#papier)"/>
+  <path d="M39 12v8h8z" fill="#b9aa89"/>
+  <path d="M22 26h20M22 31h20M22 36h20M22 41h13" stroke="#8b7a5c" stroke-opacity=".5" stroke-width="1.2"/>
+  <path d="M17 47h30" fill="none" stroke="#000" stroke-opacity=".12" stroke-width="1"/>
+  <ellipse cx="32" cy="54" rx="17" ry="2.2" fill="#000" opacity=".28"/>
+  
+</svg>

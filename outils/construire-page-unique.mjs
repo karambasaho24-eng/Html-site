@@ -67,6 +67,14 @@ function embarquerObjets() {
         "data:image/webp;base64," + readFileSync(resolve(detoures, fichier)).toString("base64");
     }
   } catch { /* pas d'objets détourés */ }
+  try {
+    const sansFond = resolve(dossier, "sans-fond");
+    for (const fichier of readdirSync(sansFond)) {
+      if (!fichier.endsWith(".svg")) continue;
+      const svg = readFileSync(resolve(sansFond, fichier), "utf8").replace(/\n\s*/g, " ").trim();
+      carte["sans-fond:" + fichier.replace(/\.svg$/, "")] = "data:image/svg+xml," + encodeURIComponent(svg);
+    }
+  } catch { /* pas de dessins sans fond */ }
   return carte;
 }
 

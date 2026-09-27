@@ -474,27 +474,33 @@ autre: `
 /* ===========================================================================
    Assemblage
    ========================================================================= */
-function assembler(nom, corps) {
+function assembler(nom, corps, { plaque = true } = {}) {
   // On n'embarque que les matières réellement employées : chaque fichier reste
   // sous le kilo-octet, et rien n'est chargé pour rien.
   const utilisees = Object.keys(MATIERES)
-    .filter((cle) => corps.includes(`url(#${cle})`) || ["plaque", "lum", "sol"].includes(cle));
+    .filter((cle) => corps.includes(`url(#${cle})`) || (plaque && ["plaque", "lum", "sol"].includes(cle)));
   const defs = utilisees.map((cle) => MATIERES[cle]).join("\n    ");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${nom}">
   <defs>
     ${defs}
   </defs>
-  <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
-  <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
+  ${plaque ? `<rect width="64" height="64" rx="10" fill="url(#plaque)"/>
+  <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>` : ""}
   ${corps.trim()}
-  <rect width="64" height="64" rx="10" fill="url(#lum)"/>
-  <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
+  ${plaque ? `<rect width="64" height="64" rx="10" fill="url(#lum)"/>
+  <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>` : ""}
 </svg>
 `;
 }
 
 mkdirSync(SORTIE, { recursive: true });
+// La même figure sans sa plaque, pour la poser DANS un contenant : un carré
+// sombre au milieu d'une trousse trahirait l'image.
+mkdirSync(`${SORTIE}/sans-fond`, { recursive: true });
+for (const [nom, corps] of Object.entries(OBJETS)) {
+  writeFileSync(`${SORTIE}/sans-fond/${nom}.svg`, assembler(nom, corps, { plaque: false }), "utf8");
+}
 let n = 0;
 for (const [nom, corps] of Object.entries(OBJETS)) {
   writeFileSync(`${SORTIE}/${nom}.svg`, assembler(nom, corps), "utf8");
