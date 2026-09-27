@@ -40,6 +40,7 @@ import { materielAttendu, consigneAEnregistrer, typeDepuisTexte, NIVEAUX, ecart,
 import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES }
   from "../features/affaires.js";
 import { tendreObjet, demanderObjet, confisquerObjet } from "../features/transfert.js";
+import { creerBureau } from "../features/bureau.js";
 import { affaires as depotAffaires } from "../data/index.js";
 import {
   MINUTES_OFFERTES, reglesMateriel, nePeutPasEcrire, bandeauPrivation, lignePrivation
@@ -112,6 +113,16 @@ export default async function vueSalle({ params }) {
   let dernierRafraichiPrivations = 0;
   const zonePrivation = el("div");
 
+  // Le bureau : ce qu'on a sorti du sac. Seul ce qui est posé devant soi sert.
+  const bureau = creerBureau({
+    classe, session,
+    surChange: async () => {
+      mesAffaires = bureau.objets();
+      if (scene === "moncahier") await peindreMonCahier();
+      if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
+    }
+  });
+
   // En RP, c'est le personnage qui est présent à l'appel, pas le compte.
   const enRP = universDe(classe) !== "aucun";
   let fichesRP = enRP ? await personnages.index(classe.id).catch(() => new Map()) : new Map();
@@ -134,7 +145,7 @@ export default async function vueSalle({ params }) {
 
   const noeud = el("div.salle",
     bandeau,
-    zonePrivation,
+    el("div", zonePrivation, bureau.noeud),
     el("div.salle__corps", zoneScene,
       el("aside.salle__panneau", ongletsPanneau, zonePanneau))
   );
@@ -274,22 +285,16 @@ export default async function vueSalle({ params }) {
   const CARACTERES_PAR_POINT = 350;
   let fraisEncre = 0;
 
-  /** L'encrier que je porte, s'il y en a un. */
-  const monEncrier = () => encrierEnService(mesAffaires, etat.utilisateur.id);
+  /** L'encrier qui sert : celui qui est sur le bureau, si j'écris à la plume. */
+  const monEncrier = () => bureau.peutFaire("ecrire").encrier || null;
 
   /** Est-ce que j'écris à la plume, c'est-à-dire avec quelque chose qui boit ? */
-  function jEcrisALaPlume() {
-    const surMoiIds = idsDuSac(sacs.get(etat.utilisateur.id));
-    const portes = mesAffaires.filter((o) => surMoiIds.has(String(o.id)));
-    const quiTracent = portes.filter((o) => ficheObjet(o.kind)?.ecrit);
-    return quiTracent.length > 0 && quiTracent.every((o) => ficheObjet(o.kind)?.encre);
-  }
+  const jEcrisALaPlume = () => Boolean(bureau.peutFaire("ecrire").encrier);
 
-  /** À sec : j'ai de quoi tracer, mais plus rien à tracer avec. */
+  /** À sec : l'encrier est là, sur le bureau, mais vide. */
   function aSec() {
-    if (!jEcrisALaPlume()) return false;
-    const encrier = monEncrier();
-    return Boolean(encrier) && Number(encrier.level || 0) <= 0;
+    const v = bureau.peutFaire("ecrire");
+    return !v.ok && /encrier est vide/.test(v.message || "");
   }
 
   /**
@@ -320,18 +325,24 @@ export default async function vueSalle({ params }) {
 
   async function remplirMonEncrier() {
     const encrier = monEncrier();
-    const flacon = mesAffaires.find((o) => o.kind === "encre" && Number(o.level || 0) > 0);
-    if (!encrier) { toast("Vous n'avez pas d'encrier sur vous."); return; }
+    // Le flacon doit être sur le bureau aussi : on ne remplit pas un encrier
+    // avec une bouteille restée à la maison.
+    const flacon = bureau.objets().find((o) => o.kind === "encre" && Number(o.level || 0) > 0
+      && o.place === "bureau" && String(o.place_session) === String(session.id));
+    const encrierPose = encrier || bureau.objets().find((o) => o.kind === "encrier"
+      && o.place === "bureau" && String(o.place_session) === String(session.id));
+    if (!encrierPose) { toast("Votre encrier n'est pas sur le bureau."); return; }
     if (!flacon) {
-      toast("Aucun flacon d'encre", {
-        corps: "Demandez-en à quelqu'un, ou allez en chercher.", type: "attn"
+      toast("Aucun flacon d'encre sur le bureau", {
+        corps: "Sortez-le de votre sac, ou demandez de l'encre à quelqu'un.", type: "attn"
       });
       return;
     }
     try {
-      const { verse } = await depotAffaires.remplir(encrier, flacon);
+      const { verse } = await depotAffaires.remplir(encrierPose, flacon);
       if (!verse) { toast("L'encrier est déjà plein."); return; }
-      mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+      await bureau.charger();
+      mesAffaires = bureau.objets();
       succes(`Encrier rempli (+${verse} %)`);
       await peindreMonCahier();
     } catch (err) { erreur("Impossible", messageErreur(err)); }
@@ -341,10 +352,10 @@ export default async function vueSalle({ params }) {
     editeurPersonnel?.detruire();
     editeurPersonnel = null;
 
-    const sac = sacs.get(etat.utilisateur.id);
-    const apportes = new Set(depotCartable.apportes(sac));
-    let mes = [];
-    try { mes = await depotCahiers.mesCahiers(etat.utilisateur.id); } catch { mes = []; }
+    // On n'écrit que dans ce qui est SUR LE BUREAU. Un cahier au fond du sac
+    // est là, mais fermé : il faut le sortir.
+    await bureau.charger();
+    mesAffaires = bureau.objets();
 
     // Ce qu'on nous a prêté s'ouvre aussi : un cahier qu'on a entre les mains
     // n'a pas à passer par le cartable pour se lire.
@@ -363,17 +374,14 @@ export default async function vueSalle({ params }) {
         .map((r) => [String(r.notebook_id), r]));
     } catch { pretes = new Map(); }
 
-    const disponibles = [...mes.filter((c) => apportes.has(String(c.id))), ...empruntes];
+    const disponibles = [...bureau.cahiersSurLeBureau(), ...empruntes];
 
     if (!disponibles.length) {
       render(zoneScene, blocVide(
-        "Vous n'avez apporté aucun cahier",
-        offre(session, "cartable")
-          ? "On n'écrit que dans ce qu'on a dans son sac. Ouvrez-le pour y mettre un support."
-          : "Créez un cahier depuis « Mes cahiers », puis revenez.",
-        offre(session, "cartable")
-          ? { libelle: "Ouvrir mon sac", action: () => ouvrirCartable() }
-          : null
+        "Aucun cahier sur votre bureau",
+        "On n'écrit que dans ce qu'on a devant soi. Ouvrez votre sac et sortez-en un cahier ; "
+          + "s'il n'y est pas, c'est qu'il est resté ailleurs.",
+        { libelle: "Ouvrir mon sac", action: () => bureau.ouvrirSac() }
       ));
       return;
     }
@@ -398,6 +406,7 @@ export default async function vueSalle({ params }) {
       ]))
     });
 
+    const ecriture = bureau.peutFaire("ecrire");
     editeurPersonnel = creerEditeurCahier({
       cahier: choisi,
       surPage: (page) => margePersonnelle.suivre(page),
@@ -405,7 +414,11 @@ export default async function vueSalle({ params }) {
       // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
       // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
       // récrit jamais : la marge est faite pour ça.
-      peutEcrire: !prive() && !choisi.emprunte && !aSec(),
+      // Et il faut de quoi écrire, sur le bureau. Pas de stylo, pas
+      // d'écriture : rien ne s'ajoute à la page, et on dit pourquoi.
+      peutEcrire: !prive() && !choisi.emprunte && ecriture.ok,
+      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? ecriture : null,
+      garde: (action) => bureau.peutFaire(action),
       compact: true,
       tempsReel: true,
       rp: reglagesRP(classe)
@@ -459,6 +472,19 @@ export default async function vueSalle({ params }) {
               icone("cadenas", 12),
               " Vous pouvez relire, pas écrire : il vous manque de quoi le faire.")
           : null,
+        // Pas d'outil d'écriture sur le bureau : on le dit là où on essaie,
+        // avec le geste qui répare juste à côté.
+        !prive() && !choisi.emprunte && !ecriture.ok && !aSec()
+          ? el("div.manque-outil",
+              icone("crayon", 18),
+              el("div",
+                el("strong", ecriture.message),
+                el("p.petit.faible", ecriture.conseil || "")),
+              el("span.pousse"),
+              el("button.btn", { onclick: () => bureau.ouvrirSac() }, icone("sac", 14), "Ouvrir mon sac"),
+              el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
+                icone("main", 14), "Emprunter"))
+          : null,
         // Une plume à sec : on le dit là où on s'en aperçoit, avec le geste
         // qui répare juste à côté.
         !prive() && aSec()
@@ -509,6 +535,19 @@ export default async function vueSalle({ params }) {
     const ecriture = peutDessiner(tableau) && !prive();
     moteurTableau = creerTableau({
       lectureSeule: !ecriture,
+      // Au tableau, on écrit à la craie ; on trace droit à la règle, rond au
+      // compas, et on efface avec de quoi effacer. Ce qui manque sur le bureau
+      // ne se dessine pas.
+      garde: (outil) => {
+        const besoin = { gomme: "effacer", ligne: "ligne", fleche: "ligne", rect: "angle", ellipse: "cercle" }[outil];
+        // L'élève appelé au tableau prend la craie posée au pied du tableau ;
+        // le professeur, lui, écrit avec la sienne.
+        const craie = staff ? bureau.peutFaire("craie") : { ok: true };
+        if (outil !== "gomme" && !craie.ok) return craie;
+        if (outil === "gomme" && !staff) return { ok: true };
+        return besoin ? bureau.peutFaire(besoin) : { ok: true };
+      },
+      surRefus: (verdict) => toast(verdict.message, { corps: verdict.conseil || "", type: "attn", duree: 6000 }),
       fond: pageCourante.background === "slate" ? "ardoise" : pageCourante.background,
       surElementTermine: async (element) => {
         try {
@@ -2552,6 +2591,9 @@ export default async function vueSalle({ params }) {
 
   function surFinDeSession() {
     if (staff) return;
+    // La séance est close : ce qui est resté sur le bureau reste dans la
+    // salle. C'est un oubli, et il se joue comme tel.
+    bureau.laisserTout();
     definir({ sessionActive: null });
     toast("Session terminée", { corps: "Le professeur a clos la séance.", type: "attn", duree: 8000 });
     aller(`/classe/${classe.id}`);
@@ -2613,6 +2655,9 @@ export default async function vueSalle({ params }) {
     }, 900);
   }
 
+  await bureau.charger();
+  mesAffaires = bureau.objets();
+
   if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
   releverCahiersTendus();
@@ -2661,6 +2706,8 @@ export default async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} — ${classe.name}`,
     nettoyer: () => {
+      // On sort de la salle : ce qui n'a pas été rangé y reste.
+      bureau.laisserTout();
       clearInterval(tictac);
       canalSession?.fermer();
       canalTableau?.fermer();

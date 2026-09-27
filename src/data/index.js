@@ -268,8 +268,25 @@ export const cahiers = {
   deClasse: (classeId) => T("notebooks").liste({ class_id: classeId }, { ordre: "created_at" }),
   lire: (id) => T("notebooks").lire(id),
   creer: (donnees) => T("notebooks").creer({
-    archived: false, support: "cahier", max_pages: 10, ...donnees
+    archived: false, support: "cahier", max_pages: 10, place: "range",
+    size: VOLUME_SUPPORT[donnees.support || "cahier"] || 4, ...donnees
   }),
+
+  /* Un cahier est un objet comme un autre : il est rangé, sur le bureau, ou
+     resté en salle. Oublié, on ne l'a pas — même s'il est à soi. */
+  sortir: (cahier, { session, classe }) => T("notebooks").majorer(cahier.id, {
+    place: "bureau", place_session: session.id, place_class: classe.id,
+    place_label: classe.name || null, container_id: null
+  }),
+  rangerDans: (cahier, contenantId) => T("notebooks").majorer(cahier.id, {
+    container_id: contenantId, place: "range", place_session: null,
+    place_class: null, place_label: null
+  }),
+  laisser: (cahier, { classe }) => T("notebooks").majorer(cahier.id, {
+    place: "salle", place_class: classe.id, place_label: classe.name || null,
+    place_session: null, container_id: null
+  }),
+  recuperer: (id) => pilote.rpc("recover_notebook", { target: id }),
 
   /** Inspection d'un support apporté au cartable, par l'encadrement. */
   inspecter: (cahierId, classeId) =>
@@ -419,8 +436,37 @@ export const affaires = {
 
   creer: (donnees) => T("belongings").creer({
     state: "owned", quantity: 1, carried: false, is_container: false,
-    container_id: null, label: "", meta: {}, ...donnees
+    container_id: null, label: "", meta: {}, place: "range", size: 1, ...donnees
   }),
+
+  /* --- Les lieux ------------------------------------------------------------
+     Trois lieux : rangé (dans un contenant, ou chez soi), sur le bureau
+     pendant une activité, laissé en salle. La base refuse les passages
+     impossibles (voir app_garde_du_lieu, 0019) ; ces fonctions ne font que
+     demander. */
+
+  /** Sortir de son sac et poser devant soi, pour cette activité. */
+  sortir: (objet, { session, classe }) => T("belongings").majorer(objet.id, {
+    place: "bureau", place_session: session.id, place_class: classe.id,
+    place_label: classe.name || null, container_id: null,
+    // D'où il vient : c'est là qu'on le remettra en rangeant.
+    meta: { ...(objet.meta || {}), depuis: objet.container_id || null }
+  }),
+
+  /** Remettre dans un contenant — le sac, la trousse, un dossier. */
+  rangerDans: (objet, contenantId) => T("belongings").majorer(objet.id, {
+    container_id: contenantId, place: "range", place_session: null,
+    place_class: null, place_label: null
+  }),
+
+  /** Partir en laissant l'objet derrière soi. Il reste dans la salle. */
+  laisser: (objet, { classe }) => T("belongings").majorer(objet.id, {
+    place: "salle", place_class: classe.id, place_label: classe.name || null,
+    place_session: null, container_id: null
+  }),
+
+  /** Revenir le chercher. La base vérifie que la salle est ouverte. */
+  recuperer: (id) => pilote.rpc("recover_belonging", { target: id }),
 
   majorer: (id, patch) => T("belongings").majorer(id, patch),
   supprimer: (id) => T("belongings").supprimer(id),
@@ -486,12 +532,87 @@ export const affaires = {
         carried: Boolean(item.carried),
         container_id: item.dans ? (parType.get(item.dans)?.id || null) : null,
         level: item.level ?? null,
-        quantity: item.quantity ?? 1
+        quantity: item.quantity ?? 1,
+        size: item.size ?? 1,
+        capacity: item.capacity ?? null
       });
       parType.set(item.kind, cree);
     }
     return this.miennes(utilisateurId);
   }
+};
+
+/** La place que prend un support dans un sac. Même valeurs que 0019. */
+export const VOLUME_SUPPORT = { feuille: 1, carnet: 3, cahier: 4, dossier: 5 };
+
+/* ===========================================================================
+   La salle : ce qu'on y a laissé, et qui peut y entrer
+
+   Une salle est ouverte quand une séance s'y tient, quand l'encadrement l'a
+   ouverte pour un temps, ou pour une personne munie d'un laissez-passer. Hors
+   de cela, ce qui y est resté y reste.
+   ========================================================================= */
+export const salles = {
+  /** Ce qui traîne dans la salle — réservé à l'encadrement. */
+  async oublies(classeId) {
+    const lignes = await pilote.rpc("forgotten_in_class", { target_class: classeId });
+    return Array.isArray(lignes) ? lignes : [];
+  },
+
+  /** Rendre à son propriétaire ce qu'il a laissé. Geste volontaire. */
+  restituer: (genre, id) => pilote.rpc("restitute_forgotten", { genre, target: id }),
+
+  /** La salle est-elle ouverte, pour moi, maintenant ? Lecture seule : la
+   *  base refait le même calcul avant toute récupération. */
+  ouverte(classe, seanceEnCours, utilisateurId) {
+    if (seanceEnCours && seanceEnCours.status === "live") return true;
+    const r = classe?.settings || {};
+    const maintenant = Date.now();
+    if (r.salle_ouverte_jusqua && new Date(r.salle_ouverte_jusqua).getTime() > maintenant) return true;
+    const passe = r.passes?.[utilisateurId];
+    return Boolean(passe && new Date(passe).getTime() > maintenant);
+  },
+
+  /** Ouvrir la salle un moment : chacun peut venir y reprendre ses affaires. */
+  async ouvrir(classe, minutes = 30) {
+    const jusqua = new Date(Date.now() + minutes * 60000).toISOString();
+    const settings = { ...(classe.settings || {}), salle_ouverte_jusqua: jusqua };
+    const maj = await T("classes").majorer(classe.id, { settings });
+    classe.settings = maj?.settings || settings;
+    return jusqua;
+  },
+
+  async fermer(classe) {
+    const settings = { ...(classe.settings || {}), salle_ouverte_jusqua: null };
+    const maj = await T("classes").majorer(classe.id, { settings });
+    classe.settings = maj?.settings || settings;
+  },
+
+  /** Autoriser une seule personne à entrer, pour un temps. */
+  async laissezPasser(classe, utilisateurId, minutes = 20) {
+    const jusqua = new Date(Date.now() + minutes * 60000).toISOString();
+    const settings = { ...(classe.settings || {}),
+      passes: { ...(classe.settings?.passes || {}), [utilisateurId]: jusqua } };
+    const maj = await T("classes").majorer(classe.id, { settings });
+    classe.settings = maj?.settings || settings;
+    return jusqua;
+  }
+};
+
+/* ===========================================================================
+   Les dossiers et ce qu'on y classe
+
+   Un dossier est un objet (belongings, kind « dossier ») ; ce qu'il contient
+   est une liste de papiers. On ne déplace pas un papier, on le classe.
+   ========================================================================= */
+export const classement = {
+  contenu: (dossierId) => T("dossier_items").liste({ dossier_id: dossierId }, { ordre: "created_at" }),
+  deDossiers: (ids) => ids.length
+    ? T("dossier_items").liste({ dossier_id: ids }, { ordre: "created_at" })
+    : Promise.resolve([]),
+  ranger: (dossierId, paperId, utilisateurId) => T("dossier_items").inserer(
+    { dossier_id: dossierId, paper_id: paperId, added_by: utilisateurId }, "dossier_id,paper_id"),
+  sortir: (id) => T("dossier_items").supprimer(id)
 };
 
 /* ===========================================================================
