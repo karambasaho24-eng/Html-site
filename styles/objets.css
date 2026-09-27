@@ -616,3 +616,232 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 .carte__pied { display: flex; gap: var(--e-2); margin-top: auto; flex-wrap: wrap; }
+
+/* ===========================================================================
+   L'établi, deuxième temps : le sac a un intérieur
+
+   Ce qu'on emporte n'est pas une liste plate. On ouvre un contenant, on y met
+   des choses, et l'un peut en contenir un autre. Les casiers rendent cette
+   profondeur visible sans qu'on lise une notice : le contenant ouvert est
+   éclairé, c'est lui qui reçoit le prochain objet.
+   ========================================================================= */
+.plateau__sac {
+  display: flex; flex-direction: column; gap: var(--e-2);
+  flex: 1; align-content: flex-start;
+}
+.plateau__sac > .objet { align-self: flex-start; }
+
+.casier {
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: var(--r-2);
+  background: rgba(0,0,0,.18);
+  position: relative;
+  transition: border-color var(--transition), background var(--transition);
+}
+.casier--ouvert {
+  border-color: var(--ligne-laiton);
+  background: rgba(201,162,39,.06);
+  box-shadow: inset 0 0 0 1px rgba(201,162,39,.12);
+}
+.casier__entete {
+  display: flex; align-items: center; gap: var(--e-2);
+  width: 100%; padding: 7px var(--e-2);
+  background: none; border: 0; cursor: pointer;
+  color: inherit; text-align: left; font: inherit;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.casier__figure {
+  width: 26px; height: 26px; flex: 0 0 auto;
+  background-size: contain; background-repeat: no-repeat; background-position: center;
+}
+.casier__nom { font-size: 12px; font-weight: 600; }
+.casier__compte {
+  font-family: var(--f-mono); font-size: 9px; letter-spacing: .1em;
+  color: rgba(255,255,255,.45);
+}
+.casier__etat {
+  margin-left: auto; margin-right: 18px;
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--laiton-clair);
+}
+.casier__objets {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: var(--e-2); align-items: flex-start;
+}
+.casier__vide { margin: 2px 0; }
+.casier__laisser {
+  position: absolute; top: 6px; right: 6px;
+  width: 20px; height: 20px; padding: 0;
+  display: grid; place-items: center;
+  border: 0; border-radius: 4px; cursor: pointer;
+  background: rgba(255,255,255,.06); color: rgba(255,255,255,.5);
+}
+.casier__laisser:hover { background: var(--alerte); color: #fff; }
+.casier--vrac { border-style: dashed; }
+.casier .casier { background: rgba(255,255,255,.03); }
+
+.cartable__kits {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: var(--e-3) 0 0;
+}
+
+.btn--petit { padding: 3px 9px; font-size: 11px; }
+
+.objet__etat {
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--attn);
+}
+.jauge--objet { width: 100%; margin-top: 2px; }
+.objet--contenant { border-color: rgba(255,255,255,.2); }
+
+/* ===========================================================================
+   La vignette d'un objet — la même partout
+   ========================================================================= */
+.objet-vignette {
+  display: flex; align-items: center; gap: var(--e-3);
+  min-width: 0; flex: 1;
+}
+.objet-vignette__dit { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.objet-vignette__nom {
+  font-size: var(--t-sm); font-weight: 600; color: var(--texte);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.objet-vignette__sous { font-size: var(--t-xs); color: var(--texte-faible); }
+.objet-vignette .objet__figure { width: 30px; height: 30px; flex: 0 0 auto; }
+.objet-vignette .jauge { width: 54px; flex: 0 0 auto; }
+.objet-vignette--compacte .objet__figure { width: 22px; height: 22px; }
+
+/* ===========================================================================
+   Mes affaires — la page
+   ========================================================================= */
+.affaires__section { margin-bottom: var(--e-6); }
+.affaires__titre {
+  display: flex; align-items: center; gap: var(--e-2);
+  margin: 0 0 var(--e-1);
+  font-family: var(--f-titre); font-size: var(--t-lg); color: var(--texte);
+}
+.affaires__compte {
+  font-family: var(--f-mono); font-size: var(--t-xs);
+  color: var(--texte-faible);
+  padding: 1px 6px; border: 1px solid var(--ligne); border-radius: 999px;
+}
+.affaires__liste { display: flex; flex-direction: column; gap: 6px; margin-top: var(--e-3); }
+
+.affaire {
+  border: 1px solid var(--ligne); border-radius: var(--r-2);
+  background: var(--encre-850);
+}
+.affaire__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: var(--e-2) var(--e-3);
+}
+.affaire__dit { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Ce qui est dans un contenant s'affiche dedans : la hiérarchie se voit. */
+.affaire__dedans {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 0 var(--e-3) var(--e-2) 34px;
+  padding-left: var(--e-3);
+  border-left: 1px dashed var(--ligne-forte);
+}
+.affaire--contenant { border-color: var(--ligne-forte); }
+
+.barre-filtres {
+  display: flex; flex-wrap: wrap; gap: var(--e-2);
+  margin-bottom: var(--e-4);
+}
+.saisie--recherche { flex: 1; min-width: 180px; }
+.saisie--etroite { flex: 0 0 auto; width: auto; }
+
+.encart-affaires {
+  margin-top: var(--e-5); padding: var(--e-3);
+  border-left: 2px solid var(--ligne-laiton);
+  background: rgba(201,162,39,.05);
+  border-radius: 0 var(--r-1) var(--r-1) 0;
+}
+.encart-affaires p { margin: 0; }
+
+/* --- La consigne, cochée objet par objet ---------------------------------- */
+.consigne-lue {
+  margin: var(--e-3) 0;
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--ligne); border-radius: var(--r-1);
+  background: var(--encre-900);
+}
+.consigne-lue__titre {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--texte-faible);
+}
+.consigne-lue__objets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.consigne-lue__item {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 7px 3px 4px;
+  border: 1px solid var(--ligne); border-radius: 999px;
+  font-size: 11px; color: var(--texte-doux);
+}
+.consigne-lue__item .objet__figure { width: 18px; height: 18px; }
+.consigne-lue__item--obligatoire { border-color: rgba(201,150,63,.4); }
+.consigne-lue__item--facultatif { opacity: .6; }
+.consigne-lue__coche { color: var(--ok); display: inline-flex; }
+.consigne-lue__croix { color: var(--attn); display: inline-flex; }
+
+/* --- Ce qui circule ------------------------------------------------------- */
+.transfert { display: flex; flex-direction: column; gap: var(--e-3); }
+.transfert__objet {
+  padding: var(--e-3);
+  border: 1px solid var(--ligne); border-radius: var(--r-2);
+  background: var(--encre-900);
+}
+.reception__mot {
+  margin: 0; padding: var(--e-2) var(--e-3);
+  border-left: 2px solid var(--ligne-laiton);
+  color: var(--texte-doux); font-style: italic; font-size: var(--t-sm);
+}
+
+.registre { display: flex; flex-direction: column; }
+.registre__ligne {
+  display: flex; align-items: center; gap: var(--e-3);
+  padding: 6px 0; border-bottom: 1px solid var(--ligne);
+  font-size: var(--t-sm);
+}
+.registre__ligne:last-child { border-bottom: 0; }
+.registre__quand {
+  font-family: var(--f-mono); font-size: var(--t-xs);
+  color: var(--texte-faible); flex: 0 0 96px;
+}
+.registre__quoi { flex: 1; min-width: 0; color: var(--texte-doux); }
+
+.petit.attn { color: var(--attn); }
+
+@media (prefers-reduced-motion: reduce) {
+  .casier { transition: none; }
+}
+
+/* --- L'encre -------------------------------------------------------------
+   On ne dit pas « niveau de ressource » : on montre l'encrier, et le geste
+   qui répare est juste à côté. */
+.encre-vide {
+  display: flex; align-items: center; gap: var(--e-3);
+  margin: 0 var(--e-4) var(--e-3);
+  padding: var(--e-3);
+  border: 1px solid rgba(201,150,63,.4); border-radius: var(--r-2);
+  background: rgba(201,150,63,.08);
+}
+.encre-vide p { margin: 2px 0 0; }
+.encre-vide .objet__figure { width: 34px; height: 34px; }
+
+.encre-niveau {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 var(--e-4) var(--e-2);
+  font-size: var(--t-xs);
+}
+.encre-niveau .objet__figure { width: 20px; height: 20px; }
+.encre-niveau .jauge { width: 72px; }
+
+/* --- La consigne, côté estrade ------------------------------------------- */
+.consigne__liste { display: flex; flex-direction: column; gap: 6px; }
+.consigne__ligne {
+  display: flex; align-items: center; gap: 6px;
+}
+.consigne__ligne .objet__figure { width: 24px; height: 24px; flex: 0 0 auto; }
+.consigne__ligne .saisie { flex: 1; min-width: 0; }

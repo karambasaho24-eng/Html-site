@@ -1,9 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
-
-  <rect x="26" y="14" width="76" height="100" rx="3" fill="#6f5a3c"/>
-  <rect x="26" y="14" width="14" height="100" fill="#48391f"/>
-  <rect x="98" y="18" width="6" height="92" fill="#d6c6a8"/>
-  <rect x="50" y="38" width="42" height="30" rx="2" fill="#e8dcc4"/>
-  <path d="M50 116h48" stroke="#48391f" stroke-width="3"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="cahier">
+  <defs>
+    <linearGradient id="plaque" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151b21"/><stop offset="1" stop-color="#0a0d10"/></linearGradient>
+    <radialGradient id="lum" cx="30%" cy="16%" r="78%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".085"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sol" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <linearGradient id="cuir" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#b87d42"/><stop offset=".45" stop-color="#96622f"/>
+      <stop offset="1" stop-color="#5f3c1b"/></linearGradient>
+    <linearGradient id="cuirSombre" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#7d5531"/><stop offset="1" stop-color="#3b2412"/></linearGradient>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
+  <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
+  <path d="M15 12h34a2 2 0 0 1 2 2v36a2 2 0 0 1-2 2H15z" fill="url(#cuirSombre)"/>
+  <path d="M15 12h34a2 2 0 0 1 2 2v4H15z" fill="url(#cuir)" opacity=".5"/>
+  <rect x="13" y="12" width="5" height="40" fill="#2c1c0e"/>
+  <path d="M20 16h26v32H20z" fill="url(#papier)" opacity=".2"/>
+  <rect x="26" y="22" width="18" height="10" rx="1" fill="url(#papier)" opacity=".85"/>
+  <path d="M28 26h14M28 29h10" stroke="#8b7a5c" stroke-opacity=".6" stroke-width=".9"/>
+  <path d="M20 14h28" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width=".9"/>
+  <path d="M49 12l2 2v36l-2 2z" fill="#000" opacity=".25"/>
+  <rect width="64" height="64" rx="10" fill="url(#lum)"/>
+  <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
 </svg>

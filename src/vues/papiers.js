@@ -13,6 +13,7 @@ import { entete, blocVide } from "../ui/fragments.js";
 import { menu, confirmer } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { depuis } from "../core/util.js";
+import { L } from "../core/lexique.js";
 import {
   rendrePapier, composerPapier, tendrePapier, recevoirPapier, MODELES
 } from "../features/papier.js";
@@ -175,24 +176,59 @@ export default async function vuePapiers() {
   }
 
   /**
-   * Hors séance, on tend un papier aux membres d'une classe que l'on partage :
-   * c'est la seule population dont on peut dire qu'on la croise.
+   * À qui peut-on tendre un papier ? À ceux qu'on croise.
+   *
+   * L'ancienne version exigeait que le papier soit attaché à une classe, et
+   * un mot rédigé hors de tout espace ne pouvait donc être remis à personne —
+   * alors que c'est précisément ce genre de mot qu'on se passe. C'est le
+   * CONTEXTE qui décide : les membres de tous les espaces qu'on partage, et
+   * l'espace d'origine du papier en tête s'il en a un.
    */
   async function remettre(papier) {
-    const classe = etat.classes.find((c) => c.id === papier.class_id)
-      || etat.classeActive
-      || etat.classes[0];
-    if (!classe) {
-      toast("Rejoignez un espace avant de remettre un papier.");
+    const espaces = etat.classes.filter((c) => !c.archived);
+    if (!espaces.length) {
+      toast("Vous ne partagez aucun espace", {
+        corps: "On ne tend un papier qu'à quelqu'un qu'on croise. Rejoignez une "
+          + L("classe") + " avec son code.",
+        type: "attn", duree: 8000
+      });
       return;
     }
-    const equipe = await depotMembres.liste(classe.id).catch(() => []);
-    const index = await personnages.index(classe.id).catch(() => new Map());
-    const candidats = equipe
-      .filter((m) => m.status === "active")
-      .map((m) => ({ user_id: m.user_id, profil: m.profil, nom: m.profil?.display_name }));
 
-    const fait = await tendrePapier({ papier, classe, candidats, fiches: index });
+    // L'espace d'origine d'abord, puis les autres : un ordre de mission écrit
+    // pour la 2e compagnie se remet d'abord à la 2e compagnie.
+    const ordonnes = [
+      ...espaces.filter((c) => c.id === papier.class_id),
+      ...espaces.filter((c) => c.id !== papier.class_id)
+    ];
+
+    const parPersonne = new Map();
+    const index = new Map();
+    for (const espace of ordonnes) {
+      const equipe = await depotMembres.liste(espace.id).catch(() => []);
+      const fichesEspace = await personnages.index(espace.id).catch(() => new Map());
+      for (const [k, v] of fichesEspace) if (!index.has(k)) index.set(k, v);
+      for (const m of equipe) {
+        if (m.status !== "active" || m.user_id === etat.utilisateur.id) continue;
+        if (parPersonne.has(m.user_id)) continue;
+        parPersonne.set(m.user_id, {
+          user_id: m.user_id, profil: m.profil, nom: m.profil?.display_name,
+          espace
+        });
+      }
+    }
+
+    const candidats = [...parPersonne.values()];
+    if (!candidats.length) {
+      toast("Personne d'autre dans vos espaces pour l'instant.");
+      return;
+    }
+
+    // La remise porte l'espace de celui à qui on tend, pas celui du papier :
+    // c'est là que la scène se joue, et c'est là que la modération regarde.
+    const fait = await tendrePapier({
+      papier, classe: candidats[0].espace, candidats, fiches: index
+    });
     if (fait) { await charger(); peindre(); }
   }
 

@@ -322,6 +322,122 @@ export async function creerPiloteLocal() {
       });
     },
 
+    /**
+     * Accepter un objet qu'on nous tend, ou la demande qu'on nous a faite.
+     * En base, seule une fonction SECURITY DEFINER peut déplacer un objet ;
+     * ici il n'y a personne à convaincre, mais la même règle doit valoir —
+     * sinon le mode démonstration autoriserait des gestes que le mode normal
+     * refuse, et on croirait avoir écrit du code qui marche.
+     */
+    async accept_belonging_handoff({ handoff, chosen = null }) {
+      const ligne = await t("belonging_handoffs").lire(handoff);
+      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (ligne.state !== "offered") {
+        throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
+      }
+      if (ligne.to_user !== monId()) {
+        throw new ErreurDonnees(ligne.direction === "request"
+          ? "Cette demande ne vous est pas adressée"
+          : "Cet objet ne vous est pas tendu", "42501");
+      }
+      const cible  = ligne.direction === "offer" ? ligne.to_user   : ligne.from_user;
+      const source = ligne.direction === "offer" ? ligne.from_user : ligne.to_user;
+
+      const objet = await t("belongings").lire(chosen || ligne.belonging_id);
+      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
+      if (objet.owner_id !== source) {
+        throw new ErreurDonnees("Cet objet n'est pas à celui qui s'en sépare", "42501");
+      }
+      if (objet.state === "confiscated") {
+        throw new ErreurDonnees("Cet objet est confisqué", "42501");
+      }
+
+      // Il quitte le sac de celui qui s'en sépare : un objet prêté ne reste
+      // pas rangé dans la trousse de son propriétaire.
+      await t("belongings").majorer(objet.id, ligne.kind === "give"
+        ? { owner_id: cible, former_owner: source, holder_id: null, state: "owned",
+            container_id: null, carried: false }
+        : { holder_id: cible, state: "lent", container_id: null, carried: false });
+
+      const maj = await t("belonging_handoffs").majorer(handoff, {
+        state: "accepted", settled_at: new Date().toISOString(), belonging_id: objet.id
+      });
+      await t("notifications").creer({
+        user_id: source, class_id: ligne.class_id || null, kind: "affaires",
+        title: ligne.kind === "give" ? "Votre objet a été accepté" : "Votre prêt a été accepté",
+        body: objet.label || objet.kind, link: "/affaires", read_at: null
+      });
+      return maj;
+    },
+
+    async return_belonging_handoff({ handoff }) {
+      const ligne = await t("belonging_handoffs").lire(handoff);
+      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (ligne.from_user !== monId() && ligne.to_user !== monId()) {
+        throw new ErreurDonnees("Cette remise ne vous concerne pas", "42501");
+      }
+      if (ligne.state !== "accepted") throw new ErreurDonnees("Il n'y a rien à rendre", "42501");
+      if (ligne.kind !== "lend") {
+        throw new ErreurDonnees("Un objet donné ne se reprend pas : il faut le redemander", "42501");
+      }
+      const objet = await t("belongings").lire(ligne.belonging_id);
+      await t("belongings").majorer(ligne.belonging_id, {
+        holder_id: null, state: "owned", container_id: null, carried: false
+      });
+      const maj = await t("belonging_handoffs").majorer(handoff, {
+        state: "returned", settled_at: new Date().toISOString()
+      });
+      await t("notifications").creer({
+        user_id: monId() === objet?.owner_id ? ligne.to_user : objet?.owner_id,
+        class_id: ligne.class_id || null, kind: "affaires", title: "Prêt rendu",
+        body: objet?.label || objet?.kind || "", link: "/affaires", read_at: null
+      });
+      return maj;
+    },
+
+    /** Équivalent de confiscate_belonging : on ne prend que ce qui a été apporté. */
+    async confiscate_belonging({ target, target_class, motif }) {
+      const objet = await t("belongings").lire(target);
+      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
+
+      const sacs = await t("class_bags").liste({ class_id: target_class, user_id: objet.owner_id });
+      const declare = sacs[0]?.supplies || {};
+      const ids = Array.isArray(declare) ? [] : Object.keys(declare);
+      if (!ids.includes(String(target))) {
+        throw new ErreurDonnees(
+          "Cet objet n'a pas été apporté : il reste hors de portée.", "42501");
+      }
+      const maj = await t("belongings").majorer(target, {
+        state: "confiscated", holder_id: monId(),
+        note: motif || objet.note || null, container_id: null, carried: false
+      });
+      await t("activity_logs").creer({
+        class_id: target_class, user_id: monId(), action: "affaires.confiscation",
+        meta: { objet: target, proprietaire: objet.owner_id, motif: motif || null }
+      });
+      await t("notifications").creer({
+        user_id: objet.owner_id, class_id: target_class, kind: "affaires",
+        title: "Un objet vous a été confisqué",
+        body: (objet.label || objet.kind) + (motif ? ` — ${motif}` : ""),
+        link: "/affaires", read_at: null
+      });
+      return maj;
+    },
+
+    async release_belonging({ target }) {
+      const objet = await t("belongings").lire(target);
+      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
+      if (objet.state !== "confiscated" || objet.holder_id !== monId()) {
+        throw new ErreurDonnees("Vous ne détenez pas cet objet", "42501");
+      }
+      const maj = await t("belongings").majorer(target, { state: "owned", holder_id: null });
+      await t("notifications").creer({
+        user_id: objet.owner_id, kind: "affaires", title: "On vous rend votre objet",
+        body: objet.label || objet.kind, link: "/affaires", read_at: null
+      });
+      return maj;
+    },
+
     async join_class({ join_code }) {
       const code = String(join_code || "").toUpperCase().trim();
       const classe = (await t("classes").liste({ code })).find((c) => !c.archived);

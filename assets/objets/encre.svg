@@ -1,11 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
-
-  <rect x="38" y="52" width="52" height="52" rx="5" fill="#4f6d7a" opacity=".45"/>
-  <rect x="38" y="52" width="52" height="52" rx="5" stroke="#4f6d7a" stroke-width="3"/>
-  <rect x="44" y="66" width="40" height="32" rx="3" fill="#0d1013"/>
-  <rect x="48" y="30" width="32" height="22" rx="4" fill="#9a7b1c"/>
-  <rect x="48" y="30" width="32" height="8" rx="3" fill="#c9a227"/>
-  <path d="M52 34v14M58 34v14M64 34v14M70 34v14M76 34v14" stroke="#48391f" stroke-width="1.5" opacity=".5"/>
-  <path d="M44 58h12" stroke="#f3ead9" stroke-width="2" opacity=".5"/>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="encre">
+  <defs>
+    <linearGradient id="plaque" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151b21"/><stop offset="1" stop-color="#0a0d10"/></linearGradient>
+    <radialGradient id="lum" cx="30%" cy="16%" r="78%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".085"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sol" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#000" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <linearGradient id="cuir" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#b87d42"/><stop offset=".45" stop-color="#96622f"/>
+      <stop offset="1" stop-color="#5f3c1b"/></linearGradient>
+    <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
+      <stop offset="1" stop-color="#7d5f15"/></linearGradient>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+    <linearGradient id="encre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2c3644"/><stop offset="1" stop-color="#0f151c"/></linearGradient>
+    <linearGradient id="verre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d7e8ee" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#5d7f8b" stop-opacity=".8"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="10" fill="url(#plaque)"/>
+  <ellipse cx="32" cy="52" rx="22" ry="5" fill="url(#sol)"/>
+  <path d="M25 22h14v5l3 4v18a4 4 0 0 1-4 4H26a4 4 0 0 1-4-4V31l3-4z" fill="url(#verre)"/>
+  <path d="M24 36h16v13a3 3 0 0 1-3 3h-10a3 3 0 0 1-3-3z" fill="url(#encre)"/>
+  <rect x="26" y="16" width="12" height="7" rx="1.6" fill="url(#cuir)"/>
+  <rect x="27" y="14" width="10" height="3" rx="1" fill="url(#laiton)"/>
+  <rect x="26" y="38" width="12" height="8" rx="1" fill="url(#papier)" opacity=".82"/>
+  <path d="M28 41h8M28 43.5h6" stroke="#6d5f46" stroke-opacity=".7" stroke-width=".9"/>
+  <path d="M27 26v8" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".9"/>
+  <rect width="64" height="64" rx="10" fill="url(#lum)"/>
+  <rect x=".5" y=".5" width="63" height="63" rx="9.5" fill="none" stroke="#fff" stroke-opacity=".05"/>
 </svg>

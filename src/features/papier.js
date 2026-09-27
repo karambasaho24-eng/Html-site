@@ -188,8 +188,10 @@ function cachet(papier, modele) {
  * Rédiger un papier. L'aperçu se redessine à chaque frappe : on voit
  * l'objet qu'on est en train de faire, pas un formulaire.
  */
-export async function composerPapier({ classe = null, papier = null } = {}) {
-  const depart = papier || { model: "note", title: "", body: "", seal: "" };
+export async function composerPapier({ classe = null, papier = null, modele = null } = {}) {
+  // `modele` permet d'arriver avec le bon papier déjà en main : depuis la
+  // console, « une convocation » ne doit pas commencer par choisir un modèle.
+  const depart = papier || { model: modele || "note", title: "", body: "", seal: "" };
   const brouillon = {
     model: depart.model || "note",
     title: depart.title || "",

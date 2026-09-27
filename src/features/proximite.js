@@ -28,6 +28,18 @@ const FORMULES = {
     attestation: "Je suis face à cette personne, en jeu, et je lui tends ce document.",
     note: "Le destinataire reste libre de le lire, de le refuser ou de le garder."
   },
+  objet: {
+    titre: "Rapprochez-vous du joueur",
+    geste: "Tendre l'objet",
+    attestation: "Je suis face à cette personne, en jeu, et je lui tends cet objet.",
+    note: "Il reste libre de le prendre ou de le refuser. Tant qu'il n'a rien pris, l'objet est encore à vous."
+  },
+  demande: {
+    titre: "Rapprochez-vous du joueur",
+    geste: "Le lui demander",
+    attestation: "Je m'adresse à cette personne, en jeu, et je lui demande cet objet.",
+    note: "Elle choisira lequel sortir de son sac, ou refusera."
+  },
   renvoi: {
     titre: "Rapprochez-vous du joueur",
     geste: "Prononcer le renvoi",

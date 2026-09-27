@@ -532,3 +532,7 @@
   .proximite__silhouette--autre { animation: none; }
   .proximite__onde { opacity: .35; transform: scale(2); }
 }
+
+/* Une sauvegarde qui a échoué doit se voir. Une fausse bonne nouvelle est pire
+   qu'une erreur : elle fait croire que le texte est en sûreté. */
+.sauvegarde--echec { color: var(--attn) !important; font-weight: 600; }

@@ -34,7 +34,7 @@ const NOMS_SUPPORT = { feuille: "feuille", cahier: "cahier", carnet: "carnet", d
  * « Tiens, regarde. » On choisit un support, quelqu'un qui se tient là, et
  * la nature du geste.
  */
-export async function tendreSonCahier({ classe = null, session = null, candidats = [], fiches = new Map() }) {
+export async function tendreSonCahier({ classe = null, session = null, candidats = [], fiches = new Map(), prechoisi = null }) {
   const disponibles = candidats.filter((c) => c?.user_id && c.user_id !== etat.utilisateur.id);
   if (!disponibles.length) {
     toast("Personne à qui le tendre pour l'instant.");
@@ -48,7 +48,11 @@ export async function tendreSonCahier({ classe = null, session = null, candidats
     return null;
   }
 
-  let cahierChoisi = String(mes[0].id);
+  // Quand on arrive depuis un support précis, c'est celui-là qu'on tend : le
+  // faire rechercher dans une liste serait lui demander de désigner ce qu'il
+  // tient déjà dans la main.
+  let cahierChoisi = String(
+    mes.find((c) => String(c.id) === String(prechoisi))?.id || mes[0].id);
   let destinataire = String(disponibles[0].user_id);
   let geste = "lend";
 
@@ -63,8 +67,9 @@ export async function tendreSonCahier({ classe = null, session = null, candidats
         el("span.champ__label", "Lequel"),
         el("select.saisie", {
           onchange: (e) => { cahierChoisi = e.currentTarget.value; }
-        }, mes.map((c) => el("option", { value: String(c.id) },
-          `${c.title} — ${NOMS_SUPPORT[c.support] || "cahier"}`)))),
+        }, mes.map((c) => el("option", {
+          value: String(c.id), selected: String(c.id) === cahierChoisi
+        }, `${c.title} — ${NOMS_SUPPORT[c.support] || "cahier"}`)))),
 
       el("label.champ",
         el("span.champ__label", "À qui"),
