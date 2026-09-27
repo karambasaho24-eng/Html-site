@@ -28,7 +28,7 @@ import { ouvrirModale, menu } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 import {
   CATALOGUE, DOTATION, KITS_SUGGERES, fiche, nomObjet, nomType,
-  imageObjet, indexer, surMoi, indisponible, niveauEnMots, etatObjet
+  imageObjet, indexer, surMoi, indisponible, niveauEnMots, etatObjet, vitrine
 } from "./affaires.js";
 import { materielAttendu, ecart } from "./materiel.js";
 
@@ -262,8 +262,9 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
                       : `Ouvrir ${nomObjet(contenantPorte).toLowerCase()}`,
         onclick: () => { cible = String(contenantPorte.id); replacer(); }
       },
-        el("span.casier__figure", { "aria-hidden": "true",
-          style: { backgroundImage: `url("${imageObjet(ouvert ? ouvertDe(contenantPorte.kind) : contenantPorte.kind)}")` } }),
+        // Le contenant tel qu'il est, avec ce qu'il contient à cet instant :
+        // on range une plume, et on la voit entrer dans la trousse.
+        vitrine(contenantPorte, dedans, { taille: 96 }),
         el("span.casier__nom", nomObjet(contenantPorte)),
         el("span.casier__compte", dedans.length ? `${dedans.length}` : "vide"),
         el("span.casier__etat", ouvert ? "ouvert" : "")),
@@ -283,15 +284,6 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
         ouvert ? "Cliquez un objet à gauche pour l'y mettre." : "Rien dedans."));
     }
     return noeud;
-  }
-
-  /* Déclaration et non affectation : `casier()` l'appelle dès le premier rendu,
-     qui a lieu pendant la construction du corps de la modale — avant qu'une
-     constante déclarée plus bas ne soit initialisée. */
-  function ouvertDe(kind) {
-    if (kind === "cartable") return "cartable-ouvert";
-    if (kind === "trousse") return "trousse-ouverte";
-    return kind;
   }
 
   /* --- Le geste ----------------------------------------------------------- */

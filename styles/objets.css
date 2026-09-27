@@ -866,3 +866,41 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 .objet-vignette .objet__figure[style*="image/jpeg"] {
   width: 36px; height: 36px;
 }
+
+/* ===========================================================================
+   La vitrine : un contenant et ce qu'il contient vraiment
+   ========================================================================= */
+.vitrine {
+  position: relative; flex: 0 0 auto;
+  border-radius: 8px; overflow: hidden;
+  background: #0d1013;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.vitrine__fond {
+  position: absolute; inset: 0;
+  background-size: contain; background-position: center; background-repeat: no-repeat;
+}
+.vitrine__objets { position: absolute; inset: 0; }
+.vitrine__objet {
+  position: absolute; width: auto; max-width: 42%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.55));
+  transform-origin: 50% 90%;
+}
+/* Un objet qu'on vient de ranger se pose : il descend d'un rien. */
+.vitrine--pleine .vitrine__objet { animation: vitrine-pose 360ms cubic-bezier(.34,1.3,.5,1) both; }
+@keyframes vitrine-pose { from { translate: 0 -14%; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+.vitrine__compte {
+  position: absolute; right: 5px; bottom: 5px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  display: grid; place-items: center;
+  font: 700 10px/1 var(--f-mono);
+  color: #17140c; background: var(--laiton); border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) { .vitrine--pleine .vitrine__objet { animation: none; } }
+
+/* Dans l'établi, la vitrine remplace la petite figure de l'en-tête : on voit
+   le contenant se garnir à mesure qu'on y range. */
+.casier__entete .vitrine { margin: -2px 2px -2px -2px; }
+.affaire .vitrine { margin: 2px 0; }
+.cartable__apercu .vitrine { margin-right: var(--e-2); }

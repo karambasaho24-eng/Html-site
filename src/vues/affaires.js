@@ -29,7 +29,7 @@ import { depuis, aplatir } from "../core/util.js";
 import { nomAffiche } from "../core/rp.js";
 import {
   CATEGORIES, fiche, nomObjet, nomType, niveauEnMots, etatObjet,
-  indexer, surMoi, indisponible, figureObjet, vignetteObjet
+  indexer, surMoi, indisponible, figureObjet, vignetteObjet, vitrine
 } from "../features/affaires.js";
 import { materielAttendu, ecart } from "../features/materiel.js";
 import { preparerAffaires, dotationComplete } from "../features/cartable.js";
@@ -232,9 +232,17 @@ export default async function vueAffaires() {
       : [];
     const emprunte = String(o.owner_id) !== String(moi);
 
-    return el("div.affaire", { class: fiche(o.kind)?.contenant ? "affaire--contenant" : "" },
+    const contenant = Boolean(fiche(o.kind)?.contenant);
+    // Un contenant se montre avec ce qu'il contient réellement : vide, il
+    // reste fermé ; garni, on voit dépasser ses affaires.
+    const contenuReel = contenant
+      ? objets.filter((x) => String(x.container_id || "") === String(o.id) && !indisponible(x, moi))
+      : [];
+
+    return el("div.affaire", { class: contenant ? "affaire--contenant" : "" },
       el("div.affaire__ligne",
-        vignetteObjet(o, { moiId: moi }),
+        contenant ? vitrine(o, contenuReel, { taille: 64 }) : null,
+        vignetteObjet(o, { moiId: moi, figure: !contenant }),
         emprunte ? el("span.petit.faible", "à ", nomDe(o.owner_id)) : null,
         el("span.pousse"),
         el("button.btn.btn--fantome.btn--icone", {
@@ -426,8 +434,21 @@ export default async function vueAffaires() {
     );
   }
 
-  /** Ce qu'on a déclaré, tel qu'on le voit d'un coup d'œil. */
+  /**
+   * Ce qu'on porte, tel qu'on le voit d'un coup d'œil : le cartable avec ce
+   * qu'il contient vraiment, puis la liste de ce qu'on a déclaré.
+   */
   function apercuSac(sac) {
+    const portes = objets.filter((o) => fiche(o.kind)?.contenant && o.carried && !o.container_id
+      && !indisponible(o, moi));
+    const vitrines = portes.map((c) => vitrine(c,
+      objets.filter((x) => String(x.container_id || "") === String(c.id) && !indisponible(x, moi)),
+      { taille: 112 }));
+    const liste = apercuDeclare(sac);
+    return vitrines.length ? [...vitrines, ...(Array.isArray(liste) ? liste : [liste])] : liste;
+  }
+
+  function apercuDeclare(sac) {
     const contenu = sac?.supplies;
     const objetsDeclares = !contenu ? []
       : Array.isArray(contenu)
