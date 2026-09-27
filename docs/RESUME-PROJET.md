@@ -300,23 +300,23 @@ permissions (RBAC en base), modérateurs, recherche, notifications.
 
 *Cette section est la plus importante pour qui reprend le projet.*
 
-### 5.1 Le déploiement n'est pas automatique
+### 5.1 Le déploiement est automatique (depuis le 27 septembre)
 
-**Le projet Netlify n'est relié à aucun dépôt.** Pousser sur GitHub ne publie
-rien. Chaque mise en ligne exige de lancer `deployer.ps1` à la main sur la
-machine du propriétaire.
+**classe-parallele est relié au dépôt GitHub.** Chaque poussée sur la branche de
+production déclenche une construction Netlify
+(`node outils/config-depuis-env.mjs`, publication de `.`), et le site est en
+ligne une minute plus tard.
 
-Cela a déjà causé plusieurs fois la même méprise : des fonctionnalités
-livrées, poussées et testées, mais invisibles en ligne pendant des heures — et
-la conclusion légitime, côté utilisateur, que « rien ne marche ».
+Ce n'était pas le cas avant, et c'est ce qui a fait croire pendant des jours que
+« rien ne marche » : le projet avait été créé par un envoi de fichiers, sans lien
+Git. Pire, le dossier local du propriétaire était relié par le CLI à un **ancien
+projet, `ojm-academy`**, hébergé sur un autre compte. Les modifications partaient
+donc bien quelque part, mais pas là où on les regardait. Le lien a été refait
+avec `netlify unlink`, `netlify link --id …` puis `netlify init`.
 
-**Le vrai correctif** : relier le dépôt dans Netlify (*Project configuration →
-Build & deploy → Link repository*), branche `main`, build
-`node outils/config-depuis-env.mjs`, publish `.`. Les variables d'environnement
-Supabase sont déjà en place.
-
-Tant que ce n'est pas fait : `deployer.ps1` après chaque changement. Le jeton
-de publication expire en quelques heures et doit être régénéré.
+Pour vérifier qu'une publication vient bien de GitHub : dans *Deploys*, elle
+porte un nom de branche et un commit. « Deploy triggered by upload » signifie un
+envoi manuel.
 
 ### 5.2 Les jetons de déploiement expirent
 
