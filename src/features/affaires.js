@@ -147,9 +147,14 @@ export function categorieDe(kind) {
  */
 export function imageObjet(kind) {
   const cle = String(kind || "").toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `assets/objets/${cle || "autre"}.svg`;
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "autre";
+
+  // La page autonome n'a pas de fichiers a cote : elle transporte les dessins
+  // avec elle, en data-uri. Ailleurs, on va les chercher normalement.
+  const embarques = globalThis.__OJM_OBJETS__;
+  if (embarques && embarques[cle]) return embarques[cle];
+  return `assets/objets/${cle}.svg`;
 }
 
 /* ===========================================================================

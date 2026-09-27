@@ -118,7 +118,10 @@ export function pluriel(n, singulier, plurielMot) {
 
 /** Recherche accent-insensible. */
 export function aplatir(texte) {
-  return String(texte ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  // Les combinants sont écrits en échappements : littéraux, ils dépendent de
+  // l'encodage sous lequel le fichier est relu, et un octet mal décodé rend
+  // l'expression invalide au chargement.
+  return String(texte ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 /* --- Temporisation -------------------------------------------------------- */

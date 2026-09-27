@@ -20,7 +20,7 @@ import { L } from "../core/lexique.js";
 import {
   affaires as depotAffaires, remisesObjet, cartable as depotCartable,
   cahiers as depotCahiers, profils as depotProfils, membres as depotMembres,
-  personnages, sessions as depotSessions, temps
+  personnages, sessions as depotSessions, classes as depotClasses, temps
 } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { menu, confirmer, demander } from "../ui/modal.js";
@@ -46,6 +46,10 @@ export default async function vueAffaires() {
 
   let objets = [];
   let supports = [];
+  // On relit les espaces plutôt que de faire confiance au cache : on arrive
+  // souvent ici juste après avoir rejoint une classe, et une page qui dit
+  // « aucune classe » à quelqu'un qui vient d'en rejoindre une a tort.
+  let espaces = [];
   let sacs = new Map();          // classeId -> class_bags
   let seances = new Map();       // classeId -> séance en cours
   let aRepondre = [];
@@ -92,7 +96,9 @@ export default async function vueAffaires() {
     }
     supports = await depotCahiers.mesCahiers(moi).catch(() => []);
 
-    const classes = etat.classes.filter((c) => !c.archived);
+    espaces = (await depotClasses.mesClasses(moi).catch(() => etat.classes))
+      .filter((c) => !c.archived);
+    const classes = espaces;
     sacs = new Map();
     seances = new Map();
     await Promise.all(classes.map(async (c) => {
@@ -115,7 +121,7 @@ export default async function vueAffaires() {
       .filter(Boolean).filter((id) => id !== moi))];
     gens = new Map((await depotProfils.parIds(ids).catch(() => [])).map((p) => [p.id, p]));
     fiches = new Map();
-    for (const c of classes) {
+    for (const c of espaces) {
       const index = await personnages.index(c.id).catch(() => new Map());
       for (const [k, v] of index) if (!fiches.has(k)) fiches.set(k, v);
     }
@@ -143,7 +149,7 @@ export default async function vueAffaires() {
 
   function nbClassesIncompletes() {
     let n = 0;
-    for (const c of etat.classes.filter((x) => !x.archived)) {
+    for (const c of espaces) {
       const attendu = materielAttendu(c, seances.get(c.id));
       if (attendu.vide()) continue;
       if (ecart(sacs.get(c.id), attendu).total) n++;
@@ -353,7 +359,7 @@ export default async function vueAffaires() {
   /* Préparation                                                            */
   /* ===================================================================== */
   function panneauPreparation() {
-    const classes = etat.classes.filter((c) => !c.archived);
+    const classes = espaces;
     if (!classes.length) {
       return blocVide(`Aucune ${L("classe")}`,
         `Rejoignez une ${L("classe")} avec son code : c'est elle qui dit ce qu'il faut apporter.`,
@@ -558,7 +564,7 @@ export default async function vueAffaires() {
 
   /** À qui peut-on demander ? À ceux qu'on croise : les membres de ses espaces. */
   async function demanderAQuelquun() {
-    const classes = etat.classes.filter((c) => !c.archived);
+    const classes = espaces;
     if (!classes.length) { toast("Rejoignez un espace d'abord."); return; }
     const classe = etat.classeActive && classes.find((c) => c.id === etat.classeActive.id)
       || classes[0];
@@ -574,7 +580,7 @@ export default async function vueAffaires() {
   }
 
   async function tendre(o) {
-    const classes = etat.classes.filter((c) => !c.archived);
+    const classes = espaces;
     if (!classes.length) { toast("Rejoignez un espace d'abord."); return; }
     const classe = etat.classeActive && classes.find((c) => c.id === etat.classeActive.id)
       || classes[0];

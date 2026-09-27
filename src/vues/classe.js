@@ -10,8 +10,8 @@ import { L, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { classes as depotClasses, membres as depotMembres, sessions as depotSessions, cahiers, annonces, documents, exercices, journal, notifications } from "../data/index.js";
 import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
-import { encadre, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
-import { confirmer, formulaire, menu } from "../ui/modal.js";
+import { encadre, estAdmin, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
+import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
 import { MODES, LISTE_MODES } from "../features/modes.js";
 import { personnages } from "../data/index.js";
 import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
@@ -244,9 +244,12 @@ export default async function vueClasse({ params, requete }) {
 
   function ligneSession(session) {
     return el("div.liste__item.liste__item--cliquable", {
-      onclick: () => aller(session.status === "live"
-        ? `/classe/${classe.id}/salle`
-        : `/archive/${session.id}`)
+      onclick: (e) => {
+        if (e.target?.closest?.("button")) return;
+        aller(session.status === "live"
+          ? `/classe/${classe.id}/salle`
+          : `/archive/${session.id}`);
+      }
     },
       el("div.liste__principal",
         el("div.liste__nom", session.title),
@@ -254,8 +257,79 @@ export default async function vueClasse({ params, requete }) {
           session.started_at ? dateHeure(session.started_at) : "Programmée",
           session.summary?.participants != null ? ` · ${pluriel(session.summary.participants, "participant")}` : "")
       ),
-      el("div.liste__fin", etiquetteStatutSession(session))
+      el("div.liste__fin",
+        etiquetteStatutSession(session),
+        // Une séance qu'on a ouverte par erreur doit pouvoir se refermer et
+        // disparaître. Sans cela, la liste se remplit de séances fantômes
+        // qu'on n'ose plus regarder.
+        staff
+          ? el("button.btn.btn--fantome.btn--icone", {
+              "aria-label": `Actions sur ${session.title}`,
+              onclick: (e) => { e.stopPropagation(); menuSession(e.currentTarget, session); }
+            }, icone("points", 15))
+          : null)
     );
+  }
+
+  function menuSession(ancre, session) {
+    menu(ancre, [
+      { titre: session.title },
+      session.status === "live"
+        ? { libelle: "Entrer en salle", icone: "entree",
+            action: () => aller(`/classe/${classe.id}/salle`) }
+        : { libelle: "Ouvrir l'archive", icone: "archives",
+            action: () => aller(`/archive/${session.id}`) },
+      {
+        libelle: "Renommer", icone: "crayon",
+        action: async () => {
+          const titre = await demander({
+            titre: "Renommer la séance", label: "Titre", valeur: session.title
+          });
+          if (!titre) return;
+          try {
+            await depotSessions.majorer(session.id, { title: titre });
+            succes("Séance renommée");
+            await peindreContenu();
+          } catch (err) { erreur("Impossible", messageErreur(err)); }
+        }
+      },
+      session.status === "live"
+        ? { libelle: "Clore la séance", icone: "stop",
+            action: async () => {
+              const ok = await confirmer({
+                titre: "Clore la séance",
+                message: "Tout le monde sortira de la salle. L'archive reste consultable.",
+                libelle: "Clore"
+              });
+              if (!ok) return;
+              try {
+                await depotSessions.terminer(session.id);
+                succes("Séance close");
+                await peindreContenu();
+              } catch (err) { erreur("Impossible", messageErreur(err)); }
+            } }
+        : null,
+      { separateur: true },
+      {
+        libelle: "Supprimer", icone: "corbeille", danger: true,
+        action: async () => {
+          const ok = await confirmer({
+            titre: "Supprimer la séance",
+            message: `« ${session.title} » sera perdue : son tableau, ses questions, `
+              + "ses présences et son résumé. Les cahiers personnels ne sont pas touchés.",
+            libelle: "Supprimer définitivement", danger: true
+          });
+          if (!ok) return;
+          try {
+            await depotSessions.supprimer(session.id);
+            succes("Séance supprimée");
+            await peindreContenu();
+          } catch (err) {
+            erreur("Suppression impossible", messageErreur(err));
+          }
+        }
+      }
+    ].filter(Boolean));
   }
 
   /* --- Personnage ------------------------------------------------------------ */
@@ -732,8 +806,14 @@ export default async function vueClasse({ params, requete }) {
         el("div.panneau__corps.panneau__corps--serre", el("div.liste",
           ligne("Archiver", "La classe reste consultable mais n'accepte plus de session.",
             bascule("archived", classe.archived, "Désarchiver", "Archiver")),
-          ligne("Supprimer", "Sessions, tableau, cahier commun et exercices seront perdus.",
-            el("button.btn.btn--danger", { onclick: supprimerClasse }, "Supprimer"))
+          ligne("Supprimer",
+            classe.owner_id === etat.utilisateur.id || estAdmin()
+              ? "Sessions, tableau, cahier commun et exercices seront perdus."
+              : "Seul celui qui a ouvert cet espace peut le supprimer.",
+            el("button.btn.btn--danger", {
+              onclick: supprimerClasse,
+              disabled: !(classe.owner_id === etat.utilisateur.id || estAdmin())
+            }, "Supprimer"))
         ))
       )
     );

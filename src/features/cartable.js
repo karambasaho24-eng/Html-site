@@ -65,14 +65,16 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
      On ne touche à rien avant la validation : préparer son sac, c'est arranger
      des choses puis refermer le rabat. Annuler doit vraiment tout annuler. */
   const place = new Map();    // objetId -> { container, carried }
-  for (const o of objets) place.set(String(o.id), { container: o.container_id || null, carried: Boolean(o.carried) });
+  for (const o of objets) {
+    place.set(String(o.id), { container_id: o.container_id || null, carried: Boolean(o.carried) });
+  }
 
   const emportes = new Map(Object.entries(normaliserCarte(sac?.notebooks)));
   const index = () => {
     const carte = new Map();
     for (const o of objets) {
       const p = place.get(String(o.id));
-      carte.set(String(o.id), { ...o, container_id: p.container, carried: p.carried });
+      carte.set(String(o.id), { ...o, container_id: p.container_id, carried: p.carried });
     }
     return carte;
   };
@@ -89,7 +91,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     if (!porte) return null;
     // On ouvre la trousse plutôt que le cartable : c'est là que va une plume.
     const dedans = contenants().find((o) =>
-      String(carte.get(String(o.id))?.container) === String(porte.id));
+      String(carte.get(String(o.id))?.container_id) === String(porte.id));
     return String((dedans || porte).id);
   }
 
@@ -179,11 +181,11 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       // doit pas toucher vingt lignes.
       for (const o of objets) {
         const p = place.get(String(o.id));
-        const bouge = String(p.container || "") !== String(o.container_id || "")
+        const bouge = String(p.container_id || "") !== String(o.container_id || "")
           || p.carried !== Boolean(o.carried);
         if (!bouge) continue;
-        await depotAffaires.majorer(o.id, { container_id: p.container, carried: p.carried });
-        o.container_id = p.container;
+        await depotAffaires.majorer(o.id, { container_id: p.container_id, carried: p.carried });
+        o.container_id = p.container_id;
         o.carried = p.carried;
       }
       await depotCartable.enregistrer(classe.id, moi, {
@@ -215,11 +217,19 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     }
 
     // Les contenants portés forment des casiers ; le reste tombe en vrac.
-    const portes = contenants().filter((o) => carte.get(String(o.id))?.carried);
+    //
+    // Seuls ceux qu'on porte DIRECTEMENT ouvrent un casier de premier rang :
+    // la trousse est dans le cartable, elle s'affiche dedans. Sans ce filtre
+    // elle était dessinée deux fois, et comme les objets sont des nœuds uniques
+    // qu'on déplace, le second rendu vidait le premier.
+    const portes = contenants().filter((o) => {
+      const p = carte.get(String(o.id));
+      return p?.carried && !p.container_id;
+    });
     for (const contenantPorte of portes) dansLeSac.appendChild(casier(contenantPorte, carte));
 
     const enVrac = utilisables.filter((o) =>
-      !fiche(o.kind)?.contenant && estSurMoi(o.id) && !carte.get(String(o.id))?.container);
+      !fiche(o.kind)?.contenant && estSurMoi(o.id) && !carte.get(String(o.id))?.container_id);
     if (enVrac.length) {
       dansLeSac.appendChild(el("div.casier.casier--vrac",
         el("div.casier__entete", el("span.casier__nom", icone("main", 12), " En main"))));
@@ -240,7 +250,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
   /** Un contenant ouvert sur la table : son nom, ce qu'il tient, et son rabat. */
   function casier(contenantPorte, carte) {
     const dedans = utilisables.filter((o) =>
-      String(carte.get(String(o.id))?.container || "") === String(contenantPorte.id));
+      String(carte.get(String(o.id))?.container_id || "") === String(contenantPorte.id));
     const ouvert = String(cible) === String(contenantPorte.id);
     const objetsDedans = el("div.casier__objets");
 
@@ -275,8 +285,14 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     return noeud;
   }
 
-  const ouvertDe = (kind) =>
-    ["cartable", "trousse"].includes(kind) ? `${kind}-ouverte`.replace("cartable-ouverte", "cartable-ouvert") : kind;
+  /* Déclaration et non affectation : `casier()` l'appelle dès le premier rendu,
+     qui a lieu pendant la construction du corps de la modale — avant qu'une
+     constante déclarée plus bas ne soit initialisée. */
+  function ouvertDe(kind) {
+    if (kind === "cartable") return "cartable-ouvert";
+    if (kind === "trousse") return "trousse-ouverte";
+    return kind;
+  }
 
   /* --- Le geste ----------------------------------------------------------- */
 
@@ -326,8 +342,8 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
 
     animer(noeud, () => {
       place.set(String(objet.id), dedans
-        ? { container: null, carried: false }
-        : { container: cible, carried: false });
+        ? { container_id: null, carried: false }
+        : { container_id: cible, carried: false });
       replacer();
       return !dedans;
     });
@@ -344,13 +360,15 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       // porte à la main, ce qui est permis et se voit.
       const carte = index();
       const hote = contenants().find((o) =>
-        carte.get(String(o.id))?.carried && !carte.get(String(o.id))?.container
+        carte.get(String(o.id))?.carried && !carte.get(String(o.id))?.container_id
         && String(o.id) !== String(contenantPorte.id)
         && o.kind !== contenantPorte.kind);
-      place.set(String(contenantPorte.id), { container: hote ? String(hote.id) : null, carried: true });
+      place.set(String(contenantPorte.id), {
+        container_id: hote ? String(hote.id) : null, carried: true
+      });
       cible = String(contenantPorte.id);
     } else {
-      place.set(String(contenantPorte.id), { container: null, carried: false });
+      place.set(String(contenantPorte.id), { container_id: null, carried: false });
       if (String(cible) === String(contenantPorte.id)) cible = premierContenantPorte();
     }
     replacer();
@@ -435,7 +453,9 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
               ? await depotAffaires.retrouver(o.id)
               : await depotAffaires.perdre(o.id);
             Object.assign(o, maj);
-            place.set(String(o.id), { container: maj.container_id || null, carried: Boolean(maj.carried) });
+            place.set(String(o.id), {
+              container_id: maj.container_id || null, carried: Boolean(maj.carried)
+            });
             toast(o.state === "lost" ? "Perdu" : "Retrouvé");
             replacer();
           } catch (err) { erreur("Impossible", messageErreur(err)); }
@@ -495,7 +515,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       const o = utilisables.find((x) => x.kind === kind && !estSurMoi(x.id));
       if (!o) continue;
       if (fiche(kind)?.contenant) poserContenant(o, true);
-      else place.set(String(o.id), { container: cible, carried: false });
+      else place.set(String(o.id), { container_id: cible, carried: false });
       pris++;
     }
     // Les supports demandés partent avec : « prends la consigne » veut dire

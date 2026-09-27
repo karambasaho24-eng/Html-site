@@ -9,7 +9,7 @@
  *     --outfile=.tmp/app.bundle.js
  *   node outils/construire-page-unique.mjs .tmp/app.bundle.js page-unique.html
  * ------------------------------------------------------------------------- */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,6 +30,27 @@ const css = ORDRE_CSS
 
 const source = readFileSync(resolve(RACINE, "index.html"), "utf8");
 
+/**
+ * Les dessins des objets, embarqués.
+ *
+ * La page autonome n'a pas de fichiers à côté : `assets/objets/plume.svg`
+ * n'existe pas, et le cartable se serait ouvert sur des cases vides. On les
+ * transporte donc dans la page, en data-uri, et `imageObjet()` les y trouve.
+ * Ce sont des vecteurs : les trente-sept pèsent moins qu'une photographie.
+ */
+function embarquerObjets() {
+  const dossier = resolve(RACINE, "assets", "objets");
+  const carte = {};
+  for (const fichier of readdirSync(dossier)) {
+    if (!fichier.endsWith(".svg")) continue;
+    const svg = readFileSync(resolve(dossier, fichier), "utf8")
+      .replace(/\n\s*/g, " ").trim();
+    carte[fichier.replace(/\.svg$/, "")] =
+      "data:image/svg+xml," + encodeURIComponent(svg);
+  }
+  return carte;
+}
+
 /** Une chaîne contenant </script> refermerait la balise qui l'englobe. */
 const neutraliser = (js) => js.replace(/<\/script/gi, "<\\/script");
 
@@ -49,7 +70,12 @@ function extraireVeille() {
   }
 }
 
-const page = `<title>Classe Parallèle</title>
+/* Sans cette ligne, le navigateur lit la page en latin-1 : les accents
+   passent encore, mais pas les caractères combinants d'une expression
+   régulière — et la recherche insensible aux accents plantait au démarrage.
+   Elle doit rester la toute première chose du document. */
+const page = `<meta charset="utf-8" />
+<title>Classe Parallèle</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -98,6 +124,10 @@ ${extraireVeille()}
 
 <script>
 ${config}
+</script>
+
+<script>
+window.__OJM_OBJETS__ = ${neutraliser(JSON.stringify(embarquerObjets()))};
 </script>
 
 <script type="module">

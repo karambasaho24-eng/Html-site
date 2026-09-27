@@ -28,19 +28,19 @@ const NIVEAUX_VALIDES = NIVEAUX.map((n) => n.cle);
 export function typeDepuisTexte(texte) {
   const brut = String(texte || "").trim();
   if (!brut) return null;
-  const plat = brut.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const plat = brut.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (CATALOGUE[plat]) return plat;
 
   // « règle à calcul », « instrument de calcul », « de l'encre »… On accepte la
   // phrase parlée : c'est ainsi que la consigne est donnée à voix haute.
   const candidats = Object.keys(CATALOGUE);
   const exact = candidats.find((k) =>
-    nomType(k).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") === plat);
+    nomType(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === plat);
   if (exact) return exact;
 
   const contenu = candidats
     .filter((k) => {
-      const nom = nomType(k).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      const nom = nomType(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return plat.includes(nom) || nom.includes(plat);
     })
     .sort((a, b) => nomType(b).length - nomType(a).length)[0];

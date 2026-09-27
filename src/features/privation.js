@@ -66,6 +66,13 @@ export function nePeutPasEcrire(sac, attendu) {
   return manque;
 }
 
+/** Accepte l'ancienne forme (liste d'identifiants) comme la nouvelle. */
+function normaliser(valeur) {
+  if (!valeur) return {};
+  if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
+  return valeur;
+}
+
 /** « 12 min 04 » — on montre les secondes : une punition qui s'écoule se supporte. */
 export function formaterDelai(secondes) {
   const m = Math.floor(secondes / 60);
