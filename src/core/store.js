@@ -28,6 +28,10 @@ export const etat = {
   reseau: "ok",            // ok | rompu | reprise | local
   modeExamen: false,
   suitProfesseur: false,
+  flottant: false,
+  // La console d'à-côté, demandée à la main. Dans la fenêtre flottante elle
+  // s'impose d'elle-même.
+  console: false,
   pret: false
 };
 

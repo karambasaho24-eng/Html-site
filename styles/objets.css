@@ -816,3 +816,32 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 @media (prefers-reduced-motion: reduce) {
   .casier { transition: none; }
 }
+
+/* --- L'encre -------------------------------------------------------------
+   On ne dit pas « niveau de ressource » : on montre l'encrier, et le geste
+   qui répare est juste à côté. */
+.encre-vide {
+  display: flex; align-items: center; gap: var(--e-3);
+  margin: 0 var(--e-4) var(--e-3);
+  padding: var(--e-3);
+  border: 1px solid rgba(201,150,63,.4); border-radius: var(--r-2);
+  background: rgba(201,150,63,.08);
+}
+.encre-vide p { margin: 2px 0 0; }
+.encre-vide .objet__figure { width: 34px; height: 34px; }
+
+.encre-niveau {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 var(--e-4) var(--e-2);
+  font-size: var(--t-xs);
+}
+.encre-niveau .objet__figure { width: 20px; height: 20px; }
+.encre-niveau .jauge { width: 72px; }
+
+/* --- La consigne, côté estrade ------------------------------------------- */
+.consigne__liste { display: flex; flex-direction: column; gap: 6px; }
+.consigne__ligne {
+  display: flex; align-items: center; gap: 6px;
+}
+.consigne__ligne .objet__figure { width: 24px; height: 24px; flex: 0 0 auto; }
+.consigne__ligne .saisie { flex: 1; min-width: 0; }

@@ -11,6 +11,9 @@ import { entete, vignetteCahier, blocVide, encartRoblox } from "../ui/fragments.
 import { formulaire, confirmer, menu } from "../ui/modal.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { CAPACITE_SUPPORT } from "../features/editeur-cahier.js";
+import { tendreSonCahier } from "../features/tendre-cahier.js";
+import { membres as depotMembres, personnages } from "../data/index.js";
+import { toast } from "../ui/toast.js";
 
 /* Quatre objets, quatre usages. La capacité vient de l'objet, pas d'un réglage. */
 const SUPPORTS = [
@@ -73,6 +76,7 @@ export default async function vueCahiers() {
     menu(ancre, [
       { libelle: "Ouvrir", icone: "cahier", action: () => aller(`/cahier/${cahier.id}`) },
       { libelle: "Renommer / couverture", icone: "crayon", action: () => modifier(cahier) },
+      { libelle: "Le tendre à quelqu'un", icone: "main", action: () => tendre(cahier) },
       { separateur: true },
       {
         libelle: "Supprimer", icone: "corbeille", danger: true,
@@ -120,6 +124,43 @@ export default async function vueCahiers() {
     } catch (err) {
       erreur("Création impossible", messageErreur(err));
     }
+  }
+
+  /**
+   * On peut tendre un support hors de toute séance. Une feuille écrite le soir
+   * se remet le lendemain matin dans la cour : exiger une séance en cours
+   * aurait fait d'un geste ordinaire un privilège de salle de classe.
+   */
+  async function tendre(cahier) {
+    const espaces = etat.classes.filter((c) => !c.archived);
+    if (!espaces.length) {
+      toast("Vous ne partagez aucun espace", {
+        corps: `On ne tend un ${L("cahier")} qu'à quelqu'un qu'on croise.`, type: "attn"
+      });
+      return;
+    }
+    const parPersonne = new Map();
+    const index = new Map();
+    for (const espace of espaces) {
+      const equipe = await depotMembres.liste(espace.id).catch(() => []);
+      const fiches = await personnages.index(espace.id).catch(() => new Map());
+      for (const [k, v] of fiches) if (!index.has(k)) index.set(k, v);
+      for (const m of equipe) {
+        if (m.status !== "active" || m.user_id === etat.utilisateur.id) continue;
+        if (!parPersonne.has(m.user_id)) {
+          parPersonne.set(m.user_id, {
+            user_id: m.user_id, profil: m.profil, nom: m.profil?.display_name, espace
+          });
+        }
+      }
+    }
+    const candidats = [...parPersonne.values()];
+    if (!candidats.length) { toast("Personne d'autre dans vos espaces pour l'instant."); return; }
+
+    const remise = await tendreSonCahier({
+      classe: candidats[0].espace, candidats, fiches: index, prechoisi: cahier.id
+    });
+    if (remise) await peindre();
   }
 
   async function modifier(cahier) {

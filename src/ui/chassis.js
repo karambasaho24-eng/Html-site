@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------- */
 import { el, render } from "./dom.js";
 import { icone } from "./icons.js";
-import { etat, observer } from "../core/store.js";
+import { etat, observer, definir } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
@@ -16,6 +16,7 @@ import { basculerFenetreFlottante, ouvrirFenetreFlottante, estFlottant,
          flottantAuPremierPlan, flottantDisponible, FORMES }
   from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
+import { barreConsole } from "../features/console-rp.js";
 import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
 import { notifications as depotNotifications } from "../data/index.js";
 import { pilote } from "../data/index.js";
@@ -47,6 +48,7 @@ export function construireChassis(hote) {
       refs.outils = el("div.barre__outils")
     ),
     refs.rail = el("nav.rail", { "aria-label": "Navigation principale" }),
+    refs.console = el("div.console-hote", { hidden: true }),
     refs.vue = el("main#vue.vue", { tabindex: "-1" })
   );
 
@@ -57,6 +59,10 @@ export function construireChassis(hote) {
 
   observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); });
   observer(["notifications", "reseau", "densite", "theme", "utilisateur", "flottant"], peindreOutils);
+  // La console d'à-côté n'existe que là où elle sert : dans la fenêtre posée
+  // sur le jeu, ou quand on la demande. Ailleurs elle doublerait le rail.
+  observer(["flottant", "console"], majConsole);
+  observer(["route"], () => { if (etat.console || etat.flottant) majConsole(); });
   observer("classeActive", peindreFil);
 
   return refs.vue;
@@ -102,6 +108,17 @@ function peindreRail() {
       lienRail("/reglages", "reglages", "Réglages", "reglages")
     )
   );
+}
+
+/**
+ * Monte ou démonte la console. On la reconstruit à chaque apparition : elle
+ * compte ce qui attend une réponse, et ce nombre ne vaut que maintenant.
+ */
+function majConsole() {
+  const visible = Boolean(etat.flottant || etat.console);
+  refs.console.hidden = !visible;
+  docHote().body.classList.toggle("avec-console", visible);
+  render(refs.console, visible ? barreConsole() : []);
 }
 
 /* --- Fil d'Ariane ---------------------------------------------------------- */
@@ -166,6 +183,12 @@ function peindreOutils() {
       icone("cloche", 17),
       nonLues ? el("span.pastille-compteur", nonLues > 9 ? "9+" : String(nonLues)) : null
     ),
+
+    el("button.btn.btn--fantome.btn--icone.hors-examen", {
+      "aria-label": "Console d'à-côté", title: "Console : les gestes fréquents",
+      "aria-pressed": String(Boolean(etat.console || etat.flottant)),
+      onclick: () => definir({ console: !(etat.console || etat.flottant) })
+    }, icone("main", 17)),
 
     flottantDisponible() ? el("button.btn.btn--fantome.btn--icone.hors-examen", {
       "aria-label": "Fenêtre d'à-côté",

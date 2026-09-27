@@ -34,7 +34,13 @@ import { personnages } from "../data/index.js";
 import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
 import { inscrireAuLivret } from "../features/livret.js";
 import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
-import { preparerAffaires, materielAttendu, ligneMateriel } from "../features/cartable.js";
+import { preparerAffaires, ligneMateriel } from "../features/cartable.js";
+import { materielAttendu, consigneAEnregistrer, typeDepuisTexte, NIVEAUX, ecart, idsDuSac }
+  from "../features/materiel.js";
+import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES }
+  from "../features/affaires.js";
+import { tendreObjet, demanderObjet, confisquerObjet } from "../features/transfert.js";
+import { affaires as depotAffaires } from "../data/index.js";
 import {
   MINUTES_OFFERTES, reglesMateriel, nePeutPasEcrire, bandeauPrivation, lignePrivation
 } from "../features/privation.js";
@@ -93,8 +99,12 @@ export default async function vueSalle({ params }) {
   let sacs = new Map();            // cartables déposés, par utilisateur
   let listeRenvois = [];
   let modeSeance = modeDe(session);
-  const attendu = materielAttendu(classe);
-  const regles = reglesMateriel(classe);
+  let attendu = materielAttendu(classe, session);
+  const regles = reglesMateriel(classe, session);
+
+  // Mes affaires : il faut les connaître pour savoir si l'encre suffit, et
+  // pour en tendre une à quelqu'un sans quitter la salle.
+  let mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => []);
 
   // La privation : la mienne si je suis cadet, toutes si je tiens l'estrade.
   let maPrivation = null;
@@ -254,6 +264,79 @@ export default async function vueSalle({ params }) {
   let cahierOuvertId = local.lire(`ojm.moncahier.${classe.id}`, null);
   let editeurPersonnel = null;
 
+  /* --- L'encre -------------------------------------------------------------
+     Une plume qui n'a plus d'encre ne trace plus. C'est la seule consommation
+     automatique du site, et elle est volontairement lente : un pour cent tous
+     les trois cent cinquante caractères, soit plusieurs séances pleines pour
+     vider un encrier. Le but n'est pas de rendre l'écriture pénible — c'est de
+     donner une raison de vérifier son matériel avant d'entrer, et de faire
+     exister la scène du cadet qui demande de l'encre à son voisin. */
+  const CARACTERES_PAR_POINT = 350;
+  let fraisEncre = 0;
+
+  /** L'encrier que je porte, s'il y en a un. */
+  const monEncrier = () => encrierEnService(mesAffaires, etat.utilisateur.id);
+
+  /** Est-ce que j'écris à la plume, c'est-à-dire avec quelque chose qui boit ? */
+  function jEcrisALaPlume() {
+    const surMoiIds = idsDuSac(sacs.get(etat.utilisateur.id));
+    const portes = mesAffaires.filter((o) => surMoiIds.has(String(o.id)));
+    const quiTracent = portes.filter((o) => ficheObjet(o.kind)?.ecrit);
+    return quiTracent.length > 0 && quiTracent.every((o) => ficheObjet(o.kind)?.encre);
+  }
+
+  /** À sec : j'ai de quoi tracer, mais plus rien à tracer avec. */
+  function aSec() {
+    if (!jEcrisALaPlume()) return false;
+    const encrier = monEncrier();
+    return Boolean(encrier) && Number(encrier.level || 0) <= 0;
+  }
+
+  /**
+   * Chaque frappe boit un peu. On n'écrit en base qu'au point entier : mille
+   * requêtes pour un paragraphe seraient absurdes, et le niveau ne se lit
+   * pas au centième.
+   */
+  const boireUnPeu = debounce(async () => {
+    const encrier = monEncrier();
+    if (!encrier || !jEcrisALaPlume()) { fraisEncre = 0; return; }
+    const points = Math.floor(fraisEncre / CARACTERES_PAR_POINT);
+    if (points < 1) return;
+    fraisEncre -= points * CARACTERES_PAR_POINT;
+    try {
+      const maj = await depotAffaires.consommer(encrier, points);
+      Object.assign(encrier, maj);
+      if (Number(encrier.level || 0) <= 0) {
+        toast("Votre encrier est vide", {
+          corps: "La plume gratte le papier sans rien laisser. Remplissez-le, ou demandez de l'encre.",
+          type: "attn", duree: 10000
+        });
+        await peindreMonCahier();
+      } else if (Number(encrier.level) === 10) {
+        toast("Il ne reste presque plus d'encre", { type: "attn" });
+      }
+    } catch { /* un encrier qu'on ne peut pas entamer n'empêche pas d'écrire */ }
+  }, 1400);
+
+  async function remplirMonEncrier() {
+    const encrier = monEncrier();
+    const flacon = mesAffaires.find((o) => o.kind === "encre" && Number(o.level || 0) > 0);
+    if (!encrier) { toast("Vous n'avez pas d'encrier sur vous."); return; }
+    if (!flacon) {
+      toast("Aucun flacon d'encre", {
+        corps: "Demandez-en à quelqu'un, ou allez en chercher.", type: "attn"
+      });
+      return;
+    }
+    try {
+      const { verse } = await depotAffaires.remplir(encrier, flacon);
+      if (!verse) { toast("L'encrier est déjà plein."); return; }
+      mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+      succes(`Encrier rempli (+${verse} %)`);
+      await peindreMonCahier();
+    } catch (err) { erreur("Impossible", messageErreur(err)); }
+  }
+
   async function peindreMonCahier() {
     editeurPersonnel?.detruire();
     editeurPersonnel = null;
@@ -322,7 +405,7 @@ export default async function vueSalle({ params }) {
       // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
       // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
       // récrit jamais : la marge est faite pour ça.
-      peutEcrire: !prive() && !choisi.emprunte,
+      peutEcrire: !prive() && !choisi.emprunte && !aSec(),
       compact: true,
       tempsReel: true,
       rp: reglagesRP(classe)
@@ -376,9 +459,43 @@ export default async function vueSalle({ params }) {
               icone("cadenas", 12),
               " Vous pouvez relire, pas écrire : il vous manque de quoi le faire.")
           : null,
+        // Une plume à sec : on le dit là où on s'en aperçoit, avec le geste
+        // qui répare juste à côté.
+        !prive() && aSec()
+          ? el("div.encre-vide",
+              el("span.encre-vide__figure", { "aria-hidden": "true" },
+                figureObjet("encrier")),
+              el("div",
+                el("strong", "Votre encrier est vide"),
+                el("p.petit.faible",
+                  "La plume gratte le papier sans rien laisser. Remplissez-la au "
+                  + "flacon, ou demandez de l'encre à quelqu'un.")),
+              el("span.pousse"),
+              el("button.btn", { onclick: remplirMonEncrier },
+                icone("goutte", 14), "Remplir"),
+              el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
+                icone("main", 14), "En demander"))
+          : null,
+        !prive() && !aSec() && jEcrisALaPlume() && monEncrier()
+          ? el("div.encre-niveau", { title: `Encre : ${monEncrier().level} %` },
+              figureObjet("encrier"),
+              el("span.petit.faible", "Encre"),
+              el("span.jauge", el("span.jauge__remplissage",
+                { style: { width: `${Math.max(3, Number(monEncrier().level || 0))}%` } })))
+          : null,
         el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
       )
     );
+
+    // Chaque frappe boit. On écoute au-dessus de l'éditeur : l'événement
+    // remonte du contenu éditable, et l'éditeur n'a pas à connaître l'encre.
+    if (editeurPersonnel.noeud && !choisi.emprunte) {
+      editeurPersonnel.noeud.addEventListener("input", (e) => {
+        if (!e.target?.closest?.(".parchemin__corps")) return;
+        fraisEncre += 1;
+        boireUnPeu();
+      });
+    }
   }
 
   /* --- Scène : tableau -------------------------------------------------------- */
@@ -831,14 +948,12 @@ export default async function vueSalle({ params }) {
     }
     const mainsParUtilisateur = new Map(listeMains.map((m) => [m.user_id, m]));
     const renvoyes = new Set(listeRenvois.map((r) => r.user_id));
-    const controleMateriel = staff && offre(session, "cartable")
-      && (attendu.supports.length > 0 || attendu.fournitures.length > 0);
+    const controleMateriel = staff && offre(session, "cartable") && !attendu.vide();
 
     return el("div",
       controleMateriel ? el("div.controle-materiel",
         el("span.controle-materiel__titre", icone("sac", 12), " Matériel demandé"),
-        el("span.petit.faible",
-          [...attendu.supports.map((x) => x.title), ...attendu.fournitures].join(" · ")),
+        el("span.petit.faible", attendu.enUneLigne()),
         regles.bloquant
           ? el("span.petit.faible", `Privation de ${regles.minutes} min en cas d'oubli.`)
           : null
@@ -958,6 +1073,14 @@ export default async function vueSalle({ params }) {
         : null,
       { libelle: "Lui tendre un cahier", icone: "cahier",
         action: () => tendreCahier(participant) },
+      { libelle: "Lui tendre un objet", icone: "sac",
+        action: () => tendreUnObjet(participant) },
+      { libelle: "Lui demander un objet", icone: "main",
+        action: () => demanderUnObjet(participant) },
+      staff && offre(session, "cartable")
+        ? { libelle: "Confisquer un objet", icone: "bouclier", danger: true,
+            action: () => confisquer(participant) }
+        : null,
       staff
         ? { libelle: "Porter une note", icone: "balance",
             action: () => porterUneNote({ classe, session, participant }) }
@@ -1146,7 +1269,7 @@ export default async function vueSalle({ params }) {
   /** Ce qui manque à quelqu'un pour pouvoir travailler. */
   function manqueDeQuoiEcrire(utilisateurId) {
     if (!regles.bloquant || !offre(session, "cartable")) return [];
-    if (!attendu.supports.length && !attendu.fournitures.length) return [];
+    if (attendu.vide()) return [];
     const sac = sacs.get(utilisateurId);
     // Posséder une plume et l'avoir sur soi ce matin sont deux choses. Un sac
     // qui n'a pas été repris pour cette séance ne compte pas : sans quoi on
@@ -1289,6 +1412,97 @@ export default async function vueSalle({ params }) {
     if (remise) {
       canalSession?.envoyer("cahier-tendu", { pour: remise.to_user });
       await peindreMonCahier().catch(() => {});
+    }
+  }
+
+  /* --- Tendre, demander, confisquer un objet --------------------------------- */
+
+  const candidatsProches = (destinataire = null) =>
+    (destinataire ? [destinataire] : participants)
+      .filter((p) => p.user_id !== etat.utilisateur.id)
+      .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }));
+
+  /** Choisir lequel des miens je tends. On ne tend pas ce qu'on n'a pas sur soi. */
+  async function tendreUnObjet(destinataire = null) {
+    mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+    const disponibles = mesAffaires.filter((o) =>
+      String(o.owner_id) === String(etat.utilisateur.id)
+      && o.state !== "confiscated" && o.state !== "lost"
+      && !ficheObjet(o.kind)?.contenant);
+    if (!disponibles.length) {
+      toast("Vous n'avez rien à tendre.", { corps: "Passez par Mes affaires pour vous équiper." });
+      return;
+    }
+    const sortie = await formulaire({
+      titre: "Lequel ?",
+      champs: [{ cle: "objet", label: "Dans vos affaires", type: "select",
+        valeur: disponibles[0].id,
+        options: disponibles.map((o) => ({ valeur: o.id, libelle: nomObjet(o) })) }],
+      libelle: "Continuer"
+    });
+    if (!sortie?.objet) return;
+    const objet = disponibles.find((o) => String(o.id) === String(sortie.objet));
+
+    const fait = await tendreObjet({
+      objet, classe, session, candidats: candidatsProches(destinataire), fiches: fichesRP
+    });
+    if (fait) {
+      canalSession?.envoyer("objet", {});
+      mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+    }
+  }
+
+  async function demanderUnObjet(destinataire = null) {
+    const fait = await demanderObjet({
+      classe, session, candidats: candidatsProches(destinataire), fiches: fichesRP
+    });
+    if (fait) canalSession?.envoyer("objet", {});
+  }
+
+  /**
+   * Confisquer. La base ne l'accepte que sur un objet qui a été apporté : ce
+   * qui est resté chez lui est hors de portée, exactement comme un cahier non
+   * déclaré au cartable.
+   */
+  async function confisquer(participant) {
+    const sac = sacs.get(participant.user_id);
+    const declare = sac?.supplies;
+    const liste = !declare || Array.isArray(declare) ? [] :
+      Object.entries(declare).map(([id, v]) => ({
+        id, label: typeof v === "string" ? v : (v.label || nomType(v.kind)), kind: v?.kind || null
+      }));
+    if (!liste.length) {
+      toast(`${participant.nom || "Ce membre"} n'a rien apporté : il n'y a rien à prendre.`);
+      return;
+    }
+    const sortie = await formulaire({
+      titre: "Confisquer",
+      champs: [{ cle: "objet", label: "Ce qu'il a sur lui", type: "select",
+        valeur: liste[0].id,
+        options: liste.map((o) => ({ valeur: o.id, libelle: o.label })) }],
+      libelle: "Continuer"
+    });
+    if (!sortie?.objet) return;
+
+    const proche = await exigerProximite({
+      motif: "objet", cible: participant.profil || participant,
+      personnage: fichesRP.get(participant.user_id),
+      detail: liste.find((o) => o.id === sortie.objet)?.label || null
+    });
+    if (!proche) return;
+
+    const choisi = liste.find((o) => o.id === sortie.objet);
+    const fait = await confisquerObjet({
+      objet: { id: choisi.id, kind: choisi.kind, label: choisi.label },
+      classe, proprietaire: participant.profil || participant,
+      fiche: fichesRP.get(participant.user_id)
+    });
+    if (fait) {
+      canalSession?.envoyer("objet", {});
+      journal.ecrire({
+        class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
+        action: "affaires.confiscation", meta: { membre: participant.user_id, objet: choisi.id }
+      });
     }
   }
 
@@ -1755,66 +1969,168 @@ export default async function vueSalle({ params }) {
   }
 
   /**
-   * « Apportez votre cahier rouge et une plume. »
-   * La consigne vit dans les réglages de la classe : elle vaut pour les
-   * séances suivantes tant qu'on ne la change pas.
+   * « Apportez votre cahier rouge, une plume, de l'encre et de quoi calculer. »
+   *
+   * Trois degrés, parce que tout ne se vaut pas : ce qui manque et qui se joue,
+   * ce qu'on signale, et ce qui est là pour mémoire. Et deux portées : cette
+   * séance, ou la classe — une consigne posée pour aujourd'hui ne doit pas
+   * réécrire ce qu'on avait demandé le mois dernier.
    */
   async function definirMateriel() {
     const mesSupports = await depotCahiers.deClasse(classe.id).catch(() => []);
-    const sortie = await formulaire({
-      titre: "Matériel demandé",
-      note: "Ce qui manquera se verra dans la liste des présents. Vous décidez "
-        + "ensuite si l'oubli empêche de travailler, et pour combien de temps.",
-      champs: [
-        { cle: "supports", label: "Supports attendus", type: "textarea", lignes: 3,
-          valeur: attendu.supports.map((x) => x.title).join("\n"),
-          placeholder: "Cahier de manœuvre\nCarnet de terrain",
-          aide: "Un intitulé par ligne. Chacun apporte le sien." },
-        { cle: "fournitures", label: "Trousse", type: "textarea", lignes: 2,
-          valeur: attendu.fournitures.join(", "),
-          placeholder: "Plume, encre, règle",
-          aide: "Séparés par des virgules." },
-        { cle: "bloquant", label: "Sans de quoi écrire, on ne travaille pas",
-          type: "checkbox", valeur: regles.bloquant,
-          aide: "Le cadet démuni assiste au cours sans pouvoir rien noter. "
-            + "Vous seul pouvez l'autoriser à aller chercher ses affaires." },
-        { cle: "minutes", label: "Durée de la privation", type: "select",
-          valeur: String(regles.minutes),
-          options: MINUTES_OFFERTES.map((m) => ({ valeur: String(m), libelle: `${m} minutes` })),
-          aide: "Passé ce délai, elle tombe d'elle-même." }
-      ],
-      libelle: "Demander"
-    });
-    if (!sortie) return;
 
-    const supports = String(sortie.supports || "").split("\n")
+    let portee = "seance";
+    let bloquant = regles.bloquant;
+    let minutes = regles.minutes;
+    let supportsTexte = attendu.supports.map((x) => x.title).join("\n");
+    const requis = attendu.requis.map((r) => ({ ...r }));
+    const pourMoi = attendu.professeur.map((r) => ({ ...r }));
+
+    const listeRequis = el("div.consigne__liste");
+    const listeMienne = el("div.consigne__liste");
+
+    const ordonnes = [...TYPES].sort((a, b) => nomType(a).localeCompare(nomType(b), "fr"));
+
+    /** Une ligne de consigne : l'objet, son degré, et de quoi la retirer. */
+    function ligne(entree, collection, zone, avecNiveau = true) {
+      return el("div.consigne__ligne",
+        figureObjet(entree.kind || "autre"),
+        el("select.saisie.saisie--etroite", {
+          onchange: (e) => {
+            entree.kind = e.currentTarget.value;
+            entree.label = nomType(entree.kind);
+            peindreListe(collection, zone, avecNiveau);
+          }
+        }, ordonnes.map((k) => el("option", { value: k, selected: k === entree.kind }, nomType(k)))),
+        avecNiveau
+          ? el("select.saisie.saisie--etroite", {
+              onchange: (e) => { entree.niveau = e.currentTarget.value; }
+            }, NIVEAUX.map((n) => el("option", { value: n.cle, selected: n.cle === entree.niveau,
+                title: n.aide }, n.libelle)))
+          : null,
+        el("button.btn.btn--fantome.btn--icone", {
+          type: "button", title: "Retirer",
+          onclick: () => {
+            collection.splice(collection.indexOf(entree), 1);
+            peindreListe(collection, zone, avecNiveau);
+          }
+        }, icone("croix", 13))
+      );
+    }
+
+    function peindreListe(collection, zone, avecNiveau) {
+      render(zone,
+        collection.length
+          ? collection.map((e) => ligne(e, collection, zone, avecNiveau))
+          : el("p.petit.faible", "Rien pour l'instant."),
+        el("button.btn.btn--fantome.btn--petit", {
+          type: "button",
+          onclick: () => {
+            collection.push({ kind: "plume", label: nomType("plume"), niveau: "obligatoire" });
+            peindreListe(collection, zone, avecNiveau);
+          }
+        }, icone("plus", 13), "Ajouter"));
+    }
+
+    const valide = await ouvrirModale({
+      titre: "Matériel demandé",
+      large: true,
+      corps: () => {
+        const noeud = el("div.consigne",
+          el("p.petit.faible",
+            "Ce qui manquera se verra dans la liste des présents. Vous décidez "
+            + "ensuite si l'oubli empêche de travailler, et pour combien de temps."),
+
+          el("label.champ",
+            el("span.champ__label", "Pour quoi"),
+            el("select.saisie", { onchange: (e) => { portee = e.currentTarget.value; } },
+              el("option", { value: "seance" }, "Cette séance seulement"),
+              el("option", { value: "classe" }, `Toute la ${L("classe")}, jusqu'à nouvel ordre`)),
+            el("span.champ__aide",
+              "Une consigne de séance reste attachée à cette séance : "
+              + "l'archive dira ce qui avait été demandé ce jour-là.")),
+
+          el("label.champ",
+            el("span.champ__label", "Supports attendus"),
+            el("textarea.zone", { rows: 3, value: supportsTexte,
+              placeholder: "Cahier de manœuvre\nCarnet de terrain",
+              oninput: (e) => { supportsTexte = e.currentTarget.value; } }),
+            el("span.champ__aide", "Un intitulé par ligne. Chacun apporte le sien.")),
+
+          el("div.champ",
+            el("span.champ__label", "Ce qu'ils doivent avoir"),
+            listeRequis,
+            el("span.champ__aide",
+              "Obligatoire : le manque se joue. Recommandé : on le signale. "
+              + "Facultatif : aucune alerte.")),
+
+          el("div.champ",
+            el("span.champ__label", "Ce que j'apporte, moi"),
+            listeMienne,
+            el("span.champ__aide",
+              "Votre propre matériel. Il apparaît dans vos affaires, et nulle part ailleurs.")),
+
+          el("label.case",
+            el("input", { type: "checkbox", checked: bloquant,
+              onchange: (e) => { bloquant = e.currentTarget.checked; } }),
+            el("span", "Sans de quoi écrire, on ne travaille pas")),
+          el("p.petit.faible",
+            "Le cadet démuni assiste au cours sans pouvoir rien noter. "
+            + "Vous seul pouvez l'autoriser à aller chercher ses affaires."),
+
+          el("label.champ",
+            el("span.champ__label", "Durée de la privation"),
+            el("select.saisie", { onchange: (e) => { minutes = Number(e.currentTarget.value); } },
+              MINUTES_OFFERTES.map((m) => el("option",
+                { value: String(m), selected: m === minutes }, `${m} minutes`))),
+            el("span.champ__aide", "Passé ce délai, elle tombe d'elle-même."))
+        );
+        peindreListe(requis, listeRequis, true);
+        peindreListe(pourMoi, listeMienne, false);
+        return noeud;
+      },
+      actions: [
+        { libelle: "Annuler", valeur: false },
+        { libelle: "Demander", variante: "primaire", valeur: true }
+      ]
+    });
+    if (!valide) return;
+
+    const supports = supportsTexte.split("\n")
       .map((l) => l.trim()).filter(Boolean)
       .map((titre) => {
         const connu = mesSupports.find((c) => c.title.toLowerCase() === titre.toLowerCase());
         return { id: connu?.id || titre.toLowerCase(), title: titre };
       });
-    const fournitures = String(sortie.fournitures || "").split(",")
-      .map((l) => l.trim()).filter(Boolean);
 
-    const materiel = {
-      supports, fournitures,
-      bloquant: Boolean(sortie.bloquant),
-      minutes: Number(sortie.minutes) || 15
-    };
+    const materiel = consigneAEnregistrer({
+      supports, requis, professeur: pourMoi, bloquant, minutes
+    });
 
     try {
-      const maj = await depotClasses.majorer(classe.id, {
-        settings: { ...(classe.settings || {}), materiel }
-      });
-      classe.settings = maj?.settings || { ...(classe.settings || {}), materiel };
-      attendu.supports = supports;
-      attendu.fournitures = fournitures;
+      if (portee === "seance") {
+        const maj = await depotSessions.majorer(session.id, { materiel });
+        session.materiel = maj?.materiel || materiel;
+      } else {
+        const maj = await depotClasses.majorer(classe.id, {
+          settings: { ...(classe.settings || {}), materiel }
+        });
+        classe.settings = maj?.settings || { ...(classe.settings || {}), materiel };
+        // On efface la consigne de séance, sinon la nouvelle règle de classe
+        // resterait invisible ici : elle est masquée par celle du jour.
+        if (session.materiel) {
+          await depotSessions.majorer(session.id, { materiel: null }).catch(() => {});
+          session.materiel = null;
+        }
+      }
+      attendu = materielAttendu(classe, session);
       regles.bloquant = materiel.bloquant;
       regles.minutes = materiel.minutes;
       succes("Matériel demandé");
+      canalSession?.envoyer("materiel", {});
       notifications.diffuser(classe.id, {
         kind: "materiel", titre: "Matériel à apporter",
-        corps: [...supports.map((x) => x.title), ...fournitures].join(" · ") || "Rien de particulier.",
+        corps: attendu.enUneLigne() || "Rien de particulier.",
         lien: `/classe/${classe.id}/salle`
       }).catch(() => {});
       peindrePanneau();
@@ -2039,11 +2355,26 @@ export default async function vueSalle({ params }) {
         { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
         { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
         { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
-        { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` }
+        { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` },
+        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` }
       ],
       surChangement: async ({ table, type, nouveau }) => {
         switch (table) {
+          case "belonging_handoffs":
+            mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+            if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
+              toast(nouveau.direction === "request" ? "On vous demande un objet" : "On vous tend un objet", {
+                corps: "Ouvrez Mes affaires pour répondre.", type: "attn", duree: 9000
+              });
+            }
+            break;
           case "class_sessions":
+            // La consigne du jour peut changer en cours de séance.
+            if (nouveau && "materiel" in nouveau && nouveau.materiel !== session.materiel) {
+              session.materiel = nouveau.materiel;
+              attendu = materielAttendu(classe, session);
+              peindrePanneau();
+            }
             if (nouveau?.status === "ended") return surFinDeSession();
             if (nouveau?.mode && nouveau.mode !== session.mode) {
               session.mode = nouveau.mode;
@@ -2142,6 +2473,20 @@ export default async function vueSalle({ params }) {
           if (utilisateur === etat.utilisateur.id) toast("Vous avez la parole", { type: "ok" });
         },
         annonce: ({ titre }) => { if (!staff) toast("📢 Annonce", { corps: titre, type: "attn", duree: 9000 }); },
+        materiel: async () => {
+          // La consigne a changé pendant la séance : elle doit se voir sans
+          // recharger, sinon chacun prépare ses affaires d'après l'ancienne.
+          const frais = await depotSessions.lire(session.id).catch(() => null);
+          if (frais) session.materiel = frais.materiel;
+          attendu = materielAttendu(classe, session);
+          if (!staff) toast("Matériel demandé", { corps: attendu.enUneLigne(), type: "attn", duree: 9000 });
+          peindrePanneau();
+        },
+        objet: async () => {
+          mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
+          sacs = await depotCartable.liste(classe.id).catch(() => sacs);
+          peindrePanneau();
+        },
         fin: () => surFinDeSession()
       },
       presence: {
@@ -2250,7 +2595,7 @@ export default async function vueSalle({ params }) {
    * et s'il referme sans rien prendre, elle tombe, ce qui est juste.
    */
   const doitSEquiper = !staff && offre(session, "cartable")
-    && (attendu.supports.length || attendu.fournitures.length)
+    && !attendu.vide()
     && !affairesEquipees();
 
   if (doitSEquiper) {
