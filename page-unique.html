@@ -3,7 +3,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Caveat:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
 <style>
 /* ---- tokens.css ---- */
@@ -3099,6 +3099,804 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   border-style: dashed;
   font-style: italic;
 }
+
+/* ---- scene.css ---- */
+/* ===========================================================================
+   LA SCÈNE — ce que le personnage a devant lui
+   Le mur et le tableau au fond, l'estrade, le pupitre en perspective, les
+   affaires posées dessus avec leur ombre, le sac par terre. La lumière vient
+   d'en haut à gauche, comme dans les photographies des objets : c'est ce qui
+   fait qu'un stylo semble posé et non collé.
+   ========================================================================= */
+
+:root {
+  --bois-1: #3f2819;
+  --bois-2: #332013;
+  --bois-3: #26170d;
+  --bois-chant: #1c1109;
+  --mur-1: #1b221f;
+  --mur-2: #121714;
+  --ardoise-1: #1f2d27;
+  --ardoise-2: #16211c;
+  --f-main: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  --dock-h: 76px;
+}
+
+/* --- L'application disparaît : il ne reste que la scène ------------------ */
+.chassis--immersif {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "vue";
+}
+.chassis--immersif > .marque,
+.chassis--immersif > .barre,
+.chassis--immersif > .rail { display: none; }
+
+/* --- La salle selon la fenêtre ------------------------------------------- */
+.salle--immersif {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #0b0e0d;
+}
+.salle--immersif > .bandeau,
+.salle--immersif .bureau { display: none; }
+.salle--immersif > .salle__corps { display: none; }
+.salle--immersif > .scene { display: grid; }
+.salle:not(.salle--immersif) > .scene { display: none; }
+.salle--compact > .scene { display: none !important; }
+.salle { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.salle.salle--immersif { grid-template-rows: auto minmax(0, 1fr) auto; }
+.salle.salle--compact { grid-template-rows: auto auto; align-content: start; }
+
+/* ===========================================================================
+   Le décor
+   ========================================================================= */
+.scene {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(150px, 36%) minmax(0, 1fr);
+  isolation: isolate;
+  user-select: none;
+  background:
+    radial-gradient(120% 70% at 18% -10%, rgba(255, 226, 170, .10), transparent 55%),
+    linear-gradient(180deg, var(--mur-1) 0%, var(--mur-2) 34%, #0c0f0d 100%);
+}
+.scene__mur {
+  position: absolute; inset: 0 0 auto 0; height: 38%;
+  pointer-events: none; z-index: 0;
+  background:
+    /* lambris */
+    repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 1px, transparent 1px 120px),
+    linear-gradient(180deg, transparent 72%, rgba(0,0,0,.35) 72.5%, rgba(255,255,255,.03) 73%, transparent 74%),
+    radial-gradient(60% 90% at 50% 0%, rgba(255,240,200,.05), transparent 70%);
+}
+
+/* --- L'avant de la classe ------------------------------------------------ */
+.scene__avant {
+  position: relative; z-index: 1;
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: clamp(12px, 3vw, 48px);
+  padding: 14px 4% 0;
+  min-height: 0;
+}
+.scene__tableau {
+  position: relative;
+  flex: 0 1 min(54%, 620px);
+  aspect-ratio: 16 / 7.2;
+  max-height: 100%;
+  padding: 0; border: 0; background: none; cursor: zoom-in;
+  display: flex; flex-direction: column;
+  transition: transform .3s ease;
+}
+.scene__tableau:hover { transform: translateY(-2px); }
+.scene__tableau-cadre {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: 3px;
+  padding: 9px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.12), transparent 30%),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #6a4526, #4b2f18);
+  box-shadow:
+    0 18px 30px -12px rgba(0,0,0,.8),
+    0 2px 0 rgba(255,255,255,.08) inset,
+    0 0 0 1px rgba(0,0,0,.6);
+}
+.scene__ecran {
+  position: absolute; inset: 9px;
+  overflow: hidden; border-radius: 2px;
+  background:
+    radial-gradient(80% 90% at 30% 20%, rgba(255,255,255,.06), transparent 60%),
+    linear-gradient(180deg, var(--ardoise-1), var(--ardoise-2));
+  box-shadow: inset 0 0 40px rgba(0,0,0,.55);
+  pointer-events: none;
+}
+/* Le tableau vivant, en petit : sans ses outils, sans ses bordures. */
+.scene__ecran .tableau__barre,
+.scene__ecran .tableau__pages,
+.scene__ecran .curseurs { display: none !important; }
+.scene__ecran .tableau,
+.scene__ecran .tableau__scene { height: 100%; background: transparent; border: 0; padding: 0; }
+.scene__ecran .tableau__surface { height: 100%; }
+.scene__ecran canvas { width: 100%; height: 100%; object-fit: contain; }
+.scene__ecran > :not(.tableau) { transform-origin: top left; }
+.scene__ecran::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.05) 0 18%, transparent 30%);
+}
+.scene__rebord {
+  position: relative; height: 9px; margin: 0 3%;
+  background: linear-gradient(180deg, #5a3a20, #2e1d0f);
+  border-radius: 0 0 3px 3px;
+  box-shadow: 0 6px 10px -4px rgba(0,0,0,.7);
+}
+.scene__baton {
+  position: absolute; left: 14%; top: -3px; width: 26px; height: 6px; border-radius: 3px;
+  background: linear-gradient(180deg, #fbf8ee, #d9d3c3);
+  box-shadow: 0 2px 2px rgba(0,0,0,.4);
+}
+.scene__brosse {
+  position: absolute; right: 12%; top: -7px; width: 46px; height: 10px; border-radius: 2px;
+  background: linear-gradient(180deg, #7a5433 0 55%, #3b3b3b 55%);
+  box-shadow: 0 2px 3px rgba(0,0,0,.5);
+}
+.scene__legende {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  font-family: var(--f-main); font-size: clamp(14px, 1.5vw, 20px);
+  color: rgba(245, 242, 232, .72);
+  text-shadow: 0 0 6px rgba(255,255,255,.12);
+  white-space: nowrap; pointer-events: none;
+}
+
+/* --- L'estrade ----------------------------------------------------------- */
+.scene__estrade {
+  position: relative;
+  flex: 0 1 30%;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  min-width: 150px; max-height: 100%;
+}
+.estrade__prof {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding-bottom: 6px;
+}
+.estrade__lumiere {
+  position: absolute; bottom: -8px; left: 50%; width: 220px; height: 60px;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 220, 150, .22), transparent 70%);
+  transition: opacity .5s ease;
+}
+.estrade__prof--absent .estrade__lumiere { opacity: 0; }
+.estrade__vide {
+  width: 64px; height: 92px;
+  border: 1.5px dashed rgba(255,255,255,.16);
+  border-radius: 34px 34px 10px 10px;
+}
+.estrade__etat {
+  position: relative;
+  font-size: 12px; color: var(--texte-doux);
+  background: rgba(8,10,12,.62); backdrop-filter: blur(4px);
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.08);
+  white-space: nowrap;
+}
+.estrade__prof--present .estrade__etat { color: var(--texte); border-color: rgba(201,162,39,.4); }
+.estrade__prof--present .estrade__etat::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px;
+  border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); vertical-align: 1px;
+}
+
+/* Une silhouette : une tête (portrait ou initiales) et des épaules. */
+.silhouette { display: flex; flex-direction: column; align-items: center; }
+.silhouette__tete {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center; overflow: hidden;
+  font-family: var(--f-titre); font-weight: 600; font-size: 13px; color: var(--parch-200);
+  background: radial-gradient(circle at 35% 30%, #4a5561, #232a31);
+  border: 1.5px solid rgba(201,162,39,.55);
+  box-shadow: 0 4px 10px rgba(0,0,0,.5);
+  position: relative; z-index: 1;
+}
+.silhouette__tete img { width: 100%; height: 100%; object-fit: cover; }
+.silhouette__buste {
+  width: 62px; height: 34px; margin-top: -6px;
+  border-radius: 30px 30px 6px 6px;
+  background: linear-gradient(180deg, #2c3a2c, #1a241a);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 8px 14px -6px rgba(0,0,0,.7);
+}
+.silhouette--grand .silhouette__tete { width: 56px; height: 56px; font-size: 18px; }
+.silhouette--grand .silhouette__buste { width: 96px; height: 54px; margin-top: -9px; }
+
+.estrade__classe {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px;
+  max-height: calc(100% - 44px); overflow: hidden; padding: 4px;
+}
+.estrade__eleve {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: 0; padding: 2px; color: inherit; cursor: pointer;
+  transform: scale(.78); transform-origin: bottom center;
+}
+.estrade__eleve:hover .silhouette__tete { border-color: var(--laiton-clair); }
+.estrade__nom { font-size: 10px; color: var(--texte-doux); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.estrade__bascule {
+  margin-top: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  font: inherit; font-size: 12px; color: var(--texte-doux);
+  background: rgba(8,10,12,.65); border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer;
+}
+.estrade__bascule--present { color: var(--texte); border-color: rgba(111,156,106,.6); }
+.estrade__voyant { width: 8px; height: 8px; border-radius: 50%; background: #555; }
+.estrade__bascule--present .estrade__voyant { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+/* ===========================================================================
+   Le pupitre
+   ========================================================================= */
+.scene__pupitre {
+  position: relative; z-index: 2;
+  margin: 10px 5% 0;
+  min-height: 0;
+}
+/* Le plateau : un trapèze de bois, plus étroit au loin. */
+.pupitre__surface {
+  position: absolute; inset: 0 0 26px 0;
+  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+  background:
+    /* la lampe, en haut à gauche */
+    radial-gradient(90% 80% at 22% 8%, rgba(255, 214, 150, .16), transparent 60%),
+    /* l'ombre portée du mur, au fond */
+    linear-gradient(180deg, rgba(0,0,0,.45), transparent 16%),
+    /* le fil du bois */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='700' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.0025 0.09' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.75 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
+    repeating-linear-gradient(178deg, rgba(0,0,0,.10) 0 1px, transparent 1px 11px),
+    repeating-linear-gradient(181deg, rgba(255,230,190,.035) 0 1px, transparent 1px 37px),
+    linear-gradient(180deg, var(--bois-1) 0%, var(--bois-2) 55%, var(--bois-3) 100%);
+  background-size: auto, auto, 100% 100%, auto, auto, auto;
+  box-shadow: inset 0 1px 0 rgba(255,220,170,.12);
+}
+/* Le chant du plateau, face à soi : c'est lui qui donne l'épaisseur. */
+.pupitre__chant {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
+  background:
+    linear-gradient(180deg, rgba(255,210,160,.18) 0 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 13px),
+    linear-gradient(180deg, #3a2414, var(--bois-chant));
+  box-shadow: 0 22px 40px rgba(0,0,0,.75);
+  border-radius: 0 0 4px 4px;
+}
+.pupitre__objets {
+  position: absolute; inset: 2% 3% 30px 3%;
+}
+.pupitre__vide {
+  position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%);
+  font-family: var(--f-main); font-size: clamp(18px, 2vw, 26px);
+  color: rgba(240, 225, 200, .38); white-space: nowrap; pointer-events: none;
+}
+
+/* --- Un objet posé ------------------------------------------------------- */
+.pose {
+  position: absolute;
+  padding: 0; border: 0; background: none; color: inherit; cursor: grab;
+  transform: translate(-50%, -50%) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  transform-origin: center;
+  filter:
+    drop-shadow(1px 2px 1px rgba(0,0,0,.55))
+    drop-shadow(8px 12px 9px rgba(0,0,0,.5));
+  transition: transform .22s cubic-bezier(.3,.7,.3,1), filter .22s ease;
+  touch-action: none;
+}
+.pose__image { display: block; width: 100%; height: auto; pointer-events: none; }
+.pose:hover, .pose:focus-visible {
+  transform: translate(-50%, calc(-50% - 4px)) rotate(var(--r, 0deg)) scale(calc(var(--s, 1) * 1.02));
+  filter:
+    drop-shadow(1px 2px 1px rgba(0,0,0,.5))
+    drop-shadow(12px 18px 12px rgba(0,0,0,.45))
+    brightness(1.06);
+  outline: none;
+}
+.pose--souleve {
+  cursor: grabbing; transition: none;
+  transform: translate(-50%, calc(-50% - 14px)) rotate(calc(var(--r, 0deg) * .5)) scale(calc(var(--s, 1) * 1.07));
+  filter: drop-shadow(18px 30px 16px rgba(0,0,0,.45)) brightness(1.08);
+  z-index: 500 !important;
+}
+/* En main : soulevé, plus proche, l'ombre s'éloigne. */
+.pose--en-main {
+  transform: translate(-50%, calc(-50% - 18px)) rotate(calc(var(--r, 0deg) - 14deg)) scale(calc(var(--s, 1) * 1.1));
+  filter:
+    drop-shadow(0 0 1px rgba(226,194,92,.9))
+    drop-shadow(20px 34px 16px rgba(0,0,0,.42))
+    brightness(1.1);
+}
+.pose--en-main::after {
+  content: "En main"; position: absolute; left: 50%; top: 100%;
+  transform: translate(-50%, 6px) rotate(calc(var(--r, 0deg) * -1 + 14deg));
+  font-family: var(--f-main); font-size: 17px; color: var(--laiton-clair);
+  white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+}
+.pose--arrive { animation: pose-arrive .35s cubic-bezier(.3,1.5,.5,1); }
+@keyframes pose-arrive {
+  from { transform: translate(-50%, calc(-50% - 10px)) rotate(var(--r, 0deg)) scale(calc(var(--s, 1) * 1.06)); }
+}
+.pose__nom {
+  position: absolute; left: 50%; top: 100%;
+  transform: translate(-50%, 4px) rotate(calc(var(--r, 0deg) * -1));
+  font-family: var(--f-main); font-size: 16px; color: rgba(245,236,215,.9);
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  white-space: nowrap; opacity: 0; transition: opacity .15s ease; pointer-events: none;
+}
+.pose:hover .pose__nom, .pose:focus-visible .pose__nom { opacity: 1; }
+.pose--en-main .pose__nom { display: none; }
+/* L'étiquette du cahier ou du dossier : le titre, écrit à la main. */
+.pose__etiquette {
+  position: absolute; left: 26%; top: 23%; width: 50%; height: 22%;
+  display: grid; place-items: center; text-align: center; overflow: hidden;
+  font-family: var(--f-main); font-weight: 700; line-height: 1;
+  font-size: clamp(9px, 1.05vw, 15px); color: #2b2418;
+  pointer-events: none; padding: 2px;
+}
+.pose--dossier .pose__etiquette, .pose--chemise .pose__etiquette { left: 26%; top: 24%; width: 50%; }
+.pose--carnet .pose__etiquette { left: 22%; top: 20%; width: 56%; font-size: clamp(8px, .9vw, 12px); }
+/* Le petit geste de rangement, qui n'apparaît qu'au survol. */
+.pose__ranger {
+  position: absolute; right: -6px; top: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(10,12,14,.85); color: var(--texte-doux);
+  border: 1px solid rgba(255,255,255,.15);
+  opacity: 0; transform: rotate(calc(var(--r, 0deg) * -1)) scale(.8);
+  transition: opacity .15s ease, transform .15s ease; cursor: pointer;
+}
+.pose:hover .pose__ranger { opacity: 1; transform: rotate(calc(var(--r, 0deg) * -1)) scale(1); }
+.pose__ranger:hover { color: var(--laiton-clair); border-color: var(--laiton); }
+.pose--parti { opacity: 0 !important; }
+.pose__vol {
+  position: fixed; z-index: 9000; pointer-events: none;
+  filter: drop-shadow(14px 24px 14px rgba(0,0,0,.5));
+}
+
+/* ===========================================================================
+   Le sac, par terre
+   ========================================================================= */
+.scene__sac-zone {
+  position: absolute; z-index: 4;
+  left: max(4px, 1.5%); bottom: 4px;
+  width: clamp(120px, 15%, 190px);
+  display: flex; flex-direction: column; align-items: center;
+}
+.scene__sac-zone--cible .scene__sac-image { filter: drop-shadow(0 0 10px rgba(226,194,92,.7)) brightness(1.15); }
+.scene__sac {
+  position: relative; width: 100%;
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center;
+}
+.scene__sac-image {
+  width: 100%; height: auto; display: block;
+  filter: drop-shadow(2px 3px 2px rgba(0,0,0,.6)) drop-shadow(10px 16px 14px rgba(0,0,0,.55));
+  transition: transform .25s cubic-bezier(.3,1.3,.5,1), filter .2s ease;
+}
+.scene__sac:hover .scene__sac-image { transform: translateY(-3px) rotate(-1.5deg); }
+.scene__sac-mot {
+  margin-top: -4px;
+  font-family: var(--f-main); font-size: 18px; color: rgba(245,236,215,.8);
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+}
+.scene__sans-sac { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--texte-faible); text-align: center; }
+.scene__sans-sac-trace { width: 90px; height: 70px; border: 1.5px dashed rgba(255,255,255,.14); border-radius: 12px 12px 6px 6px; }
+
+/* L'intérieur du sac, vu d'en haut : un fond de cuir, des poches. */
+.sac__contenu {
+  position: absolute; left: 6px; bottom: calc(100% - 36px); z-index: 3;
+  width: min(600px, 72vw); max-height: min(58vh, 460px); overflow: auto;
+  padding: 16px 16px 12px;
+  border-radius: 22px 22px 12px 12px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' preserveAspectRatio='none'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.07  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
+    radial-gradient(120% 90% at 40% 0%, #6a4529, #3b2515 55%, #22150b 100%);
+  background-size: 100% 100%, auto;
+  box-shadow:
+    inset 0 14px 30px rgba(0,0,0,.65), inset 0 0 0 2px rgba(0,0,0,.4),
+    0 30px 60px rgba(0,0,0,.65), 0 0 0 1px rgba(255,210,160,.08);
+  outline: 1.5px dashed rgba(235,205,160,.28); outline-offset: -8px;
+  transform-origin: 20% 100%;
+  animation: sac-ouvre .32s cubic-bezier(.3,1.25,.5,1);
+  scrollbar-width: thin;
+}
+@keyframes sac-ouvre { from { transform: translateY(24px) scaleY(.4); opacity: 0; } }
+.sac__poche {
+  padding: 6px 8px 8px; border-radius: 12px;
+  background: rgba(0,0,0,.18);
+  box-shadow: inset 0 3px 10px rgba(0,0,0,.45), 0 1px 0 rgba(255,220,180,.06);
+}
+.sac__poche + .sac__poche { margin-top: 10px; }
+.sac__poche-nom {
+  display: block; margin: 0 0 2px 4px;
+  font-family: var(--f-main); font-size: 17px; color: rgba(242,222,190,.72);
+}
+.sac__poche-objets { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; }
+.sac__chose {
+  position: relative;
+  width: 86px; padding: 4px 2px 16px;
+  border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer;
+  transform: rotate(var(--a));
+  animation: sac-sort .34s cubic-bezier(.3,1.35,.5,1) both;
+  animation-delay: calc(var(--i) * 25ms);
+  filter: drop-shadow(3px 7px 5px rgba(0,0,0,.65));
+}
+.sac__chose img { width: 100%; height: 58px; object-fit: contain; display: block; transition: transform .18s ease; }
+.sac__chose:hover { filter: drop-shadow(0 0 7px rgba(226,194,92,.7)) drop-shadow(4px 10px 8px rgba(0,0,0,.55)); z-index: 2; }
+.sac__chose:hover img { transform: scale(1.12) translateY(-4px); }
+@keyframes sac-sort { from { transform: translateY(18px) scale(.6); opacity: 0; } }
+.sac__nom {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  max-width: 96px; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--f-main); font-size: 15px; line-height: 1; color: var(--parch-200); white-space: nowrap;
+  text-shadow: 0 1px 3px #000; pointer-events: none;
+}
+.sac__vide { margin: 20px; font-family: var(--f-main); font-size: 20px; color: var(--texte-doux); }
+
+/* Mode sac : le sac vient au premier plan, le contenu s'étale. */
+.scene[data-etat="sac"] .scene__sac-zone {
+  left: 50%; bottom: 3%; transform: translateX(-50%);
+  width: clamp(200px, 24%, 300px);
+}
+.scene[data-etat="sac"] .sac__contenu {
+  left: 50%; bottom: calc(100% - 30px); transform: translateX(-50%);
+  width: min(900px, 90vw); max-height: 60vh; transform-origin: 50% 100%;
+}
+.scene[data-etat="sac"] .sac__chose { width: 104px; }
+.scene[data-etat="sac"] .sac__chose img { height: 70px; }
+.scene[data-etat="sac"] .scene__pupitre,
+.scene[data-etat="sac"] .scene__avant { filter: brightness(.55) blur(1.5px); transition: filter .3s ease; }
+
+/* ===========================================================================
+   Le premier plan : cahier ouvert, document en grand
+   ========================================================================= */
+.scene__premier-plan { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.scene__livre, .scene__grand, .scene__rail, .scene__bulle { display: none; pointer-events: auto; }
+
+.scene[data-etat="cahier"] .scene__avant,
+.scene[data-etat="cahier"] .scene__pupitre,
+.scene[data-etat="document"] .scene__avant,
+.scene[data-etat="document"] .scene__pupitre {
+  filter: brightness(.42) blur(2px); transition: filter .35s ease;
+}
+.scene[data-etat="cahier"] .scene__sac-zone,
+.scene[data-etat="document"] .scene__sac-zone { opacity: .35; pointer-events: none; }
+
+/* Le cahier, ouvert à plat devant soi. */
+.scene[data-etat="cahier"] .scene__livre {
+  display: flex; flex-direction: column;
+  position: absolute; left: 50%; top: 2.5%; bottom: 2%;
+  width: min(1100px, calc(100% - 210px));
+  transform: translateX(calc(-50% - 50px));
+  animation: livre-ouvre .42s cubic-bezier(.25,.8,.3,1);
+}
+@keyframes livre-ouvre {
+  from { transform: translateX(calc(-50% - 50px)) translateY(40px) scale(.94); opacity: 0; }
+}
+.scene__livre-page {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  border-radius: 6px 6px 8px 8px;
+  padding: 10px 12px 14px;
+  /* la couverture qui dépasse sous les pages */
+  background: linear-gradient(180deg, #3b2c20, #2a1f16);
+  box-shadow:
+    0 2px 0 #1a120b,
+    0 5px 0 #4a3a2a, 0 7px 0 #d8ccb3, 0 9px 0 #c8bb9f, 0 11px 0 #2a1f16,
+    0 40px 60px -10px rgba(0,0,0,.85);
+}
+.scene__livre-page > * { flex: 1; min-height: 0; }
+.scene__livre-page .cahier { background: transparent; border: 0; box-shadow: none; }
+.scene__livre-page .parchemin {
+  box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.2);
+}
+.scene__fermer {
+  align-self: flex-end;
+  position: relative; z-index: 2;
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 12px -2px 0; padding: 6px 12px 8px;
+  font: inherit; font-size: 12px; color: var(--parch-100);
+  background: linear-gradient(180deg, #8a2f2a, #6d2420);
+  border: 0; border-radius: 4px 4px 0 0; cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,.5);
+}
+.scene__marque-page { width: 8px; height: 14px; background: var(--laiton); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+
+/* Le rail : ce qui est à portée de main pendant qu'on écrit. */
+.scene[data-etat="cahier"] .scene__rail {
+  display: flex; flex-direction: column; gap: 6px;
+  position: absolute; right: 12px; top: 8%; bottom: 8%;
+  width: 150px; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 6px;
+  border-radius: 10px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.22' numOctaves='4' seed='3'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
+    linear-gradient(180deg, var(--bois-1), var(--bois-3));
+  box-shadow: 0 20px 40px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,220,170,.12);
+}
+.rail__outil {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: 6px 4px 2px; border: 0; background: none; color: inherit; cursor: pointer;
+  border-radius: 8px;
+  transition: transform .2s cubic-bezier(.3,1.4,.5,1), background .2s;
+}
+.rail__outil img {
+  width: 100%; max-width: 120px; height: 58px; object-fit: contain;
+  filter: drop-shadow(3px 6px 5px rgba(0,0,0,.6));
+}
+.rail__outil:hover { transform: translateY(-2px); background: rgba(255,255,255,.04); }
+.rail__nom { font-family: var(--f-main); font-size: 16px; color: rgba(245,236,215,.85); }
+.rail__outil--en-main { background: rgba(201,162,39,.12); box-shadow: inset 0 0 0 1px rgba(201,162,39,.5); }
+.rail__outil--en-main img { transform: rotate(-12deg) translateY(-4px) scale(1.06); filter: drop-shadow(10px 18px 10px rgba(0,0,0,.5)); }
+.rail__outil--en-main .rail__nom { color: var(--laiton-clair); }
+.rail__outil--appel { animation: appel 1.4s ease-in-out infinite; }
+@keyframes appel {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(226,194,92,.2); }
+  50% { box-shadow: inset 0 0 0 2px rgba(226,194,92,.85), 0 0 18px rgba(226,194,92,.35); }
+}
+.rail__vide { font-family: var(--f-main); font-size: 16px; color: var(--texte-doux); text-align: center; padding: 10px; }
+.scene[data-etat="cahier"] .scene__bulle:not([hidden]) {
+  display: block;
+  position: absolute; right: 172px; top: 10%;
+  padding: 8px 14px; border-radius: 10px;
+  font-family: var(--f-main); font-size: 19px; color: #2b2418;
+  background: var(--parch-200);
+  box-shadow: 0 10px 24px rgba(0,0,0,.5);
+  animation: bulle .5s cubic-bezier(.3,1.5,.5,1);
+}
+.scene__bulle::after {
+  content: ""; position: absolute; right: -8px; top: 14px;
+  border: 8px solid transparent; border-right: 0; border-left-color: var(--parch-200);
+}
+@keyframes bulle { from { transform: translateX(12px) scale(.9); opacity: 0; } }
+
+/* Le document ou le tableau, en grand. */
+.scene[data-etat="document"] .scene__grand {
+  display: flex; flex-direction: column;
+  position: absolute; inset: 2% 3% 2%;
+  animation: livre-ouvre .35s cubic-bezier(.25,.8,.3,1);
+  transform: none;
+}
+.scene__grand .scene__fermer { background: linear-gradient(180deg, #2f3a33, #1f2823); }
+.scene__grand-page {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  border-radius: 6px; overflow: hidden;
+  background: var(--encre-900);
+  box-shadow: 0 0 0 10px #4b2f18, 0 0 0 11px rgba(0,0,0,.6), 0 40px 60px rgba(0,0,0,.8);
+}
+.scene__grand-page > * { flex: 1; min-height: 0; }
+
+/* ===========================================================================
+   Le dock : les gestes essentiels, toujours là, sous forme d'objets
+   ========================================================================= */
+.dock {
+  position: relative; z-index: 20;
+  display: flex; align-items: flex-end; gap: 4px;
+  padding: 6px 12px 6px;
+  min-height: var(--dock-h);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), transparent 40%),
+    linear-gradient(180deg, #161b19, #0d100f);
+  border-top: 1px solid rgba(201,162,39,.25);
+  box-shadow: 0 -12px 30px rgba(0,0,0,.45);
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.dock::-webkit-scrollbar { display: none; }
+.dock__groupe { display: flex; align-items: flex-end; gap: 2px; }
+.dock__sep { width: 1px; align-self: stretch; margin: 8px 8px; background: rgba(255,255,255,.08); }
+.dock__pousse { flex: 1; }
+.dock__chose {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  width: 70px; height: 64px; padding: 0 2px 2px;
+  border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer;
+  transition: background .15s ease;
+}
+.dock__chose img {
+  width: 54px; height: 40px; object-fit: contain;
+  filter: drop-shadow(2px 5px 4px rgba(0,0,0,.65));
+  transition: transform .2s cubic-bezier(.3,1.5,.5,1);
+}
+.dock__chose:hover img { transform: translateY(-4px) scale(1.08); }
+.dock__chose:hover { background: rgba(255,255,255,.035); }
+.dock__chose[aria-pressed="true"] { background: rgba(201,162,39,.1); box-shadow: inset 0 0 0 1px rgba(201,162,39,.4); }
+.dock__chose--manque img { filter: grayscale(1) brightness(.6) drop-shadow(2px 5px 4px rgba(0,0,0,.65)); }
+.dock__mot {
+  font-family: var(--f-main); font-size: 15px; line-height: 1; margin-top: 2px;
+  color: rgba(240,232,214,.82); white-space: nowrap;
+}
+.dock__pastille {
+  position: absolute; top: 4px; right: 10px;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; color: #1a1408;
+  background: var(--laiton-clair); box-shadow: 0 0 8px rgba(226,194,92,.6);
+}
+.dock__signe {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  color: var(--parch-200);
+}
+.dock__signe svg { width: 26px; height: 26px; }
+.dock__gens { display: flex; align-items: flex-end; gap: 0; }
+.dock__gens .estrade__eleve { transform: scale(.72); margin: 0 -8px; }
+.dock__statut {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 0 10px; min-width: 0; align-self: center;
+}
+.dock__statut b { font-family: var(--f-titre); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.dock__statut span { font-size: 11px; color: var(--texte-faible); white-space: nowrap; }
+.dock__prof { display: inline-flex; align-items: center; gap: 6px; }
+.dock__prof::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #555; }
+.dock__prof--present { color: var(--texte-doux) !important; }
+.dock__prof--present::before { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+.dock__fenetre {
+  display: flex; align-items: center; gap: 2px; align-self: center;
+  padding: 3px; border-radius: 10px; background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.dock__fenetre button {
+  width: 34px; height: 30px; border-radius: 7px; border: 0; background: none;
+  color: var(--texte-faible); cursor: pointer; display: grid; place-items: center;
+}
+.dock__fenetre button:hover { color: var(--texte); background: rgba(255,255,255,.05); }
+.dock__fenetre button[aria-pressed="true"] { color: var(--laiton-clair); background: rgba(201,162,39,.12); }
+
+/* Compact : une barre, rien d'autre. Pour une fenêtre posée sur le jeu. */
+.salle--compact .dock { min-height: 64px; }
+.salle--compact .dock__chose { width: 58px; }
+.salle--compact .dock__mot { font-size: 13px; }
+
+/* ===========================================================================
+   La note rapide : un petit papier, une plume, des visages
+   ========================================================================= */
+.note-rapide { display: grid; gap: 14px; }
+.note-rapide__papier {
+  position: relative;
+  padding: 18px 20px 16px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(80,110,160,.18) 25px 26px),
+    linear-gradient(180deg, #f6efdd, #ede2c8);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.1), 0 12px 24px rgba(0,0,0,.45);
+  transform: rotate(-.6deg);
+}
+.note-rapide__papier textarea {
+  width: 100%; min-height: 130px; resize: vertical;
+  border: 0; background: transparent; outline: none;
+  font-family: var(--f-main); font-size: 22px; line-height: 26px; color: #1f2a44;
+}
+.note-rapide__gens { display: flex; flex-wrap: wrap; gap: 4px; }
+.note-rapide__qui {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 4px 4px; border-radius: 10px; border: 1px solid transparent;
+  background: none; color: inherit; cursor: pointer; width: 78px;
+}
+.note-rapide__qui .silhouette { transform: scale(.8); margin-bottom: -6px; }
+.note-rapide__qui span:last-child { font-size: 11px; color: var(--texte-doux); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-rapide__qui[aria-pressed="true"] { border-color: var(--laiton); background: rgba(201,162,39,.1); }
+.note-rapide__qui[aria-pressed="true"] span:last-child { color: var(--texte); }
+.note-rapide__attestation { font-size: 12px; }
+
+/* --- Petits écrans ------------------------------------------------------- */
+@media (max-width: 760px) {
+  .scene { grid-template-rows: minmax(120px, 30%) minmax(0, 1fr); }
+  .scene__estrade { min-width: 110px; }
+  .scene[data-etat="cahier"] .scene__livre { width: calc(100% - 16px); transform: translateX(-50%); bottom: 118px; }
+  .scene[data-etat="cahier"] .scene__rail {
+    top: auto; bottom: 6px; left: 8px; right: 8px; width: auto; height: 104px;
+    flex-direction: row; overflow-x: auto;
+  }
+  .scene[data-etat="cahier"] .scene__bulle:not([hidden]) { right: auto; left: 12px; top: auto; bottom: 118px; }
+  .rail__outil { flex: 0 0 100px; }
+  .dock__chose { width: 58px; }
+  .dock__statut { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pose, .sac__chose, .scene__livre, .scene__grand { animation: none !important; transition: none !important; }
+}
+
+/* ===========================================================================
+   Le cahier ouvert : deux pages de papier, pas un panneau d'application
+   ========================================================================= */
+.scene__livre-page { color: #2b2418; }
+.scene__livre-page .mon-cahier { background: transparent; }
+.scene__livre-page .petit.faible,
+.scene__livre-page .faible { color: #6f6350; }
+.scene__livre-page .cahier {
+  background: #f3ebd9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+/* La page de gauche : la table des pages, près de la reliure. */
+.scene__livre-page .tranche {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.14) 27px 28px),
+    linear-gradient(90deg, #efe6d2 0%, #ebe1cb 82%, #d9ccb0 100%);
+  border-right: 0;
+  box-shadow: inset -22px 0 28px -20px rgba(60,40,20,.5);
+  color: #3a3226;
+}
+.scene__livre-page .tranche__entete,
+.scene__livre-page .tranche__pied { border-color: rgba(60,40,20,.14); }
+.scene__livre-page .tranche__titre { font-family: var(--f-main); font-size: 24px; font-weight: 700; color: #2b2418; }
+.scene__livre-page .onglet-page { color: #5a4f3e; font-family: var(--f-main); font-size: 18px; }
+.scene__livre-page .onglet-page:hover { background: rgba(60,40,20,.07); color: #2b2418; }
+.scene__livre-page .onglet-page[aria-current="true"] {
+  background: rgba(60,40,20,.09); border-color: rgba(60,40,20,.18); color: #1f1a12;
+}
+.scene__livre-page .onglet-page__num { color: #8a7c64; }
+/* La page de droite, où l'on écrit. */
+.scene__livre-page .feuillet {
+  background: linear-gradient(90deg, #d6c9ad 0%, #ece3cf 2.5%, #f4ecdb 9%, #f4ecdb 100%);
+  box-shadow: inset 22px 0 28px -20px rgba(60,40,20,.5);
+}
+.scene__livre-page .feuillet__barre {
+  background: transparent; border-bottom: 1px solid rgba(60,40,20,.14); color: #3a3226;
+}
+.scene__livre-page .feuillet__barre .btn,
+.scene__livre-page .mon-cahier .btn:not(.btn--primaire) {
+  color: #3a3226; background: rgba(255,255,255,.4); border-color: rgba(60,40,20,.22);
+}
+.scene__livre-page .feuillet__zone { background: transparent; padding-top: var(--e-3); }
+.scene__livre-page .parchemin { box-shadow: none; background: transparent; }
+.scene__livre-page .vide { color: #6b5f4b; border-color: rgba(60,40,20,.25); background: transparent; }
+.scene__livre-page .vide__titre { font-family: var(--f-main); font-size: 24px; color: #4a3f2f; }
+.scene__livre-page .marge { color: #3a3226; }
+.scene__livre-page .manque-outil,
+.scene__livre-page .encre-vide {
+  background: rgba(255,250,238,.9); color: #2b2418;
+  border: 1px solid rgba(160,110,40,.4);
+}
+.scene__livre-page .salle__scene { height: 100%; }
+.scene__livre-page .mon-cahier { height: 100%; }
+/* Le cahier prend toute la hauteur du livre ; la marge est la page d'en face. */
+.scene__livre-page .inspection--annotable {
+  flex: 1; min-height: 0; gap: 0;
+  grid-template-columns: minmax(0, 1fr) 240px;
+}
+.scene__livre-page .inspection--annotable > .cahier,
+.scene__livre-page .inspection--annotable > :first-child { min-height: 0; height: 100%; }
+.scene__livre-page .marge {
+  padding: var(--e-3);
+  background:
+    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.12) 27px 28px),
+    linear-gradient(90deg, #d9ccb0 0%, #ebe1cb 6%, #efe6d2 100%);
+  box-shadow: inset 20px 0 26px -20px rgba(60,40,20,.45);
+  overflow-y: auto;
+}
+.scene__livre-page .mon-cahier__gestes { padding: 0 0 8px; }
+
+/* ===========================================================================
+   Les objets, partout : des choses posées, pas des cartes
+   ========================================================================= */
+.cartable .objet,
+.sac-ouvert .sac-ouvert__objet,
+.bureau__objet {
+  background: none; border: 0; box-shadow: none;
+  border-radius: 10px;
+}
+.cartable .objet:hover,
+.sac-ouvert .sac-ouvert__objet:hover,
+.bureau__objet:hover { background: rgba(255,255,255,.035); }
+.cartable .objet__figure,
+.sac-ouvert .objet__figure,
+.bureau__objet .objet__figure {
+  width: 72px; height: 54px;
+  background-color: transparent !important; box-shadow: none; border-radius: 0;
+  filter: drop-shadow(3px 6px 5px rgba(0,0,0,.6));
+  transition: transform .2s cubic-bezier(.3,1.4,.5,1);
+}
+.cartable .objet:hover .objet__figure { transform: translateY(-3px) scale(1.06); }
+.cartable .objet__figure::before, .cartable .objet__figure::after { display: none; }
+.cartable .objet__nom { font-family: var(--f-main); font-size: 16px; font-weight: 700; }
+.cartable .objet__type { letter-spacing: .04em; }
+.cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 5px rgba(201,150,63,.7)) drop-shadow(3px 6px 5px rgba(0,0,0,.6)); }
+.bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--laiton); background: rgba(201,162,39,.1); }
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -6626,7 +7424,10 @@ function applyProp(node, key, value) {
     return;
   }
   if (key === "style" && typeof value === "object") {
-    Object.assign(node.style, value);
+    for (const [propriete, valeur] of Object.entries(value)) {
+      if (propriete.startsWith("--")) node.style.setProperty(propriete, valeur);
+      else node.style[propriete] = valeur;
+    }
     return;
   }
   if (key === "dataset") {
@@ -8600,7 +9401,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       el("span.objet__figure", {
         dataset: { objet: kind },
         "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(kind)}")` }
+        style: { backgroundImage: `url("${imageDetouree(kind)}")` }
       }),
       el("span.objet__nom", nom),
       el("span.objet__type", "\u{1F4CD} " + ou)
@@ -8627,7 +9428,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       el("span.objet__figure", {
         dataset: { objet: o.kind },
         "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(o.kind)}")` }
+        style: { backgroundImage: `url("${imageDetouree(o.kind)}")` }
       }),
       el("span.objet__nom", nomObjet(o)),
       el(
@@ -8652,7 +9453,7 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
       el("span.objet__figure", {
         dataset: { objet: c.support || "cahier" },
         "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` }
+        style: { backgroundImage: `url("${imageDetouree(c.support || "cahier")}")` }
       }),
       el("span.objet__nom", c.title),
       el("span.objet__type", NOMS_SUPPORT[c.support] || "Cahier"),
@@ -10846,6 +11647,9 @@ function zoneVue() {
 function modePleineVue(actif) {
   refs.vue?.classList.toggle("vue--pleine", Boolean(actif));
 }
+function modeImmersif(actif) {
+  refs.vue?.closest(".chassis")?.classList.toggle("chassis--immersif", Boolean(actif));
+}
 var refs;
 var init_chassis = __esm({
   "src/ui/chassis.js"() {
@@ -13029,7 +13833,7 @@ async function creerDossier(moiId) {
     return null;
   }
 }
-async function panneauDossiers({ moiId, connus = [] }) {
+async function panneauDossiers({ moiId, connus = [], ctx = contexte() }) {
   const zone = el("div.dossiers");
   async function peindre() {
     const objets = await affaires.toutes(moiId).catch(() => []);
@@ -13051,7 +13855,7 @@ async function panneauDossiers({ moiId, connus = [] }) {
         }, icone("plus", 13), " Nouveau dossier")
       ),
       dossiers2.length ? el("div.dossiers__liste", dossiers2.map((d) => {
-        const ou = dossierAPortee(d, objets, moiId);
+        const ou = dossierAPortee(d, objets, moiId, ctx);
         const n = contenus.filter((c) => String(c.dossier_id) === String(d.id)).length;
         return el(
           "button.dossier-carte",
@@ -16741,6 +17545,684 @@ var init_import_document = __esm({
   }
 });
 
+// src/features/scene-bureau.js
+function biais(id) {
+  let h = 0;
+  for (const c of String(id)) h = h * 31 + c.charCodeAt(0) | 0;
+  return Math.abs(h) % 1600 / 100 - 8;
+}
+function silhouetteDe(p, nom = "", grand = false) {
+  const profil = p?.profil || p || {};
+  const texte = nom || profil.display_name || "";
+  const initiales2 = texte.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]).join("").toUpperCase();
+  return el(
+    "span.silhouette",
+    { class: grand ? "silhouette--grand" : "" },
+    el(
+      "span.silhouette__tete",
+      profil.avatar_url ? el("img", { src: profil.avatar_url, alt: "" }) : initiales2
+    ),
+    el("span.silhouette__buste", { "aria-hidden": "true" })
+  );
+}
+function creerScene({
+  bureau,
+  classe,
+  session,
+  staff = false,
+  participants = () => [],
+  nomDe = () => "",
+  surTableau = null,
+  surCahier = null,
+  surDossier = null,
+  surNote = null,
+  surPersonne = null,
+  surEstrade = null
+}) {
+  let etatScene = "bureau";
+  let sacOuvert = false;
+  let estrade = session.estrade || {};
+  const ecranTableau = el("div.scene__ecran");
+  const livre = el("div.scene__livre-page");
+  const grand = el("div.scene__grand-page");
+  const zoneEstrade = el("div.scene__estrade");
+  const legendeTableau = el("span.scene__legende");
+  const objetsPupitre = el("div.pupitre__objets");
+  const zoneSac = el("div.scene__sac-zone");
+  const rail = el("div.scene__rail", { "aria-label": "\xC0 port\xE9e de main" });
+  const bulle = el("div.scene__bulle", { hidden: true });
+  const noeud = el(
+    "div.scene",
+    { dataset: { etat: etatScene } },
+    el("div.scene__mur", { "aria-hidden": "true" }),
+    el(
+      "div.scene__avant",
+      el(
+        "button.scene__tableau",
+        {
+          type: "button",
+          title: "Regarder le tableau",
+          onclick: () => surTableau?.()
+        },
+        el("span.scene__tableau-cadre", ecranTableau),
+        el(
+          "span.scene__rebord",
+          { "aria-hidden": "true" },
+          el("span.scene__baton"),
+          el("span.scene__brosse")
+        ),
+        legendeTableau
+      ),
+      zoneEstrade
+    ),
+    el(
+      "div.scene__pupitre",
+      el("div.pupitre__surface", { "aria-hidden": "true" }),
+      el("div.pupitre__chant", { "aria-hidden": "true" }),
+      objetsPupitre
+    ),
+    zoneSac,
+    el(
+      "div.scene__premier-plan",
+      el(
+        "div.scene__livre",
+        el("button.scene__fermer", {
+          type: "button",
+          title: "Fermer le cahier",
+          onclick: () => definirEtat("bureau")
+        }, el("span.scene__marque-page", { "aria-hidden": "true" }), "Fermer"),
+        livre
+      ),
+      el(
+        "div.scene__grand",
+        el("button.scene__fermer", {
+          type: "button",
+          title: "Revenir au bureau",
+          onclick: () => definirEtat("bureau")
+        }, icone("croix", 13), "Revenir au bureau"),
+        grand
+      ),
+      rail,
+      bulle
+    )
+  );
+  function kindDe(genre, chose) {
+    return genre === "cahier" ? chose.support || "cahier" : chose.kind;
+  }
+  function placeDe(genre, chose, rang) {
+    const garde = local.lire(clePose(chose.id), null);
+    if (garde && Number.isFinite(garde.x) && Number.isFinite(garde.y)) return garde;
+    const kind = kindDe(genre, chose);
+    const place = PLACES.find((p) => p.kinds.includes(kind)) || { x: 0.32 + rang % 4 * 0.12, y: 0.5, dx: 0, dy: 0.1 };
+    const n = rang;
+    return {
+      x: Math.min(0.93, Math.max(0.07, place.x + place.dx * n)),
+      y: Math.min(0.9, Math.max(0.1, place.y + place.dy * n))
+    };
+  }
+  function peindrePupitre() {
+    const tenu = bureau.enMain();
+    const devant = [
+      ...bureau.cahiersSurLeBureau().map((c) => ["cahier", c]),
+      ...bureau.surLeBureau().map((o) => ["objet", o])
+    ];
+    const rangs = /* @__PURE__ */ new Map();
+    render(objetsPupitre, devant.length ? devant.map(([genre, chose]) => {
+      const kind = kindDe(genre, chose);
+      const groupe = PLACES.find((p) => p.kinds.includes(kind))?.kinds.join() || kind;
+      const rang = rangs.get(groupe) || 0;
+      rangs.set(groupe, rang + 1);
+      return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
+    }) : el("p.pupitre__vide", sacOuvert ? "Prenez dans votre sac ce dont vous avez besoin." : "Votre bureau est vide. Ouvrez votre sac."));
+  }
+  function poseSurPupitre(genre, chose, { x, y }, tenu) {
+    const kind = kindDe(genre, chose);
+    const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
+    const profondeur = 0.82 + 0.3 * y;
+    const r = biais(chose.id);
+    const enMain = genre === "objet" && tenu?.id === chose.id;
+    const aEtiquette = ["cahier", "carnet", "dossier", "chemise"].includes(kind);
+    const noeudPose = el(
+      "button.pose",
+      {
+        type: "button",
+        class: [enMain ? "pose--en-main" : "", `pose--${kind}`].join(" "),
+        dataset: { id: String(chose.id), genre, kind },
+        style: {
+          left: `${x * 100}%`,
+          top: `${y * 100}%`,
+          width: `${(LARGEUR2[kind] || 0.11) * 100}%`,
+          "--r": `${r}deg`,
+          "--s": String(profondeur),
+          zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
+        },
+        title: actionEnMots(genre, chose, enMain),
+        "aria-label": `${nom} \u2014 ${actionEnMots(genre, chose, enMain)}`
+      },
+      el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false }),
+      aEtiquette ? el("span.pose__etiquette", nom) : null,
+      el("span.pose__nom", nom),
+      el("span.pose__ranger", {
+        role: "button",
+        title: "Remettre dans le sac",
+        "aria-label": `Remettre ${nom} dans le sac`,
+        onpointerdown: (e) => e.stopPropagation(),
+        onclick: (e) => {
+          e.stopPropagation();
+          remettre(genre, chose, noeudPose);
+        }
+      }, icone("sac", 11))
+    );
+    brancherGlisser(noeudPose, genre, chose);
+    return noeudPose;
+  }
+  function actionEnMots(genre, chose, enMain) {
+    if (genre === "cahier") return "Ouvrir";
+    const f = fiche(chose.kind) || {};
+    if (f.papiers) return "Ouvrir le dossier";
+    if (chose.kind === "feuilles" || chose.kind === "feuille") return "\xC9crire une note";
+    return enMain ? "Reposer" : "Prendre en main";
+  }
+  function geste(genre, chose) {
+    if (genre === "cahier") {
+      surCahier?.(chose);
+      return;
+    }
+    const f = fiche(chose.kind) || {};
+    if (f.papiers) {
+      surDossier?.(chose);
+      return;
+    }
+    if (chose.kind === "feuilles" || chose.kind === "feuille") {
+      surNote?.();
+      return;
+    }
+    bureau.prendre(bureau.enMain()?.id === chose.id ? null : chose);
+  }
+  function brancherGlisser(noeudPose, genre, chose) {
+    let depart = null;
+    let glisse = false;
+    noeudPose.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      depart = { x: e.clientX, y: e.clientY };
+      glisse = false;
+      noeudPose.setPointerCapture(e.pointerId);
+    });
+    noeudPose.addEventListener("pointermove", (e) => {
+      if (!depart) return;
+      if (!glisse && Math.hypot(e.clientX - depart.x, e.clientY - depart.y) < 6) return;
+      glisse = true;
+      noeudPose.classList.add("pose--souleve");
+      const cadre = objetsPupitre.getBoundingClientRect();
+      const x = Math.min(0.96, Math.max(0.04, (e.clientX - cadre.left) / cadre.width));
+      const y = Math.min(0.96, Math.max(0.04, (e.clientY - cadre.top) / cadre.height));
+      noeudPose.style.left = `${x * 100}%`;
+      noeudPose.style.top = `${y * 100}%`;
+      zoneSac.classList.toggle("scene__sac-zone--cible", surLeSac(e));
+    });
+    const finir = (e) => {
+      if (!depart) return;
+      const avaitGlisse = glisse;
+      depart = null;
+      glisse = false;
+      noeudPose.classList.remove("pose--souleve");
+      zoneSac.classList.remove("scene__sac-zone--cible");
+      if (!avaitGlisse) {
+        geste(genre, chose);
+        return;
+      }
+      if (surLeSac(e)) {
+        remettre(genre, chose, noeudPose);
+        return;
+      }
+      const cadre = objetsPupitre.getBoundingClientRect();
+      local.ecrire(clePose(chose.id), {
+        x: Math.min(0.96, Math.max(0.04, (e.clientX - cadre.left) / cadre.width)),
+        y: Math.min(0.96, Math.max(0.04, (e.clientY - cadre.top) / cadre.height))
+      });
+      peindrePupitre();
+    };
+    noeudPose.addEventListener("pointerup", finir);
+    noeudPose.addEventListener("pointercancel", () => {
+      depart = null;
+      glisse = false;
+      peindrePupitre();
+    });
+  }
+  function surLeSac(e) {
+    const r = zoneSac.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  }
+  function voler(image, de, vers, { finit = 1 } = {}) {
+    if (!de || !vers || matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
+    const fantome = el("img.pose__vol", { src: image, alt: "" });
+    Object.assign(fantome.style, {
+      left: `${de.left}px`,
+      top: `${de.top}px`,
+      width: `${de.width}px`,
+      height: `${de.height}px`
+    });
+    document.body.appendChild(fantome);
+    const dx = vers.left + vers.width / 2 - (de.left + de.width / 2);
+    const dy = vers.top + vers.height / 2 - (de.top + de.height / 2);
+    const k = vers.width / Math.max(1, de.width);
+    const anim = fantome.animate([
+      { transform: "translate(0,0) scale(1) rotate(0deg)", offset: 0 },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(${(1 + k) / 2 * 1.08}) rotate(-4deg)`, offset: 0.55 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${k * finit}) rotate(0deg)`, offset: 1 }
+    ], { duration: 520, easing: "cubic-bezier(.3,.7,.25,1)" });
+    return anim.finished.catch(() => {
+    }).then(() => fantome.remove());
+  }
+  async function sortirDuSac(genre, chose, depuis2) {
+    const de = depuis2?.getBoundingClientRect();
+    depuis2?.classList.add("pose--parti");
+    const ok = await bureau.sortir(chose, genre);
+    if (!ok) {
+      depuis2?.classList.remove("pose--parti");
+      return;
+    }
+    peindre();
+    const arrive = objetsPupitre.querySelector(`.pose[data-id="${CSS.escape(String(chose.id))}"]`);
+    if (arrive) {
+      arrive.style.visibility = "hidden";
+      await voler(imageDetouree(kindDe(genre, chose)), de, arrive.getBoundingClientRect());
+      arrive.style.visibility = "";
+      arrive.classList.add("pose--arrive");
+    }
+  }
+  async function remettre(genre, chose, depuis2) {
+    const de = depuis2?.getBoundingClientRect();
+    const sac = zoneSac.querySelector(".scene__sac-image")?.getBoundingClientRect();
+    if (depuis2) depuis2.style.visibility = "hidden";
+    const vol = voler(imageDetouree(kindDe(genre, chose)), de, sac, { finit: 0.35 });
+    const ok = await bureau.ranger(chose, genre);
+    await vol;
+    if (!ok && depuis2) depuis2.style.visibility = "";
+    local.ecrire(clePose(chose.id), null);
+    peindre();
+  }
+  function peindreSac() {
+    const sac = bureau.sacsPortes()[0];
+    zoneSac.classList.toggle("scene__sac-zone--ouvert", sacOuvert);
+    if (!sac) {
+      render(zoneSac, el(
+        "div.scene__sans-sac",
+        el("span.scene__sans-sac-trace", { "aria-hidden": "true" }),
+        el("span.petit", "Vous n'avez pas pris de sac.")
+      ));
+      return;
+    }
+    const ouvertImage = sac.kind === "cartable" ? "cartable-ouvert" : sac.kind;
+    const contenu = [
+      ...bureau.cahiersDansMonSac().map((c) => ["cahier", c]),
+      ...bureau.dansMonSac().map((o) => ["objet", o])
+    ];
+    const poches = /* @__PURE__ */ new Map();
+    for (const [genre, chose] of contenu) {
+      const cle = String(chose.container_id || sac.id);
+      if (!poches.has(cle)) poches.set(cle, []);
+      poches.get(cle).push([genre, chose]);
+    }
+    const nomPoche = (cle) => {
+      const c = bureau.objets().find((o) => String(o.id) === cle);
+      return c ? nomObjet(c) : "Sac";
+    };
+    const ordre = [...poches.keys()].sort((a, b) => a === String(sac.id) ? -1 : b === String(sac.id) ? 1 : 0);
+    render(
+      zoneSac,
+      sacOuvert ? el(
+        "div.sac__contenu",
+        { role: "list", "aria-label": "Dans mon sac" },
+        contenu.length ? ordre.map((cle) => el(
+          "div.sac__poche",
+          el("span.sac__poche-nom", nomPoche(cle)),
+          el("div.sac__poche-objets", poches.get(cle).map(([genre, chose], i) => {
+            const kind = kindDe(genre, chose);
+            const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
+            return el(
+              "button.sac__chose",
+              {
+                type: "button",
+                role: "listitem",
+                title: `Sortir ${nom}`,
+                "aria-label": `Sortir ${nom}`,
+                style: { "--a": `${biais(chose.id) / 2}deg`, "--i": String(i) },
+                onclick: (e) => sortirDuSac(genre, chose, e.currentTarget)
+              },
+              el("img", { src: imageDetouree(kind), alt: "", draggable: false }),
+              el("span.sac__nom", nom)
+            );
+          }))
+        )) : el("p.sac__vide", "Votre sac est vide.")
+      ) : null,
+      el(
+        "button.scene__sac",
+        {
+          type: "button",
+          title: sacOuvert ? "Refermer le sac" : "Ouvrir le sac",
+          "aria-expanded": String(sacOuvert),
+          onclick: () => {
+            sacOuvert = !sacOuvert;
+            if (etatScene === "sac" && !sacOuvert) definirEtat("bureau");
+            else peindre();
+          }
+        },
+        el("img.scene__sac-image", { src: imageDetouree(sacOuvert ? ouvertImage : sac.kind), alt: "", draggable: false }),
+        el("span.scene__sac-mot", sacOuvert ? "Refermer" : nomObjet(sac))
+      )
+    );
+  }
+  function peindreEstrade() {
+    const present = Boolean(estrade?.present);
+    if (staff) {
+      const eleves = participants().filter((p) => p.user_id !== etat.utilisateur.id);
+      render(
+        zoneEstrade,
+        el("div.estrade__classe", eleves.slice(0, 14).map((p) => el("button.estrade__eleve", {
+          type: "button",
+          title: nomDe(p),
+          onclick: (e) => surPersonne?.(e.currentTarget, p)
+        }, silhouette(p), el("span.estrade__nom", nomDe(p))))),
+        el(
+          "button.estrade__bascule",
+          {
+            type: "button",
+            class: present ? "estrade__bascule--present" : "",
+            onclick: () => surEstrade?.(!present)
+          },
+          el("span.estrade__voyant", { "aria-hidden": "true" }),
+          present ? "Je suis devant la classe" : "Je ne suis pas devant la classe"
+        )
+      );
+      return;
+    }
+    const prof = participants().find((p) => String(p.user_id) === String(estrade?.user_id));
+    render(
+      zoneEstrade,
+      el(
+        "div.estrade__prof",
+        { class: present ? "estrade__prof--present" : "estrade__prof--absent" },
+        el("span.estrade__lumiere", { "aria-hidden": "true" }),
+        present ? silhouette(prof || { profil: { display_name: estrade.nom } }, true) : el("span.estrade__vide", { "aria-hidden": "true" }),
+        el(
+          "span.estrade__etat",
+          present ? [el("b", estrade.nom || nomDe(prof) || "Le professeur"), " est devant vous"] : "Le professeur n'est pas \xE0 l'avant de la classe"
+        )
+      )
+    );
+  }
+  const silhouette = (p, grand2 = false) => silhouetteDe(p, nomDe(p), grand2);
+  function peindreRail2() {
+    if (etatScene !== "cahier") {
+      render(rail);
+      return;
+    }
+    const tenu = bureau.enMain();
+    const outils = bureau.surLeBureau().filter((o) => {
+      const f = fiche(o.kind) || {};
+      return !f.contenant && !f.papiers && !["feuilles", "feuille"].includes(o.kind);
+    });
+    render(rail, outils.length ? outils.map((o) => el(
+      "button.rail__outil",
+      {
+        type: "button",
+        class: tenu?.id === o.id ? "rail__outil--en-main" : "",
+        dataset: { id: String(o.id) },
+        title: tenu?.id === o.id ? `Reposer ${nomObjet(o).toLowerCase()}` : `Prendre ${nomObjet(o).toLowerCase()}`,
+        onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
+      },
+      el("img", { src: imageDetouree(o.kind), alt: "", draggable: false }),
+      el("span.rail__nom", tenu?.id === o.id ? "En main" : nomObjet(o))
+    )) : el("p.rail__vide", "Rien sur le bureau. Ouvrez votre sac."));
+    const verdict = bureau.peutFaire("ecrire");
+    if (!verdict.ok && verdict.prendre) {
+      bulle.hidden = false;
+      render(bulle, el("span", "Prenez ", el("b", nomObjet(verdict.prendre).toLowerCase()), " pour \xE9crire"));
+      rail.querySelector(`[data-id="${CSS.escape(String(verdict.prendre.id))}"]`)?.classList.add("rail__outil--appel");
+    } else {
+      bulle.hidden = true;
+    }
+  }
+  function definirEtat(nouvel) {
+    etatScene = nouvel;
+    if (nouvel === "sac") sacOuvert = true;
+    noeud.dataset.etat = nouvel;
+    peindre();
+    surChangementEtat?.(nouvel);
+  }
+  let surChangementEtat = null;
+  function peindre() {
+    noeud.dataset.etat = etatScene;
+    peindrePupitre();
+    peindreSac();
+    peindreEstrade();
+    peindreRail2();
+  }
+  return {
+    noeud,
+    ecranTableau,
+    livre,
+    grand,
+    peindre,
+    definirEtat,
+    etat: () => etatScene,
+    surChangementEtat: (fn) => {
+      surChangementEtat = fn;
+    },
+    ouvrirSac: () => {
+      sacOuvert = true;
+      peindre();
+    },
+    majEstrade(nouvelle) {
+      estrade = nouvelle || {};
+      peindreEstrade();
+    },
+    majLegende(texte) {
+      legendeTableau.textContent = texte || "";
+    },
+    signaler(message) {
+      toast(message, { type: "attn" });
+    }
+  };
+}
+var LARGEUR2, PLACES, clePose;
+var init_scene_bureau = __esm({
+  "src/features/scene-bureau.js"() {
+    init_dom();
+    init_icons();
+    init_util();
+    init_store();
+    init_toast();
+    init_affaires();
+    init_portee();
+    LARGEUR2 = {
+      cahier: 0.17,
+      carnet: 0.12,
+      feuille: 0.14,
+      feuilles: 0.16,
+      dossier: 0.17,
+      chemise: 0.17,
+      pochette: 0.16,
+      crayon: 0.19,
+      plume: 0.19,
+      "stylo-plume": 0.18,
+      gomme: 0.08,
+      regle: 0.25,
+      equerre: 0.15,
+      compas: 0.085,
+      rapporteur: 0.16,
+      "regle-a-calcul": 0.26,
+      boulier: 0.12,
+      encrier: 0.08,
+      encre: 0.055,
+      craie: 0.065,
+      buvard: 0.17,
+      trousse: 0.2,
+      "trousse-ouverte": 0.2,
+      registre: 0.17,
+      cachet: 0.06,
+      carte: 0.18,
+      boussole: 0.08,
+      lorgnette: 0.15,
+      lanterne: 0.1,
+      montre: 0.07,
+      gourde: 0.09
+    };
+    PLACES = [
+      { kinds: ["cahier", "carnet", "feuille"], x: 0.47, y: 0.56, dx: 0.07, dy: -0.03 },
+      { kinds: ["crayon", "plume", "stylo-plume"], x: 0.7, y: 0.6, dx: 0.015, dy: 0.08 },
+      { kinds: ["gomme", "buvard"], x: 0.83, y: 0.78, dx: -0.06, dy: -0.02 },
+      { kinds: ["regle", "equerre", "rapporteur", "compas"], x: 0.45, y: 0.17, dx: 0.15, dy: 0.02 },
+      { kinds: ["regle-a-calcul", "boulier"], x: 0.2, y: 0.72, dx: 0.04, dy: -0.12 },
+      { kinds: ["dossier", "chemise", "pochette", "registre"], x: 0.19, y: 0.33, dx: 0.05, dy: 0.04 },
+      { kinds: ["feuilles"], x: 0.72, y: 0.27, dx: 0.03, dy: 0.03 },
+      { kinds: ["encrier", "encre", "craie", "cachet"], x: 0.88, y: 0.35, dx: -0.02, dy: 0.14 }
+    ];
+    clePose = (id) => `ojm.pose.${id}`;
+  }
+});
+
+// src/features/note-rapide.js
+function deQuoiEcrireUneNote(bureau) {
+  const objets = bureau.objets();
+  const ctx = bureau.ctx;
+  const moiId = etat.utilisateur.id;
+  const outil = peutFaire("ecrire", objets, { moiId, ctx });
+  if (!outil.ok) return { ok: false, message: "Aucun outil d'\xE9criture disponible.", conseil: outil.conseil };
+  const index = indexer(objets);
+  const feuilles = objets.find((o) => ["feuilles", "feuille"].includes(o.kind) && Number(o.quantity ?? 1) > 0 && situer(o, { moiId, ctx, index }).ok);
+  if (!feuilles) {
+    const auSac = objets.find((o) => ["feuilles", "feuille"].includes(o.kind) && situer(o, { moiId, ctx, index }).lieu === "sac");
+    return {
+      ok: false,
+      message: "Pas de feuille sur votre bureau.",
+      conseil: auSac ? "Sortez vos feuilles de votre sac." : "Demandez une feuille \xE0 quelqu'un."
+    };
+  }
+  return { ok: true, outil: outil.avec, feuilles };
+}
+async function ecrireUneNote({ bureau, classe, session, gens = [], nomDe, silhouette, destinataire = null }) {
+  const moiId = etat.utilisateur.id;
+  const verdict = deQuoiEcrireUneNote(bureau);
+  if (!verdict.ok) {
+    toast(verdict.message, { corps: verdict.conseil, type: "attn", duree: 6e3 });
+    return false;
+  }
+  const autres = gens.filter((p) => p.user_id !== moiId);
+  if (!autres.length) {
+    toast("Personne \xE0 qui la tendre pour l'instant.");
+    return false;
+  }
+  let texte = "";
+  let qui = destinataire?.user_id || null;
+  let atteste = false;
+  let zoneTexte;
+  const choix = await ouvrirModale({
+    titre: "Une note",
+    corps: () => {
+      const boutons = autres.map((p) => el("button.note-rapide__qui", {
+        type: "button",
+        "aria-pressed": String(p.user_id === qui),
+        onclick: (e) => {
+          qui = p.user_id;
+          e.currentTarget.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === e.currentTarget)));
+        }
+      }, silhouette(p), el("span", nomDe(p))));
+      return el(
+        "div.note-rapide",
+        el(
+          "div.note-rapide__papier",
+          zoneTexte = el("textarea", {
+            placeholder: "\xC9crivez\u2026",
+            maxlength: "600",
+            oninput: (e) => {
+              texte = e.currentTarget.value;
+            }
+          })
+        ),
+        el("div.note-rapide__gens", boutons),
+        el(
+          "label.case.note-rapide__attestation",
+          el("input", { type: "checkbox", onchange: (e) => {
+            atteste = e.currentTarget.checked;
+          } }),
+          el("span", "Je la lui tends en main propre, en jeu.")
+        ),
+        el(
+          "p.petit.faible",
+          el("img", { src: imageDetouree(verdict.outil.kind), alt: "", style: { height: "18px", verticalAlign: "-4px" } }),
+          ` Avec ${nomObjet(verdict.outil).toLowerCase()}, sur une feuille de votre pile.`
+        )
+      );
+    },
+    actions: [
+      { libelle: "Garder", valeur: false },
+      {
+        libelle: "Tendre la note",
+        variante: "primaire",
+        action: () => {
+          if (!texte.trim()) {
+            zoneTexte?.focus();
+            return false;
+          }
+          if (!qui) {
+            toast("\xC0 qui ?", { corps: "Touchez la personne \xE0 qui vous la tendez." });
+            return false;
+          }
+          if (!atteste) {
+            toast("Tendez-la en jeu", { corps: "Cochez que vous la lui tendez vraiment.", type: "attn" });
+            return false;
+          }
+          return true;
+        }
+      }
+    ]
+  });
+  if (!choix) return false;
+  try {
+    const papier = await papiers.creer({
+      title: "Mot",
+      body: texte.trim(),
+      model: "note",
+      seal: null,
+      class_id: classe?.id || null,
+      author_id: moiId
+    });
+    await papiers.tendre({
+      paper_id: papier.id,
+      from_user: moiId,
+      to_user: qui,
+      class_id: classe?.id || null,
+      session_id: session?.id || null,
+      attested: true
+    });
+    const f = verdict.feuilles;
+    if (f.quantity != null) {
+      await affaires.majorer(f.id, { quantity: Math.max(0, Number(f.quantity) - 1) }).catch(() => null);
+      f.quantity = Math.max(0, Number(f.quantity) - 1);
+    }
+    const p = autres.find((x) => x.user_id === qui);
+    succes(`Note tendue \xE0 ${nomDe(p)}`);
+    return true;
+  } catch (err) {
+    erreur("La note n'est pas partie", messageErreur(err));
+    return false;
+  }
+}
+var init_note_rapide = __esm({
+  "src/features/note-rapide.js"() {
+    init_dom();
+    init_modal();
+    init_toast();
+    init_store();
+    init_data();
+    init_affaires();
+    init_portee();
+    init_affaires();
+  }
+});
+
 // src/features/bureau.js
 function creerBureau({ classe, session, surChange = null }) {
   const moi = etat.utilisateur.id;
@@ -16748,6 +18230,18 @@ function creerBureau({ classe, session, surChange = null }) {
   let objets = [];
   let supports = [];
   const noeud = el("div.bureau", { role: "region", "aria-label": "Mon bureau" });
+  const cleMain = `ojm.enmain.${session?.id || "maison"}`;
+  let enMainId = local.lire(cleMain, null);
+  const enMain = () => {
+    const o = enMainId ? objets.find((x) => String(x.id) === String(enMainId)) : null;
+    return o && surLeBureau().some((x) => x.id === o.id) ? o : null;
+  };
+  function prendre(objet) {
+    enMainId = objet ? String(objet.id) : null;
+    local.ecrire(cleMain, enMainId);
+    peindre();
+    surChange?.();
+  }
   async function charger2() {
     [objets, supports] = await Promise.all([
       affaires.toutes(moi).catch(() => objets),
@@ -16785,6 +18279,10 @@ function creerBureau({ classe, session, surChange = null }) {
   }
   async function ranger(chose, genre) {
     const cible = ouRanger(chose);
+    if (String(enMainId) === String(chose.id)) {
+      enMainId = null;
+      local.ecrire(cleMain, null);
+    }
     if (!cible) {
       toast("Plus de place dans votre sac", {
         corps: "Rangez autre chose, ou gardez-le en main.",
@@ -16808,6 +18306,8 @@ function creerBureau({ classe, session, surChange = null }) {
     for (const c of cahiersSurLeBureau()) await ranger(c, "cahier");
   }
   async function laisserTout() {
+    enMainId = null;
+    local.ecrire(cleMain, null);
     const restes = [...surLeBureau().map((o) => ["objet", o]), ...cahiersSurLeBureau().map((c) => ["cahier", c])];
     for (const [genre, chose] of restes) {
       try {
@@ -16844,7 +18344,7 @@ function creerBureau({ classe, session, surChange = null }) {
         },
         el("span.objet__figure", {
           "aria-hidden": "true",
-          style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
+          style: { backgroundImage: `url("${imageDetouree(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
         }),
         el("span.sac-ouvert__nom", genre === "cahier" ? c.title : nomObjet(c)),
         el("span.sac-ouvert__type", genre === "cahier" ? NOMS_SUPPORT4[c.support] || "Cahier" : nomType(c.kind))
@@ -16885,12 +18385,13 @@ function creerBureau({ classe, session, surChange = null }) {
         "button.bureau__objet",
         {
           type: "button",
-          title: `Ranger ${genre === "cahier" ? c.title : nomObjet(c)} dans le sac`,
-          onclick: () => ranger(c, genre)
+          class: enMain()?.id === c.id ? "bureau__objet--en-main" : "",
+          title: genre === "objet" && OUTILS_REQUIS.ecrire.includes(c.kind) ? enMain()?.id === c.id ? "Le reposer" : "Le prendre en main" : `Ranger ${genre === "cahier" ? c.title : nomObjet(c)} dans le sac`,
+          onclick: () => genre === "objet" && OUTILS_REQUIS.ecrire.includes(c.kind) ? prendre(enMain()?.id === c.id ? null : c) : ranger(c, genre)
         },
         el("span.objet__figure", {
           "aria-hidden": "true",
-          style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
+          style: { backgroundImage: `url("${imageDetouree(genre === "cahier" ? c.support || "cahier" : c.kind)}")` }
         }),
         el("span.bureau__nom", genre === "cahier" ? c.title : nomObjet(c))
       )) : el("span.petit.faible.bureau__vide", "Votre bureau est vide. Ouvrez votre sac pour sortir vos affaires.")),
@@ -16901,17 +18402,44 @@ function creerBureau({ classe, session, surChange = null }) {
       }, icone("sac", 13), "Tout ranger") : null
     );
   }
+  function peutFaireIci(action) {
+    const base = peutFaire(action, objets, { moiId: moi, ctx });
+    if (action !== "ecrire" || !ctx.seance) return base;
+    if (!base.ok) {
+      return /encr/i.test(base.message || "") ? base : { ...base, message: "Aucun outil d'\xE9criture disponible." };
+    }
+    const tenu = enMain();
+    const outils = OUTILS_REQUIS.ecrire;
+    if (tenu && outils.includes(tenu.kind)) {
+      const seul = objets.filter((o) => !outils.includes(o.kind) || o.id === tenu.id);
+      return peutFaire("ecrire", seul, { moiId: moi, ctx });
+    }
+    return {
+      ok: false,
+      prendre: base.avec,
+      message: "Vous n'avez rien en main pour \xE9crire.",
+      conseil: `Prenez ${nomObjet(base.avec).toLowerCase()} sur votre bureau.`
+    };
+  }
   const api = {
     noeud,
     charger: charger2,
     ouvrirSac,
     rangerTout,
     laisserTout,
+    sortir,
+    ranger,
+    prendre,
+    enMain,
+    surLeBureau,
+    dansMonSac,
+    cahiersDansMonSac,
+    sacsPortes,
     objets: () => objets,
     supports: () => supports,
     cahiersSurLeBureau,
     ctx,
-    peutFaire: (action) => peutFaire(action, objets, { moiId: moi, ctx })
+    peutFaire: peutFaireIci
   };
   return api;
 }
@@ -16926,6 +18454,7 @@ var init_bureau = __esm({
     init_toast();
     init_affaires();
     init_portee();
+    init_util();
     NOMS_SUPPORT4 = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
   }
 });
@@ -17572,6 +19101,8 @@ async function vueSalle({ params }) {
     session,
     surChange: async () => {
       mesAffaires = bureau.objets();
+      decor?.peindre();
+      peindreDock();
       if (scene === "moncahier") await peindreMonCahier();
       if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
     }
@@ -17590,15 +19121,47 @@ async function vueSalle({ params }) {
   const zonePanneau = el("div.salle__panneau-corps");
   const ongletsPanneau = el("div.salle__panneau-onglets", { role: "tablist" });
   const bandeau = el("div.bandeau");
+  const dock = el("nav.dock", { "aria-label": "Mes gestes" });
+  const corps = el(
+    "div.salle__corps",
+    zoneScene,
+    el("aside.salle__panneau", ongletsPanneau, zonePanneau)
+  );
+  const nomPersonne = (p) => {
+    const n = nomAffiche(fichesRP.get(p?.user_id), p?.profil || p);
+    return n && n !== "\u2014" ? n : "Participant";
+  };
+  let notesRecues = [];
+  let fenetre2 = local.lire("ojm.fenetre", "bureau");
+  if (!["compact", "bureau", "etendu"].includes(fenetre2)) fenetre2 = "bureau";
+  const decor = creerScene({
+    bureau,
+    classe,
+    session,
+    staff,
+    participants: () => participants,
+    nomDe: nomPersonne,
+    surTableau: () => appliquerFenetre("document"),
+    surCahier: (c) => {
+      cahierOuvertId = c.id;
+      appliquerFenetre("cahier");
+    },
+    surDossier: () => ouvrirMesDossiers(),
+    surNote: () => noteRapide(),
+    surPersonne: (ancre, p) => menuPersonne(ancre, p),
+    surEstrade: (present) => basculerEstrade(present)
+  });
+  decor.surChangementEtat((etatDecor) => {
+    const voulue = etatDecor === "bureau" && fenetre2 === "compact" ? "compact" : etatDecor;
+    if (voulue !== fenetre2) appliquerFenetre(voulue);
+  });
   const noeud = el(
     "div.salle",
     bandeau,
     el("div", zonePrivation, bureau.noeud),
-    el(
-      "div.salle__corps",
-      zoneScene,
-      el("aside.salle__panneau", ongletsPanneau, zonePanneau)
-    )
+    corps,
+    decor.noeud,
+    dock
   );
   function peindreBandeau() {
     const presentsCount = participants.length;
@@ -17714,6 +19277,7 @@ async function vueSalle({ params }) {
   async function peindreScene() {
     editeurCommun?.detruire();
     editeurCommun = null;
+    decor.majLegende(contexteCourant() || "");
     if (scene === "tableau") return peindreTableau();
     if (scene === "moncahier") return peindreMonCahier();
     if (scene === "cahier") return peindreCahierCommun();
@@ -17808,7 +19372,7 @@ async function vueSalle({ params }) {
       render(zoneScene, blocVide(
         "Aucun cahier sur votre bureau",
         "On n'\xE9crit que dans ce qu'on a devant soi. Ouvrez votre sac et sortez-en un cahier ; s'il n'y est pas, c'est qu'il est rest\xE9 ailleurs.",
-        { libelle: "Ouvrir mon sac", action: () => bureau.ouvrirSac() }
+        { libelle: "Ouvrir mon sac", action: () => appliquerFenetre("sac") }
       ));
       return;
     }
@@ -17910,8 +19474,13 @@ async function vueSalle({ params }) {
             el("p.petit.faible", ecriture.conseil || "")
           ),
           el("span.pousse"),
-          el("button.btn", { onclick: () => bureau.ouvrirSac() }, icone("sac", 14), "Ouvrir mon sac"),
-          el(
+          ecriture.prendre ? el(
+            "button.btn.btn--primaire",
+            { onclick: () => bureau.prendre(ecriture.prendre) },
+            el("img", { src: imageDetouree(ecriture.prendre.kind), alt: "", style: { height: "18px" } }),
+            ` Prendre ${nomObjet(ecriture.prendre).toLowerCase()}`
+          ) : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
+          ecriture.prendre ? null : el(
             "button.btn.btn--fantome",
             { onclick: () => demanderUnObjet() },
             icone("main", 14),
@@ -19217,10 +20786,10 @@ async function vueSalle({ params }) {
       if (!sortie) return;
       cible = mesCahiers.find((c) => c.id === sortie.cahier);
     }
-    const corps = texte.split("\n").map((l) => `<p>${l.replace(/[<>&]/g, "")}</p>`).join("");
+    const corps2 = texte.split("\n").map((l) => `<p>${l.replace(/[<>&]/g, "")}</p>`).join("");
     await pages.creer(cible.id, {
       title: `${session.title} \u2014 ${classe.name}`,
-      body: corps,
+      body: corps2,
       created_by: etat.utilisateur.id
     });
     succes("Notes vers\xE9es", `Ajout\xE9es \xE0 \xAB ${cible.title} \xBB.`);
@@ -19427,7 +20996,7 @@ async function vueSalle({ params }) {
   async function appliquerFocus(focus) {
     if (!focus?.kind) return;
     session.focus = focus;
-    if (staff || !suit) return;
+    if (staff || !suit || fenetre2 === "cahier") return;
     if (focus.kind === "tableau") {
       scene = "tableau";
       indexPage = focus.page ?? 0;
@@ -19895,10 +21464,23 @@ async function vueSalle({ params }) {
         { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
         { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
         { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` },
-        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` }
+        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` },
+        { table: "paper_handoffs", filtre: `to_user=eq.${etat.utilisateur.id}` }
       ],
       surChangement: async ({ table: table2, type, nouveau }) => {
         switch (table2) {
+          case "paper_handoffs":
+            await rafraichirNotes();
+            if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
+              const recue = notesRecues.find((r) => r.id === nouveau.id);
+              toast(recue?.papier?.model === "note" || !recue ? "\u{1F4C4} Une note vous a \xE9t\xE9 remise." : "\u{1F4C4} On vous remet un papier.", {
+                corps: recue ? `De ${nomPersonne({ user_id: recue.from_user, profil: recue.auteur })}` : "",
+                type: "attn",
+                duree: 9e3,
+                action: { libelle: "La lire", action: () => lireNote(recue) }
+              });
+            }
+            break;
           case "belonging_handoffs":
             mesAffaires = await affaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
             if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
@@ -19916,6 +21498,18 @@ async function vueSalle({ params }) {
               peindrePanneau();
             }
             if (nouveau?.status === "ended") return surFinDeSession();
+            if (nouveau && "estrade" in nouveau && JSON.stringify(nouveau.estrade || {}) !== JSON.stringify(session.estrade || {})) {
+              const avant = Boolean(session.estrade?.present);
+              session.estrade = nouveau.estrade || {};
+              decor.majEstrade(session.estrade);
+              peindreDock();
+              if (!staff && avant !== Boolean(session.estrade.present)) {
+                toast(
+                  session.estrade.present ? "Le professeur est devant la classe" : "Le professeur a quitt\xE9 l'avant de la classe",
+                  { type: "info", duree: 3500 }
+                );
+              }
+            }
             if (nouveau?.mode && nouveau.mode !== session.mode) {
               session.mode = nouveau.mode;
               modeSeance = mode(session);
@@ -20061,6 +21655,8 @@ async function vueSalle({ params }) {
           for (const p of liste) if (p?.user_id) uniques.set(p.user_id, p);
           participants = [...uniques.values()].sort((a, b) => (a.role === "teacher" ? -1 : 1) - (b.role === "teacher" ? -1 : 1) || String(a.nom).localeCompare(String(b.nom)));
           peindreBandeau();
+          decor.peindre();
+          peindreDock();
           if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
         }
       }
@@ -20109,6 +21705,271 @@ async function vueSalle({ params }) {
       titre: classe.name
     };
   }
+  async function appliquerFenetre(m) {
+    fenetre2 = m;
+    if (["compact", "bureau", "etendu"].includes(m)) local.ecrire("ojm.fenetre", m);
+    noeud.classList.toggle("salle--immersif", m !== "etendu");
+    noeud.classList.toggle("salle--compact", m === "compact");
+    modeImmersif(m !== "etendu");
+    const cible = m === "etendu" ? corps : m === "cahier" ? decor.livre : m === "document" ? decor.grand : decor.ecranTableau;
+    if (zoneScene.parentElement !== cible) cible.prepend(zoneScene);
+    let change = false;
+    if (m === "cahier" && scene !== "moncahier") {
+      scene = "moncahier";
+      change = true;
+    } else if (m !== "cahier" && m !== "etendu" && scene === "moncahier") {
+      scene = "tableau";
+      change = true;
+    }
+    const etatDecor = ["sac", "cahier", "document"].includes(m) ? m : "bureau";
+    if (decor.etat() !== etatDecor) decor.definirEtat(etatDecor);
+    else decor.peindre();
+    if (change) {
+      if (scene !== "moncahier" && !staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
+      else await peindreScene();
+    }
+    peindreDock();
+    peindreBandeau();
+  }
+  function ouvrirMonCahier() {
+    const pose = bureau.cahiersSurLeBureau()[0];
+    if (pose) {
+      cahierOuvertId = cahierOuvertId || pose.id;
+      appliquerFenetre("cahier");
+      return;
+    }
+    toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
+    appliquerFenetre("sac");
+  }
+  function prendreOutilEcriture(outil) {
+    if (!outil) {
+      const verdict = bureau.peutFaire("ecrire");
+      toast("Aucun outil d'\xE9criture disponible.", { corps: verdict.conseil || "", type: "attn", duree: 6e3 });
+      if (bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind))) appliquerFenetre("sac");
+      return;
+    }
+    bureau.prendre(bureau.enMain()?.id === outil.id ? null : outil);
+  }
+  async function noteRapide(destinataire = null) {
+    const ok = await ecrireUneNote({
+      bureau,
+      classe,
+      session,
+      gens: participants,
+      destinataire,
+      nomDe: nomPersonne,
+      silhouette: (p) => silhouetteDe(p, nomPersonne(p))
+    });
+    if (ok) {
+      await bureau.charger();
+      decor.peindre();
+      peindreDock();
+    }
+  }
+  async function rafraichirNotes() {
+    const toutes = await papiers.recus(etat.utilisateur.id).catch(() => []);
+    notesRecues = toutes.filter((r) => r.state === "offered");
+    peindreDock();
+  }
+  async function lireNote(remise = null) {
+    const r = remise || notesRecues[0];
+    if (!r) {
+      toast("Aucune note en attente.");
+      return;
+    }
+    await recevoirPapier(r, { classe, fiche: fichesRP.get(r.from_user) });
+    await rafraichirNotes();
+  }
+  async function ouvrirMesDossiers() {
+    const moi = etat.utilisateur.id;
+    const connus = [
+      ...await papiers.mesPapiers(moi).catch(() => []),
+      ...(await papiers.recus(moi).catch(() => [])).filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)
+    ];
+    const zone = await panneauDossiers({ moiId: moi, connus, ctx: bureau.ctx });
+    await ouvrirModale({
+      titre: "Mes dossiers",
+      large: true,
+      corps: () => zone,
+      actions: [{ libelle: "Refermer", valeur: true }]
+    });
+  }
+  async function basculerEstrade(present) {
+    const estrade = { present, user_id: etat.utilisateur.id, nom: monNom(), at: (/* @__PURE__ */ new Date()).toISOString() };
+    try {
+      await sessions.majorer(session.id, { estrade });
+      session.estrade = estrade;
+      decor.majEstrade(estrade);
+      peindreDock();
+    } catch (err) {
+      erreur("Impossible", messageErreur(err));
+    }
+  }
+  function menuPersonne(ancre, p) {
+    if (staff) {
+      menuParticipant(ancre, p, listeRenvois.some((r) => r.user_id === p.user_id));
+      return;
+    }
+    menu(ancre, [
+      { titre: nomPersonne(p) },
+      { libelle: "Lui passer une note", icone: "papier", action: () => noteRapide(p) },
+      offre(session, "papiers") ? { libelle: "Lui tendre un document", icone: "documents", action: () => remettreUnPapier(p) } : null,
+      { libelle: "Lui tendre un cahier", icone: "cahier", action: () => tendreCahier(p) },
+      { libelle: "Lui tendre un objet", icone: "sac", action: () => tendreUnObjet(p) },
+      { libelle: "Lui demander un objet", icone: "main", action: () => demanderUnObjet(p) }
+    ].filter(Boolean));
+  }
+  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null }) {
+    return el(
+      "button.dock__chose",
+      {
+        type: "button",
+        title: titre || mot,
+        "aria-label": titre || mot,
+        "aria-pressed": String(Boolean(actif)),
+        class: manque ? "dock__chose--manque" : "",
+        onclick: (e) => action(e.currentTarget)
+      },
+      signe ? el("span.dock__signe", signe) : el("img", { src: imageDetouree(image), alt: "", draggable: false }),
+      el("span.dock__mot", mot),
+      pastille ? el("span.dock__pastille", String(pastille)) : null
+    );
+  }
+  function peindreDock() {
+    if (!dock) return;
+    const tenu = bureau.enMain();
+    const outils = bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
+    const outil = tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind) ? tenu : outils[0] || null;
+    const cahierPose = bureau.cahiersSurLeBureau()[0];
+    const sac = bureau.sacsPortes()[0];
+    const present = Boolean(session.estrade?.present);
+    const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
+    render(
+      dock,
+      el(
+        "div.dock__statut",
+        el("b", session.title),
+        staff ? el("span", `${classe.name} \xB7 ${pluriel(autres.length, "pr\xE9sent", "pr\xE9sents")}`) : el(
+          "span.dock__prof",
+          { class: present ? "dock__prof--present" : "" },
+          present ? "Professeur devant vous" : "Professeur absent de l'avant"
+        )
+      ),
+      el("span.dock__sep"),
+      el(
+        "div.dock__groupe",
+        chose({
+          image: sac?.kind || "cartable",
+          mot: "Sac",
+          actif: fenetre2 === "sac",
+          manque: !sac,
+          titre: fenetre2 === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
+          action: () => appliquerFenetre(fenetre2 === "sac" ? "bureau" : "sac")
+        }),
+        chose({
+          image: cahierPose?.support || "cahier",
+          mot: "Cahier",
+          actif: fenetre2 === "cahier",
+          manque: !cahierPose,
+          titre: fenetre2 === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
+          action: () => fenetre2 === "cahier" ? appliquerFenetre("bureau") : ouvrirMonCahier()
+        }),
+        chose({
+          image: outil?.kind || "crayon",
+          mot: tenu && outil?.id === tenu.id ? "En main" : "Stylo",
+          actif: Boolean(tenu && outil?.id === tenu.id),
+          manque: !outil,
+          titre: !outil ? "Aucun outil d'\xE9criture sur le bureau" : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
+          action: () => prendreOutilEcriture(outil)
+        }),
+        chose({ image: "feuille", mot: "Note", titre: "\xC9crire une note \xE0 quelqu'un", action: () => noteRapide() }),
+        chose({
+          image: "pochette",
+          mot: "Re\xE7us",
+          pastille: notesRecues.length,
+          manque: !notesRecues.length,
+          titre: notesRecues.length ? "Lire ce qu'on m'a remis" : "Rien ne vous a \xE9t\xE9 remis",
+          action: () => lireNote()
+        }),
+        offre(session, "papiers") ? chose({
+          image: "feuilles",
+          mot: "Document",
+          titre: "R\xE9diger et tendre un document",
+          action: () => remettreUnPapier()
+        }) : null,
+        chose({ image: "dossier", mot: "Dossiers", titre: "Mes dossiers", action: () => ouvrirMesDossiers() }),
+        chose({
+          signe: icone("tableau", 26),
+          mot: "Tableau",
+          actif: fenetre2 === "document",
+          titre: fenetre2 === "document" ? "Revenir au bureau" : "Regarder le tableau",
+          action: () => appliquerFenetre(fenetre2 === "document" ? "bureau" : "document")
+        })
+      ),
+      !staff && contributeur ? el("span.dock__sep") : null,
+      !staff && contributeur ? el(
+        "div.dock__groupe",
+        chose({
+          signe: icone("main", 26),
+          mot: maMainLevee() ? "Baisser" : "Main",
+          actif: Boolean(maMainLevee()),
+          titre: maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander,
+          action: () => basculerMain()
+        }),
+        (session.mode || "cours") === "cours" ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() }) : null
+      ) : null,
+      autres.length ? el("span.dock__sep") : null,
+      autres.length ? el("div.dock__gens", autres.slice(0, 7).map((p) => el("button.estrade__eleve", {
+        type: "button",
+        title: nomPersonne(p),
+        onclick: (e) => menuPersonne(e.currentTarget, p)
+      }, silhouetteDe(p, nomPersonne(p)), el("span.estrade__nom", nomPersonne(p))))) : null,
+      el("span.dock__pousse"),
+      staff ? el(
+        "div.dock__groupe",
+        chose({
+          signe: icone("reglages", 24),
+          mot: "Outils",
+          titre: "Outils du professeur",
+          action: (b) => menuProfesseur(b)
+        }),
+        chose({ signe: icone("stop", 24), mot: "Terminer", titre: "Terminer la s\xE9ance", action: () => terminerSession() })
+      ) : null,
+      el(
+        "div.dock__fenetre",
+        { role: "group", "aria-label": "Fen\xEAtre" },
+        el("button", {
+          type: "button",
+          title: "Compacte : juste les gestes",
+          "aria-pressed": String(fenetre2 === "compact"),
+          onclick: () => appliquerFenetre("compact")
+        }, icone("moins", 15)),
+        el("button", {
+          type: "button",
+          title: "Le bureau",
+          "aria-pressed": String(["bureau", "sac", "cahier", "document"].includes(fenetre2)),
+          onclick: () => appliquerFenetre("bureau")
+        }, icone("sac", 15)),
+        el("button", {
+          type: "button",
+          title: "\xC9tendue : tout le d\xE9tail",
+          "aria-pressed": String(fenetre2 === "etendu"),
+          onclick: () => appliquerFenetre("etendu")
+        }, icone("grille", 15)),
+        flottantDisponible() ? el("button", {
+          type: "button",
+          title: estFlottant() ? "Revenir dans le navigateur" : "D\xE9tacher au-dessus du jeu",
+          "aria-pressed": String(estFlottant()),
+          onclick: () => basculerFenetreFlottante()
+        }, icone(estFlottant() ? "entree" : "sortie", 15)) : null,
+        el(
+          "button",
+          { type: "button", title: "Quitter la salle", onclick: () => aller(`/classe/${classe.id}`) },
+          icone("croix", 15)
+        )
+      )
+    );
+  }
   function surFinDeSession() {
     if (staff) return;
     bureau.laisserTout();
@@ -20141,6 +22002,7 @@ async function vueSalle({ params }) {
   if (staff) await assurerMaterielProfesseur(etat.utilisateur.id).catch(() => false);
   await bureau.charger();
   mesAffaires = bureau.objets();
+  await rafraichirNotes();
   if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
   releverCahiersTendus();
@@ -20148,6 +22010,7 @@ async function vueSalle({ params }) {
   peindreBandeau();
   peindrePrivation();
   peindrePanneau();
+  await appliquerFenetre(fenetre2);
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
   tictac = setInterval(() => {
@@ -20178,6 +22041,7 @@ async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} \u2014 ${classe.name}`,
     nettoyer: () => {
+      modeImmersif(false);
       bureau.laisserTout();
       clearInterval(tictac);
       canalSession?.fermer();
@@ -20206,6 +22070,11 @@ var init_salle = __esm({
     init_import_document();
     init_editeur_cahier();
     init_chassis();
+    init_scene_bureau();
+    init_note_rapide();
+    init_dossiers();
+    init_fenetre_flottante();
+    init_portee();
     init_fragments();
     init_modal();
     init_toast();
@@ -20228,6 +22097,7 @@ var init_salle = __esm({
     init_tendre_cahier();
     init_data();
     init_papier();
+    init_data();
     init_editeur_cahier();
     COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
   }

@@ -273,3 +273,11 @@ export function zoneVue() { return refs.vue; }
 export function modePleineVue(actif) {
   refs.vue?.classList.toggle("vue--pleine", Boolean(actif));
 }
+
+/**
+ * Le mode immersif : plus de rail ni de barre d'application. Il ne reste que
+ * ce que le personnage a devant lui — c'est une interface de jeu, pas un site.
+ */
+export function modeImmersif(actif) {
+  refs.vue?.closest(".chassis")?.classList.toggle("chassis--immersif", Boolean(actif));
+}

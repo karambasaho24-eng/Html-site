@@ -232,6 +232,18 @@ Posséder ne suffit pas : il faut avoir l'objet **devant soi**.
 - **Professeur** : reçoit une fois une sacoche avec craie, crayon, gomme, feuilles et un dossier de professeur — pas « tous les objets ».
 - **Dossiers** : onglet *Dossiers* de la sacoche. Un dossier est un objet nommé par le joueur ; on y classe des papiers ; oublié, il n'est plus accessible, ni son contenu.
 
+### 4.4 ter La scène : le bureau devant soi (la salle, depuis le 27 septembre)
+
+La salle ne s'ouvre plus sur une interface de site mais sur **ce que le personnage a devant lui** (`src/features/scene-bureau.js`, `styles/scene.css`) :
+
+- au fond, le **tableau** (le vrai tableau de la séance, vivant, en petit — un clic l'agrandit) et l'**estrade** : le professeur déclare « Je suis devant la classe » d'un geste, les élèves le voient aussitôt (colonne `class_sessions.estrade`, migration 0020) ;
+- le **pupitre** en perspective, les affaires posées dessus en photo détourée, avec ombre et biais ; on les déplace à la main (la place est retenue), on les renvoie au sac en les glissant dessus ;
+- le **sac** par terre : fermé, puis ouvert sur son intérieur (une poche par contenant) ; un clic sur un objet le fait voler jusqu'au bureau ;
+- le **cahier** s'ouvre en livre sur le bureau ; un rail « à portée de main » montre les outils posés. **On écrit seulement avec un outil EN MAIN** : sinon « Aucun outil d'écriture disponible » ou « Prenez votre crayon ».
+- le **dock** en bas : sac, cahier, stylo, note, reçus, document, dossiers, tableau, main levée, personnes — des objets, pas des menus.
+- **note rapide** (`src/features/note-rapide.js`) : écrire → toucher la personne → tendre. Il faut un outil et une feuille sur le bureau ; la feuille quitte la pile. Le destinataire voit « 📄 Une note vous a été remise. »
+- **fenêtres** : compacte (le dock seul), bureau, cahier, sac, document, étendue (l'ancienne interface complète). Le bouton « détacher » pose la fenêtre au-dessus de Roblox (Document Picture-in-Picture, Chrome/Edge).
+
 ### 4.5 Les objets qui circulent
 
 **Le principe, partout le même : un objet n'est jamais à deux endroits.**

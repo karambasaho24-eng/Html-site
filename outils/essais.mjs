@@ -617,6 +617,105 @@ try {
   verifier("un dossier oublie n'est plus accessible", dossier.ok === false && dossier.lieu === "salle",
     JSON.stringify(dossier));
 
+  /* =======================================================================
+     14. La scene : le bureau devant soi
+     ===================================================================== */
+  journal.push("\n14. La scene");
+  const CAPT = process.env.CAPTURES || "/tmp";
+  const seanceC = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours de geographie", "cours")).id;`);
+  await depot(cadet, `
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    const cartable = mien.find((o) => o.kind === "cartable");
+    const trousse = mien.find((o) => o.kind === "trousse");
+    await d.affaires.porter(cartable.id, true);
+    await d.affaires.rangerDans(trousse, cartable.id);
+    for (const o of mien.filter((x) => x.owner_id === moi && ["crayon", "gomme", "regle"].includes(x.kind) && (x.place || "range") === "range")) {
+      await d.affaires.rangerDans(o, trousse.id).catch(() => null);
+    }
+    await d.cahiers.creer({ owner_id: moi, kind: "personal", title: "Geographie", container_id: cartable.id });
+    await d.cartable.enregistrer("${classeId}", moi, { notebooks: {}, supplies: {}, session: "${seanceC}" });
+    return true;
+  `);
+  await cadet.setViewportSize({ width: 1440, height: 900 });
+  await cadet.goto(`${RACINE}#/classe/${classeId}/salle`);
+  await cadet.waitForTimeout(3200);
+  for (let i = 0; i < 3 && await cadet.locator(".voile").count(); i++) {
+    await cadet.keyboard.press("Escape"); await cadet.waitForTimeout(400);
+  }
+  // La consigne de materiel de la classe prive le cadet : le maitre la leve,
+  // ce n'est pas ce qu'on essaie ici.
+  await depot(maitre, `
+    const liste = await d.privations.liste("${seanceC}");
+    for (const p of liste) await d.privations.trancher(p.id, true, etat.utilisateur.id).catch(() => null);
+    return true;
+  `);
+  await cadet.reload();
+  await cadet.waitForTimeout(3000);
+  for (let i = 0; i < 3 && await cadet.locator(".voile").count(); i++) {
+    await cadet.keyboard.press("Escape"); await cadet.waitForTimeout(400);
+  }
+  verifier("la salle s'ouvre sur le bureau", await cadet.locator(".scene").isVisible());
+  verifier("les gestes essentiels sont dans le dock", await cadet.locator(".dock .dock__chose").count() >= 6);
+  await cadet.screenshot({ path: `${CAPT}/scene-1-bureau-vide.png` });
+
+  await cadet.click(".scene__sac");
+  await cadet.waitForTimeout(700);
+  verifier("le sac s'ouvre et montre ce qu'il contient", await cadet.locator(".sac__chose").count() >= 2);
+  await cadet.screenshot({ path: `${CAPT}/scene-2-sac-ouvert.png` });
+
+  await cadet.click('.sac__chose[aria-label="Sortir Geographie"]');
+  await cadet.waitForTimeout(900);
+  await cadet.click('.sac__chose[aria-label^="Sortir Crayon"]');
+  await cadet.waitForTimeout(900);
+  await cadet.click('.sac__chose[aria-label^="Sortir Gomme"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  await cadet.click('.sac__chose[aria-label^="Sortir Règle"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  await cadet.click('.sac__chose[aria-label^="Sortir Feuilles"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  verifier("sortis du sac, le cahier et le crayon sont sur le bureau",
+    await cadet.locator('.pose[data-genre="cahier"]').count() === 1
+    && await cadet.locator('.pose[data-kind="crayon"]').count() >= 1);
+  await cadet.click(".scene__sac");
+  await cadet.waitForTimeout(500);
+  await cadet.screenshot({ path: `${CAPT}/scene-3-bureau-garni.png` });
+
+  await cadet.click('.pose[data-genre="cahier"]');
+  await cadet.waitForTimeout(1400);
+  verifier("le cahier s'ouvre sur le bureau", await cadet.locator('.scene[data-etat="cahier"]').count() === 1);
+  verifier("sans stylo en main, on n'ecrit pas", await cadet.locator(".manque-outil").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-4-cahier-sans-stylo.png` });
+  await cadet.click('.rail__outil:has-text("Crayon")');
+  await cadet.waitForTimeout(1200);
+  verifier("le crayon en main, on ecrit", await cadet.locator(".manque-outil").count() === 0);
+  await cadet.screenshot({ path: `${CAPT}/scene-5-cahier-crayon-en-main.png` });
+
+  await maitre.setViewportSize({ width: 1440, height: 900 });
+  await maitre.goto(`${RACINE}#/classe/${classeId}/salle`);
+  await maitre.reload();
+  await maitre.waitForTimeout(3000);
+  await maitre.click(".estrade__bascule");
+  await maitre.waitForTimeout(900);
+  await maitre.screenshot({ path: `${CAPT}/scene-6-professeur.png` });
+  await cadet.click(".scene__livre .scene__fermer");
+  await cadet.waitForTimeout(1500);
+  verifier("l'eleve voit le professeur devant la classe",
+    await cadet.locator(".estrade__prof--present").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-7-professeur-present.png` });
+
+  await cadet.click('.dock__chose[aria-label="Écrire une note à quelqu\'un"]');
+  await cadet.waitForTimeout(700);
+  verifier("la note rapide s'ouvre en un geste", await cadet.locator(".note-rapide").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-8-note.png` });
+  await cadet.keyboard.press("Escape");
+  await cadet.waitForTimeout(400);
+
+  await depot(maitre, `return d.sessions.terminer("${seanceC}");`);
+  await cadet.waitForTimeout(1500);
+  await cadet.setViewportSize({ width: 1280, height: 800 });
+  await maitre.setViewportSize({ width: 1280, height: 800 });
+
   await cadet.goto(`${RACINE}#/affaires`);
   await cadet.waitForTimeout(1500);
   verifier("mes affaires montrent ce qui est reste en salle",

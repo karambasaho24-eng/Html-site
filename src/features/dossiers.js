@@ -49,7 +49,7 @@ export async function creerDossier(moiId) {
  * Le panneau des dossiers : chacun, où il est, et ce qu'il contient.
  * `connus` : les papiers déjà chargés (les miens, ceux qu'on m'a remis).
  */
-export async function panneauDossiers({ moiId, connus = [] }) {
+export async function panneauDossiers({ moiId, connus = [], ctx = contexte() }) {
   const zone = el("div.dossiers");
 
   async function peindre() {
@@ -69,7 +69,7 @@ export async function panneauDossiers({ moiId, connus = [] }) {
 
       dossiers.length
         ? el("div.dossiers__liste", dossiers.map((d) => {
-            const ou = dossierAPortee(d, objets, moiId);
+            const ou = dossierAPortee(d, objets, moiId, ctx);
             const n = contenus.filter((c) => String(c.dossier_id) === String(d.id)).length;
             return el("button.dossier-carte", {
               type: "button", class: ou.ok ? "" : "dossier-carte--hors",

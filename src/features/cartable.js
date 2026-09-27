@@ -28,7 +28,7 @@ import { ouvrirModale, menu } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 import {
   CATALOGUE, DOTATION, DOTATION_PROFESSEUR, KITS_SUGGERES, fiche, nomObjet, nomType,
-  imageObjet, indexer, surMoi, indisponible, niveauEnMots, etatObjet, vitrine
+  imageObjet, imageDetouree, indexer, surMoi, indisponible, niveauEnMots, etatObjet, vitrine
 } from "./affaires.js";
 import { materielAttendu, ecart } from "./materiel.js";
 
@@ -496,7 +496,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       title: `${nom} n'est pas chez vous. Il faut aller le reprendre là où il est.`
     },
       el("span.objet__figure", { dataset: { objet: kind }, "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(kind)}")` } }),
+        style: { backgroundImage: `url("${imageDetouree(kind)}")` } }),
       el("span.objet__nom", nom),
       el("span.objet__type", "📍 " + ou));
   }
@@ -518,7 +518,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       oncontextmenu: (e) => { e.preventDefault(); menuObjet(e.currentTarget, o); }
     },
       el("span.objet__figure", { dataset: { objet: o.kind }, "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(o.kind)}")` } }),
+        style: { backgroundImage: `url("${imageDetouree(o.kind)}")` } }),
       el("span.objet__nom", nomObjet(o)),
       el("span.objet__type",
         f.nombre && o.quantity != null ? `${o.quantity} unités`
@@ -544,7 +544,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       onclick: () => basculerSupport(c)
     },
       el("span.objet__figure", { dataset: { objet: c.support || "cahier" }, "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` } }),
+        style: { backgroundImage: `url("${imageDetouree(c.support || "cahier")}")` } }),
       el("span.objet__nom", c.title),
       el("span.objet__type", NOMS_SUPPORT[c.support] || "Cahier"),
       demande ? el("span.objet__demande", "demandé") : null

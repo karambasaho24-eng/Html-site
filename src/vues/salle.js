@@ -25,7 +25,12 @@ import { encadre, peutDessiner, peutContribuer, estObservateur } from "../core/p
 import { creerTableau, OUTILS, TEINTES, EPAISSEURS } from "../features/tableau.js";
 import { compterPagesPdf, pdfEnImages } from "../features/import-document.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
-import { modePleineVue } from "../ui/chassis.js";
+import { modePleineVue, modeImmersif } from "../ui/chassis.js";
+import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
+import { ecrireUneNote } from "../features/note-rapide.js";
+import { panneauDossiers } from "../features/dossiers.js";
+import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
+import { OUTILS_REQUIS } from "../features/portee.js";
 import { avatar, blocVide, pastillePresence } from "../ui/fragments.js";
 import { confirmer, demander, formulaire, menu, ouvrirModale } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
@@ -37,7 +42,7 @@ import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
 import { preparerAffaires, ligneMateriel, assurerMaterielProfesseur } from "../features/cartable.js";
 import { materielAttendu, consigneAEnregistrer, typeDepuisTexte, NIVEAUX, ecart, idsDuSac }
   from "../features/materiel.js";
-import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES }
+import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES, imageDetouree }
   from "../features/affaires.js";
 import { tendreObjet, demanderObjet, confisquerObjet } from "../features/transfert.js";
 import { creerBureau } from "../features/bureau.js";
@@ -51,7 +56,8 @@ import { creerMarge } from "../features/annotation.js";
 import { porterUneNote } from "../features/bulletin.js";
 import { tendreSonCahier, accueillirRemiseCahier } from "../features/tendre-cahier.js";
 import { remisesCahier } from "../data/index.js";
-import { composerPapier, tendrePapier } from "../features/papier.js";
+import { composerPapier, tendrePapier, recevoirPapier } from "../features/papier.js";
+import { papiers as depotPapiers } from "../data/index.js";
 import { creerEditeurCahier as ouvrirCahierInspecte } from "../features/editeur-cahier.js";
 
 const COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
@@ -119,6 +125,8 @@ export default async function vueSalle({ params }) {
     classe, session,
     surChange: async () => {
       mesAffaires = bureau.objets();
+      decor?.peindre();
+      peindreDock();
       if (scene === "moncahier") await peindreMonCahier();
       if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
     }
@@ -143,12 +151,45 @@ export default async function vueSalle({ params }) {
   const zonePanneau = el("div.salle__panneau-corps");
   const ongletsPanneau = el("div.salle__panneau-onglets", { role: "tablist" });
   const bandeau = el("div.bandeau");
+  const dock = el("nav.dock", { "aria-label": "Mes gestes" });
+  const corps = el("div.salle__corps", zoneScene,
+    el("aside.salle__panneau", ongletsPanneau, zonePanneau));
+
+  /* --- La scène : ce que le personnage a devant lui ----------------------------
+     Le bureau vu depuis sa chaise, le tableau et l'estrade au fond, le sac par
+     terre. C'est l'écran principal ; l'interface « étendue » d'avant reste
+     accessible d'un geste pour ce qui demande de la place. */
+  // Les lignes de présence portent le nom retenu sous `nom` ; nomAffiche le sait.
+  const nomPersonne = (p) => {
+    const n = nomAffiche(fichesRP.get(p?.user_id), p?.profil || p);
+    return n && n !== "—" ? n : "Participant";
+  };
+  let notesRecues = [];
+  let fenetre = local.lire("ojm.fenetre", "bureau");
+  if (!["compact", "bureau", "etendu"].includes(fenetre)) fenetre = "bureau";
+
+  const decor = creerScene({
+    bureau, classe, session, staff,
+    participants: () => participants,
+    nomDe: nomPersonne,
+    surTableau: () => appliquerFenetre("document"),
+    surCahier: (c) => { cahierOuvertId = c.id; appliquerFenetre("cahier"); },
+    surDossier: () => ouvrirMesDossiers(),
+    surNote: () => noteRapide(),
+    surPersonne: (ancre, p) => menuPersonne(ancre, p),
+    surEstrade: (present) => basculerEstrade(present)
+  });
+  decor.surChangementEtat((etatDecor) => {
+    const voulue = etatDecor === "bureau" && fenetre === "compact" ? "compact" : etatDecor;
+    if (voulue !== fenetre) appliquerFenetre(voulue);
+  });
 
   const noeud = el("div.salle",
     bandeau,
     el("div", zonePrivation, bureau.noeud),
-    el("div.salle__corps", zoneScene,
-      el("aside.salle__panneau", ongletsPanneau, zonePanneau))
+    corps,
+    decor.noeud,
+    dock
   );
 
   /* --- Bandeau --------------------------------------------------------------- */
@@ -254,6 +295,7 @@ export default async function vueSalle({ params }) {
   async function peindreScene() {
     editeurCommun?.detruire();
     editeurCommun = null;
+    decor.majLegende(contexteCourant() || "");
 
     if (scene === "tableau") return peindreTableau();
     if (scene === "moncahier") return peindreMonCahier();
@@ -382,7 +424,7 @@ export default async function vueSalle({ params }) {
         "Aucun cahier sur votre bureau",
         "On n'écrit que dans ce qu'on a devant soi. Ouvrez votre sac et sortez-en un cahier ; "
           + "s'il n'y est pas, c'est qu'il est resté ailleurs.",
-        { libelle: "Ouvrir mon sac", action: () => bureau.ouvrirSac() }
+        { libelle: "Ouvrir mon sac", action: () => appliquerFenetre("sac") }
       ));
       return;
     }
@@ -482,8 +524,12 @@ export default async function vueSalle({ params }) {
                 el("strong", ecriture.message),
                 el("p.petit.faible", ecriture.conseil || "")),
               el("span.pousse"),
-              el("button.btn", { onclick: () => bureau.ouvrirSac() }, icone("sac", 14), "Ouvrir mon sac"),
-              el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
+              ecriture.prendre
+                ? el("button.btn.btn--primaire", { onclick: () => bureau.prendre(ecriture.prendre) },
+                    el("img", { src: imageDetouree(ecriture.prendre.kind), alt: "", style: { height: "18px" } }),
+                    ` Prendre ${nomObjet(ecriture.prendre).toLowerCase()}`)
+                : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
+              ecriture.prendre ? null : el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
                 icone("main", 14), "Emprunter"))
           : null,
         // Une plume à sec : on le dit là où on s'en aperçoit, avec le geste
@@ -1958,7 +2004,9 @@ export default async function vueSalle({ params }) {
   async function appliquerFocus(focus) {
     if (!focus?.kind) return;
     session.focus = focus;
-    if (staff || !suit) return;
+    // On écrit dans son cahier : le tableau change au fond, on ne nous
+    // l'arrache pas des mains.
+    if (staff || !suit || fenetre === "cahier") return;
 
     if (focus.kind === "tableau") {
       scene = "tableau";
@@ -2397,10 +2445,22 @@ export default async function vueSalle({ params }) {
         { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
         { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
         { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` },
-        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` }
+        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` },
+        { table: "paper_handoffs", filtre: `to_user=eq.${etat.utilisateur.id}` }
       ],
       surChangement: async ({ table, type, nouveau }) => {
         switch (table) {
+          case "paper_handoffs":
+            await rafraichirNotes();
+            if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
+              const recue = notesRecues.find((r) => r.id === nouveau.id);
+              toast(recue?.papier?.model === "note" || !recue ? "📄 Une note vous a été remise." : "📄 On vous remet un papier.", {
+                corps: recue ? `De ${nomPersonne({ user_id: recue.from_user, profil: recue.auteur })}` : "",
+                type: "attn", duree: 9000,
+                action: { libelle: "La lire", action: () => lireNote(recue) }
+              });
+            }
+            break;
           case "belonging_handoffs":
             mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
             if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
@@ -2417,6 +2477,17 @@ export default async function vueSalle({ params }) {
               peindrePanneau();
             }
             if (nouveau?.status === "ended") return surFinDeSession();
+            if (nouveau && "estrade" in nouveau
+                && JSON.stringify(nouveau.estrade || {}) !== JSON.stringify(session.estrade || {})) {
+              const avant = Boolean(session.estrade?.present);
+              session.estrade = nouveau.estrade || {};
+              decor.majEstrade(session.estrade);
+              peindreDock();
+              if (!staff && avant !== Boolean(session.estrade.present)) {
+                toast(session.estrade.present ? "Le professeur est devant la classe" : "Le professeur a quitté l'avant de la classe",
+                  { type: "info", duree: 3500 });
+              }
+            }
             if (nouveau?.mode && nouveau.mode !== session.mode) {
               session.mode = nouveau.mode;
               modeSeance = modeDe(session);
@@ -2543,6 +2614,8 @@ export default async function vueSalle({ params }) {
             (a.role === "teacher" ? -1 : 1) - (b.role === "teacher" ? -1 : 1)
             || String(a.nom).localeCompare(String(b.nom)));
           peindreBandeau();
+          decor.peindre();
+          peindreDock();
           if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
         }
       }
@@ -2589,6 +2662,202 @@ export default async function vueSalle({ params }) {
         { libelle: "Retour à la classe", action: () => aller(`/classe/${classe.id}`) })),
       titre: classe.name
     };
+  }
+
+  /* --- La fenêtre : compacte, bureau, cahier, sac, document, étendue --------------
+     On passe de l'une à l'autre sans rien perdre : la zone de scène (tableau,
+     cahier, document) n'est pas reconstruite, elle est DÉPLACÉE — au fond de
+     la classe en petit, sur le bureau quand on écrit, en grand quand on lit. */
+  async function appliquerFenetre(m) {
+    fenetre = m;
+    if (["compact", "bureau", "etendu"].includes(m)) local.ecrire("ojm.fenetre", m);
+    noeud.classList.toggle("salle--immersif", m !== "etendu");
+    noeud.classList.toggle("salle--compact", m === "compact");
+    modeImmersif(m !== "etendu");
+
+    const cible = m === "etendu" ? corps
+      : m === "cahier" ? decor.livre
+      : m === "document" ? decor.grand
+      : decor.ecranTableau;
+    if (zoneScene.parentElement !== cible) cible.prepend(zoneScene);
+
+    let change = false;
+    if (m === "cahier" && scene !== "moncahier") { scene = "moncahier"; change = true; }
+    else if (m !== "cahier" && m !== "etendu" && scene === "moncahier") { scene = "tableau"; change = true; }
+
+    const etatDecor = ["sac", "cahier", "document"].includes(m) ? m : "bureau";
+    if (decor.etat() !== etatDecor) decor.definirEtat(etatDecor);
+    else decor.peindre();
+
+    if (change) {
+      if (scene !== "moncahier" && !staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
+      else await peindreScene();
+    }
+    peindreDock();
+    peindreBandeau();
+  }
+
+  function ouvrirMonCahier() {
+    const pose = bureau.cahiersSurLeBureau()[0];
+    if (pose) { cahierOuvertId = cahierOuvertId || pose.id; appliquerFenetre("cahier"); return; }
+    toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
+    appliquerFenetre("sac");
+  }
+
+  function prendreOutilEcriture(outil) {
+    if (!outil) {
+      const verdict = bureau.peutFaire("ecrire");
+      toast("Aucun outil d'écriture disponible.", { corps: verdict.conseil || "", type: "attn", duree: 6000 });
+      if (bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind))) appliquerFenetre("sac");
+      return;
+    }
+    bureau.prendre(bureau.enMain()?.id === outil.id ? null : outil);
+  }
+
+  async function noteRapide(destinataire = null) {
+    const ok = await ecrireUneNote({
+      bureau, classe, session, gens: participants, destinataire,
+      nomDe: nomPersonne, silhouette: (p) => silhouetteDe(p, nomPersonne(p))
+    });
+    if (ok) { await bureau.charger(); decor.peindre(); peindreDock(); }
+  }
+
+  async function rafraichirNotes() {
+    const toutes = await depotPapiers.recus(etat.utilisateur.id).catch(() => []);
+    notesRecues = toutes.filter((r) => r.state === "offered");
+    peindreDock();
+  }
+
+  async function lireNote(remise = null) {
+    const r = remise || notesRecues[0];
+    if (!r) { toast("Aucune note en attente."); return; }
+    await recevoirPapier(r, { classe, fiche: fichesRP.get(r.from_user) });
+    await rafraichirNotes();
+  }
+
+  async function ouvrirMesDossiers() {
+    const moi = etat.utilisateur.id;
+    const connus = [
+      ...await depotPapiers.mesPapiers(moi).catch(() => []),
+      ...(await depotPapiers.recus(moi).catch(() => []))
+        .filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)
+    ];
+    const zone = await panneauDossiers({ moiId: moi, connus, ctx: bureau.ctx });
+    await ouvrirModale({ titre: "Mes dossiers", large: true, corps: () => zone,
+      actions: [{ libelle: "Refermer", valeur: true }] });
+  }
+
+  async function basculerEstrade(present) {
+    const estrade = { present, user_id: etat.utilisateur.id, nom: monNom(), at: new Date().toISOString() };
+    try {
+      await depotSessions.majorer(session.id, { estrade });
+      session.estrade = estrade;
+      decor.majEstrade(estrade);
+      peindreDock();
+    } catch (err) { erreur("Impossible", messageErreur(err)); }
+  }
+
+  function menuPersonne(ancre, p) {
+    if (staff) {
+      menuParticipant(ancre, p, listeRenvois.some((r) => r.user_id === p.user_id));
+      return;
+    }
+    menu(ancre, [
+      { titre: nomPersonne(p) },
+      { libelle: "Lui passer une note", icone: "papier", action: () => noteRapide(p) },
+      offre(session, "papiers")
+        ? { libelle: "Lui tendre un document", icone: "documents", action: () => remettreUnPapier(p) } : null,
+      { libelle: "Lui tendre un cahier", icone: "cahier", action: () => tendreCahier(p) },
+      { libelle: "Lui tendre un objet", icone: "sac", action: () => tendreUnObjet(p) },
+      { libelle: "Lui demander un objet", icone: "main", action: () => demanderUnObjet(p) }
+    ].filter(Boolean));
+  }
+
+  /* --- Le dock : les gestes essentiels, sous forme d'objets --------------------- */
+  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null }) {
+    return el("button.dock__chose", {
+      type: "button", title: titre || mot, "aria-label": titre || mot,
+      "aria-pressed": String(Boolean(actif)),
+      class: manque ? "dock__chose--manque" : "",
+      onclick: (e) => action(e.currentTarget)
+    },
+      signe ? el("span.dock__signe", signe) : el("img", { src: imageDetouree(image), alt: "", draggable: false }),
+      el("span.dock__mot", mot),
+      pastille ? el("span.dock__pastille", String(pastille)) : null);
+  }
+
+  function peindreDock() {
+    if (!dock) return;
+    const tenu = bureau.enMain();
+    const outils = bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
+    const outil = (tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind)) ? tenu : outils[0] || null;
+    const cahierPose = bureau.cahiersSurLeBureau()[0];
+    const sac = bureau.sacsPortes()[0];
+    const present = Boolean(session.estrade?.present);
+    const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
+
+    render(dock,
+      el("div.dock__statut",
+        el("b", session.title),
+        staff
+          ? el("span", `${classe.name} · ${pluriel(autres.length, "présent", "présents")}`)
+          : el("span.dock__prof", { class: present ? "dock__prof--present" : "" },
+              present ? "Professeur devant vous" : "Professeur absent de l'avant")),
+      el("span.dock__sep"),
+      el("div.dock__groupe",
+        chose({ image: sac?.kind || "cartable", mot: "Sac", actif: fenetre === "sac", manque: !sac,
+          titre: fenetre === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
+          action: () => appliquerFenetre(fenetre === "sac" ? "bureau" : "sac") }),
+        chose({ image: cahierPose?.support || "cahier", mot: "Cahier", actif: fenetre === "cahier",
+          manque: !cahierPose, titre: fenetre === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
+          action: () => (fenetre === "cahier" ? appliquerFenetre("bureau") : ouvrirMonCahier()) }),
+        chose({ image: outil?.kind || "crayon", mot: tenu && outil?.id === tenu.id ? "En main" : "Stylo",
+          actif: Boolean(tenu && outil?.id === tenu.id), manque: !outil,
+          titre: !outil ? "Aucun outil d'écriture sur le bureau"
+            : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
+          action: () => prendreOutilEcriture(outil) }),
+        chose({ image: "feuille", mot: "Note", titre: "Écrire une note à quelqu'un", action: () => noteRapide() }),
+        chose({ image: "pochette", mot: "Reçus", pastille: notesRecues.length, manque: !notesRecues.length,
+          titre: notesRecues.length ? "Lire ce qu'on m'a remis" : "Rien ne vous a été remis",
+          action: () => lireNote() }),
+        offre(session, "papiers")
+          ? chose({ image: "feuilles", mot: "Document", titre: "Rédiger et tendre un document",
+              action: () => remettreUnPapier() }) : null,
+        chose({ image: "dossier", mot: "Dossiers", titre: "Mes dossiers", action: () => ouvrirMesDossiers() }),
+        chose({ signe: icone("tableau", 26), mot: "Tableau", actif: fenetre === "document",
+          titre: fenetre === "document" ? "Revenir au bureau" : "Regarder le tableau",
+          action: () => appliquerFenetre(fenetre === "document" ? "bureau" : "document") })),
+      !staff && contributeur ? el("span.dock__sep") : null,
+      !staff && contributeur ? el("div.dock__groupe",
+        chose({ signe: icone("main", 26), mot: maMainLevee() ? "Baisser" : "Main",
+          actif: Boolean(maMainLevee()), titre: maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander,
+          action: () => basculerMain() }),
+        (session.mode || "cours") === "cours"
+          ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() })
+          : null) : null,
+      autres.length ? el("span.dock__sep") : null,
+      autres.length ? el("div.dock__gens", autres.slice(0, 7).map((p) => el("button.estrade__eleve", {
+        type: "button", title: nomPersonne(p), onclick: (e) => menuPersonne(e.currentTarget, p)
+      }, silhouetteDe(p, nomPersonne(p)), el("span.estrade__nom", nomPersonne(p))))) : null,
+      el("span.dock__pousse"),
+      staff ? el("div.dock__groupe",
+        chose({ signe: icone("reglages", 24), mot: "Outils", titre: "Outils du professeur",
+          action: (b) => menuProfesseur(b) }),
+        chose({ signe: icone("stop", 24), mot: "Terminer", titre: "Terminer la séance", action: () => terminerSession() })) : null,
+      el("div.dock__fenetre", { role: "group", "aria-label": "Fenêtre" },
+        el("button", { type: "button", title: "Compacte : juste les gestes", "aria-pressed": String(fenetre === "compact"),
+          onclick: () => appliquerFenetre("compact") }, icone("moins", 15)),
+        el("button", { type: "button", title: "Le bureau", "aria-pressed": String(["bureau", "sac", "cahier", "document"].includes(fenetre)),
+          onclick: () => appliquerFenetre("bureau") }, icone("sac", 15)),
+        el("button", { type: "button", title: "Étendue : tout le détail", "aria-pressed": String(fenetre === "etendu"),
+          onclick: () => appliquerFenetre("etendu") }, icone("grille", 15)),
+        flottantDisponible() ? el("button", { type: "button",
+          title: estFlottant() ? "Revenir dans le navigateur" : "Détacher au-dessus du jeu",
+          "aria-pressed": String(estFlottant()),
+          onclick: () => basculerFenetreFlottante() }, icone(estFlottant() ? "entree" : "sortie", 15)) : null,
+        el("button", { type: "button", title: "Quitter la salle", onclick: () => aller(`/classe/${classe.id}`) },
+          icone("croix", 15)))
+    );
   }
 
   function surFinDeSession() {
@@ -2661,6 +2930,7 @@ export default async function vueSalle({ params }) {
   if (staff) await assurerMaterielProfesseur(etat.utilisateur.id).catch(() => false);
   await bureau.charger();
   mesAffaires = bureau.objets();
+  await rafraichirNotes();
 
   if (!doitSEquiper) await ouvrirPrivationSiBesoin();
   await rafraichirPrivations();
@@ -2671,6 +2941,7 @@ export default async function vueSalle({ params }) {
   peindrePrivation();
   peindrePanneau();
 
+  await appliquerFenetre(fenetre);
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
 
@@ -2710,6 +2981,7 @@ export default async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} — ${classe.name}`,
     nettoyer: () => {
+      modeImmersif(false);
       // On sort de la salle : ce qui n'a pas été rangé y reste.
       bureau.laisserTout();
       clearInterval(tictac);

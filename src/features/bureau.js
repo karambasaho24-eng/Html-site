@@ -15,8 +15,9 @@ import { etat } from "../core/store.js";
 import { affaires as depotAffaires, cahiers as depotCahiers } from "../data/index.js";
 import { ouvrirModale } from "../ui/modal.js";
 import { toast, erreur, messageErreur } from "../ui/toast.js";
-import { fiche, nomObjet, nomType, imageObjet, indexer, vitrine } from "./affaires.js";
-import { contexte, situer, dansLeSac, peutFaire } from "./portee.js";
+import { fiche, nomObjet, nomType, imageObjet, imageDetouree, indexer, vitrine } from "./affaires.js";
+import { contexte, situer, dansLeSac, peutFaire, OUTILS_REQUIS } from "./portee.js";
+import { local } from "../core/util.js";
 
 const NOMS_SUPPORT = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
 
@@ -27,6 +28,22 @@ export function creerBureau({ classe, session, surChange = null }) {
   let supports = [];
 
   const noeud = el("div.bureau", { role: "region", "aria-label": "Mon bureau" });
+
+  /* --- Ce qu'on tient en main -------------------------------------------
+     On n'écrit pas avec un stylo posé à côté du cahier : on le prend. Un seul
+     objet en main à la fois ; il faut qu'il soit sur le bureau. */
+  const cleMain = `ojm.enmain.${session?.id || "maison"}`;
+  let enMainId = local.lire(cleMain, null);
+  const enMain = () => {
+    const o = enMainId ? objets.find((x) => String(x.id) === String(enMainId)) : null;
+    return o && surLeBureau().some((x) => x.id === o.id) ? o : null;
+  };
+  function prendre(objet) {
+    enMainId = objet ? String(objet.id) : null;
+    local.ecrire(cleMain, enMainId);
+    peindre();
+    surChange?.();
+  }
 
   /* --- Ce qu'on sait ------------------------------------------------------ */
   async function charger() {
@@ -81,6 +98,7 @@ export function creerBureau({ classe, session, surChange = null }) {
 
   async function ranger(chose, genre) {
     const cible = ouRanger(chose);
+    if (String(enMainId) === String(chose.id)) { enMainId = null; local.ecrire(cleMain, null); }
     if (!cible) {
       toast("Plus de place dans votre sac", {
         corps: "Rangez autre chose, ou gardez-le en main.", type: "attn"
@@ -109,6 +127,8 @@ export function creerBureau({ classe, session, surChange = null }) {
    * demande pas, on constate : c'est un oubli, et un oubli ne prévient pas.
    */
   async function laisserTout() {
+    enMainId = null;
+    local.ecrire(cleMain, null);
     const restes = [...surLeBureau().map((o) => ["objet", o]), ...cahiersSurLeBureau().map((c) => ["cahier", c])];
     for (const [genre, chose] of restes) {
       try {
@@ -143,7 +163,7 @@ export function creerBureau({ classe, session, surChange = null }) {
             }
           },
             el("span.objet__figure", { "aria-hidden": "true",
-              style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? (c.support || "cahier") : c.kind)}")` } }),
+              style: { backgroundImage: `url("${imageDetouree(genre === "cahier" ? (c.support || "cahier") : c.kind)}")` } }),
             el("span.sac-ouvert__nom", genre === "cahier" ? c.title : nomObjet(c)),
             el("span.sac-ouvert__type", genre === "cahier" ? (NOMS_SUPPORT[c.support] || "Cahier")
               : nomType(c.kind))))
@@ -175,11 +195,17 @@ export function creerBureau({ classe, session, surChange = null }) {
         el("span.bureau__mot", "Mon sac")),
       el("div.bureau__plateau", devant.length
         ? devant.map(([genre, c]) => el("button.bureau__objet", {
-            type: "button", title: `Ranger ${genre === "cahier" ? c.title : nomObjet(c)} dans le sac`,
-            onclick: () => ranger(c, genre)
+            type: "button",
+            class: enMain()?.id === c.id ? "bureau__objet--en-main" : "",
+            title: genre === "objet" && OUTILS_REQUIS.ecrire.includes(c.kind)
+              ? (enMain()?.id === c.id ? "Le reposer" : "Le prendre en main")
+              : `Ranger ${genre === "cahier" ? c.title : nomObjet(c)} dans le sac`,
+            onclick: () => genre === "objet" && OUTILS_REQUIS.ecrire.includes(c.kind)
+              ? prendre(enMain()?.id === c.id ? null : c)
+              : ranger(c, genre)
           },
             el("span.objet__figure", { "aria-hidden": "true",
-              style: { backgroundImage: `url("${imageObjet(genre === "cahier" ? (c.support || "cahier") : c.kind)}")` } }),
+              style: { backgroundImage: `url("${imageDetouree(genre === "cahier" ? (c.support || "cahier") : c.kind)}")` } }),
             el("span.bureau__nom", genre === "cahier" ? c.title : nomObjet(c))))
         : el("span.petit.faible.bureau__vide", "Votre bureau est vide. Ouvrez votre sac pour sortir vos affaires.")),
       devant.length
@@ -189,13 +215,40 @@ export function creerBureau({ classe, session, surChange = null }) {
     );
   }
 
+  /**
+   * Puis-je faire ceci ? Pour écrire, il ne suffit pas qu'un stylo soit sur
+   * le bureau : il faut l'avoir EN MAIN. Le reste (gomme, règle, compas) se
+   * prend du bureau au moment du geste.
+   */
+  function peutFaireIci(action) {
+    const base = peutFaire(action, objets, { moiId: moi, ctx });
+    if (action !== "ecrire" || !ctx.seance) return base;
+    if (!base.ok) {
+      // Un encrier vide n'est pas une absence d'outil : on garde le vrai motif.
+      return /encr/i.test(base.message || "") ? base : { ...base, message: "Aucun outil d'écriture disponible." };
+    }
+    const tenu = enMain();
+    const outils = OUTILS_REQUIS.ecrire;
+    if (tenu && outils.includes(tenu.kind)) {
+      const seul = objets.filter((o) => !outils.includes(o.kind) || o.id === tenu.id);
+      return peutFaire("ecrire", seul, { moiId: moi, ctx });
+    }
+    return {
+      ok: false, prendre: base.avec,
+      message: "Vous n'avez rien en main pour écrire.",
+      conseil: `Prenez ${nomObjet(base.avec).toLowerCase()} sur votre bureau.`
+    };
+  }
+
   const api = {
     noeud, charger, ouvrirSac, rangerTout, laisserTout,
+    sortir, ranger, prendre, enMain,
+    surLeBureau, dansMonSac, cahiersDansMonSac, sacsPortes,
     objets: () => objets,
     supports: () => supports,
     cahiersSurLeBureau,
     ctx,
-    peutFaire: (action) => peutFaire(action, objets, { moiId: moi, ctx })
+    peutFaire: peutFaireIci
   };
   return api;
 }
