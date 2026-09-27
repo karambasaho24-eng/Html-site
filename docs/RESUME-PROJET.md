@@ -339,8 +339,8 @@ GitHub Actions*.
   aucun texte dans l'image, et la même direction artistique pour tous — c'est
   pour cela qu'ils sortent d'un seul générateur. Le cahier des charges est dans
   `docs/OBJETS-VISUELS.md`.
-- La migration **`0018_les_affaires` doit être appliquée** au projet Supabase.
-  Sans elle, les affaires fonctionnent en mode démonstration mais pas en ligne.
+- La migration **`0018_les_affaires`** est appliquée au projet Supabase ; le
+  site en ligne n'en profitera qu'une fois redéployé (voir 5.1).
 - **Export PDF** d'un cahier ou d'une archive.
 - **Convocations programmées.**
 - **Édition collaborative** d'un cahier (CRDT) — aujourd'hui, le dernier qui
