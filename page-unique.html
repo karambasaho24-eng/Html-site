@@ -623,48 +623,7 @@ body.avec-console:where(:root[data-density="minimal"]) .chassis {
 }
 .console-hote { grid-area: console; }
 
-.console {
-  display: flex; align-items: stretch; gap: 1px;
-  background: var(--ligne);
-  border-bottom: 1px solid var(--ligne);
-}
-/* Dans la grande fenêtre, cinq boutons étalés sur 1400 px ne sont pas une
-   console : ce sont cinq pancartes. On les garde à portée de pouce. */
-.console__bouton {
-  flex: 0 0 104px; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; padding: 7px 4px;
-  background: var(--encre-850); border: 0; cursor: pointer;
-  color: var(--texte-doux); font: inherit;
-  position: relative;
-  transition: background var(--transition), color var(--transition);
-}
-.console__bouton:hover { background: var(--encre-800); color: var(--texte); }
-.console__bouton:active { background: var(--encre-700); }
-.console__mot {
-  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
-}
-.console__compteur {
-  position: absolute; top: 4px; right: calc(50% - 22px);
-  min-width: 15px; height: 15px; padding: 0 4px;
-  display: grid; place-items: center;
-  background: var(--attn); color: #17140c;
-  border-radius: 999px; font-size: 9px; font-weight: 700;
-}
-.console__compteur:empty { display: none; }
-.console[data-attente="1"] .console__bouton[data-cle="actions"] { color: var(--laiton-clair); }
-
-/* Dans la fenêtre d'à-côté, la console prime : le rail se replie, les mots
-   disparaissent, il ne reste que cinq pictogrammes et le nombre de choses qui
-   attendent une réponse. */
-.est-flottant .console__mot { display: none; }
-.est-flottant .console__bouton { flex: 1; padding: 6px 2px; }
-.est-flottant .console__compteur { right: calc(50% - 16px); }
-
-@media (max-width: 720px) {
-  .console__mot { display: none; }
-  .console__bouton { flex: 1; }
-}
+/* (L'ancienne console d'à-côté a été remplacée par features/console.js — styles dans monde.css.) */
 
 /* ---- components.css ---- */
 /* ===========================================================================
@@ -4461,6 +4420,36 @@ body.tiroir-ouvert::after {
 /* Le reste de l'application reste lisible en petite fenêtre : une colonne. */
 .chassis[data-taille="compact"] .page, .chassis[data-taille="mini"] .page { padding: 12px 12px 20px; }
 .chassis[data-taille="compact"] .colonnes, .chassis[data-taille="mini"] .colonnes { grid-template-columns: 1fr; }
+
+/* ===========================================================================
+   Fenêtre posée au-dessus du jeu, écran d'accès : la grille du monde prime
+   sur les règles de l'ancien châssis (rail, densités, console d'à-côté).
+   ========================================================================= */
+body.est-flottant .chassis.chassis--monde,
+body.avec-console .chassis.chassis--monde {
+  border: 0; border-radius: 0; box-shadow: none;
+  height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "contexte" "vue" "actions";
+}
+body.est-flottant .chassis.chassis--monde.chassis--sans-actions,
+body.est-flottant .chassis.chassis--monde.chassis--immersif {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "contexte" "vue";
+}
+:root[data-density] body .chassis.chassis--monde { grid-template-columns: minmax(0, 1fr); }
+body.hors-session .chassis.chassis--monde {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "vue";
+}
+body.hors-session .chassis--monde > .contexte,
+body.hors-session .chassis--monde > .actions { display: none; }
+.chassis--monde > .console-hote { display: none !important; }
+@media (max-width: 460px) {
+  .actions__mot { font-size: 8.5px; letter-spacing: 0; }
+  .actions__geste { padding-left: 1px; padding-right: 1px; }
+}
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -11491,7 +11480,6 @@ function construireBarreActions() {
       {
         type: "button",
         dataset: { geste: g.cle },
-        "aria-current": g.cle === "bureau" && etat.route?.nom === "accueil" ? "true" : null,
         title: g.mot,
         "aria-label": g.mot,
         onclick: (e) => faireGeste(g.cle, e.currentTarget)
@@ -11630,8 +11618,8 @@ async function ouvrirFenetreFlottante(forme = null) {
   definir({ flottant: true });
   return true;
 }
-function appliquerDensiteFlottante(largeur) {
-  fenetre.document.documentElement.dataset.density = largeur < 820 ? "compact" : "moyen";
+function appliquerDensiteFlottante() {
+  fenetre.document.documentElement.dataset.density = "grand";
 }
 function detournerLiens(doc) {
   doc.addEventListener("click", (e) => {
@@ -12524,14 +12512,21 @@ function construireChassis(hote) {
   observer("flottant", () => setTimeout(suivreLaTaille, 60));
   const fermerTiroir = () => docHote().body.classList.remove("tiroir-ouvert");
   observer("route", fermerTiroir);
-  hote.ownerDocument.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") fermerTiroir();
-  });
-  hote.ownerDocument.addEventListener("pointerdown", (e) => {
-    if (!docHote().body.classList.contains("tiroir-ouvert")) return;
-    if (e.target.closest?.(".tiroir, .contexte__bouton")) return;
-    fermerTiroir();
-  }, true);
+  const docsBranches = /* @__PURE__ */ new WeakSet();
+  const brancherDoc = (doc) => {
+    if (!doc || docsBranches.has(doc)) return;
+    docsBranches.add(doc);
+    doc.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") fermerTiroir();
+    });
+    doc.addEventListener("pointerdown", (e) => {
+      if (!docHote().body.classList.contains("tiroir-ouvert")) return;
+      if (e.target.closest?.(".tiroir, .contexte__bouton")) return;
+      fermerTiroir();
+    }, true);
+  };
+  brancherDoc(hote.ownerDocument);
+  observer("flottant", () => setTimeout(() => brancherDoc(docHote()), 80));
   return refs.vue;
 }
 function suivreLaTaille() {

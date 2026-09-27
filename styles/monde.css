@@ -519,3 +519,33 @@ body.tiroir-ouvert::after {
 /* Le reste de l'application reste lisible en petite fenêtre : une colonne. */
 .chassis[data-taille="compact"] .page, .chassis[data-taille="mini"] .page { padding: 12px 12px 20px; }
 .chassis[data-taille="compact"] .colonnes, .chassis[data-taille="mini"] .colonnes { grid-template-columns: 1fr; }
+
+/* ===========================================================================
+   Fenêtre posée au-dessus du jeu, écran d'accès : la grille du monde prime
+   sur les règles de l'ancien châssis (rail, densités, console d'à-côté).
+   ========================================================================= */
+body.est-flottant .chassis.chassis--monde,
+body.avec-console .chassis.chassis--monde {
+  border: 0; border-radius: 0; box-shadow: none;
+  height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "contexte" "vue" "actions";
+}
+body.est-flottant .chassis.chassis--monde.chassis--sans-actions,
+body.est-flottant .chassis.chassis--monde.chassis--immersif {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "contexte" "vue";
+}
+:root[data-density] body .chassis.chassis--monde { grid-template-columns: minmax(0, 1fr); }
+body.hors-session .chassis.chassis--monde {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "vue";
+}
+body.hors-session .chassis--monde > .contexte,
+body.hors-session .chassis--monde > .actions { display: none; }
+.chassis--monde > .console-hote { display: none !important; }
+@media (max-width: 460px) {
+  .actions__mot { font-size: 8.5px; letter-spacing: 0; }
+  .actions__geste { padding-left: 1px; padding-right: 1px; }
+}

@@ -67,12 +67,20 @@ export function construireChassis(hote) {
   // dès qu'on est allé quelque part.
   const fermerTiroir = () => docHote().body.classList.remove("tiroir-ouvert");
   observer("route", fermerTiroir);
-  hote.ownerDocument.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerTiroir(); });
-  hote.ownerDocument.addEventListener("pointerdown", (e) => {
-    if (!docHote().body.classList.contains("tiroir-ouvert")) return;
-    if (e.target.closest?.(".tiroir, .contexte__bouton")) return;
-    fermerTiroir();
-  }, true);
+  const docsBranches = new WeakSet();
+  const brancherDoc = (doc) => {
+    if (!doc || docsBranches.has(doc)) return;
+    docsBranches.add(doc);
+    doc.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerTiroir(); });
+    doc.addEventListener("pointerdown", (e) => {
+      if (!docHote().body.classList.contains("tiroir-ouvert")) return;
+      if (e.target.closest?.(".tiroir, .contexte__bouton")) return;
+      fermerTiroir();
+    }, true);
+  };
+  brancherDoc(hote.ownerDocument);
+  // La fenêtre posée sur le jeu est un autre document : on l'écoute aussi.
+  observer("flottant", () => setTimeout(() => brancherDoc(docHote()), 80));
 
   return refs.vue;
 }

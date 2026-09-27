@@ -53,7 +53,6 @@ export function construireBarreActions() {
   function peindre() {
     render(noeud, GESTES.map((g) => el("button.actions__geste", {
       type: "button", dataset: { geste: g.cle },
-      "aria-current": g.cle === "bureau" && etat.route?.nom === "accueil" ? "true" : null,
       title: g.mot, "aria-label": g.mot,
       onclick: (e) => faireGeste(g.cle, e.currentTarget)
     },
