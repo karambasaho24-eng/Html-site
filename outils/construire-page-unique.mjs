@@ -58,6 +58,15 @@ function embarquerObjets() {
         "data:image/jpeg;base64," + readFileSync(resolve(photos, fichier)).toString("base64");
     }
   } catch { /* pas de photographies : les dessins suffisent */ }
+  // Et les objets détourés, qu'on pose dans les contenants.
+  try {
+    const detoures = resolve(dossier, "detoures");
+    for (const fichier of readdirSync(detoures)) {
+      if (!fichier.endsWith(".webp")) continue;
+      carte["detoure:" + fichier.replace(/\.webp$/, "")] =
+        "data:image/webp;base64," + readFileSync(resolve(detoures, fichier)).toString("base64");
+    }
+  } catch { /* pas d'objets détourés */ }
   return carte;
 }
 
