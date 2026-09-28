@@ -471,6 +471,15 @@ try {
   await maitre.goto(`${RACINE}#/classe/${classeId}/salle`);
   await maitre.waitForTimeout(2600);
   verifier("la salle s'ouvre cote estrade", await maitre.locator(".salle").count() === 1);
+  // En 3D, l'eleve present apparait a sa place, et son nom le suit : une vue
+  // montee hors de la page ne se redessinait plus une fois affichee.
+  if (await maitre.locator(".scene--3d").count()) {
+    await maitre.bringToFront();
+    await maitre.waitForTimeout(1500);
+    const places = await maitre.$$eval(".classe3d__nom:not(.classe3d__nom--prof)",
+      (noms) => noms.filter((n) => n.textContent && n.style.transform).length);
+    verifier("en 3D, l'eleve present est assis a sa place", places >= 1, String(places));
+  }
   verifier("le controle du materiel est affiche",
     await maitre.locator(".controle-materiel").count() >= 1);
 
