@@ -102,7 +102,7 @@ export function creerScene({
 
   const noeud = el("div.scene", { dataset: { etat: etatScene } },
     el("div.scene__mur", { "aria-hidden": "true" }),
-    avant ? el("div.scene__avant.scene__avant--mur", avant) : el("div.scene__avant",
+    avant ? el("div.scene__avant.scene__avant--mur", avant, vue3d) : el("div.scene__avant",
       el("button.scene__tableau", {
         type: "button", title: "Regarder le tableau",
         onclick: () => surTableau?.()
@@ -534,6 +534,22 @@ export function creerScene({
   let classe3d = null;
   function maj3d() {
     if (!classe3d) return;
+    if (avant) {
+      // Chez soi : on est seul à son bureau, avec ce qu'on y a posé.
+      const tenu = bureau.enMain();
+      classe3d.maj({
+        mode: "maison",
+        eleves: [{
+          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null,
+          bureau: [
+            ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+            ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
+              .map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
+          ].slice(0, 12)
+        }]
+      });
+      return;
+    }
     const moiId = String(etat.utilisateur?.id || "");
     const levees = mains();
     const tous = participants();
@@ -558,7 +574,7 @@ export function creerScene({
       }
     });
   }
-  if (!avant && webglDisponible()) {
+  if (webglDisponible()) {
     creerClasse3D({
       hote: vue3d,
       toile: () => noeud.querySelector(".scene__ecran canvas.tableau__toile"),

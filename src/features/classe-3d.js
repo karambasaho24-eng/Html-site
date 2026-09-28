@@ -175,6 +175,19 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
       }
     }, [6, 3]),
+    papierPeint: texturePeinte(512, 512, (g, l, h) => {
+      // Un papier peint discret : des rayures crème et vert sauge, un motif.
+      g.fillStyle = "#c9c3ad"; g.fillRect(0, 0, l, h);
+      for (let x = 0; x < l; x += 64) { g.fillStyle = "rgba(92,112,86,.22)"; g.fillRect(x, 0, 22, h); }
+      g.fillStyle = "rgba(92,112,86,.28)";
+      for (let y = 16; y < h; y += 64) for (let x = 43; x < l; x += 64) {
+        g.beginPath(); g.ellipse(x, y, 3, 6, 0, 0, 7); g.fill();
+      }
+      for (let i = 0; i < 6000; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "60,50,40"},${Math.random() * .04})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+    }, [5, 2]),
     lambris: texturePeinte(512, 128, (g, l, h) => {
       veines(g, l, h, 25, 26);
       g.fillStyle = "rgba(0,0,0,.28)";
@@ -489,7 +502,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const LT = 9.6, HT = LT * 9 / 16;
   let objetsProf = null;              // le plateau du bureau du professeur
 
-  function piece({ largeur, fond, avant }) {
+  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true }) {
     const profondeur = avant - fond + 4;
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 2, profondeur),
       new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: .78 }));
@@ -498,7 +511,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     sol.receiveShadow = true;
     decor.add(sol);
 
-    const matMur = new THREE.MeshStandardMaterial({ map: TEX.mur, roughness: .95 });
+    const matMur = new THREE.MeshStandardMaterial({ map: papier, roughness: .95 });
     const matLambris = new THREE.MeshStandardMaterial({ map: TEX.lambris, roughness: .7 });
     const mur = (l, x, z, ry) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(l, 13), matMur);
@@ -534,6 +547,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     Object.assign(soleil.shadow.camera, { left: -demi, right: demi, top: demi, bottom: -demi, near: 1, far: 80 });
     soleil.shadow.camera.updateProjectionMatrix();
 
+    if (!avecHorloge) return;
     // Une horloge, au-dessus du tableau.
     const horloge = new THREE.Group();
     const cadran = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 32), matDe("#f3efe4"));
@@ -659,6 +673,154 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return { sieges, rangs, cols, dernier, fond, prof: { x: 6.4, z: fond + 1.9 } };
   }
 
+  /* --- Chez soi : une chambre avec son bureau ------------------------------
+     Le bureau contre le mur, sous la fenêtre ; une lampe, une bibliothèque,
+     le lit, un tapis, la carte des Murs épinglée. On y est assis, de dos. */
+  function construireMaison() {
+    const fond = -8, largeur = 17;
+    piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false });
+
+    // La fenêtre au-dessus du bureau.
+    const fenetre = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: "#dbe6ec" }));
+    fenetre.position.set(0, 6.1, fond + 0.13);
+    const cadreF = new THREE.Mesh(boiteRonde(5.7, 4.5, 0.14, 0.04), matDe("#3a2d22"));
+    cadreF.position.set(0, 6.1, fond + 0.02);
+    const croisee = new THREE.Group();
+    croisee.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 4, 0.1), matDe("#3a2d22")),
+      new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.1), matDe("#3a2d22")));
+    croisee.position.set(0, 6.1, fond + 0.18);
+    const rebordF = new THREE.Mesh(boiteRonde(6, 0.16, 0.6, 0.04), matBois);
+    rebordF.position.set(0, 4.0, fond + 0.3);
+    decor.add(cadreF, fenetre, croisee, rebordF);
+
+    // Le bureau : un plateau épais, deux caissons, un tiroir.
+    const bureau = new THREE.Group();
+    const plateau = new THREE.Mesh(boiteRonde(5.2, 0.2, 2.4, 0.05), matBois);
+    plateau.position.y = 2.15;
+    bureau.add(plateau);
+    for (const x of [-2.1, 2.1]) {
+      const caisson = new THREE.Mesh(boiteRonde(0.9, 2.05, 2.2, 0.04), matBois);
+      caisson.position.set(x, 1.03, 0);
+      bureau.add(caisson);
+      for (const y of [0.5, 1.2, 1.8]) {
+        const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), matDe("#b8963a", { metalness: .7, roughness: .35 }));
+        poignee.position.set(x, y, 1.12);
+        bureau.add(poignee);
+      }
+    }
+    bureau.position.set(0, 0, fond + 1.35);
+    ombrer(bureau);
+    decor.add(bureau);
+
+    // La lampe de bureau : un pied, un bras, un abat-jour, et sa lumière.
+    const lampe = new THREE.Group();
+    const laiton = matDe("#9c7a3c", { metalness: .75, roughness: .3 });
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.1, 24), laiton);
+    const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 10), laiton);
+    bras.position.set(0, 0.75, 0); bras.rotation.z = 0.25;
+    const abat = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 24, 1, true), matDe("#2f5a3c", { side: THREE.DoubleSide, roughness: .5 }));
+    abat.position.set(0.2, 1.5, 0.15);
+    abat.rotation.set(0.4, 0, -0.6);
+    const ampoule = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: "#fff1cf" }));
+    ampoule.position.set(0.28, 1.36, 0.22);
+    lampe.add(socle, bras, abat, ampoule);
+    lampe.position.set(-1.9, 2.3, fond + 0.9);
+    ombrer(lampe);
+    const lueur = new THREE.PointLight("#ffd9a0", 9, 9, 2);
+    lueur.position.set(-1.6, 3.5, fond + 1.3);
+    decor.add(lampe, lueur);
+
+    // La chaise, dossier vers nous.
+    chaise(0, fond + 3.15, 0);
+
+    // La bibliothèque, contre le mur de droite.
+    const biblio = new THREE.Group();
+    const montant = (x) => { const m = new THREE.Mesh(boiteRonde(0.16, 7, 1.6, 0.03), matBois); m.position.set(x, 3.5, 0); return m; };
+    biblio.add(montant(-1.7), montant(1.7));
+    const teintes = ["#6b1f24", "#1f2f55", "#2c3b2a", "#8a6a2a", "#3a2a4a", "#5a3a22", "#2b2b30", "#7a5a3a"];
+    for (const y of [0.3, 1.9, 3.5, 5.1, 6.9]) {
+      const e = new THREE.Mesh(boiteRonde(3.5, 0.14, 1.6, 0.03), matBois);
+      e.position.set(0, y, 0);
+      biblio.add(e);
+      if (y > 6) continue;
+      let x = -1.5;
+      while (x < 1.4) {
+        const l = 0.14 + Math.random() * 0.12, h = 1.05 + Math.random() * 0.35;
+        const livre = new THREE.Mesh(new THREE.BoxGeometry(l, h, 1.1), matDe(teintes[Math.floor(Math.random() * teintes.length)], { roughness: .7 }));
+        livre.position.set(x + l / 2, y + 0.07 + h / 2, 0.1);
+        if (Math.random() > .88) { livre.rotation.z = 0.25; livre.position.y -= 0.05; }
+        biblio.add(livre);
+        x += l + 0.02;
+      }
+    }
+    biblio.position.set(6.2, 0, fond + 0.95);
+    ombrer(biblio);
+    decor.add(biblio);
+
+    // Le lit, à gauche : un cadre, un matelas, une couverture, un oreiller.
+    const lit = new THREE.Group();
+    const cadreLit = new THREE.Mesh(boiteRonde(3.4, 0.9, 6.4, 0.06), matBois);
+    cadreLit.position.y = 0.65;
+    const matelas = new THREE.Mesh(boiteRonde(3.2, 0.5, 6.2, 0.2), matDe("#e9e4d8", { roughness: .95 }));
+    matelas.position.y = 1.3;
+    const couverture = new THREE.Mesh(boiteRonde(3.36, 0.3, 4.2, 0.12), matDe("#4d5f7a", { roughness: .95 }));
+    couverture.position.set(0, 1.5, 0.95);
+    const oreiller = new THREE.Mesh(boiteRonde(2.4, 0.4, 1.1, 0.2), matDe("#f2efe6", { roughness: .95 }));
+    oreiller.position.set(0, 1.72, -2.3);
+    const tete = new THREE.Mesh(boiteRonde(3.4, 2.4, 0.2, 0.06), matBois);
+    tete.position.set(0, 1.6, -3.2);
+    lit.add(cadreLit, matelas, couverture, oreiller, tete);
+    lit.position.set(-largeur / 2 + 2.2, 0, fond + 4.3);
+    ombrer(lit);
+    decor.add(lit);
+
+    // Le tapis sous le bureau.
+    const tapis = new THREE.Mesh(new THREE.PlaneGeometry(7, 5), new THREE.MeshStandardMaterial({
+      map: texturePeinte(256, 192, (g, l, h) => {
+        g.fillStyle = "#6e2a26"; g.fillRect(0, 0, l, h);
+        g.strokeStyle = "#d8b98a"; g.lineWidth = 6; g.strokeRect(12, 12, l - 24, h - 24);
+        g.strokeStyle = "rgba(216,185,138,.6)"; g.lineWidth = 2; g.strokeRect(24, 24, l - 48, h - 48);
+        g.fillStyle = "rgba(216,185,138,.45)";
+        for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(l / 2, h / 2, 60 - i * 11, 36 - i * 7, 0, 0, 7); g.fill(); }
+      }), roughness: 1 }));
+    tapis.rotation.x = -Math.PI / 2;
+    tapis.position.set(0, 0.02, fond + 3.3);
+    tapis.receiveShadow = true;
+    decor.add(tapis);
+
+    // La carte des Murs, épinglée à droite de la fenêtre.
+    const carte = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.8), new THREE.MeshStandardMaterial({
+      map: texturePeinte(320, 240, (g, l, h) => {
+        g.fillStyle = "#e8dcc0"; g.fillRect(0, 0, l, h);
+        for (const [r, c] of [[100, "#8a6a3a"], [66, "#5f7a4a"], [34, "#8a3a2a"]]) {
+          g.strokeStyle = c; g.lineWidth = 4; g.beginPath(); g.arc(l / 2, h / 2 + 6, r, 0, 7); g.stroke();
+        }
+        g.fillStyle = "#3a2a1a"; g.font = "bold 18px Georgia"; g.fillText("PARADIS", 12, 24);
+      }), roughness: .9 }));
+    carte.position.set(-4.3, 6.0, fond + 0.05);
+    const punaise = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), matDe("#a82a2a"));
+    punaise.position.set(-4.3, 6.8, fond + 0.1);
+    decor.add(carte, punaise);
+
+    // Une plante, dans le coin.
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.35, 0.9, 20), matDe("#8a4a2a"));
+    pot.position.set(3.3, 0.45, fond + 1.0);
+    decor.add(pot);
+    for (let i = 0; i < 9; i++) {
+      const feuille = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), matDe(i % 2 ? "#3f6b3a" : "#4f7d45"));
+      feuille.scale.set(0.5, 1.4, 0.2);
+      const a = (i / 9) * Math.PI * 2;
+      feuille.position.set(3.3 + Math.cos(a) * 0.3, 1.35 + (i % 3) * 0.2, fond + 1.0 + Math.sin(a) * 0.3);
+      feuille.rotation.set(Math.sin(a) * 0.5, a, Math.cos(a) * 0.5);
+      decor.add(feuille);
+    }
+    // Ses affaires : sur le bureau, devant la chaise.
+    const objets = new THREE.Group();
+    objets.position.set(0, 2.27, fond + 1.75);
+    decor.add(objets);
+    return { sieges: [{ x: 0, z: fond + 3.0, angle: 0, objets }], fond };
+  }
+
   function construireReunion(total) {
     const R = Math.max(2.8, total * 2.5 / (2 * Math.PI));
     const fond = -R - 7;
@@ -737,7 +899,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const n = etat.eleves.length;
     const total = Math.max(6, n + (etat.prof.present ? 1 : 0) + 1);
     const cols = colonnesPour(n);
-    const cle = reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
+    const maison = etat.mode === "maison";
+    const cle = maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
     if (cle === dispo.cle) return;
     for (const o of [...decor.children]) {
       decor.remove(o);
@@ -745,8 +908,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     ardoise = null;
     objetsProf = null;
-    dispo = reunion
-      ? { cle, reunion: true, ...construireReunion(total) }
+    dispo = maison ? { cle, reunion: false, maison: true, ...construireMaison() }
+      : reunion ? { cle, reunion: true, ...construireReunion(total) }
       : { cle, reunion: false, ...construireClasse(n) };
     // Chacun reprend une place dans la nouvelle salle.
     const libres = [...dispo.sieges];
@@ -843,7 +1006,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     renderer.setSize(l, h, false);
     camera.aspect = l / h;
     const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
-    if (dispo.reunion) {
+    if (dispo.maison) {
+      // Chez soi : on se voit de trois quarts dos, assis à son bureau.
+      // Fenêtre très large : on recule et on resserre, sans déformer la pièce.
+      camera.fov = 48 - k * 18;
+      camera.position.set(3.6 - k * 1.6, 7.4 - k * 0.6, dispo.fond + 12 + k * 2.5);
+      regard.set(-0.3, 3.1, dispo.fond + 1.2);
+    } else if (dispo.reunion) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);

@@ -576,3 +576,13 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .console__classe3d { position: relative; flex: 1; min-height: 220px; overflow: hidden; border-radius: 12px; margin: 0 8px 8px; }
 .console__classe3d .classe3d__toile { display: block; width: 100%; height: 100%; }
 .console__classe3d .classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* Chez moi, en 3D : la chambre et son bureau, sous le bonjour. */
+.chez-moi > .scene.scene--3d { grid-template-rows: auto minmax(0, 1fr); }
+.chez-moi .scene--3d .scene__avant--mur { padding: 18px 4% 0; display: flex; flex-direction: column; }
+.chez-moi .scene--3d .scene__avant--mur .mur { width: 100%; max-width: none; }
+.chez-moi .scene--3d .scene__avant--mur .scene__classe3d {
+  height: clamp(210px, 40vh, 460px); margin-top: 14px; flex: 0 0 auto;
+}
+.chez-moi .scene--3d .scene__pupitre { margin-top: 14px; }
+.classe3d__nom:empty { display: none; }
