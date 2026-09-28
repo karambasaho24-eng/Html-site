@@ -579,6 +579,7 @@ export function creerScene({
       }
     });
   }
+  let detruite = false;
   if (webglDisponible()) {
     creerClasse3D({
       hote: vue3d,
@@ -586,6 +587,9 @@ export function creerScene({
       surTableau: () => surTableau?.(),
       surPersonne: (ancre, p) => surPersonne?.(ancre, p)
     }).then((c) => {
+      // La scène a été fermée pendant qu'on préparait la 3D : on la défait
+      // aussitôt, sinon elle tournerait pour rien, hors de la page.
+      if (detruite) { c.detruire(); return; }
       classe3d = c;
       noeud.classList.add("scene--3d");
       maj3d();
@@ -605,7 +609,7 @@ export function creerScene({
     /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
     classeDans: (conteneur) => { if (classe3d) { classe3d.deplacer(conteneur || vue3d); return true; } return false; },
     a3d: () => Boolean(classe3d),
-    detruire: () => { lacherAvatar?.(); classe3d?.detruire(); classe3d = null; },
+    detruire: () => { detruite = true; lacherAvatar?.(); classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,
     surChangementEtat: (fn) => { surChangementEtat = fn; },

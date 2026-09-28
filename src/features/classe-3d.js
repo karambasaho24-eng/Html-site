@@ -1162,7 +1162,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   /* --- La boucle : moins d'images en petit, aucune quand on ne voit rien --- */
   const vecteur = new THREE.Vector3();
-  let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true;
+  let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true, verifie = 0;
   let leger = null;
   const io = new IntersectionObserver(([x]) => { visible = x.isIntersecting; });
   io.observe(hote);
@@ -1189,7 +1189,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   function image(t) {
     if (!vivant) return;
     anime = requestAnimationFrame(image);
-    if (!visible || document.hidden || t - dernier < (leger ? 50 : 33)) return;
+    // L'observateur ne prévient pas toujours quand la vue, montée hors de la
+    // page, y entre ensuite : on vérifie soi-même, de temps en temps.
+    if (!visible && t - verifie > 400) {
+      verifie = t;
+      const r = hote.getBoundingClientRect();
+      visible = hote.isConnected && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
+    }
+    if (!visible || !hote.isConnected || document.hidden || t - dernier < (leger ? 50 : 33)) return;
     dernier = t;
     const s = t / 1000;
     if (t - dernierTableau > (leger ? 500 : 300)) { suivreToile(); dernierTableau = t; qualite(); }
