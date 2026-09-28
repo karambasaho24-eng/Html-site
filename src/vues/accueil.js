@@ -22,7 +22,7 @@ import { sessions, papiers, cahiers, classes as depotClasses } from "../data/ind
 import { normaliserCode, dateLongue } from "../core/util.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses, notificationsNonLues } from "../core/session.js";
-import { modePleineVue } from "../ui/chassis.js";
+import { modePleineVue, panneauNotifications } from "../ui/chassis.js";
 import { creerBureauMaison } from "../features/bureau-maison.js";
 import { creerScene } from "../features/scene-bureau.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
@@ -75,7 +75,8 @@ export default async function vueAccueil() {
       { cle: "cahier", mot: "Cahier", rendre: panneauCahier(bureau, {
         surSac: () => console_.ouvrir("sac"),
         choisi: () => cahierOuvert?.id,
-        choisir: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); }
+        choisir: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); },
+        surNouveau: () => cahierNeuf()
       }) },
       { cle: "note", mot: "Note", rendre: panneauNote({ bureau, classe: null, gens: () => gens.gens, nomDe: (p) => gens.nomDe(p) }) },
       { cle: "documents", mot: "Documents", rendre: panneauDocumentsConsole() },
@@ -111,14 +112,24 @@ export default async function vueAccueil() {
       toast("Vous n'avez pas encore de cahier", {
         type: "attn", duree: 8000,
         action: { libelle: "M'en procurer un", action: async () => {
-          const c = await cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier" }).catch(() => null);
-          if (c) { await bureau.charger(); decor.peindre(); ouvrirCahier(c); }
+          const c = await cahierNeuf();
+          if (c) { decor.peindre(); ouvrirCahier(c); }
         } }
       });
       return;
     }
     toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
     decor.definirEtat("sac");
+  }
+
+  /** Un cahier neuf, posé sur le bureau de la chambre. */
+  async function cahierNeuf() {
+    const c = await cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier" }).catch((err) => {
+      erreur("Impossible", messageErreur(err)); return null;
+    });
+    if (!c) return null;
+    await bureau.charger();
+    return bureau.cahiersSurLeBureau().find((x) => x.id === c.id) || c;
   }
 
   /* --- Le cahier ouvert, sur le bureau ------------------------------------ */
@@ -168,32 +179,40 @@ export default async function vueAccueil() {
     return [
       ...enDirect.map(({ classe, session }) => el("li.mur__ligne.mur__ligne--direct",
         el("span.mur__voyant"),
-        el("span.mur__texte", el("b", classe.name), " — ", session.title || "Séance ouverte"),
-        el("button.btn.btn--primaire.btn--petit", { onclick: () => aller(`/classe/${classe.id}/salle`) }, "Y aller"))),
+        el("span.mur__texte", el("b", session.title || "Séance ouverte"), ` · ${classe.name}`),
+        el("button.btn.btn--primaire.btn--petit", { onclick: () => aller(`/classe/${classe.id}/salle`) },
+          "Entrer dans la salle", icone("chevronD", 13)))),
       aLire.length ? el("li.mur__ligne",
         el("img.mur__objet", { src: imageDetouree("feuille"), alt: "" }),
-        el("span.mur__texte", aLire.length === 1 ? "Un papier vous a été remis" : `${aLire.length} papiers vous ont été remis`),
+        el("span.mur__texte", el("b", aLire.length === 1 ? "Un papier vous a été remis" : `${aLire.length} papiers vous ont été remis`)),
         el("button.btn.btn--petit", { onclick: async () => { await recevoirPapier(aLire[0]); charger(); } }, "Lire")) : null,
       nonLues ? el("li.mur__ligne",
-        el("span.mur__cloche", icone("cloche", 13)),
-        el("span.mur__texte", `${nonLues} notification${nonLues > 1 ? "s" : ""}`)) : null
+        el("span.mur__cloche", icone("cloche", 14)),
+        el("span.mur__texte", `${nonLues} notification${nonLues > 1 ? "s" : ""}`),
+        el("button.btn.btn--petit.btn--fantome", { onclick: (e) => panneauNotifications(e.currentTarget) }, "Voir")) : null
     ].filter(Boolean);
+  }
+
+  function salut() {
+    const h = new Date().getHours();
+    return h < 5 || h >= 18 ? "Bonsoir" : "Bonjour";
   }
 
   function peindreMur() {
     const lignes = lignesDuMoment();
     const espaces = etat.classes.filter((c) => !c.archived);
+    const prenom = (etat.profil?.display_name || "").split(/\s+/)[0];
     render(mur,
-      el("div.mur__plaque",
-        el("div.mur__entete",
+      el("div.mur__entete",
+        el("div.mur__bonjour",
           el("span.mur__date", dateLongue(Date.now())),
-          el("h1.mur__titre", `Bienvenue, ${etat.profil?.display_name || ""}`.trim())),
-        el("ul.mur__lignes", lignes.length ? lignes
-          : el("li.mur__ligne.mur__ligne--calme", el("span.mur__texte", "Rien ne vous attend. Préparez votre sac."))),
+          el("h1.mur__titre", prenom ? `${salut()}, ${prenom}` : salut())),
         el("div.mur__pied",
-          espaces.length ? el("div.mur__espaces", espaces.slice(0, 5).map((c) =>
+          espaces.length ? el("div.mur__espaces", espaces.slice(0, 4).map((c) =>
             el("a.mur__espace", { href: `#/classe/${c.id}` }, c.name))) : null,
-          rejoindre())));
+          rejoindre())),
+      el("ul.mur__lignes", lignes.length ? lignes
+        : el("li.mur__ligne.mur__ligne--calme", "Rien ne vous attend. Préparez votre sac pour la prochaine séance.")));
   }
 
   function peindreEnTete() {

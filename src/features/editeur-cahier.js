@@ -400,10 +400,10 @@ export function creerEditeurCahier(options) {
         outil("Refaire", "refaire", commande("redo")),
         garde ? sep() : null,
         garde ? outil("Faire un calcul", "grille", calculer, "×÷") : null
-      ) : (manqueEcriture
+      ) : (manqueEcriture && !manqueEcriture.discret
             ? el("span.etiq.etiq--attn", { title: manqueEcriture.conseil || "" },
                 icone("crayon", 13), manqueEcriture.message)
-            : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule")),
+            : manqueEcriture?.discret ? null : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule")),
 
       el("span.pousse"),
       actionsSupplementaires ? actionsSupplementaires(pageCourante) : null,

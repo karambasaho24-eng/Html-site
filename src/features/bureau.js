@@ -66,6 +66,31 @@ export function creerBureau({ classe, session, surChange = null }) {
   const sacsPortes = () => objets.filter((o) => fiche(o.kind)?.contenant && o.carried
     && (o.place || "range") === "range" && !o.container_id);
 
+  /** Ce que j'avais laissé dans CETTE salle, lors d'une séance précédente. */
+  const laissesIci = () => {
+    if (!ctx.seance || !ctx.classe) return [];
+    const ici = (c) => String(c.place_class || "") === String(ctx.classe)
+      && (c.place === "salle" || (c.place === "bureau" && String(c.place_session) !== String(ctx.seance)));
+    return [...supports.filter(ici).map((c) => ["cahier", c]), ...objets.filter(ici).map((o) => ["objet", o])];
+  };
+
+  /** Revenu à sa place : ce qu'on avait laissé revient sur le bureau. */
+  async function reprendre(liste = laissesIci()) {
+    let n = 0;
+    for (const [genre, chose] of liste) {
+      try {
+        if (genre === "cahier") await depotCahiers.reprendre(chose.id, ctx.seance);
+        else await depotAffaires.reprendre(chose.id, ctx.seance);
+        Object.assign(chose, { place: "bureau", place_session: ctx.seance, place_class: ctx.classe, container_id: null });
+        n++;
+      } catch (err) {
+        erreur("Impossible de le reprendre", messageErreur(err));
+      }
+    }
+    if (n) { peindre(); surChange?.(); }
+    return n;
+  }
+
   /* --- Les gestes --------------------------------------------------------- */
   async function sortir(chose, genre) {
     try {
@@ -126,7 +151,12 @@ export function creerBureau({ classe, session, surChange = null }) {
    * On part. Ce qui est encore sur le bureau reste dans la salle — on ne
    * demande pas, on constate : c'est un oubli, et un oubli ne prévient pas.
    */
+  let parti = false;
   async function laisserTout() {
+    // On ne part qu'une fois : la fin de séance et la sortie de la salle
+    // peuvent l'annoncer toutes deux.
+    if (parti) return 0;
+    parti = true;
     enMainId = null;
     local.ecrire(cleMain, null);
     const restes = [...surLeBureau().map((o) => ["objet", o]), ...cahiersSurLeBureau().map((c) => ["cahier", c])];
@@ -242,7 +272,7 @@ export function creerBureau({ classe, session, surChange = null }) {
 
   const api = {
     noeud, charger, ouvrirSac, rangerTout, laisserTout,
-    sortir, ranger, prendre, enMain,
+    sortir, ranger, prendre, enMain, laissesIci, reprendre,
     surLeBureau, dansMonSac, cahiersDansMonSac, sacsPortes,
     objets: () => objets,
     supports: () => supports,

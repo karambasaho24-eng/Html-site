@@ -89,43 +89,62 @@
   --transition: 140ms cubic-bezier(.4, 0, .2, 1);
 }
 
-/* --- Argent et graphite ---------------------------------------------------
-   L'interface est en métal, le monde est en matière. Le laiton d'origine
-   devient de l'argent brossé ; le bronze ancien ne reste qu'en touche rare.
-   Les noms « laiton » sont conservés pour ne pas réécrire mille règles : ils
-   désignent désormais l'accent métallique. */
+/* --- Épure ----------------------------------------------------------------
+   Un graphite mat, quatre niveaux de surface, une seule couleur d'accent
+   (un ivoire chaud) et un vert pour « présent ». Pas de métal, pas de
+   dégradé : la matière est réservée aux objets — le bois, le cuir, le papier.
+   Les anciens noms (laiton, argent, métal, filet) sont conservés et pointent
+   vers ces valeurs, pour que tout l'écran parle d'une seule voix. */
 :root {
-  --encre-1000: #070809;
-  --encre-900:  #0c0e10;
-  --encre-850:  #111417;
-  --encre-800:  #16191d;
-  --encre-700:  #1c2024;
-  --encre-600:  #262b30;
-  --encre-500:  #343a41;
-  --encre-400:  #4a525b;
+  --fond:      #0f1113;
+  --surface-0: #121417;
+  --surface-1: #16191c;
+  --surface-2: #1d2024;
+  --surface-3: #262a2f;
+  --accent:      #e8c896;
+  --accent-fond: rgba(232, 200, 150, .12);
+  --vert:        #7fc58a;
 
-  --laiton:        #b8bec6;
-  --laiton-sombre: #7f868f;
-  --laiton-clair:  #e3e7ec;
-  --ligne-laiton:  rgba(196, 203, 212, .26);
-  --bronze:        #a47c46;
-  --bronze-clair:  #c79b5c;
+  --encre-1000: #0b0c0e;
+  --encre-900:  var(--fond);
+  --encre-850:  var(--surface-1);
+  --encre-800:  var(--surface-2);
+  --encre-700:  var(--surface-3);
+  --encre-600:  #2e3338;
+  --encre-500:  #3a4046;
+  --encre-400:  #4d545b;
 
-  --argent-1: #eef1f4;
-  --argent-2: #c9ced5;
-  --argent-3: #9aa1aa;
-  --argent-4: #6c737c;
-  --metal: linear-gradient(180deg, #e9ecf0 0%, #c3c8cf 46%, #a9afb7 54%, #d2d6dc 100%);
-  --metal-sombre: linear-gradient(180deg, #2a2f35 0%, #1d2126 50%, #16191d 100%);
-  --filet: linear-gradient(90deg, transparent, rgba(214,220,228,.38) 20%, rgba(214,220,228,.38) 80%, transparent);
+  --laiton:        var(--accent);
+  --laiton-sombre: #b89a6c;
+  --laiton-clair:  var(--accent);
+  --ligne-laiton:  rgba(232, 200, 150, .3);
+  --bronze:        #b8905c;
+  --bronze-clair:  var(--accent);
 
-  --texte:        #e9e7e2;
-  --texte-doux:   #aeb2b8;
-  --texte-faible: #767c84;
-  --ligne:        #23282d;
-  --ligne-forte:  #353c43;
+  --argent-1: #ecebe8;
+  --argent-2: #b9bcc1;
+  --argent-3: #8d9197;
+  --argent-4: #6b7077;
+  --metal: #ecebe8;
+  --metal-sombre: var(--surface-2);
+  --filet: rgba(255, 255, 255, .07);
+
+  --texte:        #ecebe8;
+  --texte-doux:   #a4a8ae;
+  --texte-faible: #6f747b;
+  --ligne:        rgba(255, 255, 255, .07);
+  --ligne-forte:  rgba(255, 255, 255, .13);
+  --ok:           var(--vert);
+
+  --f-titre: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --ombre-2: 0 8px 24px rgba(0,0,0,.35);
+  --ombre-3: 0 24px 60px rgba(0,0,0,.5);
 
   --courbe: cubic-bezier(.2, .7, .2, 1);
+  --transition: 160ms var(--courbe);
 }
 
 /* --- Densités pour cohabiter avec la fenêtre Roblox ----------------------- */

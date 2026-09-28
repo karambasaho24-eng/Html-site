@@ -287,6 +287,8 @@ export const cahiers = {
     place_session: null, container_id: null
   }),
   recuperer: (id) => pilote.rpc("recover_notebook", { target: id }),
+  /** Revenu à sa place : le cahier laissé dans cette salle revient sur le bureau. */
+  reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "cahier", target: id, seance: seanceId }),
 
   /** Inspection d'un support apporté au cartable, par l'encadrement. */
   inspecter: (cahierId, classeId) =>
@@ -467,6 +469,8 @@ export const affaires = {
 
   /** Revenir le chercher. La base vérifie que la salle est ouverte. */
   recuperer: (id) => pilote.rpc("recover_belonging", { target: id }),
+  /** Revenu à sa place : l'objet laissé dans cette salle revient sur le bureau. */
+  reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "objet", target: id, seance: seanceId }),
 
   majorer: (id, patch) => T("belongings").majorer(id, patch),
   supprimer: (id) => T("belongings").supprimer(id),

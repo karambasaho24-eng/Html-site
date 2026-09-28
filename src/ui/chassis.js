@@ -101,6 +101,7 @@ function suivreLaTaille() {
       : "mini";
     if (chassis.dataset.taille !== t) {
       chassis.dataset.taille = t;
+      docHote().body.dataset.taille = t;
       definir({ taille: t });
     }
   };
@@ -258,7 +259,7 @@ function peindreOutils() {
 }
 
 /* --- Panneau de notifications --------------------------------------------- */
-function panneauNotifications(ancre) {
+export function panneauNotifications(ancre) {
   const liste = etat.notifications.slice(0, 12);
   if (!liste.length) {
     menu(ancre, [{ titre: "Notifications" }, { libelle: "Aucune notification", action: () => {} }]);

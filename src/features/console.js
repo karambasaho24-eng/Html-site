@@ -20,6 +20,7 @@ import { bandePersonnes } from "./personnes.js";
 import { formulaireNote } from "./note-rapide.js";
 import { panneauDocuments } from "./gestes.js";
 import { creerEditeurCahier } from "./editeur-cahier.js";
+import { diagnostic, pretAEcrire } from "./pret-a-ecrire.js";
 
 /**
  * @param {object} o
@@ -167,15 +168,31 @@ export function panneauSac(bureau, { apres = null } = {}) {
  * Le cahier, en petit : les outils posés en haut (on en prend un), la page
  * en dessous. Sans outil en main, on lit ; on n'écrit pas.
  */
-export function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {} } = {}) {
+export function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {}, surNouveau = null } = {}) {
   let editeur = null;
-  return (zone) => {
+  return (zone, api) => {
     editeur?.detruire?.();
     editeur = null;
     const cahiers = bureau.cahiersSurLeBureau();
+    const etat_ = diagnostic(bureau);
+    const preparer = async (e) => {
+      e.currentTarget.disabled = true;
+      const { cahier: pose } = await pretAEcrire(bureau);
+      if (pose) choisir(pose);
+      else api?.rafraichir();
+    };
     if (!cahiers.length) {
-      render(zone, el("div.console__vide", el("p", "Aucun cahier sur le bureau."),
-        surSac ? el("button.btn.btn--primaire", { type: "button", onclick: surSac }, "Le sortir du sac") : null));
+      render(zone, el("div.console__vide",
+        el("p", etat_.phrase || "Aucun cahier sur le bureau."),
+        etat_.faisable
+          ? el("button.btn.btn--primaire", { type: "button", onclick: preparer }, icone("crayon", 14), "Prêt à écrire")
+          : !bureau.supports().length && surNouveau
+            ? el("button.btn.btn--primaire", { type: "button", onclick: async (e) => {
+                e.currentTarget.disabled = true;
+                const c = await surNouveau();
+                if (c) choisir(c); else api?.rafraichir();
+              } }, icone("plus", 14), "Prendre un cahier neuf")
+            : surSac ? el("button.btn", { type: "button", onclick: surSac }, "Ouvrir le sac") : null));
       return;
     }
     const cahier = cahiers.find((c) => String(c.id) === String(choisi())) || cahiers[0];
@@ -191,7 +208,17 @@ export function panneauCahier(bureau, { surSac = null, choisi = () => null, choi
       garde: (action) => bureau.peutFaire(action)
     });
 
+    const bandeau = etat_.pret
+      ? el("div.console__pret.console__pret--ok",
+          tenu ? el("img", { src: imageDetouree(tenu.kind), alt: "" }) : null,
+          el("span", tenu ? `${nomObjet(tenu)} en main — vous pouvez écrire.` : "Vous pouvez écrire."))
+      : el("div.console__pret",
+          etat_.outil ? el("img", { src: imageDetouree(etat_.outil.kind), alt: "" }) : null,
+          el("span", etat_.phrase),
+          etat_.faisable ? el("button.btn.btn--primaire.btn--petit", { type: "button", onclick: preparer }, "Prêt à écrire") : null);
+
     render(zone,
+      bandeau,
       cahiers.length > 1 ? el("div.console__onglets", cahiers.map((c) => el("button.console__onglet", {
         type: "button", "aria-pressed": String(c.id === cahier.id), onclick: () => choisir(c)
       }, c.title))) : null,
@@ -202,10 +229,27 @@ export function panneauCahier(bureau, { surSac = null, choisi = () => null, choi
             title: tenu?.id === o.id ? "Reposer" : `Prendre ${nomObjet(o).toLowerCase()}`,
             onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
           }, el("img", { src: imageDetouree(o.kind), alt: "" })))
-        : el("span.console__conseil", "Aucun outil sur le bureau."),
-        !verdict.ok ? el("span.console__conseil", verdict.prendre ? `Prenez ${nomObjet(verdict.prendre).toLowerCase()}` : verdict.message) : null),
+        : null),
       el("div.console__page", editeur.noeud));
   };
+}
+
+/** Le bandeau « prêt à écrire », pour les panneaux qui montrent un cahier. */
+export function bandeauEcriture(bureau, { apres = null } = {}) {
+  const d = diagnostic(bureau);
+  const tenu = bureau.enMain();
+  if (d.pret) {
+    return el("div.console__pret.console__pret--ok",
+      tenu ? el("img", { src: imageDetouree(tenu.kind), alt: "" }) : null,
+      el("span", tenu ? `${nomObjet(tenu)} en main — vous pouvez écrire.` : "Vous pouvez écrire."));
+  }
+  return el("div.console__pret",
+    d.outil ? el("img", { src: imageDetouree(d.outil.kind), alt: "" }) : null,
+    el("span", d.phrase),
+    d.faisable ? el("button.btn.btn--primaire.btn--petit", {
+      type: "button",
+      onclick: async (e) => { e.currentTarget.disabled = true; const r = await pretAEcrire(bureau); apres?.(r); }
+    }, "Prêt à écrire") : null);
 }
 
 export function panneauNote({ bureau, classe = null, session = null, gens = () => [], nomDe }) {

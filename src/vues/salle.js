@@ -29,10 +29,11 @@ import { modePleineVue, modeImmersif, definirStatut } from "../ui/chassis.js";
 import { compteurPersonnes, ouvrirBande, pictogramme } from "../features/personnes.js";
 import { pictoBureau } from "../ui/barre-actions.js";
 import {
-  creerConsole, panneauBureau, panneauSac, panneauNote, panneauDocumentsConsole, panneauPersonnes
+  creerConsole, panneauBureau, panneauSac, panneauNote, panneauDocumentsConsole, panneauPersonnes, bandeauEcriture
 } from "../features/console.js";
 import { observer } from "../core/store.js";
 import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
+import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
 import { ecrireUneNote } from "../features/note-rapide.js";
 import { panneauDossiers } from "../features/dossiers.js";
 import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
@@ -101,6 +102,7 @@ export default async function vueSalle({ params }) {
   let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
   let ongletPanneau = staff ? "eleves" : "notes";
   let participants = [];
+  let quitte = false;               // la salle est quittée : plus rien ne se repeint
   let listeMains = [];
   let listeQuestions = [];
   let sondageActif = null;
@@ -134,6 +136,7 @@ export default async function vueSalle({ params }) {
       decor?.peindre();
       peindreDock();
       if (["bureau", "sac"].includes(consoleSalle?.ouvert())) consoleSalle.rafraichir();
+      if (consoleSalle?.ouvert() === "cahier") peindreBandeauConsole();
       if (scene === "moncahier") await peindreMonCahier();
       if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
     }
@@ -194,8 +197,20 @@ export default async function vueSalle({ params }) {
 
   /* --- En petite fenêtre : la console, un panneau à la fois ------------------ */
   const gensPresents = () => participants.filter((p) => p.user_id !== etat.utilisateur.id);
+  // Au-dessus du jeu, le geste principal est d'écrire : ce qui manque pour
+  // le faire, et le bouton qui le règle, restent en tête du cahier.
+  const porteBandeau = el("div.console__porte-bandeau");
+  function peindreBandeauConsole() {
+    render(porteBandeau, bandeauEcriture(bureau, {
+      apres: async ({ cahier }) => {
+        if (cahier) cahierOuvertId = cahierOuvertId || cahier.id;
+        await peindreMonCahier();
+        peindreBandeauConsole();
+      }
+    }));
+  }
   const consoleSalle = creerConsole({
-    defaut: "bureau",
+    defaut: staff ? "bureau" : "cahier",
     panneaux: [
       { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
         surCahier: (c) => { cahierOuvertId = c.id; consoleSalle.ouvrir("cahier"); },
@@ -203,7 +218,9 @@ export default async function vueSalle({ params }) {
         surDossier: () => ouvrirMesDossiers()
       }) },
       { cle: "sac", mot: "Sac", image: "cartable", rendre: panneauSac(bureau) },
-      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: (zone) => montrerDansConsole(zone, "moncahier") },
+      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: async (zone) => {
+        await montrerDansConsole(zone, "moncahier");
+      } },
       { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
       { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
       { cle: "personnes", mot: "Personnes", figure: () => pictoPersonneConsole(), rendre: panneauPersonnes({
@@ -523,7 +540,9 @@ export default async function vueSalle({ params }) {
       // Et il faut de quoi écrire, sur le bureau. Pas de stylo, pas
       // d'écriture : rien ne s'ajoute à la page, et on dit pourquoi.
       peutEcrire: !prive() && !choisi.emprunte && ecriture.ok,
-      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? ecriture : null,
+      // Le bloc « manque-outil » au-dessus dit déjà ce qui manque : l'éditeur
+      // ne le répète pas dans sa barre, il le rappelle seulement au clic.
+      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? { ...ecriture, discret: true } : null,
       garde: (action) => bureau.peutFaire(action),
       compact: true,
       tempsReel: true,
@@ -591,7 +610,10 @@ export default async function vueSalle({ params }) {
                 ? el("button.btn.btn--primaire", { onclick: () => bureau.prendre(ecriture.prendre) },
                     el("img", { src: imageDetouree(ecriture.prendre.kind), alt: "", style: { height: "18px" } }),
                     ` Prendre ${nomObjet(ecriture.prendre).toLowerCase()}`)
-                : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
+                : diagnostic(bureau).faisable
+                  ? el("button.btn.btn--primaire", { onclick: async () => { await pretAEcrire(bureau); } },
+                      icone("crayon", 14), "Sortir un crayon et le prendre")
+                  : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
               ecriture.prendre ? null : el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
                 icone("main", 14), "Emprunter"))
           : null,
@@ -2760,18 +2782,26 @@ export default async function vueSalle({ params }) {
     peindreBandeau();
   }
 
-  function ouvrirMonCahier() {
-    const pose = bureau.cahiersSurLeBureau()[0];
+  /** Ouvrir son cahier : s'il est dans le sac, on l'en sort d'abord. */
+  async function ouvrirMonCahier() {
+    let pose = bureau.cahiersSurLeBureau()[0];
+    if (!pose) {
+      const dansLeSac = bureau.cahiersDansMonSac()[0];
+      if (dansLeSac && await bureau.sortir(dansLeSac, "cahier")) pose = dansLeSac;
+    }
     if (pose) { cahierOuvertId = cahierOuvertId || pose.id; appliquerFenetre("cahier"); return; }
-    toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
-    appliquerFenetre("sac");
+    toast("Vous n'avez pas de cahier sur vous", {
+      corps: "Il est peut-être resté à la maison, ou dans une autre salle.", type: "attn", duree: 7000
+    });
   }
 
-  function prendreOutilEcriture(outil) {
+  /** Le crayon : posé, on le prend ; dans le sac, on le sort et on le prend. */
+  async function prendreOutilEcriture(outil) {
     if (!outil) {
-      const verdict = bureau.peutFaire("ecrire");
-      toast("Aucun outil d'écriture disponible.", { corps: verdict.conseil || "", type: "attn", duree: 6000 });
-      if (bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind))) appliquerFenetre("sac");
+      const { verdict } = await pretAEcrire(bureau);
+      if (!verdict.ok) {
+        toast("Aucun outil d'écriture sur vous.", { corps: verdict.conseil || verdict.message || "", type: "attn", duree: 6000 });
+      }
       return;
     }
     bureau.prendre(bureau.enMain()?.id === outil.id ? null : outil);
@@ -2840,11 +2870,11 @@ export default async function vueSalle({ params }) {
   function pictoPersonneConsole() { return pictogramme(); }
 
   /* --- Le dock : les gestes essentiels, sous forme d'objets --------------------- */
-  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null }) {
+  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null, principal = false }) {
     return el("button.dock__chose", {
       type: "button", title: titre || mot, "aria-label": titre || mot,
       "aria-pressed": String(Boolean(actif)),
-      class: manque ? "dock__chose--manque" : "",
+      class: [manque ? "dock__chose--manque" : "", principal ? "dock__chose--principal" : ""].join(" ").trim(),
       onclick: (e) => action(e.currentTarget)
     },
       signe ? el("span.dock__signe", signe) : el("img", { src: imageDetouree(image), alt: "", draggable: false }),
@@ -2853,7 +2883,7 @@ export default async function vueSalle({ params }) {
   }
 
   function peindreDock() {
-    if (!dock) return;
+    if (!dock || quitte) return;
     const tenu = bureau.enMain();
     const outils = bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
     const outil = (tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind)) ? tenu : outils[0] || null;
@@ -2881,18 +2911,22 @@ export default async function vueSalle({ params }) {
 
     render(dock,
       el("div.dock__groupe",
-        chose({ image: sac?.kind || "cartable", mot: "Sac", actif: fenetre === "sac", manque: !sac,
+        chose({ image: sac?.kind || "cartable", mot: "Sac", actif: fenetre === "sac", manque: !sac, principal: true,
           titre: fenetre === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
           action: () => appliquerFenetre(fenetre === "sac" ? "bureau" : "sac") }),
-        chose({ image: cahierPose?.support || "cahier", mot: "Cahier", actif: fenetre === "cahier",
-          manque: !cahierPose, titre: fenetre === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
+        chose({ image: cahierPose?.support || "cahier", mot: "Cahier", actif: fenetre === "cahier", principal: true,
+          manque: !cahierPose && !bureau.cahiersDansMonSac().length,
+          titre: fenetre === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
           action: () => (fenetre === "cahier" ? appliquerFenetre("bureau") : ouvrirMonCahier()) }),
         chose({ image: outil?.kind || "crayon", mot: tenu && outil?.id === tenu.id ? "En main" : "Stylo",
-          actif: Boolean(tenu && outil?.id === tenu.id), manque: !outil,
-          titre: !outil ? "Aucun outil d'écriture sur le bureau"
+          actif: Boolean(tenu && outil?.id === tenu.id), principal: true,
+          manque: !outil && !bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind)),
+          titre: !outil ? "Sortir un crayon du sac et le prendre"
             : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
           action: () => prendreOutilEcriture(outil) }),
-        chose({ image: "feuille", mot: "Note", titre: "Écrire une note à quelqu'un", action: () => noteRapide() }),
+        chose({ image: "feuille", mot: "Note", principal: true, titre: "Écrire une note à quelqu'un", action: () => noteRapide() })),
+      el("span.dock__sep"),
+      el("div.dock__groupe",
         chose({ image: "pochette", mot: "Reçus", pastille: notesRecues.length, manque: !notesRecues.length,
           titre: notesRecues.length ? "Lire ce qu'on m'a remis" : "Rien ne vous a été remis",
           action: () => lireNote() }),
@@ -2941,8 +2975,10 @@ export default async function vueSalle({ params }) {
     );
   }
 
+  let finTraitee = false;
   function surFinDeSession() {
-    if (staff) return;
+    if (staff || finTraitee) return;
+    finTraitee = true;
     // La séance est close : ce qui est resté sur le bureau reste dans la
     // salle. C'est un oubli, et il se joue comme tel.
     bureau.laisserTout();
@@ -3071,6 +3107,7 @@ export default async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} — ${classe.name}`,
     nettoyer: () => {
+      quitte = true;
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();

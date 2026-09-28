@@ -98,43 +98,62 @@
   --transition: 140ms cubic-bezier(.4, 0, .2, 1);
 }
 
-/* --- Argent et graphite ---------------------------------------------------
-   L'interface est en métal, le monde est en matière. Le laiton d'origine
-   devient de l'argent brossé ; le bronze ancien ne reste qu'en touche rare.
-   Les noms « laiton » sont conservés pour ne pas réécrire mille règles : ils
-   désignent désormais l'accent métallique. */
+/* --- Épure ----------------------------------------------------------------
+   Un graphite mat, quatre niveaux de surface, une seule couleur d'accent
+   (un ivoire chaud) et un vert pour « présent ». Pas de métal, pas de
+   dégradé : la matière est réservée aux objets — le bois, le cuir, le papier.
+   Les anciens noms (laiton, argent, métal, filet) sont conservés et pointent
+   vers ces valeurs, pour que tout l'écran parle d'une seule voix. */
 :root {
-  --encre-1000: #070809;
-  --encre-900:  #0c0e10;
-  --encre-850:  #111417;
-  --encre-800:  #16191d;
-  --encre-700:  #1c2024;
-  --encre-600:  #262b30;
-  --encre-500:  #343a41;
-  --encre-400:  #4a525b;
+  --fond:      #0f1113;
+  --surface-0: #121417;
+  --surface-1: #16191c;
+  --surface-2: #1d2024;
+  --surface-3: #262a2f;
+  --accent:      #e8c896;
+  --accent-fond: rgba(232, 200, 150, .12);
+  --vert:        #7fc58a;
 
-  --laiton:        #b8bec6;
-  --laiton-sombre: #7f868f;
-  --laiton-clair:  #e3e7ec;
-  --ligne-laiton:  rgba(196, 203, 212, .26);
-  --bronze:        #a47c46;
-  --bronze-clair:  #c79b5c;
+  --encre-1000: #0b0c0e;
+  --encre-900:  var(--fond);
+  --encre-850:  var(--surface-1);
+  --encre-800:  var(--surface-2);
+  --encre-700:  var(--surface-3);
+  --encre-600:  #2e3338;
+  --encre-500:  #3a4046;
+  --encre-400:  #4d545b;
 
-  --argent-1: #eef1f4;
-  --argent-2: #c9ced5;
-  --argent-3: #9aa1aa;
-  --argent-4: #6c737c;
-  --metal: linear-gradient(180deg, #e9ecf0 0%, #c3c8cf 46%, #a9afb7 54%, #d2d6dc 100%);
-  --metal-sombre: linear-gradient(180deg, #2a2f35 0%, #1d2126 50%, #16191d 100%);
-  --filet: linear-gradient(90deg, transparent, rgba(214,220,228,.38) 20%, rgba(214,220,228,.38) 80%, transparent);
+  --laiton:        var(--accent);
+  --laiton-sombre: #b89a6c;
+  --laiton-clair:  var(--accent);
+  --ligne-laiton:  rgba(232, 200, 150, .3);
+  --bronze:        #b8905c;
+  --bronze-clair:  var(--accent);
 
-  --texte:        #e9e7e2;
-  --texte-doux:   #aeb2b8;
-  --texte-faible: #767c84;
-  --ligne:        #23282d;
-  --ligne-forte:  #353c43;
+  --argent-1: #ecebe8;
+  --argent-2: #b9bcc1;
+  --argent-3: #8d9197;
+  --argent-4: #6b7077;
+  --metal: #ecebe8;
+  --metal-sombre: var(--surface-2);
+  --filet: rgba(255, 255, 255, .07);
+
+  --texte:        #ecebe8;
+  --texte-doux:   #a4a8ae;
+  --texte-faible: #6f747b;
+  --ligne:        rgba(255, 255, 255, .07);
+  --ligne-forte:  rgba(255, 255, 255, .13);
+  --ok:           var(--vert);
+
+  --f-titre: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --ombre-2: 0 8px 24px rgba(0,0,0,.35);
+  --ombre-3: 0 24px 60px rgba(0,0,0,.5);
 
   --courbe: cubic-bezier(.2, .7, .2, 1);
+  --transition: 160ms var(--courbe);
 }
 
 /* --- Densités pour cohabiter avec la fenêtre Roblox ----------------------- */
@@ -3103,23 +3122,19 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 /* ---- scene.css ---- */
 /* ===========================================================================
    LA SCÈNE — ce que le personnage a devant lui
-   Le mur et le tableau au fond, l'estrade, le pupitre en perspective, les
-   affaires posées dessus avec leur ombre, le sac par terre. La lumière vient
-   d'en haut à gauche, comme dans les photographies des objets : c'est ce qui
-   fait qu'un stylo semble posé et non collé.
+   Vue de dessus, à plat. Une table sombre et mate, les affaires posées avec
+   une ombre douce, le sac à côté, les autres assis de l'autre côté. Pas de
+   perspective, pas de cadre doré : la matière des objets suffit.
    ========================================================================= */
 
 :root {
-  --bois-1: #3f2819;
-  --bois-2: #332013;
-  --bois-3: #26170d;
-  --bois-chant: #1c1109;
-  --mur-1: #1b221f;
-  --mur-2: #121714;
-  --ardoise-1: #1f2d27;
-  --ardoise-2: #16211c;
+  --table-1: #2b231c;
+  --table-2: #231c16;
+  --table-bord: rgba(255, 240, 220, .06);
+  --ardoise: #1c2622;
   --f-main: "Caveat", "Segoe Print", "Bradley Hand", cursive;
-  --dock-h: 76px;
+  --dock-h: 74px;
+  --doux: cubic-bezier(.2, .7, .2, 1);
 }
 
 /* --- L'application disparaît : il ne reste que la scène ------------------ */
@@ -3133,10 +3148,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .chassis--immersif > .rail { display: none; }
 
 /* --- La salle selon la fenêtre ------------------------------------------- */
-.salle--immersif {
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  background: #0b0e0d;
-}
+.salle--immersif { grid-template-rows: auto minmax(0, 1fr) auto; background: var(--fond); }
 .salle--immersif > .bandeau,
 .salle--immersif .bureau { display: none; }
 .salle--immersif > .salle__corps { display: none; }
@@ -3154,64 +3166,43 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   position: relative;
   min-height: 0;
   overflow: hidden;
-  grid-template-rows: minmax(150px, 36%) minmax(0, 1fr);
+  grid-template-rows: minmax(110px, 30%) minmax(0, 1fr);
   isolation: isolate;
   user-select: none;
-  background:
-    radial-gradient(120% 70% at 18% -10%, rgba(255, 226, 170, .10), transparent 55%),
-    linear-gradient(180deg, var(--mur-1) 0%, var(--mur-2) 34%, #0c0f0d 100%);
+  background: var(--fond);
 }
-.scene__mur {
-  position: absolute; inset: 0 0 auto 0; height: 38%;
-  pointer-events: none; z-index: 0;
-  background:
-    /* lambris */
-    repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 1px, transparent 1px 120px),
-    linear-gradient(180deg, transparent 72%, rgba(0,0,0,.35) 72.5%, rgba(255,255,255,.03) 73%, transparent 74%),
-    radial-gradient(60% 90% at 50% 0%, rgba(255,240,200,.05), transparent 70%);
-}
+.scene__mur { display: none; }
 
-/* --- L'avant de la classe ------------------------------------------------ */
+/* --- L'avant de la classe : le tableau, et qui le tient ------------------ */
 .scene__avant {
   position: relative; z-index: 1;
-  display: flex; align-items: flex-end; justify-content: center;
-  gap: clamp(12px, 3vw, 48px);
-  padding: 14px 4% 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(12px, 3vw, 40px);
+  padding: 14px 4% 6px;
   min-height: 0;
 }
 .scene__tableau {
   position: relative;
-  flex: 0 1 min(54%, 620px);
-  aspect-ratio: 16 / 7.2;
-  max-height: 100%;
+  height: 100%; max-width: min(62%, 680px);
+  aspect-ratio: 16 / 7;
   padding: 0; border: 0; background: none; cursor: zoom-in;
   display: flex; flex-direction: column;
-  transition: transform .3s ease;
+  transition: transform .25s var(--doux);
 }
-.scene__tableau:hover { transform: translateY(-2px); }
+.scene__tableau:hover { transform: translateY(-1px); }
 .scene__tableau-cadre {
   position: relative; flex: 1; min-height: 0;
-  border-radius: 3px;
-  padding: 9px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.12), transparent 30%),
-    repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 7px),
-    linear-gradient(180deg, #6a4526, #4b2f18);
-  box-shadow:
-    0 18px 30px -12px rgba(0,0,0,.8),
-    0 2px 0 rgba(255,255,255,.08) inset,
-    0 0 0 1px rgba(0,0,0,.6);
+  border-radius: 12px;
+  background: var(--ardoise);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 16px 32px -18px rgba(0,0,0,.8);
+  overflow: hidden;
 }
 .scene__ecran {
-  position: absolute; inset: 9px;
-  overflow: hidden; border-radius: 2px;
-  background:
-    radial-gradient(80% 90% at 30% 20%, rgba(255,255,255,.06), transparent 60%),
-    linear-gradient(180deg, var(--ardoise-1), var(--ardoise-2));
-  box-shadow: inset 0 0 40px rgba(0,0,0,.55);
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: radial-gradient(90% 90% at 30% 10%, rgba(255,255,255,.035), transparent 60%), var(--ardoise);
   pointer-events: none;
 }
-/* Le tableau vivant, en petit : sans ses outils, sans ses bordures. */
 .scene__ecran .tableau__barre,
 .scene__ecran .tableau__pages,
 .scene__ecran .curseurs { display: none !important; }
@@ -3220,215 +3211,187 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .scene__ecran .tableau__surface { height: 100%; }
 .scene__ecran canvas { width: 100%; height: 100%; object-fit: contain; }
 .scene__ecran > :not(.tableau) { transform-origin: top left; }
-.scene__ecran::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(115deg, rgba(255,255,255,.05) 0 18%, transparent 30%);
-}
-.scene__rebord {
-  position: relative; height: 9px; margin: 0 3%;
-  background: linear-gradient(180deg, #5a3a20, #2e1d0f);
-  border-radius: 0 0 3px 3px;
-  box-shadow: 0 6px 10px -4px rgba(0,0,0,.7);
-}
-.scene__baton {
-  position: absolute; left: 14%; top: -3px; width: 26px; height: 6px; border-radius: 3px;
-  background: linear-gradient(180deg, #fbf8ee, #d9d3c3);
-  box-shadow: 0 2px 2px rgba(0,0,0,.4);
-}
-.scene__brosse {
-  position: absolute; right: 12%; top: -7px; width: 46px; height: 10px; border-radius: 2px;
-  background: linear-gradient(180deg, #7a5433 0 55%, #3b3b3b 55%);
-  box-shadow: 0 2px 3px rgba(0,0,0,.5);
-}
+.scene__rebord { display: none; }
 .scene__legende {
-  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
-  font-family: var(--f-main); font-size: clamp(14px, 1.5vw, 20px);
-  color: rgba(245, 242, 232, .72);
-  text-shadow: 0 0 6px rgba(255,255,255,.12);
+  position: absolute; left: 14px; bottom: 10px;
+  font-size: 11px; letter-spacing: .04em;
+  color: rgba(236, 240, 238, .5);
   white-space: nowrap; pointer-events: none;
 }
+.scene__tableau:hover .scene__legende { color: rgba(236, 240, 238, .8); }
 
-/* --- L'estrade ----------------------------------------------------------- */
+/* --- L'estrade : un voyant, pas un décor -------------------------------- */
 .scene__estrade {
   position: relative;
-  flex: 0 1 30%;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  min-width: 150px; max-height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 0;
 }
-.estrade__prof {
-  position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding-bottom: 6px;
-}
-.estrade__lumiere {
-  position: absolute; bottom: -8px; left: 50%; width: 220px; height: 60px;
-  transform: translateX(-50%);
-  background: radial-gradient(50% 50% at 50% 50%, rgba(255, 220, 150, .22), transparent 70%);
-  transition: opacity .5s ease;
-}
-.estrade__prof--absent .estrade__lumiere { opacity: 0; }
-.estrade__vide {
-  width: 64px; height: 92px;
-  border: 1.5px dashed rgba(255,255,255,.16);
-  border-radius: 34px 34px 10px 10px;
-}
-.estrade__etat {
-  position: relative;
-  font-size: 12px; color: var(--texte-doux);
-  background: rgba(8,10,12,.62); backdrop-filter: blur(4px);
-  padding: 4px 10px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.08);
-  white-space: nowrap;
-}
-.estrade__prof--present .estrade__etat { color: var(--texte); border-color: rgba(201,162,39,.4); }
-.estrade__prof--present .estrade__etat::before {
-  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px;
-  border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); vertical-align: 1px;
-}
+.estrade__prof { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.estrade__lumiere { display: none; }
 
-/* Une silhouette : une tête (portrait ou initiales) et des épaules. */
+/* Une silhouette : une tête (portrait ou initiales). Sert aussi aux notes. */
 .silhouette { display: flex; flex-direction: column; align-items: center; }
 .silhouette__tete {
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 50%;
   display: grid; place-items: center; overflow: hidden;
-  font-family: var(--f-titre); font-weight: 600; font-size: 13px; color: var(--parch-200);
-  background: radial-gradient(circle at 35% 30%, #4a5561, #232a31);
-  border: 1.5px solid rgba(201,162,39,.55);
-  box-shadow: 0 4px 10px rgba(0,0,0,.5);
-  position: relative; z-index: 1;
+  font-weight: 600; font-size: 12px; color: var(--texte);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 1px var(--ligne-forte);
 }
 .silhouette__tete img { width: 100%; height: 100%; object-fit: cover; }
-.silhouette__buste {
-  width: 62px; height: 34px; margin-top: -6px;
-  border-radius: 30px 30px 6px 6px;
-  background: linear-gradient(180deg, #2c3a2c, #1a241a);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 8px 14px -6px rgba(0,0,0,.7);
-}
-.silhouette--grand .silhouette__tete { width: 56px; height: 56px; font-size: 18px; }
-.silhouette--grand .silhouette__buste { width: 96px; height: 54px; margin-top: -9px; }
-
-.estrade__classe {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px;
-  max-height: calc(100% - 44px); overflow: hidden; padding: 4px;
-}
-.estrade__eleve {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: none; border: 0; padding: 2px; color: inherit; cursor: pointer;
-  transform: scale(.78); transform-origin: bottom center;
-}
-.estrade__eleve:hover .silhouette__tete { border-color: var(--laiton-clair); }
-.estrade__nom { font-size: 10px; color: var(--texte-doux); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.estrade__bascule {
-  margin-top: 8px;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 12px; border-radius: 999px;
-  font: inherit; font-size: 12px; color: var(--texte-doux);
-  background: rgba(8,10,12,.65); border: 1px solid rgba(255,255,255,.12);
-  cursor: pointer;
-}
-.estrade__bascule--present { color: var(--texte); border-color: rgba(111,156,106,.6); }
-.estrade__voyant { width: 8px; height: 8px; border-radius: 50%; background: #555; }
-.estrade__bascule--present .estrade__voyant { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.silhouette__buste { display: none; }
+.silhouette--grand .silhouette__tete { width: 48px; height: 48px; font-size: 16px; }
+.estrade__bascule { margin-top: 0; }
 
 /* ===========================================================================
-   Le pupitre
+   La table
    ========================================================================= */
 .scene__pupitre {
   position: relative; z-index: 2;
-  margin: 10px 5% 0;
+  margin: 26px 4% 18px;
   min-height: 0;
 }
-/* Le plateau : un trapèze de bois, plus étroit au loin. */
 .pupitre__surface {
-  position: absolute; inset: 0 0 26px 0;
-  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+  position: absolute; inset: 0;
+  border-radius: 22px;
   background:
-    /* la lampe, en haut à gauche */
-    radial-gradient(90% 80% at 22% 8%, rgba(255, 214, 150, .16), transparent 60%),
-    /* l'ombre portée du mur, au fond */
-    linear-gradient(180deg, rgba(0,0,0,.45), transparent 16%),
-    /* le fil du bois */
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1400' height='700' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.0025 0.09' numOctaves='4' seed='7'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.75 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
-    repeating-linear-gradient(178deg, rgba(0,0,0,.10) 0 1px, transparent 1px 11px),
-    repeating-linear-gradient(181deg, rgba(255,230,190,.035) 0 1px, transparent 1px 37px),
-    linear-gradient(180deg, var(--bois-1) 0%, var(--bois-2) 55%, var(--bois-3) 100%);
-  background-size: auto, auto, 100% 100%, auto, auto, auto;
-  box-shadow: inset 0 1px 0 rgba(255,220,170,.12);
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='600' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.002 0.06' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
+    radial-gradient(80% 70% at 30% 20%, rgba(255, 236, 210, .05), transparent 70%),
+    linear-gradient(180deg, var(--table-1), var(--table-2));
+  background-size: 100% 100%, auto, auto;
+  box-shadow:
+    inset 0 0 0 1px var(--table-bord),
+    0 30px 60px -30px rgba(0,0,0,.85);
 }
-/* Le chant du plateau, face à soi : c'est lui qui donne l'épaisseur. */
-.pupitre__chant {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
-  background:
-    linear-gradient(180deg, rgba(255,210,160,.18) 0 1px, transparent 1px),
-    repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 13px),
-    linear-gradient(180deg, #3a2414, var(--bois-chant));
-  box-shadow: 0 22px 40px rgba(0,0,0,.75);
-  border-radius: 0 0 4px 4px;
-}
-.pupitre__objets {
-  position: absolute; inset: 2% 3% 30px 3%;
-}
+.pupitre__chant { display: none; }
+.pupitre__objets { position: absolute; inset: 4% 3% 6% 3%; }
+
+/* Bureau vide : trois gestes, dans l'ordre. */
 .pupitre__vide {
-  position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%);
-  font-family: var(--f-main); font-size: clamp(18px, 2vw, 26px);
-  color: rgba(240, 225, 200, .38); white-space: nowrap; pointer-events: none;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  pointer-events: none; text-align: center;
+  animation: apparait .4s var(--doux);
 }
+.guide__titre { margin: 0; font-size: 15px; font-weight: 500; color: rgba(245,238,228,.72); }
+.guide { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.guide__etape {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px 7px 7px; border-radius: 999px;
+  font-size: 12.5px; color: rgba(245,238,228,.6);
+  background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.guide__num {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; color: rgba(245,238,228,.8);
+  background: rgba(255,255,255,.08);
+}
+.guide__etape--fait { color: rgba(245,238,228,.35); }
+.guide__etape--fait .guide__num { background: var(--vert); color: #0f1a12; }
+
+/* --- À la table : les autres, assis de l'autre côté ---------------------- */
+.scene__banc {
+  position: absolute; left: 50%; top: 0; z-index: 3;
+  transform: translate(-50%, -50%);
+  display: flex; gap: 10px; max-width: 92%;
+  overflow-x: auto; scrollbar-width: none; padding: 2px 4px;
+}
+.scene__banc::-webkit-scrollbar { display: none; }
+.siege {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
+}
+.siege__tete {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; overflow: hidden;
+  font-size: 12px; font-weight: 600; color: var(--texte);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px rgba(255,255,255,.14), 0 6px 14px rgba(0,0,0,.45);
+  transition: transform .2s var(--doux), box-shadow .2s var(--doux);
+}
+.siege__tete img { width: 100%; height: 100%; object-fit: cover; }
+.siege__nom {
+  font-size: 10.5px; color: var(--texte-doux);
+  max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--fond); padding: 0 5px; border-radius: 6px;
+}
+.siege:hover .siege__tete { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px rgba(255,255,255,.4), 0 8px 16px rgba(0,0,0,.5); }
+.siege--moi { cursor: default; }
+.siege--moi .siege__tete { background: var(--accent-fond); color: var(--accent); box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px var(--accent), 0 6px 14px rgba(0,0,0,.45); }
+.siege--moi .siege__nom { color: var(--accent); }
+.siege--libre {
+  width: 34px; height: 34px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--fond), inset 0 0 0 1.5px rgba(255,255,255,.08);
+  background: var(--fond);
+}
+.siege--arrive { animation: s-assoit .5s var(--doux); }
+@keyframes s-assoit { from { opacity: 0; transform: translateY(-8px); } }
+
+/* --- Ce qu'on avait laissé ici ------------------------------------------ */
+.scene__oublis {
+  position: absolute; left: 50%; bottom: 14px; z-index: 6;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100% - 24px);
+  padding: 8px 8px 8px 12px; border-radius: 14px;
+  background: rgba(16,18,20,.92); backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 16px 32px rgba(0,0,0,.5);
+  animation: monte .35s var(--doux);
+}
+.scene__oublis[hidden] { display: none; }
+.oublis__objets { display: flex; }
+.oublis__objets img { width: 34px; height: 30px; object-fit: contain; margin-right: -8px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+.oublis__texte { display: flex; flex-direction: column; min-width: 0; margin-left: 8px; }
+.oublis__texte b { font-size: 13px; font-weight: 600; color: var(--texte); }
+.oublis__texte span { font-size: 11.5px; color: var(--texte-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
 
 /* --- Un objet posé ------------------------------------------------------- */
 .pose {
   position: absolute;
   padding: 0; border: 0; background: none; color: inherit; cursor: grab;
-  transform: translate(-50%, -50%) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  transform: translate(-50%, -50%) rotate(var(--r, 0deg));
   transform-origin: center;
-  filter:
-    drop-shadow(1px 2px 1px rgba(0,0,0,.55))
-    drop-shadow(8px 12px 9px rgba(0,0,0,.5));
-  transition: transform .22s cubic-bezier(.3,.7,.3,1), filter .22s ease;
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,.35)) drop-shadow(0 8px 10px rgba(0,0,0,.3));
+  transition: transform .2s var(--doux), filter .2s var(--doux);
   touch-action: none;
 }
 .pose__image { display: block; width: 100%; height: auto; pointer-events: none; }
 .pose:hover, .pose:focus-visible {
-  transform: translate(-50%, calc(-50% - 4px)) rotate(var(--r, 0deg)) scale(calc(var(--s, 1) * 1.02));
-  filter:
-    drop-shadow(1px 2px 1px rgba(0,0,0,.5))
-    drop-shadow(12px 18px 12px rgba(0,0,0,.45))
-    brightness(1.06);
+  transform: translate(-50%, calc(-50% - 2px)) rotate(var(--r, 0deg));
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)) drop-shadow(0 12px 14px rgba(0,0,0,.3)) brightness(1.05);
   outline: none;
 }
 .pose--souleve {
-  cursor: grabbing; transition: none;
-  transform: translate(-50%, calc(-50% - 14px)) rotate(calc(var(--r, 0deg) * .5)) scale(calc(var(--s, 1) * 1.07));
-  filter: drop-shadow(18px 30px 16px rgba(0,0,0,.45)) brightness(1.08);
+  cursor: grabbing; transition: filter .15s var(--doux);
+  transform: translate(-50%, calc(-50% - 6px)) rotate(var(--r, 0deg)) scale(1.04);
+  filter: drop-shadow(0 20px 18px rgba(0,0,0,.4)) brightness(1.06);
   z-index: 500 !important;
 }
-/* En main : soulevé, plus proche, l'ombre s'éloigne. */
 .pose--en-main {
-  transform: translate(-50%, calc(-50% - 18px)) rotate(calc(var(--r, 0deg) - 14deg)) scale(calc(var(--s, 1) * 1.1));
-  filter:
-    drop-shadow(0 0 1px rgba(226,194,92,.9))
-    drop-shadow(20px 34px 16px rgba(0,0,0,.42))
-    brightness(1.1);
+  transform: translate(-50%, calc(-50% - 8px)) rotate(calc(var(--r, 0deg) - 10deg)) scale(1.06);
+  filter: drop-shadow(0 0 1.5px rgba(255,236,200,.9)) drop-shadow(0 18px 16px rgba(0,0,0,.35)) brightness(1.08);
 }
-.pose--en-main::after {
-  content: "En main"; position: absolute; left: 50%; top: 100%;
-  transform: translate(-50%, 6px) rotate(calc(var(--r, 0deg) * -1 + 14deg));
-  font-family: var(--f-main); font-size: 17px; color: var(--laiton-clair);
-  white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.9);
-}
-.pose--arrive { animation: pose-arrive .35s cubic-bezier(.3,1.5,.5,1); }
-@keyframes pose-arrive {
-  from { transform: translate(-50%, calc(-50% - 10px)) rotate(var(--r, 0deg)) scale(calc(var(--s, 1) * 1.06)); }
-}
+.pose--arrive { animation: pose-pose .3s var(--doux); }
+@keyframes pose-pose { from { opacity: .4; transform: translate(-50%, calc(-50% - 6px)) rotate(var(--r, 0deg)) scale(1.03); } }
 .pose__nom {
   position: absolute; left: 50%; top: 100%;
-  transform: translate(-50%, 4px) rotate(calc(var(--r, 0deg) * -1));
-  font-family: var(--f-main); font-size: 16px; color: rgba(245,236,215,.9);
-  text-shadow: 0 1px 3px rgba(0,0,0,.9);
-  white-space: nowrap; opacity: 0; transition: opacity .15s ease; pointer-events: none;
+  transform: translate(-50%, 6px) rotate(calc(var(--r, 0deg) * -1));
+  font-size: 11px; color: rgba(245,238,228,.55);
+  white-space: nowrap; pointer-events: none;
+  transition: color .15s;
 }
-.pose:hover .pose__nom, .pose:focus-visible .pose__nom { opacity: 1; }
+.pose:hover .pose__nom, .pose:focus-visible .pose__nom { color: rgba(245,238,228,.95); }
+.pose--cahier .pose__nom, .pose--carnet .pose__nom, .pose--dossier .pose__nom, .pose--chemise .pose__nom { display: none; }
 .pose--en-main .pose__nom { display: none; }
-/* L'étiquette du cahier ou du dossier : le titre, écrit à la main. */
+.pose--en-main::after {
+  content: "En main"; position: absolute; left: 50%; top: 100%;
+  transform: translate(-50%, 8px) rotate(calc(var(--r, 0deg) * -1 + 10deg));
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; color: #1a150e; background: var(--accent);
+  white-space: nowrap;
+}
 .pose__etiquette {
   position: absolute; left: 26%; top: 23%; width: 50%; height: 22%;
   display: grid; place-items: center; text-align: center; overflow: hidden;
@@ -3438,117 +3401,123 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 }
 .pose--dossier .pose__etiquette, .pose--chemise .pose__etiquette { left: 26%; top: 24%; width: 50%; }
 .pose--carnet .pose__etiquette { left: 22%; top: 20%; width: 56%; font-size: clamp(8px, .9vw, 12px); }
-/* Le petit geste de rangement, qui n'apparaît qu'au survol. */
 .pose__ranger {
   position: absolute; right: -6px; top: -6px;
   width: 22px; height: 22px; border-radius: 50%;
   display: grid; place-items: center;
-  background: rgba(10,12,14,.85); color: var(--texte-doux);
-  border: 1px solid rgba(255,255,255,.15);
-  opacity: 0; transform: rotate(calc(var(--r, 0deg) * -1)) scale(.8);
-  transition: opacity .15s ease, transform .15s ease; cursor: pointer;
+  background: var(--surface-2); color: var(--texte-doux);
+  box-shadow: 0 0 0 1px var(--ligne-forte);
+  opacity: 0; transform: rotate(calc(var(--r, 0deg) * -1));
+  transition: opacity .15s; cursor: pointer;
 }
-.pose:hover .pose__ranger { opacity: 1; transform: rotate(calc(var(--r, 0deg) * -1)) scale(1); }
-.pose__ranger:hover { color: var(--laiton-clair); border-color: var(--laiton); }
+.pose:hover .pose__ranger { opacity: 1; }
+.pose__ranger:hover { color: var(--texte); }
 .pose--parti { opacity: 0 !important; }
 .pose__vol {
   position: fixed; z-index: 9000; pointer-events: none;
-  filter: drop-shadow(14px 24px 14px rgba(0,0,0,.5));
+  filter: drop-shadow(0 12px 14px rgba(0,0,0,.4));
 }
 
 /* ===========================================================================
-   Le sac, par terre
+   Le sac, à côté de la table
    ========================================================================= */
 .scene__sac-zone {
   position: absolute; z-index: 4;
-  left: max(4px, 1.5%); bottom: 4px;
-  width: clamp(120px, 15%, 190px);
+  left: max(6px, 1.5%); bottom: 8px;
+  width: clamp(110px, 13%, 170px);
   display: flex; flex-direction: column; align-items: center;
 }
-.scene__sac-zone--cible .scene__sac-image { filter: drop-shadow(0 0 10px rgba(226,194,92,.7)) brightness(1.15); }
+.scene__sac-zone--cible .scene__sac-image { filter: drop-shadow(0 0 0 2px var(--accent)) drop-shadow(0 0 14px rgba(232,200,150,.45)) brightness(1.1); }
 .scene__sac {
   position: relative; width: 100%;
   padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 .scene__sac-image {
   width: 100%; height: auto; display: block;
-  filter: drop-shadow(2px 3px 2px rgba(0,0,0,.6)) drop-shadow(10px 16px 14px rgba(0,0,0,.55));
-  transition: transform .25s cubic-bezier(.3,1.3,.5,1), filter .2s ease;
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.4)) drop-shadow(0 12px 14px rgba(0,0,0,.4));
+  transition: transform .25s var(--doux), filter .2s;
 }
-.scene__sac:hover .scene__sac-image { transform: translateY(-3px) rotate(-1.5deg); }
+.scene__sac:hover .scene__sac-image { transform: translateY(-3px); }
 .scene__sac-mot {
-  margin-top: -4px;
-  font-family: var(--f-main); font-size: 18px; color: rgba(245,236,215,.8);
-  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; color: var(--texte);
+  background: rgba(16,18,20,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+  transition: background .15s, box-shadow .15s;
 }
-.scene__sans-sac { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--texte-faible); text-align: center; }
-.scene__sans-sac-trace { width: 90px; height: 70px; border: 1.5px dashed rgba(255,255,255,.14); border-radius: 12px 12px 6px 6px; }
+.scene__sac:hover .scene__sac-mot { background: var(--surface-3); }
+.scene__sac--appel .scene__sac-mot { color: #1a150e; background: var(--accent); box-shadow: none; animation: respire 2.4s ease-in-out infinite; }
+@keyframes respire { 50% { box-shadow: 0 0 0 6px rgba(232,200,150,.14); } }
+.scene__sans-sac { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--texte-faible); text-align: center; font-size: 12px; }
+.scene__sans-sac-trace { width: 80px; height: 62px; border: 1.5px dashed rgba(255,255,255,.12); border-radius: 12px; }
 
-/* L'intérieur du sac, vu d'en haut : un fond de cuir, des poches. */
+/* L'intérieur du sac : du cuir, des poches, et rien d'autre. */
 .sac__contenu {
-  position: absolute; left: 6px; bottom: calc(100% - 36px); z-index: 3;
+  position: absolute; left: 4px; bottom: calc(100% + 6px); z-index: 3;
   width: min(600px, 72vw); max-height: min(58vh, 460px); overflow: auto;
-  padding: 16px 16px 12px;
-  border-radius: 22px 22px 12px 12px;
+  padding: 14px;
+  border-radius: 18px;
   background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' preserveAspectRatio='none'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.07  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
-    radial-gradient(120% 90% at 40% 0%, #6a4529, #3b2515 55%, #22150b 100%);
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' preserveAspectRatio='none'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.06  0 0 0 0 0.03  0 0 0 0.25 0'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
+    linear-gradient(180deg, #3a271a, #2a1c12);
   background-size: 100% 100%, auto;
-  box-shadow:
-    inset 0 14px 30px rgba(0,0,0,.65), inset 0 0 0 2px rgba(0,0,0,.4),
-    0 30px 60px rgba(0,0,0,.65), 0 0 0 1px rgba(255,210,160,.08);
-  outline: 1.5px dashed rgba(235,205,160,.28); outline-offset: -8px;
+  box-shadow: inset 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,220,180,.08), 0 30px 60px rgba(0,0,0,.6);
+  outline: 1px dashed rgba(235,205,160,.16); outline-offset: -7px;
   transform-origin: 20% 100%;
-  animation: sac-ouvre .32s cubic-bezier(.3,1.25,.5,1);
+  animation: monte .28s var(--doux);
   scrollbar-width: thin;
 }
-@keyframes sac-ouvre { from { transform: translateY(24px) scaleY(.4); opacity: 0; } }
+@keyframes monte { from { transform: translateY(10px); opacity: 0; } }
+@keyframes apparait { from { opacity: 0; } }
 .sac__poche {
-  padding: 6px 8px 8px; border-radius: 12px;
-  background: rgba(0,0,0,.18);
-  box-shadow: inset 0 3px 10px rgba(0,0,0,.45), 0 1px 0 rgba(255,220,180,.06);
+  padding: 8px 8px 6px; border-radius: 12px;
+  background: rgba(0,0,0,.2);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
 }
-.sac__poche + .sac__poche { margin-top: 10px; }
+.sac__poche + .sac__poche { margin-top: 8px; }
 .sac__poche-nom {
-  display: block; margin: 0 0 2px 4px;
-  font-family: var(--f-main); font-size: 17px; color: rgba(242,222,190,.72);
+  display: block; margin: 0 0 4px 4px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(242,222,190,.55);
 }
-.sac__poche-objets { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; }
+.sac__poche-objets { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px; }
 .sac__chose {
   position: relative;
-  width: 86px; padding: 4px 2px 16px;
-  border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer;
-  transform: rotate(var(--a));
-  animation: sac-sort .34s cubic-bezier(.3,1.35,.5,1) both;
-  animation-delay: calc(var(--i) * 25ms);
-  filter: drop-shadow(3px 7px 5px rgba(0,0,0,.65));
+  width: 88px; padding: 6px 2px 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 0; border-radius: 12px; background: none; color: inherit; cursor: pointer;
+  animation: apparait .3s var(--doux) both;
+  animation-delay: calc(var(--i) * 20ms);
+  transition: background .15s;
 }
-.sac__chose img { width: 100%; height: 58px; object-fit: contain; display: block; transition: transform .18s ease; }
-.sac__chose:hover { filter: drop-shadow(0 0 7px rgba(226,194,92,.7)) drop-shadow(4px 10px 8px rgba(0,0,0,.55)); z-index: 2; }
-.sac__chose:hover img { transform: scale(1.12) translateY(-4px); }
-@keyframes sac-sort { from { transform: translateY(18px) scale(.6); opacity: 0; } }
+.sac__chose img {
+  width: 100%; height: 54px; object-fit: contain; display: block;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
+}
+.sac__chose:hover { background: rgba(255,240,220,.07); }
+.sac__chose:hover img { transform: translateY(-3px); }
 .sac__nom {
-  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
-  max-width: 96px; overflow: hidden; text-overflow: ellipsis;
-  font-family: var(--f-main); font-size: 15px; line-height: 1; color: var(--parch-200); white-space: nowrap;
-  text-shadow: 0 1px 3px #000; pointer-events: none;
+  max-width: 84px; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11.5px; line-height: 1.2; color: rgba(245,236,220,.85); white-space: nowrap;
+  pointer-events: none;
 }
-.sac__vide { margin: 20px; font-family: var(--f-main); font-size: 20px; color: var(--texte-doux); }
+.sac__vide { margin: 16px; font-size: 13px; color: rgba(245,236,220,.6); }
 
-/* Mode sac : le sac vient au premier plan, le contenu s'étale. */
+/* Mode sac : le sac passe devant, le contenu s'étale. */
 .scene[data-etat="sac"] .scene__sac-zone {
   left: 50%; bottom: 3%; transform: translateX(-50%);
-  width: clamp(200px, 24%, 300px);
+  width: clamp(150px, 18%, 220px);
 }
 .scene[data-etat="sac"] .sac__contenu {
-  left: 50%; bottom: calc(100% - 30px); transform: translateX(-50%);
-  width: min(900px, 90vw); max-height: 60vh; transform-origin: 50% 100%;
+  left: 50%; transform: translateX(-50%);
+  width: min(880px, 90vw); max-height: 60vh; transform-origin: 50% 100%;
+  animation: apparait .25s var(--doux);
 }
-.scene[data-etat="sac"] .sac__chose { width: 104px; }
-.scene[data-etat="sac"] .sac__chose img { height: 70px; }
+.scene[data-etat="sac"] .sac__chose { width: 100px; }
+.scene[data-etat="sac"] .sac__chose img { height: 64px; }
 .scene[data-etat="sac"] .scene__pupitre,
-.scene[data-etat="sac"] .scene__avant { filter: brightness(.55) blur(1.5px); transition: filter .3s ease; }
+.scene[data-etat="sac"] .scene__avant { opacity: .35; transition: opacity .25s; }
 
 /* ===========================================================================
    Le premier plan : cahier ouvert, document en grand
@@ -3559,211 +3528,173 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .scene[data-etat="cahier"] .scene__avant,
 .scene[data-etat="cahier"] .scene__pupitre,
 .scene[data-etat="document"] .scene__avant,
-.scene[data-etat="document"] .scene__pupitre {
-  filter: brightness(.42) blur(2px); transition: filter .35s ease;
-}
+.scene[data-etat="document"] .scene__pupitre { opacity: .18; transition: opacity .3s; }
 .scene[data-etat="cahier"] .scene__sac-zone,
-.scene[data-etat="document"] .scene__sac-zone { opacity: .35; pointer-events: none; }
+.scene[data-etat="document"] .scene__sac-zone { opacity: .2; pointer-events: none; }
 
 /* Le cahier, ouvert à plat devant soi. */
 .scene[data-etat="cahier"] .scene__livre {
-  display: flex; flex-direction: column;
-  position: absolute; left: 50%; top: 2.5%; bottom: 2%;
-  width: min(1100px, calc(100% - 210px));
+  display: flex; flex-direction: column; gap: 8px;
+  position: absolute; left: 50%; top: 14px; bottom: 14px;
+  width: min(1100px, calc(100% - 200px));
   transform: translateX(calc(-50% - 50px));
-  animation: livre-ouvre .42s cubic-bezier(.25,.8,.3,1);
+  animation: livre-ouvre .32s var(--doux);
 }
-@keyframes livre-ouvre {
-  from { transform: translateX(calc(-50% - 50px)) translateY(40px) scale(.94); opacity: 0; }
-}
+@keyframes livre-ouvre { from { opacity: 0; transform: translateX(calc(-50% - 50px)) translateY(12px); } }
 .scene__livre-page {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  border-radius: 6px 6px 8px 8px;
-  padding: 10px 12px 14px;
-  /* la couverture qui dépasse sous les pages */
-  background: linear-gradient(180deg, #3b2c20, #2a1f16);
-  box-shadow:
-    0 2px 0 #1a120b,
-    0 5px 0 #4a3a2a, 0 7px 0 #d8ccb3, 0 9px 0 #c8bb9f, 0 11px 0 #2a1f16,
-    0 40px 60px -10px rgba(0,0,0,.85);
+  border-radius: 14px; overflow: hidden;
+  background: #f3ebd9;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 30px 60px -20px rgba(0,0,0,.8);
 }
 .scene__livre-page > * { flex: 1; min-height: 0; }
 .scene__livre-page .cahier { background: transparent; border: 0; box-shadow: none; }
-.scene__livre-page .parchemin {
-  box-shadow: inset 18px 0 24px -18px rgba(0,0,0,.35), 0 1px 0 rgba(0,0,0,.2);
-}
 .scene__fermer {
   align-self: flex-end;
-  position: relative; z-index: 2;
-  display: inline-flex; align-items: center; gap: 8px;
-  margin: 0 12px -2px 0; padding: 6px 12px 8px;
-  font: inherit; font-size: 12px; color: var(--parch-100);
-  background: linear-gradient(180deg, #8a2f2a, #6d2420);
-  border: 0; border-radius: 4px 4px 0 0; cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,.5);
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 14px; border-radius: 999px;
+  font: inherit; font-size: 12.5px; font-weight: 500; color: var(--texte);
+  background: var(--surface-2); border: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--ligne-forte);
 }
-.scene__marque-page { width: 8px; height: 14px; background: var(--laiton); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+.scene__fermer:hover { background: var(--surface-3); }
+.scene__marque-page { display: none; }
 
 /* Le rail : ce qui est à portée de main pendant qu'on écrit. */
 .scene[data-etat="cahier"] .scene__rail {
-  display: flex; flex-direction: column; gap: 6px;
-  position: absolute; right: 12px; top: 8%; bottom: 8%;
-  width: 150px; overflow-y: auto; overflow-x: hidden;
-  padding: 10px 6px;
-  border-radius: 10px;
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.22' numOctaves='4' seed='3'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
-    linear-gradient(180deg, var(--bois-1), var(--bois-3));
-  box-shadow: 0 20px 40px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,220,170,.12);
+  display: flex; flex-direction: column; gap: 4px;
+  position: absolute; right: 14px; top: 56px; bottom: 14px;
+  width: 140px; overflow-y: auto; overflow-x: hidden;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--ligne);
+  animation: apparait .3s var(--doux);
 }
 .rail__outil {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 0;
-  padding: 6px 4px 2px; border: 0; background: none; color: inherit; cursor: pointer;
-  border-radius: 8px;
-  transition: transform .2s cubic-bezier(.3,1.4,.5,1), background .2s;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px 6px; border: 0; background: none; color: inherit; cursor: pointer;
+  border-radius: 12px;
+  transition: background .15s;
 }
 .rail__outil img {
-  width: 100%; max-width: 120px; height: 58px; object-fit: contain;
-  filter: drop-shadow(3px 6px 5px rgba(0,0,0,.6));
+  width: 100%; max-width: 110px; height: 50px; object-fit: contain;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
 }
-.rail__outil:hover { transform: translateY(-2px); background: rgba(255,255,255,.04); }
-.rail__nom { font-family: var(--f-main); font-size: 16px; color: rgba(245,236,215,.85); }
-.rail__outil--en-main { background: rgba(201,162,39,.12); box-shadow: inset 0 0 0 1px rgba(201,162,39,.5); }
-.rail__outil--en-main img { transform: rotate(-12deg) translateY(-4px) scale(1.06); filter: drop-shadow(10px 18px 10px rgba(0,0,0,.5)); }
-.rail__outil--en-main .rail__nom { color: var(--laiton-clair); }
-.rail__outil--appel { animation: appel 1.4s ease-in-out infinite; }
+.rail__outil:hover { background: var(--surface-2); }
+.rail__nom { font-size: 11.5px; color: var(--texte-doux); }
+.rail__outil--en-main { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
+.rail__outil--en-main img { transform: rotate(-10deg) translateY(-3px); }
+.rail__outil--en-main .rail__nom { color: var(--accent); font-weight: 600; }
+.rail__outil--appel { animation: appel 1.8s ease-in-out infinite; }
 @keyframes appel {
-  0%, 100% { box-shadow: inset 0 0 0 1px rgba(226,194,92,.2); }
-  50% { box-shadow: inset 0 0 0 2px rgba(226,194,92,.85), 0 0 18px rgba(226,194,92,.35); }
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(232,200,150,.2); }
+  50% { box-shadow: inset 0 0 0 2px var(--accent); }
 }
-.rail__vide { font-family: var(--f-main); font-size: 16px; color: var(--texte-doux); text-align: center; padding: 10px; }
+.rail__vide { font-size: 12px; color: var(--texte-faible); text-align: center; padding: 10px; }
 .scene[data-etat="cahier"] .scene__bulle:not([hidden]) {
   display: block;
-  position: absolute; right: 172px; top: 10%;
-  padding: 8px 14px; border-radius: 10px;
-  font-family: var(--f-main); font-size: 19px; color: #2b2418;
-  background: var(--parch-200);
-  box-shadow: 0 10px 24px rgba(0,0,0,.5);
-  animation: bulle .5s cubic-bezier(.3,1.5,.5,1);
+  position: absolute; right: 166px; top: 64px;
+  padding: 8px 14px; border-radius: 12px;
+  font-size: 13px; color: #1a150e;
+  background: var(--accent);
+  box-shadow: 0 10px 24px rgba(0,0,0,.4);
+  animation: apparait .3s var(--doux);
 }
 .scene__bulle::after {
-  content: ""; position: absolute; right: -8px; top: 14px;
-  border: 8px solid transparent; border-right: 0; border-left-color: var(--parch-200);
+  content: ""; position: absolute; right: -6px; top: 12px;
+  border: 6px solid transparent; border-right: 0; border-left-color: var(--accent);
 }
-@keyframes bulle { from { transform: translateX(12px) scale(.9); opacity: 0; } }
 
 /* Le document ou le tableau, en grand. */
 .scene[data-etat="document"] .scene__grand {
-  display: flex; flex-direction: column;
-  position: absolute; inset: 2% 3% 2%;
-  animation: livre-ouvre .35s cubic-bezier(.25,.8,.3,1);
-  transform: none;
+  display: flex; flex-direction: column; gap: 8px;
+  position: absolute; inset: 14px 3% 14px;
+  animation: apparait .28s var(--doux);
 }
-.scene__grand .scene__fermer { background: linear-gradient(180deg, #2f3a33, #1f2823); }
 .scene__grand-page {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  border-radius: 6px; overflow: hidden;
-  background: var(--encre-900);
-  box-shadow: 0 0 0 10px #4b2f18, 0 0 0 11px rgba(0,0,0,.6), 0 40px 60px rgba(0,0,0,.8);
+  border-radius: 14px; overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne), 0 30px 60px -20px rgba(0,0,0,.8);
 }
 .scene__grand-page > * { flex: 1; min-height: 0; }
 
 /* ===========================================================================
-   Le dock : les gestes essentiels, toujours là, sous forme d'objets
+   Le dock de la salle : les gestes essentiels, toujours là
    ========================================================================= */
 .dock {
   position: relative; z-index: 20;
-  display: flex; align-items: flex-end; gap: 4px;
-  padding: 6px 12px 6px;
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 12px;
   min-height: var(--dock-h);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.04), transparent 40%),
-    linear-gradient(180deg, #161b19, #0d100f);
-  border-top: 1px solid rgba(201,162,39,.25);
-  box-shadow: 0 -12px 30px rgba(0,0,0,.45);
+  background: var(--surface-0);
+  border-top: 1px solid var(--ligne);
   overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none;
 }
 .dock::-webkit-scrollbar { display: none; }
-.dock__groupe { display: flex; align-items: flex-end; gap: 2px; }
-.dock__sep { width: 1px; align-self: stretch; margin: 8px 8px; background: rgba(255,255,255,.08); }
+.dock__groupe { display: flex; align-items: center; gap: 2px; }
+.dock__sep { width: 1px; align-self: stretch; margin: 10px 8px; background: var(--ligne); }
 .dock__pousse { flex: 1; }
 .dock__chose {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-  width: 70px; height: 64px; padding: 0 2px 2px;
-  border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer;
-  transition: background .15s ease;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  width: 66px; height: 60px; padding: 0 2px;
+  border: 0; border-radius: 14px; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background .15s, color .15s;
 }
 .dock__chose img {
-  width: 54px; height: 40px; object-fit: contain;
-  filter: drop-shadow(2px 5px 4px rgba(0,0,0,.65));
-  transition: transform .2s cubic-bezier(.3,1.5,.5,1);
+  width: 44px; height: 30px; object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.5));
+  transition: transform .2s var(--doux);
 }
-.dock__chose:hover img { transform: translateY(-4px) scale(1.08); }
-.dock__chose:hover { background: rgba(255,255,255,.035); }
-.dock__chose[aria-pressed="true"] { background: rgba(201,162,39,.1); box-shadow: inset 0 0 0 1px rgba(201,162,39,.4); }
-.dock__chose--manque img { filter: grayscale(1) brightness(.6) drop-shadow(2px 5px 4px rgba(0,0,0,.65)); }
-.dock__mot {
-  font-family: var(--f-main); font-size: 15px; line-height: 1; margin-top: 2px;
-  color: rgba(240,232,214,.82); white-space: nowrap;
-}
+.dock__chose:hover { background: var(--surface-2); color: var(--texte); }
+.dock__chose:hover img { transform: translateY(-2px); }
+.dock__chose[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); box-shadow: inset 0 0 0 1px var(--ligne-forte); }
+.dock__chose--manque img { filter: grayscale(1) brightness(.55); opacity: .7; }
+.dock__chose--principal { width: 74px; }
+.dock__chose--principal img { width: 50px; height: 34px; }
+.dock__mot { font-size: 11px; font-weight: 500; line-height: 1; white-space: nowrap; }
 .dock__pastille {
   position: absolute; top: 4px; right: 10px;
   min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 700; color: #1a1408;
-  background: var(--laiton-clair); box-shadow: 0 0 8px rgba(226,194,92,.6);
+  font-size: 10px; font-weight: 700; color: #1a150e; background: var(--accent);
 }
-.dock__signe {
-  width: 40px; height: 40px; display: grid; place-items: center;
-  color: var(--parch-200);
-}
-.dock__signe svg { width: 26px; height: 26px; }
-.dock__gens { display: flex; align-items: flex-end; gap: 0; }
-.dock__gens .estrade__eleve { transform: scale(.72); margin: 0 -8px; }
-.dock__statut {
-  display: flex; flex-direction: column; justify-content: center; gap: 2px;
-  padding: 0 10px; min-width: 0; align-self: center;
-}
-.dock__statut b { font-family: var(--f-titre); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
-.dock__statut span { font-size: 11px; color: var(--texte-faible); white-space: nowrap; }
-.dock__prof { display: inline-flex; align-items: center; gap: 6px; }
-.dock__prof::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #555; }
-.dock__prof--present { color: var(--texte-doux) !important; }
-.dock__prof--present::before { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.dock__signe { width: 30px; height: 30px; display: grid; place-items: center; color: currentColor; }
+.dock__signe svg { width: 22px; height: 22px; }
+.dock__signe .picto-personne { width: 14px; height: 20px; fill: currentColor; }
 
 .dock__fenetre {
   display: flex; align-items: center; gap: 2px; align-self: center;
-  padding: 3px; border-radius: 10px; background: rgba(0,0,0,.35);
-  border: 1px solid rgba(255,255,255,.06);
+  padding: 3px; border-radius: 12px; background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--ligne);
 }
 .dock__fenetre button {
-  width: 34px; height: 30px; border-radius: 7px; border: 0; background: none;
+  width: 34px; height: 30px; border-radius: 9px; border: 0; background: none;
   color: var(--texte-faible); cursor: pointer; display: grid; place-items: center;
 }
-.dock__fenetre button:hover { color: var(--texte); background: rgba(255,255,255,.05); }
-.dock__fenetre button[aria-pressed="true"] { color: var(--laiton-clair); background: rgba(201,162,39,.12); }
+.dock__fenetre button:hover { color: var(--texte); background: var(--surface-2); }
+.dock__fenetre button[aria-pressed="true"] { color: var(--texte); background: var(--surface-3); }
 
-/* Compact : une barre, rien d'autre. Pour une fenêtre posée sur le jeu. */
 .salle--compact .dock { min-height: 64px; }
 .salle--compact .dock__chose { width: 58px; }
-.salle--compact .dock__mot { font-size: 13px; }
 
 /* ===========================================================================
-   La note rapide : un petit papier, une plume, des visages
+   La note rapide : un petit papier
    ========================================================================= */
 .note-rapide { display: grid; gap: 14px; }
 .note-rapide__papier {
   position: relative;
-  padding: 18px 20px 16px;
+  padding: 16px 18px 14px;
   background:
-    repeating-linear-gradient(180deg, transparent 0 25px, rgba(80,110,160,.18) 25px 26px),
-    linear-gradient(180deg, #f6efdd, #ede2c8);
-  border-radius: 2px;
-  box-shadow: 0 1px 0 rgba(0,0,0,.1), 0 12px 24px rgba(0,0,0,.45);
-  transform: rotate(-.6deg);
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(80,110,160,.16) 25px 26px),
+    #f5eee0;
+  border-radius: 10px;
+  box-shadow: 0 12px 24px rgba(0,0,0,.35);
 }
 .note-rapide__papier textarea {
   width: 100%; min-height: 130px; resize: vertical;
@@ -3772,89 +3703,71 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 }
 .note-rapide__gens { display: flex; flex-wrap: wrap; gap: 4px; }
 .note-rapide__qui {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 6px 4px 4px; border-radius: 10px; border: 1px solid transparent;
-  background: none; color: inherit; cursor: pointer; width: 78px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px 6px; border-radius: 12px; border: 0;
+  background: none; color: inherit; cursor: pointer; width: 76px;
 }
-.note-rapide__qui .silhouette { transform: scale(.8); margin-bottom: -6px; }
-.note-rapide__qui span:last-child { font-size: 11px; color: var(--texte-doux); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.note-rapide__qui[aria-pressed="true"] { border-color: var(--laiton); background: rgba(201,162,39,.1); }
+.note-rapide__qui:hover { background: var(--surface-2); }
+.note-rapide__qui span:last-child { font-size: 11px; color: var(--texte-doux); max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-rapide__qui[aria-pressed="true"] { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
 .note-rapide__qui[aria-pressed="true"] span:last-child { color: var(--texte); }
 .note-rapide__attestation { font-size: 12px; }
 
 /* --- Petits écrans ------------------------------------------------------- */
 @media (max-width: 760px) {
-  .scene { grid-template-rows: minmax(120px, 30%) minmax(0, 1fr); }
-  .scene__estrade { min-width: 110px; }
-  .scene[data-etat="cahier"] .scene__livre { width: calc(100% - 16px); transform: translateX(-50%); bottom: 118px; }
+  .scene { grid-template-rows: minmax(90px, 26%) minmax(0, 1fr); }
+  .scene__tableau { max-width: 78%; }
+  .scene[data-etat="cahier"] .scene__livre { width: calc(100% - 16px); transform: translateX(-50%); bottom: 112px; }
   .scene[data-etat="cahier"] .scene__rail {
-    top: auto; bottom: 6px; left: 8px; right: 8px; width: auto; height: 104px;
+    top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; height: 96px;
     flex-direction: row; overflow-x: auto;
   }
-  .scene[data-etat="cahier"] .scene__bulle:not([hidden]) { right: auto; left: 12px; top: auto; bottom: 118px; }
-  .rail__outil { flex: 0 0 100px; }
+  .scene[data-etat="cahier"] .scene__bulle:not([hidden]) { right: auto; left: 12px; top: auto; bottom: 112px; }
+  .rail__outil { flex: 0 0 96px; }
   .dock__chose { width: 58px; }
-  .dock__statut { display: none; }
+  .guide { flex-direction: column; align-items: stretch; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pose, .sac__chose, .scene__livre, .scene__grand { animation: none !important; transition: none !important; }
+  .pose, .sac__chose, .scene__livre, .scene__grand, .siege, .scene__oublis, .sac__contenu { animation: none !important; transition: none !important; }
 }
 
 /* ===========================================================================
-   Le cahier ouvert : deux pages de papier, pas un panneau d'application
+   Le cahier ouvert : du papier, pas un panneau d'application
    ========================================================================= */
 .scene__livre-page { color: #2b2418; }
 .scene__livre-page .mon-cahier { background: transparent; }
 .scene__livre-page .petit.faible,
 .scene__livre-page .faible { color: #6f6350; }
-.scene__livre-page .cahier {
-  background: #f3ebd9;
-  border-radius: 3px;
-  overflow: hidden;
-}
-/* La page de gauche : la table des pages, près de la reliure. */
+.scene__livre-page .cahier { background: #f3ebd9; overflow: hidden; }
 .scene__livre-page .tranche {
   background:
-    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.14) 27px 28px),
-    linear-gradient(90deg, #efe6d2 0%, #ebe1cb 82%, #d9ccb0 100%);
-  border-right: 0;
-  box-shadow: inset -22px 0 28px -20px rgba(60,40,20,.5);
+    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.12) 27px 28px),
+    #eee5d1;
+  border-right: 1px solid rgba(60,40,20,.12);
   color: #3a3226;
 }
 .scene__livre-page .tranche__entete,
-.scene__livre-page .tranche__pied { border-color: rgba(60,40,20,.14); }
+.scene__livre-page .tranche__pied { border-color: rgba(60,40,20,.12); }
 .scene__livre-page .tranche__titre { font-family: var(--f-main); font-size: 24px; font-weight: 700; color: #2b2418; }
 .scene__livre-page .onglet-page { color: #5a4f3e; font-family: var(--f-main); font-size: 18px; }
-.scene__livre-page .onglet-page:hover { background: rgba(60,40,20,.07); color: #2b2418; }
-.scene__livre-page .onglet-page[aria-current="true"] {
-  background: rgba(60,40,20,.09); border-color: rgba(60,40,20,.18); color: #1f1a12;
-}
+.scene__livre-page .onglet-page:hover { background: rgba(60,40,20,.06); color: #2b2418; }
+.scene__livre-page .onglet-page[aria-current="true"] { background: rgba(60,40,20,.08); border-color: rgba(60,40,20,.16); color: #1f1a12; }
 .scene__livre-page .onglet-page__num { color: #8a7c64; }
-/* La page de droite, où l'on écrit. */
-.scene__livre-page .feuillet {
-  background: linear-gradient(90deg, #d6c9ad 0%, #ece3cf 2.5%, #f4ecdb 9%, #f4ecdb 100%);
-  box-shadow: inset 22px 0 28px -20px rgba(60,40,20,.5);
-}
-.scene__livre-page .feuillet__barre {
-  background: transparent; border-bottom: 1px solid rgba(60,40,20,.14); color: #3a3226;
-}
+.scene__livre-page .feuillet { background: #f4ecdb; }
+.scene__livre-page .feuillet__barre { background: transparent; border-bottom: 1px solid rgba(60,40,20,.12); color: #3a3226; }
 .scene__livre-page .feuillet__barre .btn,
 .scene__livre-page .mon-cahier .btn:not(.btn--primaire) {
-  color: #3a3226; background: rgba(255,255,255,.4); border-color: rgba(60,40,20,.22);
+  color: #3a3226; background: rgba(255,255,255,.45); border-color: rgba(60,40,20,.18);
 }
 .scene__livre-page .feuillet__zone { background: transparent; padding-top: var(--e-3); }
 .scene__livre-page .parchemin { box-shadow: none; background: transparent; }
-.scene__livre-page .vide { color: #6b5f4b; border-color: rgba(60,40,20,.25); background: transparent; }
+.scene__livre-page .vide { color: #6b5f4b; border-color: rgba(60,40,20,.2); background: transparent; }
 .scene__livre-page .vide__titre { font-family: var(--f-main); font-size: 24px; color: #4a3f2f; }
 .scene__livre-page .marge { color: #3a3226; }
 .scene__livre-page .manque-outil,
-.scene__livre-page .encre-vide {
-  background: rgba(255,250,238,.9); color: #2b2418;
-  border: 1px solid rgba(160,110,40,.4);
-}
+.scene__livre-page .encre-vide { background: #fffaf0; color: #2b2418; border: 1px solid rgba(160,110,40,.35); border-radius: 10px; }
 .scene__livre-page .salle__scene { height: 100%; }
 .scene__livre-page .mon-cahier { height: 100%; }
-/* Le cahier prend toute la hauteur du livre ; la marge est la page d'en face. */
 .scene__livre-page .inspection--annotable {
   flex: 1; min-height: 0; gap: 0;
   grid-template-columns: minmax(0, 1fr) 240px;
@@ -3863,10 +3776,8 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .scene__livre-page .inspection--annotable > :first-child { min-height: 0; height: 100%; }
 .scene__livre-page .marge {
   padding: var(--e-3);
-  background:
-    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.12) 27px 28px),
-    linear-gradient(90deg, #d9ccb0 0%, #ebe1cb 6%, #efe6d2 100%);
-  box-shadow: inset 20px 0 26px -20px rgba(60,40,20,.45);
+  background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.1) 27px 28px), #eee5d1;
+  border-left: 1px solid rgba(60,40,20,.12);
   overflow-y: auto;
 }
 .scene__livre-page .mon-cahier__gestes { padding: 0 0 8px; }
@@ -3876,33 +3787,29 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    ========================================================================= */
 .cartable .objet,
 .sac-ouvert .sac-ouvert__objet,
-.bureau__objet {
-  background: none; border: 0; box-shadow: none;
-  border-radius: 10px;
-}
+.bureau__objet { background: none; border: 0; box-shadow: none; border-radius: 12px; }
 .cartable .objet:hover,
 .sac-ouvert .sac-ouvert__objet:hover,
-.bureau__objet:hover { background: rgba(255,255,255,.035); }
+.bureau__objet:hover { background: var(--surface-2); }
 .cartable .objet__figure,
 .sac-ouvert .objet__figure,
 .bureau__objet .objet__figure {
   width: 72px; height: 54px;
   background-color: transparent !important; box-shadow: none; border-radius: 0;
-  filter: drop-shadow(3px 6px 5px rgba(0,0,0,.6));
-  transition: transform .2s cubic-bezier(.3,1.4,.5,1);
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
 }
-.cartable .objet:hover .objet__figure { transform: translateY(-3px) scale(1.06); }
+.cartable .objet:hover .objet__figure { transform: translateY(-2px); }
 .cartable .objet__figure::before, .cartable .objet__figure::after { display: none; }
-.cartable .objet__nom { font-family: var(--f-main); font-size: 16px; font-weight: 700; }
-.cartable .objet__type { letter-spacing: .04em; }
-.cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 5px rgba(201,150,63,.7)) drop-shadow(3px 6px 5px rgba(0,0,0,.6)); }
-.bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--laiton); background: rgba(201,162,39,.1); }
+.cartable .objet__nom { font-size: 13px; font-weight: 600; }
+.cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 4px rgba(232,200,150,.7)) drop-shadow(0 5px 5px rgba(0,0,0,.45)); }
+.bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-fond); }
 
 /* ---- monde.css ---- */
 /* ===========================================================================
-   LE MONDE — châssis, barre de contexte, barre des gestes, tiroir, console
-   L'interface est en métal (argent brossé, graphite) ; le monde est en
-   matière (bois, papier, cuir). Aucune carte de tableau de bord.
+   LE MONDE — châssis, ligne de contexte, barre des gestes, tiroir, console
+   Épure : un graphite mat, des libellés lisibles, les gestes essentiels
+   toujours visibles. La matière (bois, cuir, papier) reste aux objets.
    ========================================================================= */
 
 /* --- Châssis ------------------------------------------------------------- */
@@ -3910,9 +3817,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: "contexte" "vue" "actions";
-  background:
-    radial-gradient(120% 60% at 20% -10%, rgba(210,220,235,.05), transparent 60%),
-    var(--encre-900);
+  background: var(--fond);
 }
 .chassis--monde.chassis--sans-actions { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "contexte" "vue"; }
 .chassis--monde.chassis--immersif {
@@ -3926,126 +3831,114 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   grid-area: contexte;
   position: relative; z-index: 30;
   display: flex; align-items: center; gap: 12px;
-  height: 44px; padding: 0 10px 0 8px;
-  background: linear-gradient(180deg, #15181c, #0f1215);
-}
-.contexte::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
-  background: var(--filet);
+  height: 48px; padding: 0 10px 0 12px;
+  background: var(--fond);
+  border-bottom: 1px solid var(--ligne);
 }
 .contexte__sceau {
   flex: 0 0 auto;
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 28px; height: 28px; border-radius: 9px;
   display: grid; place-items: center;
-  font-family: var(--f-titre); font-size: 10px; font-weight: 700; letter-spacing: .04em;
-  color: #1b1e22;
-  background: var(--metal);
-  border: 1px solid #8e959d;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 2px 6px rgba(0,0,0,.6);
-  cursor: pointer;
+  font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  color: #15130f; background: var(--accent);
+  border: 0; cursor: pointer;
 }
-.contexte__lieu { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
+.contexte__lieu { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
 .contexte__nom {
-  font-family: var(--f-titre); font-size: 15px; font-weight: 600; letter-spacing: .02em;
-  color: var(--argent-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 14px; font-weight: 600;
+  color: var(--texte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .contexte__precision {
-  font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--argent-3);
+  font-size: 12.5px; color: var(--texte-faible);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .contexte__direct {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--argent-2);
+  height: 22px; padding: 0 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: #ffb3ab; background: rgba(229,96,84,.12);
 }
-.contexte__direct::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #c9544c; box-shadow: 0 0 6px #c9544c; }
-.contexte__statut { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.contexte__direct::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #e56054; animation: pouls 2s ease-in-out infinite; }
+@keyframes pouls { 50% { opacity: .35; } }
+.contexte__statut { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 .contexte__outils { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .contexte__bouton {
   position: relative;
-  width: 32px; height: 32px; border-radius: 8px;
+  width: 34px; height: 34px; border-radius: 10px;
   display: grid; place-items: center;
-  border: 1px solid transparent; background: none; color: var(--argent-2); cursor: pointer;
-  transition: background var(--transition), border-color var(--transition), color var(--transition);
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
 }
-.contexte__bouton:hover { color: var(--argent-1); background: rgba(255,255,255,.04); border-color: rgba(214,220,228,.16); }
-.contexte__bouton[aria-pressed="true"] { color: #15181b; background: var(--metal); border-color: #9aa1a9; }
+.contexte__bouton:hover { color: var(--texte); background: var(--surface-2); }
+.contexte__bouton[aria-pressed="true"] { color: var(--texte); background: var(--surface-3); }
 .contexte__pastille {
-  position: absolute; top: 3px; right: 2px;
-  min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px;
+  position: absolute; top: 3px; right: 3px;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
   display: grid; place-items: center;
-  font-size: 9px; font-weight: 700; color: #15181b; background: var(--argent-1);
+  font-size: 9px; font-weight: 700; color: #15130f; background: var(--accent);
 }
-.contexte__reseau { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--argent-3); margin-right: 6px; }
+.contexte__reseau { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--texte-faible); margin-right: 6px; }
 .contexte__voyant { width: 6px; height: 6px; border-radius: 50%; background: var(--attn); }
 .contexte__reseau[data-etat="rompu"] .contexte__voyant { background: var(--alerte); }
 
-/* Présence du responsable, sobre : un voyant et trois mots. */
+/* Présence du responsable : un voyant et trois mots. */
 .presence {
   display: inline-flex; align-items: center; gap: 7px;
-  height: 26px; padding: 0 11px; border-radius: 13px;
-  font-size: 11.5px; color: var(--argent-2); white-space: nowrap;
-  background: rgba(255,255,255,.03); border: 1px solid rgba(214,220,228,.14);
+  height: 28px; padding: 0 12px; border-radius: 999px;
+  font-size: 12px; color: var(--texte-doux); white-space: nowrap;
+  background: var(--surface-1); border: 0;
+  box-shadow: inset 0 0 0 1px var(--ligne);
 }
-.presence::before { content: ""; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--argent-3); }
-.presence--oui { color: var(--argent-1); border-color: rgba(214,220,228,.3); }
-.presence--oui::before { background: #8fc28a; border-color: #8fc28a; box-shadow: 0 0 7px rgba(143,194,138,.7); }
-button.presence { cursor: pointer; font: inherit; font-size: 11.5px; }
-button.presence:hover { border-color: rgba(214,220,228,.36); }
+.presence::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--texte-faible); }
+.presence--oui { color: var(--texte); }
+.presence--oui::before { background: var(--vert); box-shadow: 0 0 0 3px rgba(127,197,138,.18); }
+button.presence { cursor: pointer; font: inherit; font-size: 12px; }
+button.presence:hover { background: var(--surface-2); }
 
 /* « 👥 6 » */
 .compteur-personnes {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 26px; padding: 0 10px; border-radius: 13px;
-  font: inherit; font-size: 12px; color: var(--argent-2);
-  background: rgba(255,255,255,.03); border: 1px solid rgba(214,220,228,.14); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 11px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--texte-doux);
+  background: var(--surface-1); border: 0; box-shadow: inset 0 0 0 1px var(--ligne); cursor: pointer;
 }
-.compteur-personnes:hover { color: var(--argent-1); border-color: rgba(214,220,228,.34); }
-.compteur-personnes .picto-personne { width: 10px; height: 14px; }
+.compteur-personnes:hover { color: var(--texte); background: var(--surface-2); }
+.compteur-personnes .picto-personne { width: 10px; height: 14px; fill: currentColor; }
 
 /* --- La barre des gestes -------------------------------------------------- */
 .actions {
   grid-area: actions;
   position: relative; z-index: 30;
-  display: flex; align-items: stretch; justify-content: center; gap: 2px;
-  height: 66px; padding: 4px 10px 5px;
-  background: linear-gradient(180deg, #14171a, #0c0e10);
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 70px; padding: 5px 10px;
+  background: var(--surface-0);
+  border-top: 1px solid var(--ligne);
 }
 .actions[hidden] { display: none; }
-.actions::before {
-  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
-  background: var(--filet);
-}
 .actions__geste {
   position: relative;
-  flex: 0 1 92px; min-width: 52px;
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px;
-  padding: 2px 4px 4px; border-radius: 10px;
-  border: 1px solid transparent; background: none; color: var(--argent-2); cursor: pointer;
-  transition: background var(--transition), border-color var(--transition);
+  flex: 0 1 86px; min-width: 52px; height: 58px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  padding: 0 4px; border-radius: 14px;
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
 }
-.actions__geste + .actions__geste::before {
-  content: ""; position: absolute; left: -2px; top: 16%; bottom: 16%; width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(214,220,228,.14), transparent);
-}
-.actions__geste:hover { background: rgba(255,255,255,.035); border-color: rgba(214,220,228,.12); }
-.actions__geste[aria-current="true"] { border-color: rgba(214,220,228,.28); background: rgba(214,220,228,.05); }
-.actions__objet { height: 34px; display: grid; place-items: center; }
+.actions__geste:hover { background: var(--surface-2); color: var(--texte); }
+.actions__geste[aria-current="true"], .actions__geste[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); }
+.actions__objet { height: 30px; display: grid; place-items: center; }
 .actions__objet img {
-  max-width: 48px; max-height: 34px; object-fit: contain;
-  filter: drop-shadow(2px 4px 3px rgba(0,0,0,.7));
-  transition: transform .18s var(--courbe);
+  max-width: 44px; max-height: 30px; object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.5));
+  transition: transform .2s var(--courbe);
 }
-.actions__geste:hover .actions__objet img { transform: translateY(-2px) scale(1.06); }
-.actions__objet svg { width: 30px; height: 26px; fill: none; stroke: var(--argent-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.actions__objet .picto-personne { width: 17px; height: 24px; fill: var(--argent-2); stroke: none; }
-.actions__mot { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--argent-3); }
-.actions__geste:hover .actions__mot { color: var(--argent-1); }
+.actions__geste:hover .actions__objet img { transform: translateY(-2px); }
+.actions__objet svg { width: 26px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.actions__objet .picto-personne { width: 15px; height: 21px; fill: currentColor; stroke: none; }
+.actions__mot { font-size: 11px; font-weight: 500; line-height: 1; }
 .actions__pastille {
-  position: absolute; top: 3px; right: 16px;
-  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  position: absolute; top: 4px; right: 14px;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 9.5px; font-weight: 700; color: #15181b; background: var(--argent-1);
-  box-shadow: 0 0 8px rgba(230,236,244,.45);
+  font-size: 10px; font-weight: 700; color: #15130f; background: var(--accent);
 }
 
 /* --- Le tiroir « ⋯ » : tout ce qui n'est pas un geste ------------------- */
@@ -4054,30 +3947,30 @@ button.presence:hover { border-color: rgba(214,220,228,.36); }
   width: min(300px, 88vw);
   grid-area: auto;
   transform: translateX(104%);
-  transition: transform .22s var(--courbe);
-  background: linear-gradient(180deg, #15181c, #0e1013);
-  border-left: 1px solid rgba(214,220,228,.16);
-  box-shadow: -20px 0 50px rgba(0,0,0,.6);
+  transition: transform .24s var(--courbe);
+  background: var(--surface-1);
+  border-left: 1px solid var(--ligne);
+  box-shadow: -20px 0 50px rgba(0,0,0,.5);
   padding: 0 0 12px;
   display: flex;
 }
 body.tiroir-ouvert .chassis--monde > .rail.tiroir { transform: none; }
-body.tiroir-ouvert::after {
-  content: ""; position: fixed; inset: 0; z-index: 55; background: rgba(4,5,6,.55);
-}
-.tiroir__entete {
-  display: flex; align-items: center; gap: 8px;
-  padding: 14px 12px 12px 18px; border-bottom: 1px solid rgba(214,220,228,.1);
-}
+body.tiroir-ouvert::after { content: ""; position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.5); animation: apparait .2s; }
+.tiroir__entete { display: flex; align-items: center; gap: 10px; padding: 16px 12px 14px 18px; border-bottom: 1px solid var(--ligne); }
 .tiroir__qui { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.tiroir__nom { font-family: var(--f-titre); font-size: 15px; color: var(--argent-1); }
-.tiroir__mail { font-size: 11px; color: var(--argent-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tiroir .rail__titre { color: var(--argent-4); }
-.tiroir .rail__lien { color: var(--argent-2); border-left-width: 2px; background: none; border-top: 0; border-right: 0; border-bottom: 0; width: 100%; font: inherit; font-size: var(--t-md); cursor: pointer; text-align: left; }
-.tiroir .rail__lien:hover { color: var(--argent-1); background: rgba(255,255,255,.03); }
-.tiroir .rail__lien[aria-current="page"] { border-left-color: var(--argent-2); color: var(--argent-1); background: rgba(255,255,255,.04); }
+.tiroir__nom { font-size: 14px; font-weight: 600; color: var(--texte); }
+.tiroir__mail { font-size: 11.5px; color: var(--texte-faible); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiroir .rail__titre { color: var(--texte-faible); font-size: 11px; letter-spacing: .08em; }
+.tiroir .rail__lien {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--texte-doux); background: none; border: 0; border-radius: 10px;
+  margin: 1px 8px; width: calc(100% - 16px); padding: 9px 10px;
+  font: inherit; font-size: 13.5px; cursor: pointer; text-align: left;
+}
+.tiroir .rail__lien:hover { color: var(--texte); background: var(--surface-2); }
+.tiroir .rail__lien[aria-current="page"] { color: var(--texte); background: var(--surface-3); }
 .tiroir .rail__lien span { display: inline !important; }
-.tiroir .rail__lien--danger { color: #d98d86; }
+.tiroir .rail__lien--danger { color: #e48c84; }
 
 /* --- Les bandes de personnes --------------------------------------------- */
 .bande { display: flex; align-items: center; gap: 4px; min-width: 0; }
@@ -4089,87 +3982,87 @@ body.tiroir-ouvert::after {
 .bande__piste::-webkit-scrollbar { display: none; }
 .bande__personne {
   flex: 0 0 auto; scroll-snap-align: start;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  width: 64px; padding: 6px 2px 4px; border-radius: 8px;
-  border: 1px solid transparent; background: none; color: var(--argent-2); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 66px; padding: 8px 2px 6px; border-radius: 12px;
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
 }
-.bande__personne:hover { background: rgba(255,255,255,.04); border-color: rgba(214,220,228,.14); }
-.bande__personne[aria-pressed="true"] { border-color: rgba(214,220,228,.5); background: rgba(214,220,228,.08); color: var(--argent-1); }
-.bande__personne .picto-personne { width: 14px; height: 19px; fill: var(--argent-3); }
-.bande__personne:hover .picto-personne, .bande__personne[aria-pressed="true"] .picto-personne { fill: var(--argent-1); }
-.picto-personne[data-role="responsable"] { fill: var(--bronze-clair) !important; }
-.bande__nom { font-size: 10.5px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bande__personne:hover { background: var(--surface-2); color: var(--texte); }
+.bande__personne[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); }
+.bande__personne .picto-personne { width: 14px; height: 19px; fill: currentColor; }
+.picto-personne[data-role="responsable"] { fill: var(--accent) !important; }
+.bande__nom { font-size: 11px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bande__fleche {
-  flex: 0 0 auto; width: 24px; height: 40px; border-radius: 6px;
-  display: grid; place-items: center; border: 0; background: none; color: var(--argent-3); cursor: pointer;
+  flex: 0 0 auto; width: 26px; height: 40px; border-radius: 8px;
+  display: grid; place-items: center; border: 0; background: none; color: var(--texte-faible); cursor: pointer;
 }
-.bande__fleche:hover { color: var(--argent-1); background: rgba(255,255,255,.04); }
-.bande__compte { flex: 0 0 auto; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--argent-4); padding: 0 6px; white-space: nowrap; }
-.bande__vide { font-size: 12px; color: var(--argent-4); padding: 10px; }
+.bande__fleche:hover { color: var(--texte); background: var(--surface-2); }
+.bande__compte { flex: 0 0 auto; font-size: 11px; color: var(--texte-faible); padding: 0 6px; white-space: nowrap; }
+.bande__vide { font-size: 12.5px; color: var(--texte-faible); padding: 10px; }
 .bande-flottante {
   position: fixed; z-index: 70;
   width: min(560px, calc(100vw - 16px));
-  padding: 6px 6px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(26,30,35,.97), rgba(15,17,20,.97));
-  border: 1px solid rgba(214,220,228,.2);
-  box-shadow: 0 18px 40px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05);
-  backdrop-filter: blur(10px);
-  animation: surgit .16s var(--courbe);
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 20px 44px rgba(0,0,0,.55);
+  animation: surgit .18s var(--courbe);
 }
 @keyframes surgit { from { opacity: 0; transform: translateY(6px); } }
+@keyframes apparait { from { opacity: 0; } }
 
 /* --- La note : « À », puis le papier ------------------------------------ */
 .note-rapide__a {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 4px 4px 10px; border-radius: 10px;
-  background: rgba(255,255,255,.025); border: 1px solid rgba(214,220,228,.12);
+  padding: 4px 4px 4px 12px; border-radius: 12px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
 }
-.note-rapide__label { font-family: var(--f-titre); font-size: 15px; color: var(--argent-2); }
-.note-rapide__outil { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--argent-4); margin: 0; }
+.note-rapide__label { font-size: 13px; font-weight: 600; color: var(--texte-doux); }
+.note-rapide__outil { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texte-faible); margin: 0; }
 .note-rapide__outil img { height: 16px; }
 
 /* --- Documents sous la main ----------------------------------------------- */
 .documents-rapides { display: grid; gap: 14px; }
-.doc-titre { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--argent-3); margin: 0 0 6px; font-weight: 600; }
-.doc-compte { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; color: #15181b; background: var(--argent-1); margin-left: 4px; }
+.doc-titre { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); margin: 0 0 6px; }
+.doc-compte { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; color: #15130f; background: var(--accent); margin-left: 4px; }
 .doc-ligne {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 8px 8px; border-radius: 8px; border: 1px solid transparent;
+  padding: 9px 10px; border-radius: 10px; border: 0;
   background: none; color: var(--texte); font: inherit; text-align: left; cursor: pointer;
 }
-.doc-ligne:hover { background: rgba(255,255,255,.03); border-color: rgba(214,220,228,.12); }
+.doc-ligne:hover { background: var(--surface-2); }
 .doc-ligne__feuille {
-  flex: 0 0 auto; width: 18px; height: 23px; border-radius: 1px;
-  background: linear-gradient(160deg, #f3ecdc, #d9ccb1);
-  box-shadow: 1px 2px 3px rgba(0,0,0,.5);
+  flex: 0 0 auto; width: 18px; height: 23px; border-radius: 2px;
+  background: #efe6d3; box-shadow: 0 2px 4px rgba(0,0,0,.4);
 }
 .doc-ligne__titre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.doc-ligne__meta, .doc-ligne__date { font-size: 11px; color: var(--argent-4); white-space: nowrap; }
+.doc-ligne__meta, .doc-ligne__date { font-size: 11.5px; color: var(--texte-faible); white-space: nowrap; }
 .doc-actions { display: flex; gap: 8px; justify-content: space-between; }
 
-/* --- Modales et menus en métal -------------------------------------------- */
+/* --- Modales et menus ----------------------------------------------------- */
 .modale {
-  border: 1px solid rgba(214,220,228,.18) !important;
-  background: linear-gradient(180deg, #171a1e, #101215) !important;
-  box-shadow: 0 30px 70px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05) !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--surface-1) !important;
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 30px 70px rgba(0,0,0,.6) !important;
 }
-.modale__entete { border-bottom: 1px solid transparent !important; background-image: var(--filet); background-size: 100% 1px; background-repeat: no-repeat; background-position: bottom; }
-.modale__titre { font-family: var(--f-titre); letter-spacing: .02em; color: var(--argent-1); }
+.modale__entete { border-bottom: 1px solid var(--ligne) !important; }
+.modale__titre { font-size: 16px; font-weight: 600; color: var(--texte); }
 
 /* --- Tailles : moins de choses, pas seulement plus petites --------------- */
 .chassis[data-taille="compact"] .contexte__precision,
 .chassis[data-taille="mini"] .contexte__precision,
 .chassis[data-taille="mini"] .contexte__statut .presence span.presence__long { display: none; }
-.chassis[data-taille="compact"] .actions { height: 56px; }
-.chassis[data-taille="compact"] .actions__objet { height: 28px; }
-.chassis[data-taille="compact"] .actions__objet img { max-height: 28px; max-width: 40px; }
-.chassis[data-taille="mini"] .contexte { height: 36px; gap: 6px; }
+.chassis[data-taille="compact"] .actions { height: 62px; }
+.chassis[data-taille="compact"] .actions__geste { height: 52px; }
+.chassis[data-taille="compact"] .actions__objet { height: 26px; }
+.chassis[data-taille="compact"] .actions__objet img { max-height: 26px; max-width: 38px; }
+.chassis[data-taille="mini"] .contexte { height: 40px; gap: 6px; }
 .chassis[data-taille="mini"] .contexte__sceau { width: 24px; height: 24px; font-size: 8px; }
 .chassis[data-taille="mini"] .contexte__nom { font-size: 13px; }
-.chassis[data-taille="mini"] .actions { height: 44px; padding: 3px 4px; }
+.chassis[data-taille="mini"] .actions { height: 50px; padding: 3px 4px; }
+.chassis[data-taille="mini"] .actions__geste { height: 42px; }
 .chassis[data-taille="mini"] .actions__mot { display: none; }
-.chassis[data-taille="mini"] .actions__objet { height: 30px; }
+.chassis[data-taille="mini"] .actions__objet { height: 28px; }
 .chassis[data-taille="mini"] .actions__pastille { right: 6px; }
 .chassis--monde.chassis--immersif > .rail.tiroir { display: flex; }
 
@@ -4177,167 +4070,171 @@ body.tiroir-ouvert::after {
    Chez moi
    ========================================================================= */
 .chez-moi { position: relative; height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
-.chez-moi > .scene { display: grid; height: 100%; }
+.chez-moi > .scene { display: grid; height: 100%; grid-template-rows: auto minmax(0, 1fr); }
 .chez-moi > .console { display: none; }
 .chassis[data-taille="compact"] .chez-moi > .scene,
 .chassis[data-taille="mini"] .chez-moi > .scene { display: none; }
 .chassis[data-taille="compact"] .chez-moi > .console,
 .chassis[data-taille="mini"] .chez-moi > .console { display: flex; }
 
-/* Le mur : une plaque encadrée d'argent, et du papier dedans. */
-.scene__avant--mur { align-items: center; padding-top: 12px; }
-.mur { width: min(720px, 92%); max-height: 100%; }
-.mur__plaque {
-  position: relative;
-  padding: 16px 22px 14px;
-  border-radius: 6px;
-  color: #26221b;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.35), transparent 30%),
-    linear-gradient(180deg, #f1ead9, #e4d9c1);
-  box-shadow:
-    0 0 0 5px #9da4ac, 0 0 0 6px #5d646c, 0 0 0 7px rgba(255,255,255,.25),
-    0 22px 40px -10px rgba(0,0,0,.85);
-  max-height: calc(100% - 14px); overflow: auto;
-}
-.mur__plaque::before {
-  /* le cadre en métal brossé */
-  content: ""; position: absolute; inset: -6px; border-radius: 9px; z-index: -1;
-  background: var(--metal);
-}
-.mur__entete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.mur__date { order: 2; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #7b715f; }
-.mur__titre { margin: 0; font-family: var(--f-titre); font-size: clamp(18px, 2.1vw, 26px); font-weight: 600; color: #1f1b14; }
-.mur__lignes { list-style: none; margin: 10px 0 8px; padding: 0; display: grid; gap: 4px; }
+/* L'accueil : un bonjour, ce qui vous attend, et c'est tout. */
+.scene__avant--mur { display: block; padding: 22px 4% 4px; }
+.mur { width: 100%; max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; animation: apparait .35s var(--courbe); }
+.mur__entete { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.mur__bonjour { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mur__date { font-size: 12.5px; color: var(--texte-faible); text-transform: capitalize; }
+.mur__titre { margin: 0; font-size: clamp(20px, 2.4vw, 28px); font-weight: 600; letter-spacing: -.015em; color: var(--texte); }
+.mur__lignes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .mur__ligne {
-  display: flex; align-items: center; gap: 10px; min-height: 34px;
-  padding: 4px 6px; border-bottom: 1px solid rgba(60,45,25,.14);
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 6px 6px 6px 14px; border-radius: 14px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+  animation: surgit .3s var(--courbe) both;
 }
-.mur__ligne--calme { font-family: var(--f-main); font-size: 20px; color: #6b5f4b; border-bottom: 0; }
-.mur__texte { flex: 1; min-width: 0; font-size: 13.5px; }
-.mur__voyant { width: 8px; height: 8px; border-radius: 50%; background: #3f9a52; box-shadow: 0 0 7px rgba(63,154,82,.8); flex: 0 0 auto; }
-.mur__objet { width: 22px; height: 26px; object-fit: contain; filter: drop-shadow(1px 2px 2px rgba(0,0,0,.35)); }
-.mur__cloche { color: #6b5f4b; display: grid; }
-.mur__plaque .btn { color: #1c1f22; }
-.mur__plaque .btn:not(.btn--primaire) { background: rgba(255,255,255,.55); border-color: rgba(60,45,25,.25); }
-.mur__pied { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mur__ligne:nth-child(2) { animation-delay: 40ms; }
+.mur__ligne:nth-child(3) { animation-delay: 80ms; }
+.mur__ligne--direct { background: rgba(127,197,138,.08); box-shadow: inset 0 0 0 1px rgba(127,197,138,.3); }
+.mur__ligne--calme { background: none; box-shadow: none; padding-left: 0; color: var(--texte-faible); font-size: 13.5px; }
+.mur__texte { min-width: 0; font-size: 13.5px; color: var(--texte-doux); }
+.mur__texte b { color: var(--texte); font-weight: 600; }
+.mur__voyant { width: 8px; height: 8px; border-radius: 50%; background: var(--vert); box-shadow: 0 0 0 4px rgba(127,197,138,.18); flex: 0 0 auto; animation: pouls 2s ease-in-out infinite; }
+.mur__objet { width: 22px; height: 26px; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+.mur__cloche { color: var(--texte-doux); display: grid; }
+.mur__pied { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .mur__espaces { display: flex; gap: 6px; flex-wrap: wrap; }
 .mur__espace {
-  font-size: 12px; color: #3a3226; padding: 3px 9px; border-radius: 11px;
-  background: rgba(255,255,255,.5); border: 1px solid rgba(60,45,25,.2);
+  display: inline-flex; align-items: center; height: 30px;
+  font-size: 12.5px; color: var(--texte-doux); padding: 0 12px; border-radius: 999px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
 }
-.mur__espace:hover { text-decoration: none; background: #fff; }
+.mur__espace:hover { text-decoration: none; color: var(--texte); background: var(--surface-2); }
 .mur__rejoindre { display: flex; gap: 6px; }
-.mur__rejoindre .saisie { width: 110px; min-height: 28px; background: rgba(255,255,255,.7); color: #1f1b14; border-color: rgba(60,45,25,.28); }
+.mur__rejoindre .saisie--code {
+  width: 118px; height: 34px; min-height: 34px; padding: 0 12px;
+  font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+  background: var(--surface-1); border: 0; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--ligne-forte);
+  color: var(--texte);
+}
+.mur__rejoindre .btn { height: 34px; border-radius: 10px; }
 
 /* ===========================================================================
-   La console : un panneau à la fois
+   La console : un panneau à la fois (fenêtre au-dessus du jeu)
    ========================================================================= */
 .console {
   position: relative;
   flex-direction: column; min-height: 0; height: 100%;
-  background:
-    radial-gradient(100% 50% at 50% 0%, rgba(210,220,235,.04), transparent 70%),
-    var(--encre-900);
+  background: var(--fond);
 }
 .console__entete { padding: 8px 10px 0; }
 .console__direct {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 12.5px; text-align: left;
-  color: var(--argent-1); background: rgba(63,154,82,.08); border: 1px solid rgba(143,194,138,.35); cursor: pointer;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border-radius: 14px; font: inherit; font-size: 13px; text-align: left;
+  color: var(--texte); background: rgba(127,197,138,.08); border: 0; box-shadow: inset 0 0 0 1px rgba(127,197,138,.3); cursor: pointer;
 }
 .console__direct span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.console__aller { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #a9d6a4; }
-.console__calme { display: block; font-size: 12px; color: var(--argent-4); padding: 2px 2px; }
+.console__aller { font-size: 12px; font-weight: 600; color: var(--vert); }
+.console__calme { display: block; font-size: 12.5px; color: var(--texte-faible); padding: 2px; }
 .console__panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.console__contenu { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: surgit .16s var(--courbe); }
+.console__contenu { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: surgit .18s var(--courbe); }
 .console__titre {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px 6px;
-  font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--argent-3);
+  padding: 10px 12px 6px;
+  font-size: 13px; font-weight: 600; color: var(--texte);
 }
-.console__replier { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; border: 0; background: none; color: var(--argent-4); cursor: pointer; }
-.console__replier:hover { color: var(--argent-1); background: rgba(255,255,255,.05); }
-.console__corps { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+.console__replier { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; border: 0; background: none; color: var(--texte-faible); cursor: pointer; }
+.console__replier:hover { color: var(--texte); background: var(--surface-2); }
+.console__corps { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 10px; }
 .console__barre {
-  display: flex; align-items: stretch; justify-content: space-around; gap: 1px;
-  height: 58px; padding: 3px 4px 4px; position: relative;
-  background: linear-gradient(180deg, #14171a, #0c0e10);
+  display: flex; align-items: center; justify-content: space-around; gap: 2px;
+  height: 62px; padding: 4px; position: relative;
+  background: var(--surface-0); border-top: 1px solid var(--ligne);
 }
-.console__barre::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--filet); }
-.console__barre .actions__geste { flex: 1 1 0; min-width: 0; }
+.console__barre .actions__geste { flex: 1 1 0; min-width: 0; height: 52px; }
 
 /* Les objets, en petit mais en vrai. */
 .console__objets { display: flex; flex-wrap: wrap; gap: 4px; }
-.console__objet { position: relative; width: 82px; }
+.console__objet { position: relative; width: 84px; }
 .console__objet--part { opacity: .2; transition: opacity .2s; }
 .console__prise {
-  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 6px 2px 5px; border-radius: 9px; border: 1px solid transparent; background: none;
-  color: var(--argent-2); font: inherit; font-size: 11px; cursor: pointer;
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 2px 6px; border-radius: 12px; border: 0; background: none;
+  color: var(--texte-doux); font: inherit; font-size: 11.5px; cursor: pointer;
 }
-.console__prise img { width: 62px; height: 42px; object-fit: contain; filter: drop-shadow(2px 5px 4px rgba(0,0,0,.65)); transition: transform .15s var(--courbe); }
-.console__prise span { max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.console__prise:hover { background: rgba(255,255,255,.035); border-color: rgba(214,220,228,.12); }
+.console__prise img { width: 60px; height: 40px; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0,0,0,.45)); transition: transform .2s var(--courbe); }
+.console__prise span { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console__prise:hover { background: var(--surface-2); color: var(--texte); }
 .console__prise:hover img { transform: translateY(-2px); }
-.console__objet--main .console__prise { border-color: rgba(214,220,228,.45); background: rgba(214,220,228,.07); color: var(--argent-1); }
+.console__objet--main .console__prise { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); color: var(--texte); }
 .console__objet--main .console__prise img { transform: rotate(-10deg) translateY(-3px); }
 .console__ranger {
-  position: absolute; top: 2px; right: 4px; width: 20px; height: 20px; border-radius: 50%;
-  display: grid; place-items: center; border: 1px solid rgba(214,220,228,.18);
-  background: rgba(12,14,16,.85); color: var(--argent-3); cursor: pointer; opacity: 0; transition: opacity .15s;
+  position: absolute; top: 3px; right: 5px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; border: 0; box-shadow: inset 0 0 0 1px var(--ligne-forte);
+  background: var(--surface-2); color: var(--texte-doux); cursor: pointer; opacity: 0; transition: opacity .15s;
 }
 .console__objet:hover .console__ranger, .console__objet:focus-within .console__ranger { opacity: 1; }
-.console__main { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; color: var(--argent-2); }
+.console__main { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--texte-doux); }
 .console__main img { height: 22px; transform: rotate(-12deg); }
-.console__vide { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; color: var(--argent-4); font-size: 12.5px; margin: 6px 2px; }
+.console__vide { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; color: var(--texte-faible); font-size: 13px; margin: 6px 2px; }
 .console__vide p { margin: 0; }
-.console__poche { padding: 6px; border-radius: 10px; background: rgba(0,0,0,.2); border: 1px solid rgba(214,220,228,.06); }
-.console__poche-nom { display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--argent-4); margin: 0 0 2px 4px; }
+.console__poche { padding: 8px; border-radius: 12px; background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne); }
+.console__poche-nom { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); margin: 0 0 4px 4px; }
+
+/* Écrire : ce qui manque, et le geste qui le règle. */
+.console__pret {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px 8px 10px; border-radius: 12px;
+  background: var(--accent-fond); box-shadow: inset 0 0 0 1px rgba(232,200,150,.35);
+  animation: surgit .2s var(--courbe);
+}
+.console__pret img { width: 36px; height: 26px; object-fit: contain; }
+.console__pret span { flex: 1; min-width: 0; font-size: 12.5px; color: var(--texte); }
+.console__pret--ok { background: rgba(127,197,138,.08); box-shadow: inset 0 0 0 1px rgba(127,197,138,.28); }
+.console__pret--ok span { color: var(--texte-doux); }
 
 /* Le cahier en petit. */
-.console__onglets { display: flex; gap: 4px; overflow-x: auto; }
-.console__onglet { flex: 0 0 auto; padding: 4px 10px; border-radius: 12px; font: inherit; font-size: 11.5px; color: var(--argent-2); background: none; border: 1px solid rgba(214,220,228,.16); cursor: pointer; }
-.console__onglet[aria-pressed="true"] { color: #15181b; background: var(--metal); border-color: #9aa1a9; }
+.console__onglets { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.console__onglet { flex: 0 0 auto; height: 28px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; color: var(--texte-doux); background: var(--surface-1); border: 0; box-shadow: inset 0 0 0 1px var(--ligne); cursor: pointer; }
+.console__onglet[aria-pressed="true"] { color: #15130f; background: var(--accent); box-shadow: none; }
 .console__outils { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.console__outil { width: 48px; height: 36px; border-radius: 8px; display: grid; place-items: center; border: 1px solid transparent; background: none; cursor: pointer; }
-.console__outil img { max-width: 42px; max-height: 28px; object-fit: contain; filter: drop-shadow(2px 4px 3px rgba(0,0,0,.6)); }
-.console__outil[aria-pressed="true"] { border-color: rgba(214,220,228,.5); background: rgba(214,220,228,.08); }
+.console__outil { width: 50px; height: 38px; border-radius: 10px; display: grid; place-items: center; border: 0; background: none; cursor: pointer; }
+.console__outil:hover { background: var(--surface-2); }
+.console__outil img { max-width: 42px; max-height: 28px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); }
+.console__outil[aria-pressed="true"] { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
 .console__outil[aria-pressed="true"] img { transform: rotate(-12deg) translateY(-2px); }
-.console__outil--appel { animation: appel 1.4s ease-in-out infinite; }
-.console__conseil { font-size: 11.5px; color: var(--argent-3); margin-left: 4px; }
-.console__page { flex: 1; min-height: 240px; display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; }
+.console__outil--appel { animation: appel 1.8s ease-in-out infinite; }
+.console__conseil { font-size: 12px; color: var(--texte-faible); margin-left: 4px; }
+.console__page { flex: 1; min-height: 240px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
 .console__page .cahier { flex: 1; background: #f3ebd9; }
 .console__page .feuillet { background: #f4ecdb; }
-.console__page .feuillet__barre { background: #ebe2cf; border-bottom-color: rgba(60,40,20,.14); }
-.console__page .feuillet__barre .btn { color: #3a3226; background: rgba(255,255,255,.5); border-color: rgba(60,40,20,.2); }
+.console__page .feuillet__barre { background: #ece3d0; border-bottom-color: rgba(60,40,20,.12); }
+.console__page .feuillet__barre .btn { color: #3a3226; background: rgba(255,255,255,.5); border-color: rgba(60,40,20,.18); }
 .console__page .feuillet__zone { background: transparent; padding: 8px; }
 .console__page .parchemin { box-shadow: none; }
 
 .console__gestes-personne { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px; }
-.console__qui { font-family: var(--f-titre); font-size: 14px; color: var(--argent-1); margin-right: 4px; }
+.console__qui { font-size: 13.5px; font-weight: 600; color: var(--texte); margin-right: 4px; }
 
 /* Toute petite fenêtre : la barre seule, le panneau par-dessus. */
 .chassis[data-taille="mini"] .console__entete { display: none; }
 .chassis[data-taille="mini"] .console__panneau {
-  position: absolute; left: 4px; right: 4px; bottom: 4px; z-index: 5;
-  max-height: calc(100% - 8px); flex: none;
-  border-radius: 12px; overflow: hidden;
-  background: linear-gradient(180deg, rgba(24,28,32,.98), rgba(14,16,19,.98));
-  border: 1px solid rgba(214,220,228,.2);
-  box-shadow: 0 -10px 30px rgba(0,0,0,.6);
+  position: absolute; left: 4px; right: 4px; bottom: 54px; z-index: 5;
+  max-height: calc(100% - 60px); flex: none;
+  border-radius: 16px; overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 -10px 30px rgba(0,0,0,.5);
 }
 .chassis[data-taille="mini"] .console[data-ouvert=""] .console__panneau { display: none; }
-.chassis[data-taille="mini"] .console__barre { height: 44px; }
+.chassis[data-taille="mini"] .console__barre { height: 48px; }
+.chassis[data-taille="mini"] .console__barre .actions__geste { height: 40px; }
 .chassis[data-taille="mini"] .console__barre .actions__mot { display: none; }
 .chassis[data-taille="mini"] .chez-moi > .console { justify-content: flex-end; }
 
 /* Formulaire de note, posé dans le panneau. */
 .note-rapide__pied { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .note-rapide--impossible { padding: 8px 0; }
-.note-rapide__manque { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 12.5px; color: var(--argent-2); }
-.note-rapide__manque b { color: var(--argent-1); }
-.console .note-rapide__papier { transform: none; padding: 10px 12px; }
+.note-rapide__manque { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 13px; color: var(--texte-doux); }
+.note-rapide__manque b { color: var(--texte); }
+.console .note-rapide__papier { padding: 10px 12px; }
 .console .note-rapide__papier textarea { min-height: 90px; font-size: 19px; }
 
 /* ===========================================================================
@@ -4357,67 +4254,48 @@ body.tiroir-ouvert::after {
 .console__corps--plein .mon-cahier__gestes { padding: 4px 8px; }
 .console__corps--plein .inspection--annotable { grid-template-columns: 1fr; }
 .console__corps--plein .inspection--annotable > .marge { display: none; }
-.console .console__barre .actions__objet svg:not(.picto-personne):not(.picto-bureau) { width: 22px; height: 22px; stroke: var(--argent-2); }
-.dock__signe .picto-personne { width: 16px; height: 22px; fill: var(--parch-200); }
+.console .console__barre .actions__objet svg:not(.picto-personne):not(.picto-bureau) { width: 22px; height: 22px; stroke: currentColor; }
 .chassis[data-taille="moyen"] .scene__estrade { display: none; }
-.mur__rejoindre .saisie--code { font-size: 13px; letter-spacing: .12em; height: 30px; padding: 0 8px; text-transform: uppercase; }
-.estrade__lumiere { pointer-events: none; }
 .scene__estrade .presence { position: relative; z-index: 1; }
 
-/* Le dock de la salle parle la même langue que la barre des gestes. */
-.dock {
-  background: linear-gradient(180deg, #14171a, #0c0e10);
-  border-top: 0; box-shadow: none;
-}
-.dock::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--filet); }
-.dock__mot { font-family: var(--f-ui); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--argent-3); }
-.dock__chose:hover .dock__mot { color: var(--argent-1); }
-.dock__chose[aria-pressed="true"] { background: rgba(214,220,228,.06); box-shadow: inset 0 0 0 1px rgba(214,220,228,.34); }
-.dock__chose[aria-pressed="true"] .dock__mot { color: var(--argent-1); }
-.dock__signe { color: var(--argent-2); }
-.dock__pastille { background: var(--argent-1); color: #15181b; box-shadow: 0 0 8px rgba(230,236,244,.45); }
-.dock__sep { background: linear-gradient(180deg, transparent, rgba(214,220,228,.16), transparent); }
-.dock__fenetre { background: rgba(255,255,255,.02); border-color: rgba(214,220,228,.12); }
-.dock__fenetre button[aria-pressed="true"] { color: #15181b; background: var(--metal); }
-.scene__legende { color: rgba(240,242,245,.7); }
-
 /* Petites fenêtres : réglages fins. */
-.console__barre .actions__mot { font-size: 9px; letter-spacing: .03em; }
-.chassis[data-taille="mini"] .console__panneau { bottom: 48px; max-height: calc(100% - 56px); }
 .chassis[data-taille="mini"] .contexte__direct,
 .chassis[data-taille="mini"] .contexte__reseau,
 .chassis[data-taille="compact"] .contexte__reseau span:not(.contexte__voyant) { display: none; }
-.chassis[data-taille="mini"] .presence { padding: 0 8px; }
+.chassis[data-taille="mini"] .presence { padding: 0 9px; }
 .chassis[data-taille="mini"] .presence .presence__long { display: none; }
 .console .outils-texte { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .console .outils-texte::-webkit-scrollbar { display: none; }
 .console .feuillet__barre { flex-wrap: nowrap; overflow-x: auto; }
 
 /* ===========================================================================
-   Les autres écrans : même langue — graphite, filets d'argent, papier
+   Les autres écrans : même langue
    ========================================================================= */
-.page__entete { border-bottom: 0; background-image: var(--filet); background-size: 100% 1px; background-repeat: no-repeat; background-position: bottom; }
-.page__titre h1 { font-family: var(--f-titre); letter-spacing: .01em; color: var(--argent-1); }
-.page__surtitre { color: var(--argent-3); letter-spacing: .2em; }
+.page__entete { border-bottom: 1px solid var(--ligne); }
+.page__titre h1 { font-weight: 600; letter-spacing: -.01em; color: var(--texte); }
+.page__surtitre { color: var(--texte-faible); letter-spacing: .08em; }
 .carte, .panneau {
-  background: linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,0) 40%), var(--encre-850);
-  border-color: rgba(214,220,228,.1);
-  border-radius: 8px;
+  background: var(--surface-1);
+  border: 0; box-shadow: inset 0 0 0 1px var(--ligne);
+  border-radius: 14px;
 }
-.carte--cliquable:hover { border-color: rgba(214,220,228,.28); }
-.panneau__entete { background: rgba(255,255,255,.02); border-bottom-color: rgba(214,220,228,.08); }
-.panneau__titre { color: var(--argent-3); }
-.onglet[aria-selected="true"] { color: var(--argent-1); border-bottom-color: var(--argent-2); }
+.carte--cliquable { transition: background var(--transition), transform var(--transition); }
+.carte--cliquable:hover { background: var(--surface-2); transform: translateY(-1px); }
+.panneau__entete { background: none; border-bottom: 1px solid var(--ligne); }
+.panneau__titre { color: var(--texte-faible); }
+.onglet[aria-selected="true"] { color: var(--texte); border-bottom-color: var(--accent); }
 .menu {
-  background: linear-gradient(180deg, #1b1f23, #121418);
-  border-color: rgba(214,220,228,.2);
-  border-radius: 10px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.6);
+  background: var(--surface-1);
+  border: 0; box-shadow: 0 0 0 1px var(--ligne-forte), 0 18px 40px rgba(0,0,0,.55);
+  border-radius: 14px;
 }
-.saisie:focus, .saisie:focus-visible { border-color: var(--argent-3); box-shadow: 0 0 0 3px rgba(214,220,228,.12); }
-:focus-visible { outline-color: var(--argent-2); }
-.toast { border-radius: 10px; background: linear-gradient(180deg, #1b1f23, #121418); border-color: rgba(214,220,228,.18); }
-/* Le reste de l'application reste lisible en petite fenêtre : une colonne. */
+.saisie { border-radius: 10px; }
+.saisie:focus, .saisie:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-fond); }
+:focus-visible { outline-color: var(--accent); }
+.toast { border-radius: 14px; background: var(--surface-1); border: 0; box-shadow: 0 0 0 1px var(--ligne-forte), 0 16px 40px rgba(0,0,0,.5); }
+.btn { border-radius: 10px; font-weight: 500; }
+.btn--primaire { background: var(--accent); border-color: var(--accent); color: #15130f; }
+.btn--primaire:hover { background: #f0d5ab; border-color: #f0d5ab; color: #15130f; }
 .chassis[data-taille="compact"] .page, .chassis[data-taille="mini"] .page { padding: 12px 12px 20px; }
 .chassis[data-taille="compact"] .colonnes, .chassis[data-taille="mini"] .colonnes { grid-template-columns: 1fr; }
 
@@ -4447,9 +4325,33 @@ body.hors-session .chassis--monde > .contexte,
 body.hors-session .chassis--monde > .actions { display: none; }
 .chassis--monde > .console-hote { display: none !important; }
 @media (max-width: 460px) {
-  .actions__mot { font-size: 8.5px; letter-spacing: 0; }
+  .actions__mot { font-size: 10px; }
   .actions__geste { padding-left: 1px; padding-right: 1px; }
 }
+.console__porte-bandeau:empty { display: none; }
+.console__corps--plein > .console__porte-bandeau { padding: 6px 8px 4px; }
+
+/* Toasts : sobres, et jamais sur les gestes en petite fenêtre. */
+.toast { border-left: 0 !important; padding: 12px 14px; gap: 10px; font-size: 12.5px; }
+body[data-taille="compact"] .calque-toasts,
+body[data-taille="mini"] .calque-toasts,
+body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8px; max-width: none; }
+.zone-roblox { display: none !important; }
+
+/* Mes affaires : ce qui est resté là-bas, en image. */
+.affaires__section--restes { border-left: 0 !important; padding-left: 0 !important; }
+.affaire--reste { border-radius: 14px; background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne); border: 0; }
+.affaire--reste .affaire__ligne { align-items: center; gap: 12px; padding: 8px 10px; }
+.affaire__vignette { width: 44px; height: 34px; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0,0,0,.45)); }
+.affaire__quoi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.affaire--reste .affaire__nom { font-weight: 600; }
+.affaire--reste .affaire__lieu { color: var(--texte-faible); }
+
+/* Petite fenêtre : le lieu d'abord, les voyants sans leurs mots. */
+.chassis[data-taille="compact"] .contexte__lieu { min-width: 90px; }
+.chassis[data-taille="compact"] .presence .presence__long,
+.chassis[data-taille="compact"] .contexte__direct { font-size: 0; gap: 0; padding: 0 8px; }
+.chassis[data-taille="compact"] .presence { padding: 0 9px; gap: 0; }
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -5843,6 +5745,26 @@ async function creerPiloteLocal() {
         recuperationEnCours = false;
       }
     },
+    /** Équivalent de reprendre_a_ma_place (0022) : revenu à sa place, on
+     *  retrouve devant soi ce qu'on avait laissé dans CETTE salle. */
+    async reprendre_a_ma_place({ genre, target, seance }) {
+      const s = await t("class_sessions").lire(seance);
+      if (!s || s.status !== "live") throw new ErreurDonnees("Aucune s\xE9ance en cours ici : la salle est ferm\xE9e.", "42501");
+      const table2 = genre === "cahier" ? "notebooks" : "belongings";
+      const ligne = await t(table2).lire(target);
+      if (!ligne) throw new ErreurDonnees("Introuvable", "P0002");
+      if (ligne.owner_id !== monId() && ligne.holder_id !== monId()) throw new ErreurDonnees("Ce n'est pas \xE0 vous", "42501");
+      const lieu = ligne.place || "range";
+      if (lieu === "range" || lieu === "bureau" && ligne.place_session === seance) return true;
+      if (ligne.place_class !== s.class_id) throw new ErreurDonnees("Cet objet a \xE9t\xE9 laiss\xE9 dans une autre salle.", "42501");
+      recuperationEnCours = true;
+      try {
+        await t(table2).majorer(target, { place: "bureau", place_session: seance, place_class: s.class_id, container_id: null });
+      } finally {
+        recuperationEnCours = false;
+      }
+      return true;
+    },
     recover_belonging: ({ target }) => procedures._recuperer("belongings", target, "La salle est ferm\xE9e : l'objet y reste."),
     recover_notebook: ({ target }) => procedures._recuperer("notebooks", target, "La salle est ferm\xE9e : le cahier y reste."),
     async forgotten_in_class({ target_class }) {
@@ -6791,6 +6713,8 @@ var init_data = __esm({
         container_id: null
       }),
       recuperer: (id) => pilote.rpc("recover_notebook", { target: id }),
+      /** Revenu à sa place : le cahier laissé dans cette salle revient sur le bureau. */
+      reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "cahier", target: id, seance: seanceId }),
       /** Inspection d'un support apporté au cartable, par l'encadrement. */
       inspecter: (cahierId, classeId) => pilote.rpc("inspect_notebook", { target_notebook: cahierId, target_class: classeId }),
       majorer: (id, patch) => T("notebooks").majorer(id, patch),
@@ -6954,6 +6878,8 @@ var init_data = __esm({
       }),
       /** Revenir le chercher. La base vérifie que la salle est ouverte. */
       recuperer: (id) => pilote.rpc("recover_belonging", { target: id }),
+      /** Revenu à sa place : l'objet laissé dans cette salle revient sur le bureau. */
+      reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "objet", target: id, seance: seanceId }),
       majorer: (id, patch) => T("belongings").majorer(id, patch),
       supprimer: (id) => T("belongings").supprimer(id),
       /** Ranger un objet dans un contenant, ou le sortir (contenant nul). */
@@ -10381,12 +10307,12 @@ function creerBureauMaison({ surChange = null } = {}) {
   }
   const index = () => indexer(objets);
   const aMoi = (o) => !indisponible(o, moi);
-  const range = (o) => (o.place || "range") === "range";
-  const surLeBureau = () => objets.filter((o) => aMoi(o) && range(o) && !o.container_id && !o.carried);
-  const cahiersSurLeBureau = () => supports.filter((c) => range(c) && !c.container_id);
-  const sacsPortes = () => objets.filter((o) => aMoi(o) && fiche(o.kind)?.contenant && o.carried && range(o) && !o.container_id);
+  const range2 = (o) => (o.place || "range") === "range";
+  const surLeBureau = () => objets.filter((o) => aMoi(o) && range2(o) && !o.container_id && !o.carried);
+  const cahiersSurLeBureau = () => supports.filter((c) => range2(c) && !c.container_id);
+  const sacsPortes = () => objets.filter((o) => aMoi(o) && fiche(o.kind)?.contenant && o.carried && range2(o) && !o.container_id);
   const dansMonSac = () => objets.filter((o) => aMoi(o) && !fiche(o.kind)?.contenant && situer(o, { moiId: moi, ctx, index: index() }).lieu === "sac");
-  const cahiersDansMonSac = () => supports.filter((c) => range(c) && c.container_id && dansLeSac2(c, index()));
+  const cahiersDansMonSac = () => supports.filter((c) => range2(c) && c.container_id && dansLeSac2(c, index()));
   const enMain = () => {
     const o = enMainId ? objets.find((x) => String(x.id) === String(enMainId)) : null;
     return o && surLeBureau().some((x) => x.id === o.id) ? o : null;
@@ -10413,7 +10339,7 @@ function creerBureauMaison({ surChange = null } = {}) {
   async function ranger(chose, genre) {
     const taille = Number(chose.size || (genre === "cahier" ? 4 : 1));
     const ix = index();
-    const porteurs = objets.filter((o) => fiche(o.kind)?.contenant && range(o) && aMoi(o) && (o.carried || dansLeSac2(o, ix)) && String(o.id) !== String(chose.id));
+    const porteurs = objets.filter((o) => fiche(o.kind)?.contenant && range2(o) && aMoi(o) && (o.carried || dansLeSac2(o, ix)) && String(o.id) !== String(chose.id));
     const petits = porteurs.filter((c) => (fiche(c.kind)?.capacite || 0) <= 8);
     const ordre = genre === "cahier" || taille > 2 ? porteurs.filter((c) => !petits.includes(c)).concat(petits) : petits.concat(porteurs.filter((c) => !petits.includes(c)));
     const cible = ordre.find((c) => placeLibre(c) >= taille);
@@ -12538,6 +12464,7 @@ function suivreLaTaille() {
     const t = w >= 1e3 && h >= 620 ? "grand" : w >= 720 && h >= 460 ? "moyen" : w >= 360 && h >= 330 ? "compact" : "mini";
     if (chassis.dataset.taille !== t) {
       chassis.dataset.taille = t;
+      docHote().body.dataset.taille = t;
       definir({ taille: t });
     }
   };
@@ -13086,6 +13013,8 @@ function creerScene({
   const zoneEstrade = el("div.scene__estrade");
   const legendeTableau = el("span.scene__legende");
   const objetsPupitre = el("div.pupitre__objets");
+  const banc = el("div.scene__banc", { "aria-label": "\xC0 la table" });
+  const oublis = el("div.scene__oublis", { hidden: true });
   const zoneSac = el("div.scene__sac-zone");
   const rail = el("div.scene__rail", { "aria-label": "\xC0 port\xE9e de main" });
   const bulle = el("div.scene__bulle", { hidden: true });
@@ -13116,8 +13045,9 @@ function creerScene({
     el(
       "div.scene__pupitre",
       el("div.pupitre__surface", { "aria-hidden": "true" }),
-      el("div.pupitre__chant", { "aria-hidden": "true" }),
-      objetsPupitre
+      avant ? null : banc,
+      objetsPupitre,
+      oublis
     ),
     zoneSac,
     el(
@@ -13171,12 +13101,89 @@ function creerScene({
       const rang = rangs.get(groupe) || 0;
       rangs.set(groupe, rang + 1);
       return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
-    }) : el("p.pupitre__vide", sacOuvert ? "Prenez dans votre sac ce dont vous avez besoin." : "Votre bureau est vide. Ouvrez votre sac."));
+    }) : guide());
+    noeud.classList.toggle("scene--vide", !devant.length);
+  }
+  function guide() {
+    const etape = (n, texte, fait = false) => el(
+      "li.guide__etape",
+      { class: fait ? "guide__etape--fait" : "" },
+      el("span.guide__num", n),
+      el("span", texte)
+    );
+    return el(
+      "div.pupitre__vide",
+      el("p.guide__titre", "Votre bureau est vide"),
+      el(
+        "ol.guide",
+        etape("1", "Ouvrez votre sac", sacOuvert),
+        etape("2", "Sortez votre cahier et un crayon"),
+        etape("3", "Prenez le crayon pour \xE9crire")
+      )
+    );
+  }
+  function peindreBanc() {
+    if (avant) return;
+    const moiId = etat.utilisateur?.id;
+    const assis = participants().filter((p) => p.role !== "teacher");
+    const places = Math.max(assis.length, 4);
+    const initiales2 = (texte) => String(texte || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]).join("").toUpperCase();
+    render(
+      banc,
+      Array.from({ length: places }, (_, i) => {
+        const p = assis[i];
+        if (!p) return el("span.siege.siege--libre", { "aria-hidden": "true" });
+        const nom = nomDe(p) || "Participant";
+        const moi = String(p.user_id) === String(moiId);
+        return el(
+          "button.siege",
+          {
+            type: "button",
+            class: moi ? "siege--moi" : "",
+            dataset: { id: String(p.user_id) },
+            title: moi ? "Vous" : nom,
+            onclick: (e) => moi ? null : surPersonne?.(e.currentTarget, p)
+          },
+          el("span.siege__tete", p.profil?.avatar_url ? el("img", { src: p.profil.avatar_url, alt: "" }) : initiales2(nom)),
+          el("span.siege__nom", moi ? "Vous" : nom.split(/\s+/)[0])
+        );
+      })
+    );
+    const avant_ = new Set(banc.dataset.vus ? banc.dataset.vus.split(",") : []);
+    for (const b of banc.querySelectorAll(".siege[data-id]")) {
+      if (!avant_.has(b.dataset.id)) b.classList.add("siege--arrive");
+    }
+    banc.dataset.vus = assis.map((p) => String(p.user_id)).join(",");
+  }
+  function peindreOublis() {
+    const restes = bureau.laissesIci?.() || [];
+    oublis.hidden = !restes.length;
+    if (!restes.length) {
+      render(oublis);
+      return;
+    }
+    render(
+      oublis,
+      el("div.oublis__objets", restes.slice(0, 5).map(([genre, c]) => el("img", { src: imageDetouree(kindDe(genre, c)), alt: "", draggable: false }))),
+      el(
+        "span.oublis__texte",
+        el("b", restes.length === 1 ? "Vous aviez laiss\xE9 ceci ici" : `Vous aviez laiss\xE9 ${restes.length} affaires ici`),
+        el("span", restes.map(([g, c]) => g === "cahier" ? c.title || "Cahier" : nomObjet(c)).join(", "))
+      ),
+      el("button.btn.btn--primaire.btn--petit", {
+        type: "button",
+        onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          const n = await bureau.reprendre(restes);
+          if (n) toast(n === 1 ? "Repris : il est sur votre bureau" : `${n} affaires reprises`, { type: "ok", duree: 2400 });
+          peindre();
+        }
+      }, "Reprendre")
+    );
   }
   function poseSurPupitre(genre, chose, { x, y }, tenu) {
     const kind = kindDe(genre, chose);
     const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
-    const profondeur = 0.82 + 0.3 * y;
     const r = biais(chose.id);
     const enMain = genre === "objet" && tenu?.id === chose.id;
     const aEtiquette = ["cahier", "carnet", "dossier", "chemise"].includes(kind);
@@ -13191,7 +13198,6 @@ function creerScene({
           top: `${y * 100}%`,
           width: `${(LARGEUR[kind] || 0.11) * 100}%`,
           "--r": `${r}deg`,
-          "--s": String(profondeur),
           zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
         },
         title: actionEnMots(genre, chose, enMain),
@@ -13310,10 +13316,9 @@ function creerScene({
     const dy = vers.top + vers.height / 2 - (de.top + de.height / 2);
     const k = vers.width / Math.max(1, de.width);
     const anim = fantome.animate([
-      { transform: "translate(0,0) scale(1) rotate(0deg)", offset: 0 },
-      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 60}px) scale(${(1 + k) / 2 * 1.08}) rotate(-4deg)`, offset: 0.55 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${k * finit}) rotate(0deg)`, offset: 1 }
-    ], { duration: 520, easing: "cubic-bezier(.3,.7,.25,1)" });
+      { transform: "translate(0,0) scale(1)", opacity: 1 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${k * finit})`, opacity: finit < 1 ? 0 : 1 }
+    ], { duration: 380, easing: "cubic-bezier(.2,.7,.2,1)" });
     return anim.finished.catch(() => {
     }).then(() => fantome.remove());
   }
@@ -13403,6 +13408,7 @@ function creerScene({
         "button.scene__sac",
         {
           type: "button",
+          class: !sacOuvert && !bureau.surLeBureau().length && !bureau.cahiersSurLeBureau().length ? "scene__sac--appel" : "",
           title: sacOuvert ? "Refermer le sac" : "Ouvrir le sac",
           "aria-expanded": String(sacOuvert),
           onclick: () => {
@@ -13412,7 +13418,7 @@ function creerScene({
           }
         },
         el("img.scene__sac-image", { src: imageDetouree(sacOuvert ? ouvertImage : sac.kind), alt: "", draggable: false }),
-        el("span.scene__sac-mot", sacOuvert ? "Refermer" : nomObjet(sac))
+        el("span.scene__sac-mot", sacOuvert ? "Refermer le sac" : "Ouvrir le sac")
       )
     );
   }
@@ -13432,19 +13438,11 @@ function creerScene({
       );
       return;
     }
-    render(
-      zoneEstrade,
-      el(
-        "div.estrade__prof",
-        { class: present ? "estrade__prof--present" : "estrade__prof--absent" },
-        el("span.estrade__lumiere", { "aria-hidden": "true" }),
-        el(
-          "span.presence",
-          { class: present ? "presence--oui" : "" },
-          present ? `${estrade.nom || qui} \xB7 devant la classe` : `${qui} absent`
-        )
-      )
-    );
+    render(zoneEstrade, present ? el(
+      "div.estrade__prof.estrade__prof--present",
+      silhouetteDe({ display_name: estrade.nom || qui }, estrade.nom || qui),
+      el("span.presence.presence--oui", `${estrade.nom || qui} \xB7 devant la classe`)
+    ) : null);
   }
   const silhouette = (p, grand2 = false) => silhouetteDe(p, nomDe(p), grand2);
   function peindreRail2() {
@@ -13489,6 +13487,8 @@ function creerScene({
   function peindre() {
     noeud.dataset.etat = etatScene;
     peindrePupitre();
+    peindreBanc();
+    peindreOublis();
     peindreSac();
     if (!avant) peindreEstrade();
     peindreRail2();
@@ -14049,12 +14049,12 @@ function creerEditeurCahier(options) {
         outil("Refaire", "refaire", commande("redo")),
         garde ? sep() : null,
         garde ? outil("Faire un calcul", "grille", calculer, "\xD7\xF7") : null
-      ) : manqueEcriture ? el(
+      ) : manqueEcriture && !manqueEcriture.discret ? el(
         "span.etiq.etiq--attn",
         { title: manqueEcriture.conseil || "" },
         icone("crayon", 13),
         manqueEcriture.message
-      ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
+      ) : manqueEcriture?.discret ? null : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
       el("span.pousse"),
       actionsSupplementaires ? actionsSupplementaires(pageCourante) : null,
       el("button.btn.btn--fantome.btn--icone", {
@@ -14737,6 +14737,54 @@ var init_dossiers = __esm({
   }
 });
 
+// src/features/pret-a-ecrire.js
+function diagnostic(bureau) {
+  const verdict = bureau.peutFaire("ecrire");
+  const cahier = bureau.cahiersSurLeBureau()[0] || null;
+  if (verdict.ok && cahier) return { pret: true, cahier };
+  const outilPose = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+  const outilSac = range(bureau.dansMonSac().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+  const cahierSac = bureau.cahiersDansMonSac()[0];
+  const faisable = (cahier || cahierSac) && (verdict.ok || outilPose || outilSac);
+  let phrase;
+  if (!cahier && !cahierSac) phrase = "Aucun cahier sur vous.";
+  else if (!verdict.ok && !outilPose && !outilSac) phrase = verdict.message || "Rien pour \xE9crire.";
+  else if (!cahier) phrase = "Votre cahier est dans le sac.";
+  else if (outilPose) phrase = `Prenez ${nomObjet(outilPose).toLowerCase()} en main.`;
+  else phrase = `${nomObjet(outilSac)} est dans le sac.`;
+  return { pret: false, faisable: Boolean(faisable), phrase, cahier, outil: outilPose || outilSac || null };
+}
+async function pretAEcrire(bureau) {
+  let cahier = bureau.cahiersSurLeBureau()[0] || null;
+  if (!cahier) {
+    const c = bureau.cahiersDansMonSac()[0];
+    if (c && await bureau.sortir(c, "cahier")) cahier = c;
+  }
+  const tenu = bureau.enMain();
+  if (!(tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind))) {
+    let outil = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+    if (!outil) {
+      const o = range(bureau.dansMonSac().filter((x) => OUTILS_REQUIS.ecrire.includes(x.kind)))[0];
+      if (o && await bureau.sortir(o, "objet")) outil = o;
+    }
+    if (outil && fiche(outil.kind)?.encre && !bureau.surLeBureau().some((o) => o.kind === "encrier")) {
+      const encrier = bureau.dansMonSac().find((o) => o.kind === "encrier");
+      if (encrier) await bureau.sortir(encrier, "objet");
+    }
+    if (outil) bureau.prendre(outil);
+  }
+  return { cahier, verdict: bureau.peutFaire("ecrire") };
+}
+var ORDRE, range;
+var init_pret_a_ecrire = __esm({
+  "src/features/pret-a-ecrire.js"() {
+    init_portee();
+    init_affaires();
+    ORDRE = ["crayon", "stylo-plume", "plume"];
+    range = (liste) => [...liste].sort((a, b) => ORDRE.indexOf(a.kind) - ORDRE.indexOf(b.kind));
+  }
+});
+
 // src/features/console.js
 function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null }) {
   const zone = el("div.console__panneau");
@@ -14906,17 +14954,29 @@ function panneauSac(bureau, { apres = null } = {}) {
   };
 }
 function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {
-} } = {}) {
+}, surNouveau = null } = {}) {
   let editeur = null;
-  return (zone) => {
+  return (zone, api) => {
     editeur?.detruire?.();
     editeur = null;
     const cahiers2 = bureau.cahiersSurLeBureau();
+    const etat_ = diagnostic(bureau);
+    const preparer = async (e) => {
+      e.currentTarget.disabled = true;
+      const { cahier: pose } = await pretAEcrire(bureau);
+      if (pose) choisir(pose);
+      else api?.rafraichir();
+    };
     if (!cahiers2.length) {
       render(zone, el(
         "div.console__vide",
-        el("p", "Aucun cahier sur le bureau."),
-        surSac ? el("button.btn.btn--primaire", { type: "button", onclick: surSac }, "Le sortir du sac") : null
+        el("p", etat_.phrase || "Aucun cahier sur le bureau."),
+        etat_.faisable ? el("button.btn.btn--primaire", { type: "button", onclick: preparer }, icone("crayon", 14), "Pr\xEAt \xE0 \xE9crire") : !bureau.supports().length && surNouveau ? el("button.btn.btn--primaire", { type: "button", onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          const c = await surNouveau();
+          if (c) choisir(c);
+          else api?.rafraichir();
+        } }, icone("plus", 14), "Prendre un cahier neuf") : surSac ? el("button.btn", { type: "button", onclick: surSac }, "Ouvrir le sac") : null
       ));
       return;
     }
@@ -14931,27 +14991,58 @@ function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = (
       manqueEcriture: verdict.ok ? null : verdict,
       garde: (action) => bureau.peutFaire(action)
     });
+    const bandeau = etat_.pret ? el(
+      "div.console__pret.console__pret--ok",
+      tenu ? el("img", { src: imageDetouree(tenu.kind), alt: "" }) : null,
+      el("span", tenu ? `${nomObjet(tenu)} en main \u2014 vous pouvez \xE9crire.` : "Vous pouvez \xE9crire.")
+    ) : el(
+      "div.console__pret",
+      etat_.outil ? el("img", { src: imageDetouree(etat_.outil.kind), alt: "" }) : null,
+      el("span", etat_.phrase),
+      etat_.faisable ? el("button.btn.btn--primaire.btn--petit", { type: "button", onclick: preparer }, "Pr\xEAt \xE0 \xE9crire") : null
+    );
     render(
       zone,
+      bandeau,
       cahiers2.length > 1 ? el("div.console__onglets", cahiers2.map((c) => el("button.console__onglet", {
         type: "button",
         "aria-pressed": String(c.id === cahier.id),
         onclick: () => choisir(c)
       }, c.title))) : null,
-      el(
-        "div.console__outils",
-        outils.length ? outils.map((o) => el("button.console__outil", {
-          type: "button",
-          "aria-pressed": String(tenu?.id === o.id),
-          class: verdict.prendre?.id === o.id ? "console__outil--appel" : "",
-          title: tenu?.id === o.id ? "Reposer" : `Prendre ${nomObjet(o).toLowerCase()}`,
-          onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
-        }, el("img", { src: imageDetouree(o.kind), alt: "" }))) : el("span.console__conseil", "Aucun outil sur le bureau."),
-        !verdict.ok ? el("span.console__conseil", verdict.prendre ? `Prenez ${nomObjet(verdict.prendre).toLowerCase()}` : verdict.message) : null
-      ),
+      el("div.console__outils", outils.length ? outils.map((o) => el("button.console__outil", {
+        type: "button",
+        "aria-pressed": String(tenu?.id === o.id),
+        class: verdict.prendre?.id === o.id ? "console__outil--appel" : "",
+        title: tenu?.id === o.id ? "Reposer" : `Prendre ${nomObjet(o).toLowerCase()}`,
+        onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
+      }, el("img", { src: imageDetouree(o.kind), alt: "" }))) : null),
       el("div.console__page", editeur.noeud)
     );
   };
+}
+function bandeauEcriture(bureau, { apres = null } = {}) {
+  const d = diagnostic(bureau);
+  const tenu = bureau.enMain();
+  if (d.pret) {
+    return el(
+      "div.console__pret.console__pret--ok",
+      tenu ? el("img", { src: imageDetouree(tenu.kind), alt: "" }) : null,
+      el("span", tenu ? `${nomObjet(tenu)} en main \u2014 vous pouvez \xE9crire.` : "Vous pouvez \xE9crire.")
+    );
+  }
+  return el(
+    "div.console__pret",
+    d.outil ? el("img", { src: imageDetouree(d.outil.kind), alt: "" }) : null,
+    el("span", d.phrase),
+    d.faisable ? el("button.btn.btn--primaire.btn--petit", {
+      type: "button",
+      onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        const r = await pretAEcrire(bureau);
+        apres?.(r);
+      }
+    }, "Pr\xEAt \xE0 \xE9crire") : null
+  );
 }
 function panneauNote({ bureau, classe = null, session = null, gens = () => [], nomDe }) {
   return (zone, api) => {
@@ -15002,6 +15093,7 @@ var init_console = __esm({
     init_note_rapide();
     init_gestes();
     init_editeur_cahier();
+    init_pret_a_ecrire();
   }
 });
 
@@ -15058,7 +15150,8 @@ async function vueAccueil() {
         choisir: (c) => {
           cahierOuvert = c;
           console_.ouvrir("cahier");
-        }
+        },
+        surNouveau: () => cahierNeuf()
       }) },
       { cle: "note", mot: "Note", rendre: panneauNote({ bureau, classe: null, gens: () => gens.gens, nomDe: (p) => gens.nomDe(p) }) },
       { cle: "documents", mot: "Documents", rendre: panneauDocumentsConsole() },
@@ -15096,9 +15189,8 @@ async function vueAccueil() {
         type: "attn",
         duree: 8e3,
         action: { libelle: "M'en procurer un", action: async () => {
-          const c = await cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier" }).catch(() => null);
+          const c = await cahierNeuf();
           if (c) {
-            await bureau.charger();
             decor.peindre();
             ouvrirCahier(c);
           }
@@ -15108,6 +15200,15 @@ async function vueAccueil() {
     }
     toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
     decor.definirEtat("sac");
+  }
+  async function cahierNeuf() {
+    const c = await cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier" }).catch((err) => {
+      erreur("Impossible", messageErreur(err));
+      return null;
+    });
+    if (!c) return null;
+    await bureau.charger();
+    return bureau.cahiersSurLeBureau().find((x) => x.id === c.id) || c;
   }
   function ouvrirCahier(c) {
     cahierOuvert = c;
@@ -15151,13 +15252,18 @@ async function vueAccueil() {
       ...enDirect.map(({ classe, session }) => el(
         "li.mur__ligne.mur__ligne--direct",
         el("span.mur__voyant"),
-        el("span.mur__texte", el("b", classe.name), " \u2014 ", session.title || "S\xE9ance ouverte"),
-        el("button.btn.btn--primaire.btn--petit", { onclick: () => aller(`/classe/${classe.id}/salle`) }, "Y aller")
+        el("span.mur__texte", el("b", session.title || "S\xE9ance ouverte"), ` \xB7 ${classe.name}`),
+        el(
+          "button.btn.btn--primaire.btn--petit",
+          { onclick: () => aller(`/classe/${classe.id}/salle`) },
+          "Entrer dans la salle",
+          icone("chevronD", 13)
+        )
       )),
       aLire.length ? el(
         "li.mur__ligne",
         el("img.mur__objet", { src: imageDetouree("feuille"), alt: "" }),
-        el("span.mur__texte", aLire.length === 1 ? "Un papier vous a \xE9t\xE9 remis" : `${aLire.length} papiers vous ont \xE9t\xE9 remis`),
+        el("span.mur__texte", el("b", aLire.length === 1 ? "Un papier vous a \xE9t\xE9 remis" : `${aLire.length} papiers vous ont \xE9t\xE9 remis`)),
         el("button.btn.btn--petit", { onclick: async () => {
           await recevoirPapier(aLire[0]);
           charger2();
@@ -15165,30 +15271,36 @@ async function vueAccueil() {
       ) : null,
       nonLues ? el(
         "li.mur__ligne",
-        el("span.mur__cloche", icone("cloche", 13)),
-        el("span.mur__texte", `${nonLues} notification${nonLues > 1 ? "s" : ""}`)
+        el("span.mur__cloche", icone("cloche", 14)),
+        el("span.mur__texte", `${nonLues} notification${nonLues > 1 ? "s" : ""}`),
+        el("button.btn.btn--petit.btn--fantome", { onclick: (e) => panneauNotifications(e.currentTarget) }, "Voir")
       ) : null
     ].filter(Boolean);
+  }
+  function salut() {
+    const h = (/* @__PURE__ */ new Date()).getHours();
+    return h < 5 || h >= 18 ? "Bonsoir" : "Bonjour";
   }
   function peindreMur() {
     const lignes = lignesDuMoment();
     const espaces = etat.classes.filter((c) => !c.archived);
+    const prenom = (etat.profil?.display_name || "").split(/\s+/)[0];
     render(
       mur,
       el(
-        "div.mur__plaque",
+        "div.mur__entete",
         el(
-          "div.mur__entete",
+          "div.mur__bonjour",
           el("span.mur__date", dateLongue(Date.now())),
-          el("h1.mur__titre", `Bienvenue, ${etat.profil?.display_name || ""}`.trim())
+          el("h1.mur__titre", prenom ? `${salut()}, ${prenom}` : salut())
         ),
-        el("ul.mur__lignes", lignes.length ? lignes : el("li.mur__ligne.mur__ligne--calme", el("span.mur__texte", "Rien ne vous attend. Pr\xE9parez votre sac."))),
         el(
           "div.mur__pied",
-          espaces.length ? el("div.mur__espaces", espaces.slice(0, 5).map((c) => el("a.mur__espace", { href: `#/classe/${c.id}` }, c.name))) : null,
+          espaces.length ? el("div.mur__espaces", espaces.slice(0, 4).map((c) => el("a.mur__espace", { href: `#/classe/${c.id}` }, c.name))) : null,
           rejoindre()
         )
-      )
+      ),
+      el("ul.mur__lignes", lignes.length ? lignes : el("li.mur__ligne.mur__ligne--calme", "Rien ne vous attend. Pr\xE9parez votre sac pour la prochaine s\xE9ance."))
     );
   }
   function peindreEnTete() {
@@ -16287,13 +16399,16 @@ async function vueAffaires() {
           "div.affaire.affaire--reste",
           el(
             "div.affaire__ligne",
-            el("span.affaire__nom", "\u274C ", nom, " ", el("span.faible.petit", "indisponible")),
+            el("img.affaire__vignette", { src: imageDetouree(genre === "cahier" ? o.support || "cahier" : o.kind), alt: "" }),
             el(
-              "span.affaire__lieu.petit",
-              "\u{1F4CD} ",
-              surLeBureau ? "Sur votre bureau \u2014 " : "Derni\xE8re position : ",
-              o.place_label || classe?.name || "une salle",
-              o.place_at ? el("span.faible", " \xB7 ", depuis(o.place_at)) : null
+              "span.affaire__quoi",
+              el("span.affaire__nom", nom),
+              el(
+                "span.affaire__lieu.petit",
+                surLeBureau ? "Sur votre bureau \u2014 " : "Laiss\xE9 : ",
+                o.place_label || classe?.name || "une salle",
+                o.place_at ? el("span.faible", " \xB7 ", depuis(o.place_at)) : null
+              )
             ),
             el("span.pousse"),
             el(
@@ -19417,6 +19532,29 @@ function creerBureau({ classe, session, surChange = null }) {
   const dansMonSac = () => objets.filter((o) => !fiche(o.kind)?.contenant && situer(o, { moiId: moi, ctx, index: index() }).lieu === "sac");
   const cahiersDansMonSac = () => supports.filter((c) => (c.place || "range") === "range" && dansLeSac2(c, index()));
   const sacsPortes = () => objets.filter((o) => fiche(o.kind)?.contenant && o.carried && (o.place || "range") === "range" && !o.container_id);
+  const laissesIci = () => {
+    if (!ctx.seance || !ctx.classe) return [];
+    const ici = (c) => String(c.place_class || "") === String(ctx.classe) && (c.place === "salle" || c.place === "bureau" && String(c.place_session) !== String(ctx.seance));
+    return [...supports.filter(ici).map((c) => ["cahier", c]), ...objets.filter(ici).map((o) => ["objet", o])];
+  };
+  async function reprendre(liste = laissesIci()) {
+    let n = 0;
+    for (const [genre, chose] of liste) {
+      try {
+        if (genre === "cahier") await cahiers.reprendre(chose.id, ctx.seance);
+        else await affaires.reprendre(chose.id, ctx.seance);
+        Object.assign(chose, { place: "bureau", place_session: ctx.seance, place_class: ctx.classe, container_id: null });
+        n++;
+      } catch (err) {
+        erreur("Impossible de le reprendre", messageErreur(err));
+      }
+    }
+    if (n) {
+      peindre();
+      surChange?.();
+    }
+    return n;
+  }
   async function sortir(chose, genre) {
     try {
       if (genre === "cahier") Object.assign(chose, await cahiers.sortir(chose, { session, classe }));
@@ -19466,7 +19604,10 @@ function creerBureau({ classe, session, surChange = null }) {
     for (const o of surLeBureau()) await ranger(o, "objet");
     for (const c of cahiersSurLeBureau()) await ranger(c, "cahier");
   }
+  let parti = false;
   async function laisserTout() {
+    if (parti) return 0;
+    parti = true;
     enMainId = null;
     local.ecrire(cleMain, null);
     const restes = [...surLeBureau().map((o) => ["objet", o]), ...cahiersSurLeBureau().map((c) => ["cahier", c])];
@@ -19592,6 +19733,8 @@ function creerBureau({ classe, session, surChange = null }) {
     ranger,
     prendre,
     enMain,
+    laissesIci,
+    reprendre,
     surLeBureau,
     dansMonSac,
     cahiersDansMonSac,
@@ -20238,6 +20381,7 @@ async function vueSalle({ params }) {
   let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
   let ongletPanneau = staff ? "eleves" : "notes";
   let participants = [];
+  let quitte = false;
   let listeMains = [];
   let listeQuestions = [];
   let sondageActif = null;
@@ -20265,6 +20409,7 @@ async function vueSalle({ params }) {
       decor?.peindre();
       peindreDock();
       if (["bureau", "sac"].includes(consoleSalle?.ouvert())) consoleSalle.rafraichir();
+      if (consoleSalle?.ouvert() === "cahier") peindreBandeauConsole();
       if (scene === "moncahier") await peindreMonCahier();
       if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
     }
@@ -20319,8 +20464,18 @@ async function vueSalle({ params }) {
     if (voulue !== fenetre2) appliquerFenetre(voulue);
   });
   const gensPresents = () => participants.filter((p) => p.user_id !== etat.utilisateur.id);
+  const porteBandeau = el("div.console__porte-bandeau");
+  function peindreBandeauConsole() {
+    render(porteBandeau, bandeauEcriture(bureau, {
+      apres: async ({ cahier }) => {
+        if (cahier) cahierOuvertId = cahierOuvertId || cahier.id;
+        await peindreMonCahier();
+        peindreBandeauConsole();
+      }
+    }));
+  }
   const consoleSalle = creerConsole({
-    defaut: "bureau",
+    defaut: staff ? "bureau" : "cahier",
     panneaux: [
       { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
         surCahier: (c) => {
@@ -20331,7 +20486,9 @@ async function vueSalle({ params }) {
         surDossier: () => ouvrirMesDossiers()
       }) },
       { cle: "sac", mot: "Sac", image: "cartable", rendre: panneauSac(bureau) },
-      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: (zone) => montrerDansConsole(zone, "moncahier") },
+      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: async (zone) => {
+        await montrerDansConsole(zone, "moncahier");
+      } },
       { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
       { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
       { cle: "personnes", mot: "Personnes", figure: () => pictoPersonneConsole(), rendre: panneauPersonnes({
@@ -20623,7 +20780,9 @@ async function vueSalle({ params }) {
       // Et il faut de quoi écrire, sur le bureau. Pas de stylo, pas
       // d'écriture : rien ne s'ajoute à la page, et on dit pourquoi.
       peutEcrire: !prive() && !choisi.emprunte && ecriture.ok,
-      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? ecriture : null,
+      // Le bloc « manque-outil » au-dessus dit déjà ce qui manque : l'éditeur
+      // ne le répète pas dans sa barre, il le rappelle seulement au clic.
+      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? { ...ecriture, discret: true } : null,
       garde: (action) => bureau.peutFaire(action),
       compact: true,
       tempsReel: true,
@@ -20699,6 +20858,13 @@ async function vueSalle({ params }) {
             { onclick: () => bureau.prendre(ecriture.prendre) },
             el("img", { src: imageDetouree(ecriture.prendre.kind), alt: "", style: { height: "18px" } }),
             ` Prendre ${nomObjet(ecriture.prendre).toLowerCase()}`
+          ) : diagnostic(bureau).faisable ? el(
+            "button.btn.btn--primaire",
+            { onclick: async () => {
+              await pretAEcrire(bureau);
+            } },
+            icone("crayon", 14),
+            "Sortir un crayon et le prendre"
           ) : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
           ecriture.prendre ? null : el(
             "button.btn.btn--fantome",
@@ -22951,21 +23117,29 @@ async function vueSalle({ params }) {
     peindreDock();
     peindreBandeau();
   }
-  function ouvrirMonCahier() {
-    const pose = bureau.cahiersSurLeBureau()[0];
+  async function ouvrirMonCahier() {
+    let pose = bureau.cahiersSurLeBureau()[0];
+    if (!pose) {
+      const dansLeSac3 = bureau.cahiersDansMonSac()[0];
+      if (dansLeSac3 && await bureau.sortir(dansLeSac3, "cahier")) pose = dansLeSac3;
+    }
     if (pose) {
       cahierOuvertId = cahierOuvertId || pose.id;
       appliquerFenetre("cahier");
       return;
     }
-    toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
-    appliquerFenetre("sac");
+    toast("Vous n'avez pas de cahier sur vous", {
+      corps: "Il est peut-\xEAtre rest\xE9 \xE0 la maison, ou dans une autre salle.",
+      type: "attn",
+      duree: 7e3
+    });
   }
-  function prendreOutilEcriture(outil) {
+  async function prendreOutilEcriture(outil) {
     if (!outil) {
-      const verdict = bureau.peutFaire("ecrire");
-      toast("Aucun outil d'\xE9criture disponible.", { corps: verdict.conseil || "", type: "attn", duree: 6e3 });
-      if (bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind))) appliquerFenetre("sac");
+      const { verdict } = await pretAEcrire(bureau);
+      if (!verdict.ok) {
+        toast("Aucun outil d'\xE9criture sur vous.", { corps: verdict.conseil || verdict.message || "", type: "attn", duree: 6e3 });
+      }
       return;
     }
     bureau.prendre(bureau.enMain()?.id === outil.id ? null : outil);
@@ -23045,7 +23219,7 @@ async function vueSalle({ params }) {
   function pictoPersonneConsole() {
     return pictogramme();
   }
-  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null }) {
+  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null, principal = false }) {
     return el(
       "button.dock__chose",
       {
@@ -23053,7 +23227,7 @@ async function vueSalle({ params }) {
         title: titre || mot,
         "aria-label": titre || mot,
         "aria-pressed": String(Boolean(actif)),
-        class: manque ? "dock__chose--manque" : "",
+        class: [manque ? "dock__chose--manque" : "", principal ? "dock__chose--principal" : ""].join(" ").trim(),
         onclick: (e) => action(e.currentTarget)
       },
       signe ? el("span.dock__signe", signe) : el("img", { src: imageDetouree(image), alt: "", draggable: false }),
@@ -23062,7 +23236,7 @@ async function vueSalle({ params }) {
     );
   }
   function peindreDock() {
-    if (!dock) return;
+    if (!dock || quitte) return;
     const tenu = bureau.enMain();
     const outils = bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
     const outil = tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind) ? tenu : outils[0] || null;
@@ -23102,6 +23276,7 @@ async function vueSalle({ params }) {
           mot: "Sac",
           actif: fenetre2 === "sac",
           manque: !sac,
+          principal: true,
           titre: fenetre2 === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
           action: () => appliquerFenetre(fenetre2 === "sac" ? "bureau" : "sac")
         }),
@@ -23109,7 +23284,8 @@ async function vueSalle({ params }) {
           image: cahierPose?.support || "cahier",
           mot: "Cahier",
           actif: fenetre2 === "cahier",
-          manque: !cahierPose,
+          principal: true,
+          manque: !cahierPose && !bureau.cahiersDansMonSac().length,
           titre: fenetre2 === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
           action: () => fenetre2 === "cahier" ? appliquerFenetre("bureau") : ouvrirMonCahier()
         }),
@@ -23117,11 +23293,16 @@ async function vueSalle({ params }) {
           image: outil?.kind || "crayon",
           mot: tenu && outil?.id === tenu.id ? "En main" : "Stylo",
           actif: Boolean(tenu && outil?.id === tenu.id),
-          manque: !outil,
-          titre: !outil ? "Aucun outil d'\xE9criture sur le bureau" : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
+          principal: true,
+          manque: !outil && !bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind)),
+          titre: !outil ? "Sortir un crayon du sac et le prendre" : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
           action: () => prendreOutilEcriture(outil)
         }),
-        chose({ image: "feuille", mot: "Note", titre: "\xC9crire une note \xE0 quelqu'un", action: () => noteRapide() }),
+        chose({ image: "feuille", mot: "Note", principal: true, titre: "\xC9crire une note \xE0 quelqu'un", action: () => noteRapide() })
+      ),
+      el("span.dock__sep"),
+      el(
+        "div.dock__groupe",
         chose({
           image: "pochette",
           mot: "Re\xE7us",
@@ -23218,8 +23399,10 @@ async function vueSalle({ params }) {
       )
     );
   }
+  let finTraitee = false;
   function surFinDeSession() {
-    if (staff) return;
+    if (staff || finTraitee) return;
+    finTraitee = true;
     bureau.laisserTout();
     definir({ sessionActive: null });
     toast("Session termin\xE9e", { corps: "Le professeur a clos la s\xE9ance.", type: "attn", duree: 8e3 });
@@ -23299,6 +23482,7 @@ async function vueSalle({ params }) {
     noeud,
     titre: `${session.title} \u2014 ${classe.name}`,
     nettoyer: () => {
+      quitte = true;
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();
@@ -23335,6 +23519,7 @@ var init_salle = __esm({
     init_console();
     init_store();
     init_scene_bureau();
+    init_pret_a_ecrire();
     init_note_rapide();
     init_dossiers();
     init_fenetre_flottante();

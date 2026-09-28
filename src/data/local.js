@@ -578,6 +578,25 @@ export async function creerPiloteLocal() {
       } finally { recuperationEnCours = false; }
     },
 
+    /** Équivalent de reprendre_a_ma_place (0022) : revenu à sa place, on
+     *  retrouve devant soi ce qu'on avait laissé dans CETTE salle. */
+    async reprendre_a_ma_place({ genre, target, seance }) {
+      const s = await t("class_sessions").lire(seance);
+      if (!s || s.status !== "live") throw new ErreurDonnees("Aucune séance en cours ici : la salle est fermée.", "42501");
+      const table = genre === "cahier" ? "notebooks" : "belongings";
+      const ligne = await t(table).lire(target);
+      if (!ligne) throw new ErreurDonnees("Introuvable", "P0002");
+      if (ligne.owner_id !== monId() && ligne.holder_id !== monId()) throw new ErreurDonnees("Ce n'est pas à vous", "42501");
+      const lieu = ligne.place || "range";
+      if (lieu === "range" || (lieu === "bureau" && ligne.place_session === seance)) return true;
+      if (ligne.place_class !== s.class_id) throw new ErreurDonnees("Cet objet a été laissé dans une autre salle.", "42501");
+      recuperationEnCours = true;
+      try {
+        await t(table).majorer(target, { place: "bureau", place_session: seance, place_class: s.class_id, container_id: null });
+      } finally { recuperationEnCours = false; }
+      return true;
+    },
+
     recover_belonging: ({ target }) =>
       procedures._recuperer("belongings", target, "La salle est fermée : l'objet y reste."),
     recover_notebook: ({ target }) =>

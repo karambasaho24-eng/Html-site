@@ -88,6 +88,8 @@ export function creerScene({
   const zoneEstrade = el("div.scene__estrade");
   const legendeTableau = el("span.scene__legende");
   const objetsPupitre = el("div.pupitre__objets");
+  const banc = el("div.scene__banc", { "aria-label": "À la table" });
+  const oublis = el("div.scene__oublis", { hidden: true });
   const zoneSac = el("div.scene__sac-zone");
   const rail = el("div.scene__rail", { "aria-label": "À portée de main" });
   const bulle = el("div.scene__bulle", { hidden: true });
@@ -106,8 +108,9 @@ export function creerScene({
       zoneEstrade),
     el("div.scene__pupitre",
       el("div.pupitre__surface", { "aria-hidden": "true" }),
-      el("div.pupitre__chant", { "aria-hidden": "true" }),
-      objetsPupitre),
+      avant ? null : banc,
+      objetsPupitre,
+      oublis),
     zoneSac,
     el("div.scene__premier-plan",
       el("div.scene__livre",
@@ -161,15 +164,78 @@ export function creerScene({
           rangs.set(groupe, rang + 1);
           return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
         })
-      : el("p.pupitre__vide", sacOuvert
-          ? "Prenez dans votre sac ce dont vous avez besoin."
-          : "Votre bureau est vide. Ouvrez votre sac."));
+      : guide());
+    noeud.classList.toggle("scene--vide", !devant.length);
+  }
+
+  /** Bureau vide : trois gestes, dans l'ordre, pour pouvoir écrire. */
+  function guide() {
+    const etape = (n, texte, fait = false) => el("li.guide__etape", { class: fait ? "guide__etape--fait" : "" },
+      el("span.guide__num", n), el("span", texte));
+    return el("div.pupitre__vide",
+      el("p.guide__titre", "Votre bureau est vide"),
+      el("ol.guide",
+        etape("1", "Ouvrez votre sac", sacOuvert),
+        etape("2", "Sortez votre cahier et un crayon"),
+        etape("3", "Prenez le crayon pour écrire")));
+  }
+
+  /* --- À la table : qui est assis, en ce moment ------------------------ */
+  function peindreBanc() {
+    if (avant) return;
+    const moiId = etat.utilisateur?.id;
+    const assis = participants().filter((p) => p.role !== "teacher");
+    const places = Math.max(assis.length, 4);
+    const initiales = (texte) => String(texte || "?").split(/\s+/).filter(Boolean).slice(0, 2)
+      .map((m) => m[0]).join("").toUpperCase();
+    render(banc,
+      Array.from({ length: places }, (_, i) => {
+        const p = assis[i];
+        if (!p) return el("span.siege.siege--libre", { "aria-hidden": "true" });
+        const nom = nomDe(p) || "Participant";
+        const moi = String(p.user_id) === String(moiId);
+        return el("button.siege", {
+          type: "button", class: moi ? "siege--moi" : "",
+          dataset: { id: String(p.user_id) },
+          title: moi ? "Vous" : nom,
+          onclick: (e) => (moi ? null : surPersonne?.(e.currentTarget, p))
+        },
+          el("span.siege__tete", p.profil?.avatar_url ? el("img", { src: p.profil.avatar_url, alt: "" }) : initiales(nom)),
+          el("span.siege__nom", moi ? "Vous" : nom.split(/\s+/)[0]));
+      }));
+    // Qui vient de s'asseoir : un fondu, pas un saut.
+    const avant_ = new Set(banc.dataset.vus ? banc.dataset.vus.split(",") : []);
+    for (const b of banc.querySelectorAll(".siege[data-id]")) {
+      if (!avant_.has(b.dataset.id)) b.classList.add("siege--arrive");
+    }
+    banc.dataset.vus = assis.map((p) => String(p.user_id)).join(",");
+  }
+
+  /* --- Ce que j'avais laissé ici ---------------------------------------- */
+  function peindreOublis() {
+    const restes = bureau.laissesIci?.() || [];
+    oublis.hidden = !restes.length;
+    if (!restes.length) { render(oublis); return; }
+    render(oublis,
+      el("div.oublis__objets", restes.slice(0, 5).map(([genre, c]) =>
+        el("img", { src: imageDetouree(kindDe(genre, c)), alt: "", draggable: false }))),
+      el("span.oublis__texte",
+        el("b", restes.length === 1 ? "Vous aviez laissé ceci ici" : `Vous aviez laissé ${restes.length} affaires ici`),
+        el("span", restes.map(([g, c]) => (g === "cahier" ? c.title || "Cahier" : nomObjet(c))).join(", "))),
+      el("button.btn.btn--primaire.btn--petit", {
+        type: "button",
+        onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          const n = await bureau.reprendre(restes);
+          if (n) toast(n === 1 ? "Repris : il est sur votre bureau" : `${n} affaires reprises`, { type: "ok", duree: 2400 });
+          peindre();
+        }
+      }, "Reprendre"));
   }
 
   function poseSurPupitre(genre, chose, { x, y }, tenu) {
     const kind = kindDe(genre, chose);
     const nom = genre === "cahier" ? (chose.title || "Cahier") : nomObjet(chose);
-    const profondeur = .82 + .3 * y;       // ce qui est loin paraît plus petit
     const r = biais(chose.id);
     const enMain = genre === "objet" && tenu?.id === chose.id;
     const aEtiquette = ["cahier", "carnet", "dossier", "chemise"].includes(kind);
@@ -181,7 +247,7 @@ export function creerScene({
       style: {
         left: `${x * 100}%`, top: `${y * 100}%`,
         width: `${(LARGEUR[kind] || .11) * 100}%`,
-        "--r": `${r}deg`, "--s": String(profondeur), zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
+        "--r": `${r}deg`, zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
       },
       title: actionEnMots(genre, chose, enMain),
       "aria-label": `${nom} — ${actionEnMots(genre, chose, enMain)}`
@@ -278,10 +344,9 @@ export function creerScene({
     const dy = vers.top + vers.height / 2 - (de.top + de.height / 2);
     const k = vers.width / Math.max(1, de.width);
     const anim = fantome.animate([
-      { transform: "translate(0,0) scale(1) rotate(0deg)", offset: 0 },
-      { transform: `translate(${dx * .5}px, ${dy * .5 - 60}px) scale(${(1 + k) / 2 * 1.08}) rotate(-4deg)`, offset: .55 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${k * finit}) rotate(0deg)`, offset: 1 }
-    ], { duration: 520, easing: "cubic-bezier(.3,.7,.25,1)" });
+      { transform: "translate(0,0) scale(1)", opacity: 1 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${k * finit})`, opacity: finit < 1 ? 0 : 1 }
+    ], { duration: 380, easing: "cubic-bezier(.2,.7,.2,1)" });
     return anim.finished.catch(() => {}).then(() => fantome.remove());
   }
 
@@ -364,12 +429,13 @@ export function creerScene({
           : el("p.sac__vide", "Votre sac est vide.")) : null,
       el("button.scene__sac", {
         type: "button",
+        class: !sacOuvert && !bureau.surLeBureau().length && !bureau.cahiersSurLeBureau().length ? "scene__sac--appel" : "",
         title: sacOuvert ? "Refermer le sac" : "Ouvrir le sac",
         "aria-expanded": String(sacOuvert),
         onclick: () => { sacOuvert = !sacOuvert; if (etatScene === "sac" && !sacOuvert) definirEtat("bureau"); else peindre(); }
       },
         el("img.scene__sac-image", { src: imageDetouree(sacOuvert ? ouvertImage : sac.kind), alt: "", draggable: false }),
-        el("span.scene__sac-mot", sacOuvert ? "Refermer" : nomObjet(sac)))
+        el("span.scene__sac-mot", sacOuvert ? "Refermer le sac" : "Ouvrir le sac"))
     );
   }
 
@@ -390,11 +456,12 @@ export function creerScene({
         }, present ? "Devant la classe" : "Pas devant la classe"));
       return;
     }
-    render(zoneEstrade,
-      el("div.estrade__prof", { class: present ? "estrade__prof--present" : "estrade__prof--absent" },
-        el("span.estrade__lumiere", { "aria-hidden": "true" }),
-        el("span.presence", { class: present ? "presence--oui" : "" },
-          present ? `${estrade.nom || qui} · devant la classe` : `${qui} absent`)));
+    // Absent, la ligne du haut le dit déjà : l'avant de la classe reste vide.
+    render(zoneEstrade, present
+      ? el("div.estrade__prof.estrade__prof--present",
+          silhouetteDe({ display_name: estrade.nom || qui }, estrade.nom || qui),
+          el("span.presence.presence--oui", `${estrade.nom || qui} · devant la classe`))
+      : null);
   }
 
   const silhouette = (p, grand = false) => silhouetteDe(p, nomDe(p), grand);
@@ -446,6 +513,8 @@ export function creerScene({
   function peindre() {
     noeud.dataset.etat = etatScene;
     peindrePupitre();
+    peindreBanc();
+    peindreOublis();
     peindreSac();
     if (!avant) peindreEstrade();
     peindreRail();

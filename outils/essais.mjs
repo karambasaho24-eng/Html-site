@@ -545,6 +545,20 @@ try {
   `);
   verifier("le crayon oublie reste dans la salle", suivante.lieu === "salle", suivante.lieu);
   verifier("a l'activite suivante, sans crayon, on n'ecrit pas", suivante.ok === false, suivante.conseil);
+
+  // Le bogue d'origine : revenu à sa place, l'objet oublié avait « disparu ».
+  // Il doit revenir devant soi, sur le bureau de la séance en cours.
+  const reprise = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    await d.affaires.reprendre("${installe.crayon}", "${seanceB}");
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    const crayon = mien.find((o) => o.id === "${installe.crayon}");
+    const ctx = p.contexte({ session: { id: "${seanceB}", status: "live" }, classe });
+    return p.situer(crayon, { moiId: moi, ctx, index: a.indexer(mien) }).lieu;
+  `);
+  verifier("revenu en salle, l'objet oublie se reprend sur le bureau", reprise === "bureau", reprise);
   await depot(maitre, `return d.sessions.terminer("${seanceB}");`);
 
   const ferme = await depot(cadet, `
@@ -755,7 +769,7 @@ try {
   await cadet.waitForTimeout(1500);
   verifier("mes affaires montrent ce qui est reste en salle",
     (await cadet.locator(".affaires__section--restes").count()) === 1
-    && (await cadet.locator("text=Dernière position").count()) >= 1);
+    && (await cadet.locator(".affaire--reste").count()) >= 1);
   await cadet.screenshot({ path: `${process.env.CAPTURES || "/tmp"}/affaires-restes.png`, fullPage: true }).catch(() => {});
   await cadet.goto(`${RACINE}#/papiers`);
   await cadet.waitForTimeout(900);

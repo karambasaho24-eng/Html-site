@@ -30,7 +30,7 @@ import { depuis, aplatir } from "../core/util.js";
 import { nomAffiche } from "../core/rp.js";
 import {
   CATEGORIES, fiche, nomObjet, nomType, niveauEnMots, etatObjet,
-  indexer, surMoi, indisponible, figureObjet, vignetteObjet, vitrine
+  indexer, surMoi, indisponible, figureObjet, vignetteObjet, vitrine, imageDetouree
 } from "../features/affaires.js";
 import { materielAttendu, ecart } from "../features/materiel.js";
 import { preparerAffaires, dotationComplete } from "../features/cartable.js";
@@ -233,11 +233,13 @@ export default async function vueAffaires() {
           && String(seances.get(o.place_class).id) === String(o.place_session);
         return el("div.affaire.affaire--reste",
           el("div.affaire__ligne",
-            el("span.affaire__nom", "❌ ", nom, " ", el("span.faible.petit", "indisponible")),
-            el("span.affaire__lieu.petit",
-              "📍 ", surLeBureau ? "Sur votre bureau — " : "Dernière position : ",
-              o.place_label || classe?.name || "une salle",
-              o.place_at ? el("span.faible", " · ", depuis(o.place_at)) : null),
+            el("img.affaire__vignette", { src: imageDetouree(genre === "cahier" ? (o.support || "cahier") : o.kind), alt: "" }),
+            el("span.affaire__quoi",
+              el("span.affaire__nom", nom),
+              el("span.affaire__lieu.petit",
+                surLeBureau ? "Sur votre bureau — " : "Laissé : ",
+                o.place_label || classe?.name || "une salle",
+                o.place_at ? el("span.faible", " · ", depuis(o.place_at)) : null)),
             el("span.pousse"),
             el("span.etiq", { class: ouverte ? "etiq--ok" : "etiq--attn" },
               ouverte ? "Salle ouverte" : "Salle fermée"),
