@@ -6,9 +6,8 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { entete } from "../ui/fragments.js";
-import { config, definirConfig, reinitialiserConfig } from "../core/config.js";
+import { config, configIntegree, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
-import { estAdmin } from "../core/permissions.js";
 import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
 import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
@@ -21,9 +20,9 @@ const ONGLETS = [
   { cle: "roblox", libelle: "Cohabitation Roblox" },
   { cle: "raccourcis", libelle: "Raccourcis" },
   { cle: "lexique", libelle: "Vocabulaire RP" },
-  // La connexion au serveur ne regarde que l'administration — ou le poste
-  // qu'on est en train d'installer (mode démonstration, rien de configuré).
-  { cle: "connexion", libelle: "Connexion", visible: () => estAdmin() || pilote.mode !== "supabase" },
+  // La connexion au serveur ne s'affiche que sur un site pas encore relié
+  // (config.js vide) : en ligne, personne ne la voit, administrateurs compris.
+  { cle: "connexion", libelle: "Connexion", visible: () => !configIntegree },
   { cle: "donnees", libelle: "Données locales" }
 ];
 

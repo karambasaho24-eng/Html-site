@@ -6,7 +6,7 @@ import { icone } from "../ui/icons.js";
 import { auth, pilote } from "../data/index.js";
 import { chargerSession } from "../core/session.js";
 import { aller } from "../core/router.js";
-import { config } from "../core/config.js";
+import { config, configIntegree } from "../core/config.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { L } from "../core/lexique.js";
 import { stockageSession } from "../core/stockage.js";
@@ -203,7 +203,7 @@ export default async function vueAuth() {
         "Aucun projet Supabase n'est configuré : les comptes et les données restent dans ce navigateur, "
         + "et la synchronisation ne fonctionne qu'entre les onglets de ce poste. "
         + "Renseignez config.js pour passer en mode réel."),
-      el("button.btn.petit", {
+      configIntegree ? null : el("button.btn.petit", {
         style: { marginTop: "var(--e-3)" },
         onclick: () => aller("/reglages?onglet=connexion")
       }, "Configurer Supabase")

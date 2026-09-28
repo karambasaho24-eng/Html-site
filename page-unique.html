@@ -5026,7 +5026,7 @@ function definirConfig(partiel) {
 function reinitialiserConfig() {
   local.retirer(CLE);
 }
-var CLE, DEFAUTS, fichier, surcharge, config;
+var CLE, DEFAUTS, fichier, surcharge, config, configIntegree;
 var init_config = __esm({
   "src/core/config.js"() {
     init_util();
@@ -5041,6 +5041,7 @@ var init_config = __esm({
     fichier = globalThis.OJM_CONFIG || {};
     surcharge = local.lire(CLE, {}) || {};
     config = { ...DEFAUTS, ...fichier, ...surcharge };
+    configIntegree = Boolean(fichier.supabaseUrl && fichier.supabaseAnonKey);
   }
 });
 
@@ -15589,7 +15590,7 @@ async function vueAuth() {
         { style: { margin: "var(--e-2) 0 0" } },
         "Aucun projet Supabase n'est configur\xE9 : les comptes et les donn\xE9es restent dans ce navigateur, et la synchronisation ne fonctionne qu'entre les onglets de ce poste. Renseignez config.js pour passer en mode r\xE9el."
       ),
-      el("button.btn.petit", {
+      configIntegree ? null : el("button.btn.petit", {
         style: { marginTop: "var(--e-3)" },
         onclick: () => aller("/reglages?onglet=connexion")
       }, "Configurer Supabase")
@@ -29032,7 +29033,6 @@ var init_reglages = __esm({
     init_fragments();
     init_config();
     init_data();
-    init_permissions();
     init_interface();
     init_lexique();
     init_modal();
@@ -29044,9 +29044,9 @@ var init_reglages = __esm({
       { cle: "roblox", libelle: "Cohabitation Roblox" },
       { cle: "raccourcis", libelle: "Raccourcis" },
       { cle: "lexique", libelle: "Vocabulaire RP" },
-      // La connexion au serveur ne regarde que l'administration — ou le poste
-      // qu'on est en train d'installer (mode démonstration, rien de configuré).
-      { cle: "connexion", libelle: "Connexion", visible: () => estAdmin() || pilote.mode !== "supabase" },
+      // La connexion au serveur ne s'affiche que sur un site pas encore relié
+      // (config.js vide) : en ligne, personne ne la voit, administrateurs compris.
+      { cle: "connexion", libelle: "Connexion", visible: () => !configIntegree },
       { cle: "donnees", libelle: "Donn\xE9es locales" }
     ];
     LIBELLES_ACTIONS = {
