@@ -12630,7 +12630,7 @@ function teinte(hex, k) {
   const f = (c) => Math.max(0, Math.min(255, Math.round(c * k)));
   return `rgb(${f(r)}, ${f(g)}, ${f(b)})`;
 }
-function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = true } = {}) {
+function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = true, chevron = 0 } = {}) {
   const d = g.createLinearGradient(0, y, 0, y + h);
   d.addColorStop(0, teinte(couleur, 1.07));
   d.addColorStop(0.55, couleur);
@@ -12653,6 +12653,21 @@ function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = t
   if (rayure) {
     g.fillStyle = `rgba(255,255,255,${rayure})`;
     for (let i = x + 3; i < x + l; i += 5) g.fillRect(i, y, 0.5, h);
+  }
+  if (chevron) {
+    g.save();
+    g.beginPath();
+    g.rect(x, y, l, h);
+    g.clip();
+    g.lineWidth = 0.7;
+    for (let i = 0, cx = x; cx < x + l; cx += 3, i++) for (let cy = y; cy < y + h; cy += 3) {
+      g.strokeStyle = (i + cy) % 2 ? `rgba(255,255,255,${chevron})` : `rgba(0,0,0,${chevron})`;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(cx + 3, cy + (i % 2 ? 3 : -3) / 2 + 1.5);
+      g.stroke();
+    }
+    g.restore();
   }
 }
 function trait(g, points, couleur, largeur = 1, pointille = null) {
@@ -12829,7 +12844,7 @@ function dessinerHaut(g, t) {
   const [fx, fy] = T2.F;
   const c = fx + 64;
   const matiere = t.veste || t.pull || t.chemise;
-  for (const k of ["R", "L", "B", "U", "D", "F"]) drap(g, T2[k], matiere, { rayure: t.veste ? t.rayure : 0 });
+  for (const k of ["R", "L", "B", "U", "D", "F"]) drap(g, T2[k], matiere, { rayure: t.veste ? t.rayure : 0, chevron: t.veste ? t.chevron : 0 });
   const [ux, uy, ul, uh] = T2.U;
   g.fillStyle = teinte(t.chemise, 0.92);
   g.beginPath();
@@ -12867,10 +12882,36 @@ function dessinerHaut(g, t) {
   }
   modele(g, F, [[fx + 28, fy - 2], [fx + 100, fy - 2], [fx + 92, fy + 7], [fx + 36, fy + 7]], 0.16, 3);
   modele(g, F, [[fx, fy + 120], [fx + 128, fy + 120], [fx + 128, fy + 130], [fx, fy + 130]], 0.1, 4);
+  if (t.epaulettes) {
+    const [ux2, uy2, ul2, uh2] = T2.U;
+    for (const x0 of [ux2 + 2, ux2 + ul2 - 30]) {
+      drap(g, [x0, uy2 + 12, 28, uh2 - 24], t.epaulettes, { bords: false, ombreBas: 0.3 });
+      for (let yy = uy2 + 14; yy < uy2 + uh2 - 12; yy += 2.5) trait(g, [[x0 + 21, yy], [x0 + 27, yy]], "rgba(0,0,0,.25)", 0.6);
+      bouton(g, x0 + 8, uy2 + uh2 / 2, t.epaulettes, 2.4);
+    }
+  }
+  if (t.aiguillette) {
+    for (const [dy2, larg] of [[0, 2.4], [7, 2]]) {
+      g.save();
+      g.strokeStyle = t.aiguillette;
+      g.lineWidth = larg;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(fx + 2, fy + 3);
+      g.quadraticCurveTo(fx + 8 + dy2, fy + 40 + dy2 * 2, fx + 38, fy + 36 + dy2);
+      g.stroke();
+      g.strokeStyle = "rgba(0,0,0,.3)";
+      g.lineWidth = 0.6;
+      g.setLineDash([1.2, 1.6]);
+      g.stroke();
+      g.restore();
+    }
+    bouton(g, fx + 38, fy + 36, t.aiguillette, 2.2);
+  }
   for (const cote of ["droit", "gauche"]) {
     const B = FACES[cote];
     const manche = t.veste || t.chemise;
-    for (const k of ["U", "L", "B", "R", "F"]) drap(g, B[k], manche, { rayure: t.veste ? t.rayure : 0 });
+    for (const k of ["U", "L", "B", "R", "F"]) drap(g, B[k], manche, { rayure: t.veste ? t.rayure : 0, chevron: t.veste ? t.chevron : 0 });
     const exterieur = cote === "droit" ? "R" : "L";
     const interieur = cote === "droit" ? "L" : "R";
     for (const k of ["L", "B", "R", "F"]) {
@@ -12900,19 +12941,26 @@ function dessinerHaut(g, t) {
         g.fillRect(x, y + 70, l, 12);
         trait(g, [[x, y + 70], [x + l, y + 70]], "rgba(0,0,0,.2)", 1);
         trait(g, [[x, y + 82], [x + l, y + 82]], "rgba(0,0,0,.25)", 1);
-        g.fillStyle = "#e8c9a6";
-        g.fillRect(x, y + 82, l, h - 82);
-        g.fillStyle = "rgba(0,0,0,.12)";
-        g.fillRect(x, y + 82, l, 3);
+        g.clearRect(x, y + 83, l, h - 83);
       }
       if (t.militaire && k === exterieur) dessinerInsigne(g, t.insigne, x + l / 2, y + 26, 0.95);
+      if (t.epaulettes && k === exterieur) for (let xx = x + 3; xx < x + l - 2; xx += 3) trait(g, [[xx, y + 1], [xx, y + 10]], t.epaulettes, 1.6);
+      if (t.coudieres && k === "B") {
+        g.fillStyle = t.coudieres;
+        g.beginPath();
+        g.ellipse(x + l / 2, y + 66, 13, 17, 0, 0, Math.PI * 2);
+        g.fill();
+        g.setLineDash([1.5, 1.2]);
+        g.strokeStyle = "rgba(255,255,255,.28)";
+        g.lineWidth = 0.7;
+        g.beginPath();
+        g.ellipse(x + l / 2, y + 66, 11, 15, 0, 0, Math.PI * 2);
+        g.stroke();
+        g.setLineDash([]);
+      }
       if (t.passepoil && k === exterieur) trait(g, [[x, y + h - 14], [x + l, y + h - 14]], t.passepoil, 1.2);
     }
-    const [hx, hy, hl, hh] = B.D;
-    g.fillStyle = "#e8c9a6";
-    g.fillRect(hx, hy, hl, hh);
-    g.fillStyle = "rgba(0,0,0,.1)";
-    g.fillRect(hx, hy + hh / 2, hl, hh / 2);
+    g.clearRect(...B.D);
   }
 }
 function dessinerCostumeTorse(g, t, c) {
@@ -12955,10 +13003,17 @@ function dessinerCostumeTorse(g, t, c) {
       }
     }
   }
-  forme(g, [[c - 24, fy], [c - 3, fy + 5], [c - 13, fy + 20]], teinte(t.chemise, 0.93));
-  forme(g, [[c + 24, fy], [c + 3, fy + 5], [c + 13, fy + 20]], teinte(t.chemise, 0.93));
-  trait(g, [[c - 13, fy + 20], [c - 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
-  trait(g, [[c + 13, fy + 20], [c + 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
+  if (t.colRoule) {
+    drap(g, [c - 24, fy, 48, 12], teinte(t.chemise, 1.12), { bords: false, ombreBas: 0.3 });
+    for (let x = c - 23; x < c + 24; x += 2.4) trait(g, [[x, fy], [x, fy + 11]], "rgba(0,0,0,.22)", 0.6);
+    trait(g, [[c - 24, fy + 12], [c + 24, fy + 12]], "rgba(0,0,0,.3)", 1);
+    for (let yy = fy + 30; yy < bas; yy += 3) trait(g, [[c - 22, yy], [c + 22, yy]], "rgba(255,255,255,.035)", 0.6);
+  } else {
+    forme(g, [[c - 24, fy], [c - 3, fy + 5], [c - 13, fy + 20]], teinte(t.chemise, 0.93));
+    forme(g, [[c + 24, fy], [c + 3, fy + 5], [c + 13, fy + 20]], teinte(t.chemise, 0.93));
+    trait(g, [[c - 13, fy + 20], [c - 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
+    trait(g, [[c + 13, fy + 20], [c + 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
+  }
   if (t.cravate) {
     const w = t.largeurCravate || 8;
     forme(g, [[c - w / 2, fy + 5], [c + w / 2, fy + 5], [c + w / 2 - 1.5, fy + 13], [c - w / 2 + 1.5, fy + 13]], teinte(t.cravate, 0.78));
@@ -13013,8 +13068,8 @@ function dessinerCostumeTorse(g, t, c) {
   const x1 = c - 2 - pan, x2 = c + 2 + pan;
   forme(g, [[fx, fy], [c - 24, fy], [x1, fy + creux], [x1, bas], [fx, bas]], t.veste);
   forme(g, [[fx + 128, fy], [c + 24, fy], [x2, fy + creux], [x2, bas], [fx + 128, bas]], t.veste);
-  drap(g, [fx, fy + creux - 2, x1 - fx, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false });
-  drap(g, [x2, fy + creux - 2, fx + 128 - x2, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false });
+  drap(g, [fx, fy + creux - 2, x1 - fx, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false, chevron: t.chevron });
+  drap(g, [x2, fy + creux - 2, fx + 128 - x2, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false, chevron: t.chevron });
   const revers = teinte(t.veste, ouverte ? 0.78 : 1.22);
   const ombreRevers = teinte(t.veste, 0.62);
   for (const s of [-1, 1]) {
@@ -13204,7 +13259,29 @@ function dessinerBas(g, t) {
         g.fillRect(x2, y2 + h2 - 4, l2, 4);
         if (k === "F") trait(g, [[x2 + 22, y2 + h2 - 14], [x2 + 42, y2 + h2 - 14]], "rgba(0,0,0,.35)", 1);
       }
-      if (k === exterieur && !t.bottes) couture(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 24]]);
+      if (k === exterieur && !t.bottes && !t.bande) couture(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 24]]);
+      if (t.bande && k === exterieur) {
+        g.fillStyle = t.bande;
+        g.fillRect(x2 + l2 / 2 - 2.5, y2 + 2, 5, h2 - 26);
+        g.fillStyle = "rgba(255,255,255,.2)";
+        g.fillRect(x2 + l2 / 2 - 2.5, y2 + 2, 1, h2 - 26);
+      }
+      if (t.manteau) {
+        const interieurADroite = k === "F" === (cote === "droit");
+        const ouvert = k === "F" && t.ouverte;
+        const x0 = ouvert && !interieurADroite ? x2 + l2 * 0.58 : x2;
+        const l0 = ouvert ? l2 * 0.42 : l2;
+        const fin = y2 + 74;
+        drap(g, [x0, y2, l0, fin - y2], t.veste, { ombreBas: 0.22, bords: false, chevron: t.chevron });
+        g.fillStyle = "rgba(0,0,0,.4)";
+        g.fillRect(x0, fin - 2, l0, 2);
+        modele(g, J[k], [[x0, fin], [x0 + l0, fin], [x0 + l0, fin + 6], [x0, fin + 6]], 0.22, 3);
+        if (k === "F" || k === "B") {
+          const bord = ouvert ? interieurADroite ? x0 + l0 : x0 : interieurADroite ? x2 + l2 - 1 : x2 + 1;
+          trait(g, [[bord, y2], [bord, fin]], "rgba(0,0,0,.45)", 1.3);
+        }
+        pli(g, [[x0 + l0 * 0.4, y2 + 20], [x0 + l0 * 0.45, fin - 4]], 0.6);
+      }
     }
     const [x, y, l, h] = J.D;
     g.fillStyle = "#0b0b0b";
@@ -13384,6 +13461,70 @@ var init_tenues = __esm({
         largeurCravate: 9,
         pantalon: "#5b4634",
         chaussures: "#2a1a10"
+      },
+      "prof-tweed": {
+        libelle: "Veste tweed, col roul\xE9",
+        famille: "costume",
+        veste: "#6b5842",
+        chevron: 0.055,
+        coudieres: "#3a2a1c",
+        ouverte: true,
+        chemise: "#23252a",
+        colRoule: true,
+        pantalon: "#3b3a36",
+        chaussures: "#2a1a10"
+      },
+      "manteau-long": {
+        libelle: "Manteau long, col roul\xE9",
+        famille: "costume",
+        veste: "#34373b",
+        ouverte: true,
+        manteau: true,
+        chemise: "#141416",
+        colRoule: true,
+        pantalon: "#1b1c1f",
+        chaussures: "#0e0e0f"
+      },
+      ceremonie: {
+        libelle: "Tenue de c\xE9r\xE9monie",
+        famille: "uniforme",
+        veste: "#1a2336",
+        chemise: "#f3f2ee",
+        cravate: "#0f1320",
+        largeurCravate: 7,
+        passepoil: "#c9a24a",
+        epaulettes: "#c9a24a",
+        aiguillette: "#d8b35a",
+        ecusson: "brigade",
+        pantalon: "#1a2336",
+        bande: "#c9a24a",
+        chaussures: "#0c0c0d"
+      },
+      instructeur: {
+        libelle: "Manteau d'instructeur",
+        famille: "uniforme",
+        veste: "#4a3b2e",
+        croise: true,
+        manteau: true,
+        chemise: "#e9e4d8",
+        cravate: "#2a1a10",
+        largeurCravate: 7,
+        ecusson: "entrainement",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10",
+        jupe: "#3a2618"
+      },
+      repos: {
+        libelle: "Tenue de repos",
+        famille: "uniforme",
+        veste: null,
+        chemise: "#ece6d8",
+        bretelles: "#3b2618",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10",
+        jupe: "#3a2618"
       },
       cadet: {
         libelle: "Cadet (entra\xEEnement)",
@@ -13892,14 +14033,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       return t;
     };
     const m = {
-      chemise: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.chemise || toiles.chemise), roughness: 0.82 }),
-      pantalon: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.pantalon || toiles.pantalon), roughness: 0.85 })
+      // Comme dans le jeu : là où le vêtement est transparent (mains,
+      // avant-bras nus), c'est la peau du personnage qu'on voit.
+      chemise: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.chemise || toiles.chemise), roughness: 0.82, alphaTest: 0.5 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.pantalon || toiles.pantalon), roughness: 0.85, alphaTest: 0.5 })
     };
     cacheTenues.set(nom, m);
     return m;
   }
   const DEFAUTS3 = {
-    tenue: NOMS_TENUES.filter((n) => !["exploration", "garnison", "brigade", "cadet"].includes(n)),
+    tenue: NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume"),
+    // l'uniforme, on le choisit
     coiffure: COIFFURES.map((c) => c.cle),
     cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
     peau: TEINTS.map((t) => t.cle).slice(0, 6)
@@ -13953,6 +14097,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
     torse.position.y = 1;
     bassin.add(torse);
+    const chairTorse = new THREE.Mesh(GEO_TENUE.torse, peau);
+    chairTorse.scale.setScalar(0.99);
+    torse.add(chairTorse);
     const tete = new THREE.Group();
     tete.position.y = 2;
     bassin.add(tete);
@@ -13972,6 +14119,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       epaule.position.set(x, y, 0);
       const bloc = new THREE.Mesh(geo, mat);
       bloc.position.y = -0.9;
+      const chair = new THREE.Mesh(geo, peau);
+      chair.scale.setScalar(0.99);
+      bloc.add(chair);
       const coude = new THREE.Group();
       coude.position.y = -1.85;
       const bout = new THREE.Group();

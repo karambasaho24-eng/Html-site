@@ -25,7 +25,7 @@
  * garde sa vue à plat.
  * ------------------------------------------------------------------------- */
 import { imageDetouree } from "./affaires.js";
-import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, toilesTenue, toileCape } from "./tenues.js";
+import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, ficheTenue, toilesTenue, toileCape } from "./tenues.js";
 import { COIFFURES, COULEURS_CHEVEUX, TEINTS, construireCoiffure, toileCheveux } from "./coiffures.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
@@ -291,8 +291,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       return t;
     };
     const m = {
-      chemise: new THREE.MeshStandardMaterial({ map: texture(fichiers?.chemise || toiles.chemise), roughness: .82 }),
-      pantalon: new THREE.MeshStandardMaterial({ map: texture(fichiers?.pantalon || toiles.pantalon), roughness: .85 })
+      // Comme dans le jeu : là où le vêtement est transparent (mains,
+      // avant-bras nus), c'est la peau du personnage qu'on voit.
+      chemise: new THREE.MeshStandardMaterial({ map: texture(fichiers?.chemise || toiles.chemise), roughness: .82, alphaTest: .5 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture(fichiers?.pantalon || toiles.pantalon), roughness: .85, alphaTest: .5 })
     };
     cacheTenues.set(nom, m);
     return m;
@@ -300,7 +302,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   /* --- L'apparence : ce que le joueur a choisi, ou ce que son nom tire au sort */
   const DEFAUTS = {
-    tenue: NOMS_TENUES.filter((n) => !["exploration", "garnison", "brigade", "cadet"].includes(n)),
+    tenue: NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume"),   // l'uniforme, on le choisit
     coiffure: COIFFURES.map((c) => c.cle),
     cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
     peau: TEINTS.map((t) => t.cle).slice(0, 6)
@@ -360,6 +362,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
     torse.position.y = 1;
     bassin.add(torse);
+    const chairTorse = new THREE.Mesh(GEO_TENUE.torse, peau);
+    chairTorse.scale.setScalar(.99);
+    torse.add(chairTorse);
 
     const tete = new THREE.Group();
     tete.position.y = 2;
@@ -384,6 +389,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       epaule.position.set(x, y, 0);
       const bloc = new THREE.Mesh(geo, mat);
       bloc.position.y = -0.9;
+      const chair = new THREE.Mesh(geo, peau);   // la peau, sous le vêtement
+      chair.scale.setScalar(.99);
+      bloc.add(chair);
       const coude = new THREE.Group();          // gardé pour les gestes, invisible
       coude.position.y = -1.85;
       const bout = new THREE.Group();
