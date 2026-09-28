@@ -11026,7 +11026,7 @@ var init_proximite = __esm({
 
 // src/features/papier.js
 function rendrePapier(papier, options = {}) {
-  const modele = MODELES[papier.model] || MODELES.note;
+  const modele2 = MODELES[papier.model] || MODELES.note;
   const regles = reglagesRP(options.classe);
   const enRP = universDe(options.classe) !== "aucun";
   const quand = papier.created_at || (/* @__PURE__ */ new Date()).toISOString();
@@ -11047,7 +11047,7 @@ function rendrePapier(papier, options = {}) {
       el(
         "header.papier__entete",
         el("span.papier__surtitre", "Laissez-passer"),
-        el("h3.papier__titre", papier.title || modele.titreDefaut)
+        el("h3.papier__titre", papier.title || modele2.titreDefaut)
       ),
       corps,
       el(
@@ -11062,7 +11062,7 @@ function rendrePapier(papier, options = {}) {
           el("span.papier__cle", "Par"),
           el("span", signature)
         ),
-        cachet(papier, modele)
+        cachet(papier, modele2)
       )
     );
     return noeud;
@@ -11071,7 +11071,7 @@ function rendrePapier(papier, options = {}) {
     noeud.append(
       el(
         "header.papier__entete.papier__entete--formulaire",
-        el("h3.papier__titre", papier.title || modele.titreDefaut),
+        el("h3.papier__titre", papier.title || modele2.titreDefaut),
         el(
           "div.papier__champs",
           champ("R\xE9dig\xE9 par", signature),
@@ -11095,7 +11095,7 @@ function rendrePapier(papier, options = {}) {
   if (papier.model === "note") {
     noeud.append(
       el("div.papier__pliure", { "aria-hidden": "true" }),
-      papier.title && papier.title !== modele.titreDefaut ? el("h3.papier__titre", papier.title) : null,
+      papier.title && papier.title !== modele2.titreDefaut ? el("h3.papier__titre", papier.title) : null,
       corps,
       el("footer.papier__pied", el("span.papier__paraphe", signature))
     );
@@ -11105,8 +11105,8 @@ function rendrePapier(papier, options = {}) {
     el("div.papier__bande", { "aria-hidden": "true" }),
     el(
       "header.papier__entete",
-      el("span.papier__surtitre", modele.libelle),
-      el("h3.papier__titre", papier.title || modele.titreDefaut),
+      el("span.papier__surtitre", modele2.libelle),
+      el("h3.papier__titre", papier.title || modele2.titreDefaut),
       el("span.papier__date", `${dateLisible} \xB7 ${heureLisible}`)
     ),
     corps,
@@ -11117,7 +11117,7 @@ function rendrePapier(papier, options = {}) {
         el("span.papier__cle", "Pour l'autorit\xE9"),
         el("span.papier__paraphe", signature)
       ),
-      cachet(papier, modele)
+      cachet(papier, modele2)
     )
   );
   return noeud;
@@ -11129,8 +11129,8 @@ function rendrePapier(papier, options = {}) {
     );
   }
 }
-function cachet(papier, modele) {
-  if (!modele.cachet) return null;
+function cachet(papier, modele2) {
+  if (!modele2.cachet) return null;
   const mention = (papier.seal || "").trim();
   return el(
     "div.papier__cachet",
@@ -11139,8 +11139,8 @@ function cachet(papier, modele) {
     el("span.papier__cachet-texte", mention || "Vu et approuv\xE9")
   );
 }
-async function composerPapier({ classe = null, papier = null, modele = null } = {}) {
-  const depart = papier || { model: modele || "note", title: "", body: "", seal: "" };
+async function composerPapier({ classe = null, papier = null, modele: modele2 = null } = {}) {
+  const depart = papier || { model: modele2 || "note", title: "", body: "", seal: "" };
   const brouillon = {
     model: depart.model || "note",
     title: depart.title || "",
@@ -12691,6 +12691,15 @@ function pli(g, points, force = 1) {
   trait(g, points, `rgba(0,0,0,${0.2 * force})`, 1.4);
   trait(g, points.map(([a, b]) => [a + 1.2, b]), `rgba(255,255,255,${0.07 * force})`, 0.8);
 }
+function modele(g, zone, points, a = 0.16, flou = 5, clair = false) {
+  g.save();
+  g.beginPath();
+  g.rect(...zone);
+  g.clip();
+  if (flou) g.filter = `blur(${flou}px)`;
+  forme(g, points, clair ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+  g.restore();
+}
 function ecu(g, cx, cy, l, h) {
   g.beginPath();
   g.moveTo(cx - l / 2, cy - h / 2);
@@ -12847,18 +12856,35 @@ function dessinerHaut(g, t) {
   g.fillRect(dx, dy + dh / 2 - 5, dl, 10);
   if (t.militaire) dessinerUniformeTorse(g, t);
   else dessinerCostumeTorse(g, t, c);
+  const F = T2.F;
+  for (const s of [0, 1]) {
+    const x0 = fx + s * 128, dir = s ? -1 : 1;
+    modele(g, F, [[x0, fy + 2], [x0 + dir * 22, fy + 26], [x0 + dir * 12, fy + 72], [x0, fy + 84]], 0.17);
+    modele(g, F, [[x0 + dir * 16, fy + 16], [x0 + dir * 46, fy + 20], [x0 + dir * 42, fy + 46], [x0 + dir * 18, fy + 40]], 0.06, 8, true);
+    const xb = bx + s * bl;
+    modele(g, T2.B, [[xb, by + 4], [xb + dir * 16, by + 28], [xb + dir * 8, by + 70], [xb, by + 80]], 0.14);
+  }
+  modele(g, F, [[fx + 28, fy - 2], [fx + 100, fy - 2], [fx + 92, fy + 7], [fx + 36, fy + 7]], 0.16, 3);
+  modele(g, F, [[fx, fy + 120], [fx + 128, fy + 120], [fx + 128, fy + 130], [fx, fy + 130]], 0.1, 4);
   for (const cote of ["droit", "gauche"]) {
     const B = FACES[cote];
     const manche = t.veste || t.chemise;
     for (const k of ["U", "L", "B", "R", "F"]) drap(g, B[k], manche, { rayure: t.veste ? t.rayure : 0 });
     const exterieur = cote === "droit" ? "R" : "L";
+    const interieur = cote === "droit" ? "L" : "R";
     for (const k of ["L", "B", "R", "F"]) {
       const [x, y, l, h] = B[k];
-      const ep = g.createLinearGradient(0, y, 0, y + 10);
-      ep.addColorStop(0, "rgba(0,0,0,.28)");
-      ep.addColorStop(1, "rgba(0,0,0,0)");
+      const ep = g.createLinearGradient(0, y, 0, y + 14);
+      ep.addColorStop(0, "rgba(255,255,255,.13)");
+      ep.addColorStop(1, "rgba(255,255,255,0)");
       g.fillStyle = ep;
-      g.fillRect(x, y, l, 10);
+      g.fillRect(x, y, l, 14);
+      trait(g, [[x, y + 0.6], [x + l, y + 0.6]], "rgba(0,0,0,.32)", 1.2);
+      if (k === interieur) {
+        g.fillStyle = "rgba(0,0,0,.12)";
+        g.fillRect(x, y, l, h);
+      }
+      if (k === "F") modele(g, B[k], [[x + 10, y + 60], [x + l - 10, y + 60], [x + l - 16, y + 74], [x + 16, y + 74]], 0.07, 7);
       pli(g, [[x + 10, y + 62], [x + 26, y + 70], [x + 40, y + 66]], 0.9);
       pli(g, [[x + 22, y + 76], [x + 44, y + 82]], 0.6);
       if (t.veste) {
@@ -13036,6 +13062,11 @@ function dessinerUniformeTorse(g, t) {
   pli(g, [[c - 14, fy + 96], [c - 10, fy + 124]], 0.5);
   pli(g, [[c + 14, fy + 96], [c + 10, fy + 124]], 0.5);
   drap(g, [fx, courte, 128, bas - courte], t.pantalon, { ombreBas: 0.15 });
+  for (const s of [-1, 1]) {
+    const x0 = s < 0 ? fx : fx + 128;
+    forme(g, [[x0, fy + 108], [x0 - s * 16, fy + 108], [x0 - s * 11, bas], [x0, bas]], teinte(t.jupe, 0.95));
+    trait(g, [[x0 - s * 16, fy + 108], [x0 - s * 11, bas]], "rgba(0,0,0,.45)", 1.2);
+  }
   g.fillStyle = t.harnais;
   g.fillRect(fx, fy + 104, 128, 9);
   g.fillStyle = "#b7a06a";
@@ -13049,33 +13080,34 @@ function dessinerUniformeTorse(g, t) {
     forme(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30]], teinte(t.veste, 1.18));
     trait(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30], [bord, courte]], teinte(t.veste, 0.55), 1.2);
     trait(g, [[bord + s * 1.5, fy + 30], [bord + s * 1.5, courte]], "rgba(0,0,0,.3)", 2);
-    const px = s < 0 ? fx + 12 : fx + 88;
-    forme(g, [[px, fy + 34], [px + 28, fy + 34], [px + 28, fy + 58], [px, fy + 58]], teinte(t.veste, 0.92));
-    forme(g, [[px - 1, fy + 32], [px + 29, fy + 32], [px + 29, fy + 40], [px + 14, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
-    trait(g, [[px - 1, fy + 40], [px + 14, fy + 43], [px + 29, fy + 40]], "rgba(0,0,0,.4)", 1);
-    bouton(g, px + 14, fy + 38, "#b7a06a", 1.8);
-    couture(g, [[px, fy + 58], [px + 28, fy + 58]]);
+    const px = s < 0 ? fx + 6 : fx + 96;
+    forme(g, [[px, fy + 34], [px + 26, fy + 34], [px + 26, fy + 60], [px, fy + 60]], teinte(t.veste, 0.92));
+    forme(g, [[px - 1, fy + 32], [px + 27, fy + 32], [px + 27, fy + 40], [px + 13, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
+    trait(g, [[px - 1, fy + 40], [px + 13, fy + 43], [px + 27, fy + 40]], "rgba(0,0,0,.4)", 1);
+    bouton(g, px + 13, fy + 38, "#b7a06a", 1.8);
+    couture(g, [[px, fy + 60], [px + 26, fy + 60]]);
   }
   g.fillStyle = teinte(t.veste, 0.85);
   g.fillRect(fx, courte - 6, c - 26 - fx, 6);
   g.fillRect(c + 26, courte - 6, fx + 128 - c - 26, 6);
   trait(g, [[fx, courte], [c - 26, courte]], "rgba(0,0,0,.45)", 1.2);
   trait(g, [[c + 26, courte], [fx + 128, courte]], "rgba(0,0,0,.45)", 1.2);
-  dessinerInsigne(g, t.insigne, fx + 102, fy + 72, 0.7);
+  dessinerInsigne(g, t.insigne, fx + 109, fy + 52, 0.55);
   const cuir = (pts, l = 5) => {
     trait(g, pts, t.harnais, l);
     trait(g, pts.map(([a, b]) => [a - 1.2, b]), "rgba(255,255,255,.08)", 1);
   };
-  cuir([[c - 38, fy], [c - 38, fy + 104]]);
-  cuir([[c + 38, fy], [c + 38, fy + 104]]);
-  cuir([[c - 38, fy + 64], [c + 38, fy + 64]], 4);
-  for (const xx of [c - 38, c + 38]) {
+  cuir([[c - 31, fy], [c - 31, fy + 104]]);
+  cuir([[c + 31, fy], [c + 31, fy + 104]]);
+  cuir([[c - 31, fy + 66], [c + 31, fy + 66]], 4);
+  for (const xx of [c - 31, c + 31]) {
     g.strokeStyle = "#b7a06a";
     g.lineWidth = 1.2;
-    g.strokeRect(xx - 4, fy + 60, 8, 8);
+    g.strokeRect(xx - 4, fy + 62, 8, 8);
   }
   const [bx, by, bl] = FACES.torse.B;
   drap(g, [bx, by + 92, bl, 36], t.pantalon, { ombreBas: 0.15 });
+  drap(g, [bx, by + 108, bl, 20], t.jupe, { ombreBas: 0.25, bords: false });
   g.fillStyle = t.harnais;
   g.fillRect(bx, by + 104, bl, 9);
   g.fillStyle = teinte(t.veste, 0.85);
@@ -13087,6 +13119,7 @@ function dessinerUniformeTorse(g, t) {
   for (const k of ["R", "L"]) {
     const [x, y, l] = FACES.torse[k];
     drap(g, [x, y + 92, l, 36], t.pantalon, { ombreBas: 0.15 });
+    drap(g, [x, y + 108, l, 20], t.jupe, { ombreBas: 0.25, bords: false });
     g.fillStyle = teinte(t.veste, 0.85);
     g.fillRect(x, y + 86, l, 6);
     g.fillStyle = t.harnais;
@@ -13102,25 +13135,42 @@ function dessinerBas(g, t) {
   for (const cote of ["droit", "gauche"]) {
     const J = FACES[cote];
     const exterieur = cote === "droit" ? "R" : "L";
+    const interieur = cote === "droit" ? "L" : "R";
     for (const k of ["U", "L", "B", "R", "F"]) drap(g, J[k], t.pantalon, { ombreBas: 0.18 });
     for (const k of ["L", "B", "R", "F"]) {
       const [x2, y2, l2, h2] = J[k];
+      if (k === interieur) {
+        g.fillStyle = "rgba(0,0,0,.1)";
+        g.fillRect(x2, y2, l2, h2);
+      }
+      if (k === "F" || k === "B") modele(g, J[k], [[x2, y2], [x2 + l2, y2], [x2 + l2, y2 + 10], [x2, y2 + 16]], 0.12, 5);
       if (t.bottes) {
-        for (const yy of [18, 40]) {
-          g.fillStyle = t.harnais;
-          g.fillRect(x2, y2 + yy, l2, 5);
-          g.fillStyle = "rgba(255,255,255,.07)";
-          g.fillRect(x2, y2 + yy, l2, 1);
+        if (k !== "F") {
+          const fin = y2 + (k === "B" ? 30 : 24);
+          const d2 = g.createLinearGradient(0, y2, 0, fin);
+          d2.addColorStop(0, teinte(t.jupe, 1.1));
+          d2.addColorStop(1, teinte(t.jupe, 0.78));
+          forme(g, [[x2, y2], [x2 + l2, y2], [x2 + l2, fin - 3], [x2 + l2 / 2, fin], [x2, fin - 3]], d2);
+          couture(g, [[x2 + 3, fin - 7], [x2 + l2 / 2, fin - 4], [x2 + l2 - 3, fin - 7]], "rgba(255,255,255,.2)");
+          modele(g, J[k], [[x2, fin - 2], [x2 + l2, fin - 2], [x2 + l2, fin + 5], [x2, fin + 5]], 0.2, 3);
         }
+        const sangle = (pts, larg = 3.4) => {
+          trait(g, pts, t.harnais, larg);
+          trait(g, pts.map(([a, b]) => [a, b - larg / 3]), "rgba(255,255,255,.1)", 0.7);
+        };
+        const ext = y2 + 32, int = y2 + 14;
+        const gaucheExt = k === "F" === (cote === "droit");
+        if (k === "F" || k === "B") sangle([[x2, gaucheExt ? ext : int], [x2 + l2, gaucheExt ? int : ext]]);
+        else sangle([[x2, k === exterieur ? ext : int], [x2 + l2, k === exterieur ? ext : int]]);
+        sangle([[x2, y2 + 50], [x2 + l2, y2 + 50]], 3);
         if (k === exterieur) {
-          g.fillStyle = t.harnais;
-          g.fillRect(x2 + l2 / 2 - 3, y2, 6, 45);
+          sangle([[x2 + l2 / 2, y2 + 20], [x2 + l2 / 2, y2 + 50]], 4);
           g.strokeStyle = "#b7a06a";
           g.lineWidth = 1;
-          g.strokeRect(x2 + l2 / 2 - 4, y2 + 16, 8, 8);
+          g.strokeRect(x2 + l2 / 2 - 4, y2 + 28, 8, 8);
         }
-        pli(g, [[x2 + 16, y2 + 52], [x2 + 30, y2 + 58]], 0.6);
-        const haut = y2 + 66;
+        pli(g, [[x2 + 16, y2 + 42], [x2 + 30, y2 + 46]], 0.5);
+        const haut = y2 + 58;
         const d = g.createLinearGradient(0, haut, 0, y2 + h2);
         d.addColorStop(0, teinte(t.bottes, 1.35));
         d.addColorStop(0.35, t.bottes);
@@ -13138,6 +13188,7 @@ function dessinerBas(g, t) {
           trait(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 24]], "rgba(255,255,255,.11)", 1.3);
           trait(g, [[x2 + l2 / 2 + 1.2, y2 + 4], [x2 + l2 / 2 + 1.2, y2 + h2 - 24]], "rgba(0,0,0,.14)", 1);
         }
+        if (k === "F") modele(g, J[k], [[x2 + 12, y2 + 56], [x2 + l2 - 12, y2 + 56], [x2 + l2 - 16, y2 + 66], [x2 + 16, y2 + 66]], 0.08, 4);
         pli(g, [[x2 + 14, y2 + 90], [x2 + 32, y2 + 96], [x2 + 48, y2 + 92]], 0.5);
         g.fillStyle = "rgba(0,0,0,.28)";
         g.fillRect(x2, y2 + h2 - 24, l2, 3);
@@ -13342,7 +13393,8 @@ var init_tenues = __esm({
         insigne: "entrainement",
         pantalon: "#e7e1d2",
         harnais: "#3b2618",
-        bottes: "#2b1a10"
+        bottes: "#2b1a10",
+        jupe: "#3a2618"
       },
       exploration: {
         libelle: "\xC9claireur",
@@ -13354,6 +13406,7 @@ var init_tenues = __esm({
         pantalon: "#e7e1d2",
         harnais: "#3b2618",
         bottes: "#2b1a10",
+        jupe: "#3a2618",
         cape: "#2f5a3c"
       },
       garnison: {
@@ -13365,7 +13418,8 @@ var init_tenues = __esm({
         insigne: "garnison",
         pantalon: "#e7e1d2",
         harnais: "#3b2618",
-        bottes: "#2b1a10"
+        bottes: "#2b1a10",
+        jupe: "#3a2618"
       },
       brigade: {
         libelle: "Brigade",
@@ -13376,7 +13430,8 @@ var init_tenues = __esm({
         insigne: "brigade",
         pantalon: "#e7e1d2",
         harnais: "#3b2618",
-        bottes: "#2b1a10"
+        bottes: "#2b1a10",
+        jupe: "#3a2618"
       }
     };
     NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
@@ -26866,45 +26921,45 @@ async function vueExercice({ params }) {
   async function modifierQuestion(question) {
     await editerQuestion(question, question.id);
   }
-  async function editerQuestion(modele, id = null) {
-    const aOptions = ["single", "qcm", "multiple", "ordering", "matching"].includes(modele.kind);
-    const aVraiFaux = modele.kind === "truefalse";
+  async function editerQuestion(modele2, id = null) {
+    const aOptions = ["single", "qcm", "multiple", "ordering", "matching"].includes(modele2.kind);
+    const aVraiFaux = modele2.kind === "truefalse";
     const champs = [
       {
         cle: "prompt",
         label: "\xC9nonc\xE9",
         type: "textarea",
-        valeur: modele.prompt || "",
+        valeur: modele2.prompt || "",
         requis: true,
-        aide: modele.kind === "fill" ? "Marquez chaque trou par ___ (trois soulign\xE9s)." : null
+        aide: modele2.kind === "fill" ? "Marquez chaque trou par ___ (trois soulign\xE9s)." : null
       },
-      { cle: "helper", label: "Indication (facultatif)", valeur: modele.helper || "" },
-      { cle: "points", label: "Points", type: "number", valeur: modele.points ?? 1, min: 0, max: 20, step: 0.5 }
+      { cle: "helper", label: "Indication (facultatif)", valeur: modele2.helper || "" },
+      { cle: "points", label: "Points", type: "number", valeur: modele2.points ?? 1, min: 0, max: 20, step: 0.5 }
     ];
     if (aOptions) {
       champs.push({
         cle: "options",
-        label: modele.kind === "matching" ? "Paires (gauche | droite, une par ligne)" : "Propositions (une par ligne)",
+        label: modele2.kind === "matching" ? "Paires (gauche | droite, une par ligne)" : "Propositions (une par ligne)",
         type: "textarea",
         lignes: 5,
-        valeur: (modele.options || []).map((o) => typeof o === "string" ? o : `${o.gauche} | ${o.droite}`).join("\n"),
+        valeur: (modele2.options || []).map((o) => typeof o === "string" ? o : `${o.gauche} | ${o.droite}`).join("\n"),
         requis: true
       });
     }
-    if (["single", "qcm"].includes(modele.kind)) {
+    if (["single", "qcm"].includes(modele2.kind)) {
       champs.push({
         cle: "solution",
         label: "Num\xE9ro de la bonne r\xE9ponse (1, 2, 3\u2026)",
         type: "number",
-        valeur: modele.solution != null ? modele.solution + 1 : "",
+        valeur: modele2.solution != null ? modele2.solution + 1 : "",
         min: 1
       });
     }
-    if (modele.kind === "multiple") {
+    if (modele2.kind === "multiple") {
       champs.push({
         cle: "solution",
         label: "Bonnes r\xE9ponses (num\xE9ros s\xE9par\xE9s par des virgules)",
-        valeur: Array.isArray(modele.solution) ? modele.solution.map((i) => i + 1).join(",") : ""
+        valeur: Array.isArray(modele2.solution) ? modele2.solution.map((i) => i + 1).join(",") : ""
       });
     }
     if (aVraiFaux) {
@@ -26912,28 +26967,28 @@ async function vueExercice({ params }) {
         cle: "solution",
         label: "R\xE9ponse attendue",
         type: "select",
-        valeur: modele.solution === 0 ? "0" : "1",
+        valeur: modele2.solution === 0 ? "0" : "1",
         options: [{ valeur: "0", libelle: "Vrai" }, { valeur: "1", libelle: "Faux" }]
       });
     }
-    if (modele.kind === "fill") {
+    if (modele2.kind === "fill") {
       champs.push({
         cle: "solution",
         label: "R\xE9ponses attendues (une par ligne, dans l'ordre)",
         type: "textarea",
         lignes: 3,
-        valeur: Array.isArray(modele.solution) ? modele.solution.join("\n") : ""
+        valeur: Array.isArray(modele2.solution) ? modele2.solution.join("\n") : ""
       });
     }
     const sortie = await formulaire({
-      titre: id ? "Modifier la question" : `Nouvelle question \u2014 ${libelleType(modele.kind)}`,
+      titre: id ? "Modifier la question" : `Nouvelle question \u2014 ${libelleType(modele2.kind)}`,
       champs,
       libelle: "Enregistrer",
       large: true
     });
     if (!sortie) return;
     const donnees = {
-      kind: modele.kind,
+      kind: modele2.kind,
       prompt: sortie.prompt,
       helper: sortie.helper || null,
       points: Number(sortie.points) || 1,
@@ -26942,20 +26997,20 @@ async function vueExercice({ params }) {
     };
     if (aOptions) {
       const lignes = sortie.options.split("\n").map((l) => l.trim()).filter(Boolean);
-      donnees.options = modele.kind === "matching" ? lignes.map((l) => {
+      donnees.options = modele2.kind === "matching" ? lignes.map((l) => {
         const [gauche, droite] = l.split("|").map((p) => p.trim());
         return { gauche, droite: droite || "" };
       }) : lignes;
     }
-    if (["single", "qcm"].includes(modele.kind) && sortie.solution) {
+    if (["single", "qcm"].includes(modele2.kind) && sortie.solution) {
       donnees.solution = Number(sortie.solution) - 1;
-    } else if (modele.kind === "multiple" && sortie.solution) {
+    } else if (modele2.kind === "multiple" && sortie.solution) {
       donnees.solution = String(sortie.solution).split(",").map((n) => Number(n.trim()) - 1).filter((n) => n >= 0).sort((a, b) => a - b);
     } else if (aVraiFaux) {
       donnees.solution = Number(sortie.solution);
-    } else if (modele.kind === "fill" && sortie.solution) {
+    } else if (modele2.kind === "fill" && sortie.solution) {
       donnees.solution = sortie.solution.split("\n").map((l) => l.trim());
-    } else if (modele.kind === "ordering") {
+    } else if (modele2.kind === "ordering") {
       donnees.solution = donnees.options.map((_, i) => i);
     }
     try {

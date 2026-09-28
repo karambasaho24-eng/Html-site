@@ -92,22 +92,22 @@ export const TENUES = {
   cadet: {
     libelle: "Cadet (entraînement)", famille: "uniforme",
     militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "entrainement",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10"
+    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
   },
   exploration: {
     libelle: "Éclaireur", famille: "uniforme",
     militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "exploration",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", cape: "#2f5a3c"
+    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618", cape: "#2f5a3c"
   },
   garnison: {
     libelle: "Garnison", famille: "uniforme",
     militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "garnison",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10"
+    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
   },
   brigade: {
     libelle: "Brigade", famille: "uniforme",
     militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "brigade",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10"
+    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
   }
 };
 export const NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
@@ -184,6 +184,16 @@ function pli(g, points, force = 1) {
 }
 /** Une couture, piquée. */
 const couture = (g, points, couleur = "rgba(0,0,0,.35)") => trait(g, points, couleur, .7, [1.5, 1.2]);
+/** Une ombre (ou une lumière) fondue, tenue dans sa face du gabarit — le
+ *  calque « produit » des faiseurs de vêtements Roblox. Légère : trop
+ *  d'ombre salit le tissu. */
+function modele(g, zone, points, a = .16, flou = 5, clair = false) {
+  g.save();
+  g.beginPath(); g.rect(...zone); g.clip();
+  if (flou) g.filter = `blur(${flou}px)`;
+  forme(g, points, clair ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+  g.restore();
+}
 
 /* --- Les insignes : dessinés pour ce jeu -------------------------------- */
 function ecu(g, cx, cy, l, h) {
@@ -311,6 +321,19 @@ function dessinerHaut(g, t) {
   if (t.militaire) dessinerUniformeTorse(g, t);
   else dessinerCostumeTorse(g, t, c);
 
+  /* --- Le modelé : ombres en V sous les bras, ombre du col, lumière sur la
+         poitrine ; les omoplates dans le dos ------------------------------ */
+  const F = T.F;
+  for (const s of [0, 1]) {
+    const x0 = fx + s * 128, dir = s ? -1 : 1;
+    modele(g, F, [[x0, fy + 2], [x0 + dir * 22, fy + 26], [x0 + dir * 12, fy + 72], [x0, fy + 84]], .17);
+    modele(g, F, [[x0 + dir * 16, fy + 16], [x0 + dir * 46, fy + 20], [x0 + dir * 42, fy + 46], [x0 + dir * 18, fy + 40]], .06, 8, true);
+    const xb = bx + s * bl;
+    modele(g, T.B, [[xb, by + 4], [xb + dir * 16, by + 28], [xb + dir * 8, by + 70], [xb, by + 80]], .14);
+  }
+  modele(g, F, [[fx + 28, fy - 2], [fx + 100, fy - 2], [fx + 92, fy + 7], [fx + 36, fy + 7]], .16, 3);
+  modele(g, F, [[fx, fy + 120], [fx + 128, fy + 120], [fx + 128, fy + 130], [fx, fy + 130]], .1, 4);
+
   /* --- Les manches -------------------------------------------------------- */
   for (const cote of ["droit", "gauche"]) {
     const B = FACES[cote];
@@ -318,12 +341,17 @@ function dessinerHaut(g, t) {
     for (const k of ["U", "L", "B", "R", "F"]) drap(g, B[k], manche, { rayure: t.veste ? t.rayure : 0 });
     // Le côté extérieur porte l'insigne d'épaule (uniformes).
     const exterieur = cote === "droit" ? "R" : "L";
+    const interieur = cote === "droit" ? "L" : "R";
     for (const k of ["L", "B", "R", "F"]) {
       const [x, y, l, h] = B[k];
-      // L'épaule, qui tourne ; les plis du coude.
-      const ep = g.createLinearGradient(0, y, 0, y + 10);
-      ep.addColorStop(0, "rgba(0,0,0,.28)"); ep.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = ep; g.fillRect(x, y, l, 10);
+      // L'épaule prend la lumière, sous sa couture ; le côté du corps est
+      // dans l'ombre ; le creux du coude se marque. Puis les plis.
+      const ep = g.createLinearGradient(0, y, 0, y + 14);
+      ep.addColorStop(0, "rgba(255,255,255,.13)"); ep.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = ep; g.fillRect(x, y, l, 14);
+      trait(g, [[x, y + .6], [x + l, y + .6]], "rgba(0,0,0,.32)", 1.2);
+      if (k === interieur) { g.fillStyle = "rgba(0,0,0,.12)"; g.fillRect(x, y, l, h); }
+      if (k === "F") modele(g, B[k], [[x + 10, y + 60], [x + l - 10, y + 60], [x + l - 16, y + 74], [x + 16, y + 74]], .07, 7);
       pli(g, [[x + 10, y + 62], [x + 26, y + 70], [x + 40, y + 66]], .9);
       pli(g, [[x + 22, y + 76], [x + 44, y + 82]], .6);
       if (t.veste) {
@@ -497,8 +525,14 @@ function dessinerUniformeTorse(g, t) {
   for (let yy = 30; yy < 128; yy += 18) bouton(g, c, fy + yy, "#e8e3d6", 1.5);
   pli(g, [[c - 14, fy + 96], [c - 10, fy + 124]], .5);
   pli(g, [[c + 14, fy + 96], [c + 10, fy + 124]], .5);
-  // Le bas du torse : le pantalon et sa ceinture.
+  // Le bas du torse : le pantalon, la jupe de cuir qui couvre les hanches
+  // (ouverte devant), la ceinture par-dessus.
   drap(g, [fx, courte, 128, bas - courte], t.pantalon, { ombreBas: .15 });
+  for (const s of [-1, 1]) {
+    const x0 = s < 0 ? fx : fx + 128;
+    forme(g, [[x0, fy + 108], [x0 - s * 16, fy + 108], [x0 - s * 11, bas], [x0, bas]], teinte(t.jupe, .95));
+    trait(g, [[x0 - s * 16, fy + 108], [x0 - s * 11, bas]], "rgba(0,0,0,.45)", 1.2);
+  }
   g.fillStyle = t.harnais; g.fillRect(fx, fy + 104, 128, 9);
   g.fillStyle = "#b7a06a"; g.fillRect(c - 6, fy + 103, 12, 11);
   g.fillStyle = t.harnais; g.fillRect(c - 3, fy + 106, 6, 5);
@@ -512,30 +546,32 @@ function dessinerUniformeTorse(g, t) {
     trait(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30], [bord, courte]], teinte(t.veste, .55), 1.2);
     trait(g, [[bord + s * 1.5, fy + 30], [bord + s * 1.5, courte]], "rgba(0,0,0,.3)", 2);
     // La poche de poitrine à rabat.
-    const px = s < 0 ? fx + 12 : fx + 88;
-    forme(g, [[px, fy + 34], [px + 28, fy + 34], [px + 28, fy + 58], [px, fy + 58]], teinte(t.veste, .92));
-    forme(g, [[px - 1, fy + 32], [px + 29, fy + 32], [px + 29, fy + 40], [px + 14, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
-    trait(g, [[px - 1, fy + 40], [px + 14, fy + 43], [px + 29, fy + 40]], "rgba(0,0,0,.4)", 1);
-    bouton(g, px + 14, fy + 38, "#b7a06a", 1.8);
-    couture(g, [[px, fy + 58], [px + 28, fy + 58]]);
+    const px = s < 0 ? fx + 6 : fx + 96;
+    forme(g, [[px, fy + 34], [px + 26, fy + 34], [px + 26, fy + 60], [px, fy + 60]], teinte(t.veste, .92));
+    forme(g, [[px - 1, fy + 32], [px + 27, fy + 32], [px + 27, fy + 40], [px + 13, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
+    trait(g, [[px - 1, fy + 40], [px + 13, fy + 43], [px + 27, fy + 40]], "rgba(0,0,0,.4)", 1);
+    bouton(g, px + 13, fy + 38, "#b7a06a", 1.8);
+    couture(g, [[px, fy + 60], [px + 26, fy + 60]]);
   }
   // Le bas de la veste, sa ceinture cousue.
   g.fillStyle = teinte(t.veste, .85); g.fillRect(fx, courte - 6, c - 26 - fx, 6); g.fillRect(c + 26, courte - 6, fx + 128 - c - 26, 6);
   trait(g, [[fx, courte], [c - 26, courte]], "rgba(0,0,0,.45)", 1.2);
   trait(g, [[c + 26, courte], [fx + 128, courte]], "rgba(0,0,0,.45)", 1.2);
-  // L'insigne, sur la poche gauche (à droite de l'image).
-  dessinerInsigne(g, t.insigne, fx + 102, fy + 72, .7);
+  // L'insigne, cousu sur la poche gauche (à droite de l'image), comme sur
+  // les épaules et dans le dos.
+  dessinerInsigne(g, t.insigne, fx + 109, fy + 52, .55);
   // Le harnais : deux bretelles de cuir, une sangle de poitrine, les boucles.
   const cuir = (pts, l = 5) => { trait(g, pts, t.harnais, l); trait(g, pts.map(([a, b]) => [a - 1.2, b]), "rgba(255,255,255,.08)", 1); };
-  cuir([[c - 38, fy], [c - 38, fy + 104]]);
-  cuir([[c + 38, fy], [c + 38, fy + 104]]);
-  cuir([[c - 38, fy + 64], [c + 38, fy + 64]], 4);
-  for (const xx of [c - 38, c + 38]) {
-    g.strokeStyle = "#b7a06a"; g.lineWidth = 1.2; g.strokeRect(xx - 4, fy + 60, 8, 8);
+  cuir([[c - 31, fy], [c - 31, fy + 104]]);
+  cuir([[c + 31, fy], [c + 31, fy + 104]]);
+  cuir([[c - 31, fy + 66], [c + 31, fy + 66]], 4);
+  for (const xx of [c - 31, c + 31]) {
+    g.strokeStyle = "#b7a06a"; g.lineWidth = 1.2; g.strokeRect(xx - 4, fy + 62, 8, 8);
   }
   // Et dans le dos : l'insigne, les bretelles, la sangle.
   const [bx, by, bl] = FACES.torse.B;
   drap(g, [bx, by + 92, bl, 36], t.pantalon, { ombreBas: .15 });
+  drap(g, [bx, by + 108, bl, 20], t.jupe, { ombreBas: .25, bords: false });
   g.fillStyle = t.harnais; g.fillRect(bx, by + 104, bl, 9);
   g.fillStyle = teinte(t.veste, .85); g.fillRect(bx, by + 86, bl, 6);
   trait(g, [[bx, by + 92], [bx + bl, by + 92]], "rgba(0,0,0,.45)", 1.2);
@@ -546,6 +582,7 @@ function dessinerUniformeTorse(g, t) {
   for (const k of ["R", "L"]) {
     const [x, y, l] = FACES.torse[k];
     drap(g, [x, y + 92, l, 36], t.pantalon, { ombreBas: .15 });
+    drap(g, [x, y + 108, l, 20], t.jupe, { ombreBas: .25, bords: false });
     g.fillStyle = teinte(t.veste, .85); g.fillRect(x, y + 86, l, 6);
     g.fillStyle = t.harnais; g.fillRect(x, y + 104, l, 9);
   }
@@ -563,21 +600,43 @@ function dessinerBas(g, t) {
   for (const cote of ["droit", "gauche"]) {
     const J = FACES[cote];
     const exterieur = cote === "droit" ? "R" : "L";
+    const interieur = cote === "droit" ? "L" : "R";
     for (const k of ["U", "L", "B", "R", "F"]) drap(g, J[k], t.pantalon, { ombreBas: .18 });
     for (const k of ["L", "B", "R", "F"]) {
       const [x, y, l, h] = J[k];
+      // Le modelé : l'intérieur de la jambe dans l'ombre, l'entrejambe.
+      if (k === interieur) { g.fillStyle = "rgba(0,0,0,.1)"; g.fillRect(x, y, l, h); }
+      if (k === "F" || k === "B") modele(g, J[k], [[x, y], [x + l, y], [x + l, y + 10], [x, y + 16]], .12, 5);
       if (t.bottes) {
-        // Les sangles des cuisses, puis la botte haute jusqu'au genou.
-        for (const yy of [18, 40]) {
-          g.fillStyle = t.harnais; g.fillRect(x, y + yy, l, 5);
-          g.fillStyle = "rgba(255,255,255,.07)"; g.fillRect(x, y + yy, l, 1);
+        // La jupe de cuir sur la hanche : sur les côtés et derrière.
+        if (k !== "F") {
+          const fin = y + (k === "B" ? 30 : 24);
+          const d = g.createLinearGradient(0, y, 0, fin);
+          d.addColorStop(0, teinte(t.jupe, 1.1)); d.addColorStop(1, teinte(t.jupe, .78));
+          forme(g, [[x, y], [x + l, y], [x + l, fin - 3], [x + l / 2, fin], [x, fin - 3]], d);
+          couture(g, [[x + 3, fin - 7], [x + l / 2, fin - 4], [x + l - 3, fin - 7]], "rgba(255,255,255,.2)");
+          modele(g, J[k], [[x, fin - 2], [x + l, fin - 2], [x + l, fin + 5], [x, fin + 5]], .2, 3);
         }
+        // Les sangles : l'une tourne en biais autour de la cuisse, l'autre
+        // serre au-dessus du genou ; une lanière descend sur l'extérieur.
+        const sangle = (pts, larg = 3.4) => {
+          trait(g, pts, t.harnais, larg);
+          trait(g, pts.map(([a, b]) => [a, b - larg / 3]), "rgba(255,255,255,.1)", .7);
+        };
+        // Elle monte de l'extérieur (bas) vers l'intérieur (haut), en miroir
+        // d'une jambe à l'autre ; les faces se raccordent bord à bord.
+        const ext = y + 32, int = y + 14;
+        const gaucheExt = (k === "F") === (cote === "droit");   // le bord gauche de la face touche-t-il l'extérieur ?
+        if (k === "F" || k === "B") sangle([[x, gaucheExt ? ext : int], [x + l, gaucheExt ? int : ext]]);
+        else sangle([[x, k === exterieur ? ext : int], [x + l, k === exterieur ? ext : int]]);
+        sangle([[x, y + 50], [x + l, y + 50]], 3);
         if (k === exterieur) {
-          g.fillStyle = t.harnais; g.fillRect(x + l / 2 - 3, y, 6, 45);
-          g.strokeStyle = "#b7a06a"; g.lineWidth = 1; g.strokeRect(x + l / 2 - 4, y + 16, 8, 8);
+          sangle([[x + l / 2, y + 20], [x + l / 2, y + 50]], 4);
+          g.strokeStyle = "#b7a06a"; g.lineWidth = 1; g.strokeRect(x + l / 2 - 4, y + 28, 8, 8);
         }
-        pli(g, [[x + 16, y + 52], [x + 30, y + 58]], .6);
-        const haut = y + 66;
+        pli(g, [[x + 16, y + 42], [x + 30, y + 46]], .5);
+        // La botte de cuir, haute, jusque sous le genou.
+        const haut = y + 58;
         const d = g.createLinearGradient(0, haut, 0, y + h);
         d.addColorStop(0, teinte(t.bottes, 1.35)); d.addColorStop(.35, t.bottes); d.addColorStop(1, teinte(t.bottes, .7));
         g.fillStyle = d; g.fillRect(x, haut, l, y + h - haut);
@@ -590,6 +649,7 @@ function dessinerBas(g, t) {
           trait(g, [[x + l / 2, y + 4], [x + l / 2, y + h - 24]], "rgba(255,255,255,.11)", 1.3);
           trait(g, [[x + l / 2 + 1.2, y + 4], [x + l / 2 + 1.2, y + h - 24]], "rgba(0,0,0,.14)", 1);
         }
+        if (k === "F") modele(g, J[k], [[x + 12, y + 56], [x + l - 12, y + 56], [x + l - 16, y + 66], [x + 16, y + 66]], .08, 4);
         pli(g, [[x + 14, y + 90], [x + 32, y + 96], [x + 48, y + 92]], .5);
         g.fillStyle = "rgba(0,0,0,.28)"; g.fillRect(x, y + h - 24, l, 3);
         const d = g.createLinearGradient(0, y + h - 21, 0, y + h);
