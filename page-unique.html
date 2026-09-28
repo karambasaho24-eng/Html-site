@@ -8665,7 +8665,7 @@ function construireChamp(c, refs2) {
   }
   if (c.type === "choix") {
     let courant2 = c.valeur ?? c.options?.[0]?.valeur ?? "";
-    const cache = el("input", { type: "hidden", value: courant2, ref: capter });
+    const cache2 = el("input", { type: "hidden", value: courant2, ref: capter });
     const groupe = el(
       "div.choix-objets",
       { role: "radiogroup", "aria-label": c.label },
@@ -8678,7 +8678,7 @@ function construireChamp(c, refs2) {
           "aria-checked": String(o.valeur === courant2),
           onclick: (e) => {
             courant2 = o.valeur;
-            cache.value = o.valeur;
+            cache2.value = o.valeur;
             groupe.querySelectorAll(".choix-objet").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.valeur === courant2)));
             c.onchoix?.(o.valeur);
           }
@@ -8688,12 +8688,12 @@ function construireChamp(c, refs2) {
         o.aide ? el("span.choix-objet__aide", o.aide) : null
       ))
     );
-    return el("div.champ", el("span.champ__label", c.label), groupe, cache);
+    return el("div.champ", el("span.champ__label", c.label), groupe, cache2);
   }
   if (c.type === "couleur") {
     const teintes = ["olive", "laiton", "ardoise", "oxblood", "pourpre", "encre"];
     let courante = c.valeur || "olive";
-    const cache = el("input", { type: "hidden", value: courante, ref: capter });
+    const cache2 = el("input", { type: "hidden", value: courante, ref: capter });
     const groupe = el(
       "div.ligne-flex.enrouler",
       teintes.map((t) => el("button.teinte", {
@@ -8704,13 +8704,13 @@ function construireChamp(c, refs2) {
         "aria-label": t,
         onclick: (e) => {
           courante = t;
-          cache.value = t;
+          cache2.value = t;
           groupe.querySelectorAll(".teinte").forEach((b) => b.setAttribute("aria-pressed", "false"));
           e.currentTarget.setAttribute("aria-pressed", "true");
         }
       }))
     );
-    return el("div.champ", el("span.champ__label", c.label), groupe, cache);
+    return el("div.champ", el("span.champ__label", c.label), groupe, cache2);
   }
   return el(
     "label.champ",
@@ -11666,8 +11666,8 @@ function demenager(vers) {
   vers.body.className = document.body.className;
   definirHote(vers);
 }
-async function ouvrirFenetreFlottante(forme = null) {
-  const voulue = FORMES.find((f) => f.cle === forme);
+async function ouvrirFenetreFlottante(forme2 = null) {
+  const voulue = FORMES.find((f) => f.cle === forme2);
   if (estFlottant()) {
     if (voulue) {
       redimensionner(voulue);
@@ -11764,12 +11764,12 @@ function redimensionner({ width, height }) {
     });
   }
 }
-function basculerFenetreFlottante(forme = null) {
-  if (estFlottant() && !forme) {
+function basculerFenetreFlottante(forme2 = null) {
+  if (estFlottant() && !forme2) {
     refermer();
     return false;
   }
-  return ouvrirFenetreFlottante(forme);
+  return ouvrirFenetreFlottante(forme2);
 }
 var CLE_TAILLE, IDS, FORMES, fenetre, densiteAvant;
 var init_fenetre_flottante = __esm({
@@ -12931,13 +12931,13 @@ async function vueAuth() {
     peindre();
   }
   function formConnexion() {
-    let email, motDePasse, bouton;
+    let email, motDePasse, bouton2;
     const formulaire2 = el(
       "form",
       {
         onsubmit: async (e) => {
           e.preventDefault();
-          bouton.disabled = true;
+          bouton2.disabled = true;
           try {
             await auth.connecter({ email: email.value.trim(), motDePasse: motDePasse.value });
             await chargerSession();
@@ -12946,7 +12946,7 @@ async function vueAuth() {
             aller(retour ? retour.replace(/^#/, "") : "/");
           } catch (err) {
             erreur("Connexion refus\xE9e", messageErreur(err));
-            bouton.disabled = false;
+            bouton2.disabled = false;
           }
         }
       },
@@ -12966,7 +12966,7 @@ async function vueAuth() {
         el("span.champ__label", "Mot de passe"),
         motDePasse = el("input.saisie", { type: "password", required: true, autocomplete: "current-password" })
       ),
-      bouton = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Se connecter"),
+      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Se connecter"),
       el(
         "div.ligne-flex.ligne-flex--entre",
         { style: { marginTop: "var(--e-4)" } },
@@ -12986,7 +12986,7 @@ async function vueAuth() {
     return formulaire2;
   }
   function formInscription() {
-    let nom, email, motDePasse, bouton;
+    let nom, email, motDePasse, bouton2;
     return el(
       "form",
       {
@@ -12996,7 +12996,7 @@ async function vueAuth() {
             erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
             return;
           }
-          bouton.disabled = true;
+          bouton2.disabled = true;
           try {
             const sortie = await auth.inscrire({
               email: email.value.trim(),
@@ -13016,7 +13016,7 @@ async function vueAuth() {
             aller("/");
           } catch (err) {
             erreur("Inscription impossible", messageErreur(err));
-            bouton.disabled = false;
+            bouton2.disabled = false;
           }
         }
       },
@@ -13048,7 +13048,7 @@ async function vueAuth() {
         { style: { marginBottom: "var(--e-4)" } },
         `Un seul type de compte. Vous serez ${L("professeur")} des ${L("classes")} que vous cr\xE9ez, ${L("eleve")} de celles que vous rejoignez avec un code.`
       ),
-      bouton = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Cr\xE9er mon compte"),
+      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Cr\xE9er mon compte"),
       el(
         "div.centre",
         { style: { marginTop: "var(--e-4)" } },
@@ -13062,20 +13062,20 @@ async function vueAuth() {
     );
   }
   function formLien() {
-    let email, bouton;
+    let email, bouton2;
     return el(
       "form",
       {
         onsubmit: async (e) => {
           e.preventDefault();
-          bouton.disabled = true;
+          bouton2.disabled = true;
           try {
             await auth.lienMagique(email.value.trim());
             succes("Lien envoy\xE9", "Consultez votre bo\xEEte de r\xE9ception.");
           } catch (err) {
             erreur("Envoi impossible", messageErreur(err));
           } finally {
-            bouton.disabled = false;
+            bouton2.disabled = false;
           }
         }
       },
@@ -13090,7 +13090,7 @@ async function vueAuth() {
         el("span.champ__label", "Adresse de courriel"),
         email = el("input.saisie", { type: "email", required: true, autocomplete: "email" })
       ),
-      bouton = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Recevoir le lien"),
+      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Recevoir le lien"),
       el(
         "div.centre",
         { style: { marginTop: "var(--e-4)" } },
@@ -13145,6 +13145,248 @@ var init_auth = __esm({
       ["classe", "Une classe, un code", "Le professeur donne un code, les \xE9l\xE8ves entrent et rejoignent la session."],
       ["robot", "Roblox reste le jeu", "Toute la logique scolaire vit ici : le serveur RP ne s'alourdit pas."]
     ];
+  }
+});
+
+// src/features/tenues.js
+function teinte(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c * k)));
+  return `rgb(${f(n >> 16)}, ${f(n >> 8 & 255)}, ${f(n & 255)})`;
+}
+function tissu(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12 } = {}) {
+  const d = g.createLinearGradient(0, y, 0, y + h);
+  d.addColorStop(0, teinte(couleur, 1.08));
+  d.addColorStop(1, teinte(couleur, 1 - ombreBas));
+  g.fillStyle = d;
+  g.fillRect(x, y, l, h);
+  for (let i = 0; i < l * h / 7; i++) {
+    g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "0,0,0"},${Math.random() * 0.05})`;
+    g.fillRect(x + Math.random() * l, y + Math.random() * h, 1, 1);
+  }
+  if (rayure) {
+    g.fillStyle = `rgba(255,255,255,${rayure})`;
+    for (let i = x + 3; i < x + l; i += 6) g.fillRect(i, y, 1, h);
+  }
+}
+function trait(g, points, couleur, largeur = 1) {
+  g.strokeStyle = couleur;
+  g.lineWidth = largeur;
+  g.beginPath();
+  g.moveTo(...points[0]);
+  for (const p of points.slice(1)) g.lineTo(...p);
+  g.stroke();
+}
+function forme(g, points, couleur) {
+  g.fillStyle = couleur;
+  g.beginPath();
+  g.moveTo(...points[0]);
+  for (const p of points.slice(1)) g.lineTo(...p);
+  g.closePath();
+  g.fill();
+}
+function bouton(g, x, y, couleur) {
+  g.fillStyle = teinte(couleur, 0.55);
+  g.beginPath();
+  g.arc(x, y, 3, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "rgba(255,255,255,.18)";
+  g.beginPath();
+  g.arc(x - 1, y - 1, 1.2, 0, Math.PI * 2);
+  g.fill();
+}
+function dessinerChemise(g, t) {
+  const T2 = FACES.torse;
+  for (const k of ["R", "L", "B", "U", "D"]) tissu(g, T2[k], t.veste, { rayure: t.rayure });
+  tissu(g, T2.F, t.veste, { rayure: t.rayure });
+  const [bx, by, bl, bh] = T2.B;
+  trait(g, [[bx + bl / 2, by], [bx + bl / 2, by + bh]], "rgba(0,0,0,.35)", 1.5);
+  g.fillStyle = "rgba(0,0,0,.12)";
+  g.fillRect(bx, by, bl, 10);
+  trait(g, [[bx + bl / 2, by + bh - 22], [bx + bl / 2, by + bh]], "rgba(0,0,0,.5)", 2);
+  for (const k of ["R", "L"]) {
+    const [x2, y2, l, h] = T2[k];
+    trait(g, [[x2 + l / 2, y2], [x2 + l / 2, y2 + h]], "rgba(0,0,0,.25)", 1);
+  }
+  const [dx, dy, dl, dh] = T2.D;
+  g.fillStyle = "#141414";
+  g.fillRect(dx, dy + dh / 2 - 4, dl, 8);
+  const [x, y] = T2.F;
+  const c = x + 64;
+  const creux = t.ouverte ? 118 : t.gilet ? 92 : 70;
+  if (t.gilet) {
+    forme(g, [[c - 34, y], [c + 34, y], [c + 30, y + 128], [c - 30, y + 128]], t.gilet);
+    tissu(g, [c - 30, y + 20, 60, 108], t.gilet, { ombreBas: 0.2 });
+    for (const yy of [60, 78, 96, 114]) bouton(g, c, y + yy, t.gilet);
+  }
+  forme(g, [[c - 22, y], [c + 22, y], [c, y + (t.gilet ? 56 : creux)]], t.chemise);
+  forme(g, [[c - 22, y], [c - 3, y + 4], [c - 12, y + 18]], teinte(t.chemise, 0.9));
+  forme(g, [[c + 22, y], [c + 3, y + 4], [c + 12, y + 18]], teinte(t.chemise, 0.9));
+  if (t.cravate) {
+    const w = t.largeurCravate || 8;
+    forme(g, [[c - w / 2 + 1, y + 5], [c + w / 2 - 1, y + 5], [c + w / 2 - 2, y + 12], [c - w / 2 + 2, y + 12]], teinte(t.cravate, 0.85));
+    forme(g, [[c - w / 2 + 2, y + 12], [c + w / 2 - 2, y + 12], [c + w / 2 + 1, y + 50], [c, y + 58], [c - w / 2 - 1, y + 50]], t.cravate);
+    trait(g, [[c, y + 14], [c, y + 55]], "rgba(0,0,0,.15)", 1);
+  }
+  const pan = t.ouverte ? 30 : 0;
+  forme(g, [[x, y], [c - 22, y], [c - 2 - pan, y + creux], [c - 2 - pan, y + 128], [x, y + 128]], t.veste);
+  forme(g, [[x + 128, y], [c + 22, y], [c + 2 + pan, y + creux], [c + 2 + pan, y + 128], [x + 128, y + 128]], t.veste);
+  tissu(g, [x, y + creux, c - 2 - pan - x, 128 - creux], t.veste, { rayure: t.rayure });
+  tissu(g, [c + 2 + pan, y + creux, x + 128 - c - 2 - pan, 128 - creux], t.veste, { rayure: t.rayure });
+  const revers = teinte(t.veste, t.ouverte ? 0.8 : 1.25);
+  forme(g, [[c - 22, y], [c - 32, y + 14], [c - 14, y + 30], [c - 2 - pan, y + creux]], revers);
+  forme(g, [[c + 22, y], [c + 32, y + 14], [c + 14, y + 30], [c + 2 + pan, y + creux]], revers);
+  trait(g, [[c - 22, y], [c - 2 - pan, y + creux], [c - 2 - pan, y + 128]], "rgba(0,0,0,.45)", 1.5);
+  trait(g, [[c + 22, y], [c + 2 + pan, y + creux], [c + 2 + pan, y + 128]], "rgba(0,0,0,.45)", 1.5);
+  if (!t.ouverte) {
+    const cols = t.croise ? [c - 10, c + 10] : [c + 5];
+    for (const bx2 of cols) for (const yy of t.croise ? [82, 102] : [84, 104]) bouton(g, bx2, y + yy, t.veste);
+  }
+  trait(g, [[x + 86, y + 40], [x + 104, y + 38]], teinte(t.veste, 0.55), 2);
+  g.fillStyle = "#f2f1ec";
+  g.fillRect(x + 90, y + 34, 9, 4);
+  trait(g, [[x + 10, y + 100], [x + 34, y + 100]], teinte(t.veste, 0.55), 2);
+  trait(g, [[x + 94, y + 100], [x + 118, y + 100]], teinte(t.veste, 0.55), 2);
+  for (const cote of ["droit", "gauche"]) {
+    const B = FACES[cote];
+    for (const k of ["U", "D", "L", "B", "R", "F"]) tissu(g, B[k], t.veste, { rayure: t.rayure });
+    for (const k of ["L", "B", "R", "F"]) {
+      const [mx, my, ml, mh] = B[k];
+      g.fillStyle = "rgba(0,0,0,.18)";
+      g.fillRect(mx, my, ml, 6);
+      g.fillStyle = t.poignets || teinte(t.veste, 0.7);
+      g.fillRect(mx, my + mh - 9, ml, 9);
+      trait(g, [[mx, my + mh - 16], [mx + ml, my + mh - 16]], "rgba(0,0,0,.35)", 1);
+      if (k === "F") for (const yy of [mh - 24, mh - 30]) bouton(g, mx + ml - 12, my + yy, t.veste);
+    }
+    const [hx, hy, hl, hh] = B.D;
+    g.fillStyle = "#e8c9a6";
+    g.fillRect(hx, hy, hl, hh);
+  }
+}
+function dessinerPantalon(g, t) {
+  const T2 = FACES.torse;
+  for (const k of Object.keys(T2)) tissu(g, T2[k], t.pantalon);
+  for (const cote of ["droit", "gauche"]) {
+    const J = FACES[cote];
+    for (const k of ["U", "L", "B", "R", "F"]) tissu(g, J[k], t.pantalon, { ombreBas: 0.18 });
+    for (const k of ["L", "B", "R", "F"]) {
+      const [x2, y2, l2, h2] = J[k];
+      if (k === "F" || k === "B") trait(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 22]], "rgba(255,255,255,.12)", 1.5);
+      g.fillStyle = "rgba(0,0,0,.25)";
+      g.fillRect(x2, y2 + h2 - 24, l2, 3);
+      const d = g.createLinearGradient(0, y2 + h2 - 20, 0, y2 + h2);
+      d.addColorStop(0, teinte(t.chaussures, 1.15));
+      d.addColorStop(1, teinte(t.chaussures, 0.8));
+      g.fillStyle = d;
+      g.fillRect(x2, y2 + h2 - 20, l2, 20);
+      g.fillStyle = "rgba(0,0,0,.55)";
+      g.fillRect(x2, y2 + h2 - 4, l2, 4);
+      if (k === "F") {
+        g.fillStyle = "rgba(255,255,255,.15)";
+        g.fillRect(x2 + 8, y2 + h2 - 17, l2 - 16, 2);
+      }
+    }
+    const [x, y, l, h] = J.D;
+    g.fillStyle = "#0b0b0b";
+    g.fillRect(x, y, l, h);
+  }
+}
+function toilesTenue(nom) {
+  if (cache.has(nom)) return cache.get(nom);
+  const t = TENUES[nom] || TENUES["croise-noir"];
+  const toile = (dessin) => {
+    const c = document.createElement("canvas");
+    c.width = GABARIT.l;
+    c.height = GABARIT.h;
+    dessin(c.getContext("2d"), t);
+    return c;
+  };
+  const x = { chemise: toile(dessinerChemise), pantalon: toile(dessinerPantalon) };
+  cache.set(nom, x);
+  return x;
+}
+var GABARIT, FACES, TENUES_IMAGES, TENUES, NOMS_TENUES, cache;
+var init_tenues = __esm({
+  "src/features/tenues.js"() {
+    GABARIT = { l: 585, h: 559 };
+    FACES = {
+      torse: {
+        F: [231, 74, 128, 128],
+        R: [165, 74, 64, 128],
+        L: [361, 74, 64, 128],
+        B: [427, 74, 128, 128],
+        U: [231, 8, 128, 64],
+        D: [231, 204, 128, 64]
+      },
+      // Le bras droit (la jambe droite) : le bloc en bas à gauche.
+      droit: {
+        U: [217, 289, 64, 64],
+        D: [217, 485, 64, 64],
+        L: [19, 355, 64, 128],
+        B: [85, 355, 64, 128],
+        R: [151, 355, 64, 128],
+        F: [217, 355, 64, 128]
+      },
+      // Le bras gauche (la jambe gauche) : le bloc en bas à droite.
+      gauche: {
+        U: [308, 289, 64, 64],
+        D: [308, 485, 64, 64],
+        F: [308, 355, 64, 128],
+        L: [374, 355, 64, 128],
+        B: [440, 355, 64, 128],
+        R: [506, 355, 64, 128]
+      }
+    };
+    TENUES_IMAGES = {};
+    TENUES = {
+      "croise-noir": {
+        libelle: "Costume noir crois\xE9",
+        veste: "#1d1d21",
+        chemise: "#f2f1ec",
+        cravate: "#8e1b22",
+        largeurCravate: 9,
+        croise: true,
+        rayure: 0.05,
+        poignets: "#f2f1ec",
+        pantalon: "#1b1b1f",
+        chaussures: "#111112"
+      },
+      bordeaux: {
+        libelle: "Veste bordeaux et gilet",
+        veste: "#4b1d22",
+        gilet: "#161619",
+        chemise: "#f2efe8",
+        cravate: "#cdbb95",
+        largeurCravate: 8,
+        rayure: 0.08,
+        pantalon: "#2a2a2f",
+        chaussures: "#d9d0bb"
+      },
+      "noir-fin": {
+        libelle: "Costume noir, cravate fine",
+        veste: "#17171b",
+        chemise: "#f4f4f2",
+        cravate: "#0d0d0f",
+        largeurCravate: 5,
+        pantalon: "#17171b",
+        chaussures: "#0c0c0d",
+        poignets: "#f4f4f2"
+      },
+      "gris-bleu": {
+        libelle: "Veste grise sur gilet bleu",
+        veste: "#b8bbbe",
+        gilet: "#2f4a7a",
+        chemise: "#e7ecf2",
+        cravate: null,
+        ouverte: true,
+        pantalon: "#d7d8da",
+        chaussures: "#3a3a3c",
+        poignets: "#2f4a7a"
+      }
+    };
+    NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
+    cache = /* @__PURE__ */ new Map();
   }
 });
 
@@ -13225,8 +13467,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     t.anisotropy = 4;
     return t;
   }
-  const veines = (g, l, h, teinte, clarte) => {
-    g.fillStyle = `hsl(${teinte}, 38%, ${clarte}%)`;
+  const veines = (g, l, h, teinte2, clarte) => {
+    g.fillStyle = `hsl(${teinte2}, 38%, ${clarte}%)`;
     g.fillRect(0, 0, l, h);
     for (let i = 0; i < 180; i++) {
       const y = Math.random() * h;
@@ -13287,18 +13529,18 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   const matTable = new THREE.MeshStandardMaterial({ map: TEX.table, roughness: 0.5 });
   const matMetal = matDe("#2d3033", { metalness: 0.6, roughness: 0.45 });
   function boiteRonde(l, h, p, r = 0.12) {
-    const forme = new THREE.Shape();
+    const forme2 = new THREE.Shape();
     const x = -l / 2 + r, y = -h / 2 + r, L2 = l - 2 * r, H = h - 2 * r;
-    forme.moveTo(x, y);
-    forme.lineTo(x + L2, y);
-    forme.quadraticCurveTo(x + L2 + r, y, x + L2 + r, y + r);
-    forme.lineTo(x + L2 + r, y + H);
-    forme.quadraticCurveTo(x + L2 + r, y + H + r, x + L2, y + H + r);
-    forme.lineTo(x, y + H + r);
-    forme.quadraticCurveTo(x - r, y + H + r, x - r, y + H);
-    forme.lineTo(x - r, y + r);
-    forme.quadraticCurveTo(x - r, y, x, y);
-    const g = new THREE.ExtrudeGeometry(forme, {
+    forme2.moveTo(x, y);
+    forme2.lineTo(x + L2, y);
+    forme2.quadraticCurveTo(x + L2 + r, y, x + L2 + r, y + r);
+    forme2.lineTo(x + L2 + r, y + H);
+    forme2.quadraticCurveTo(x + L2 + r, y + H + r, x + L2, y + H + r);
+    forme2.lineTo(x, y + H + r);
+    forme2.quadraticCurveTo(x - r, y + H + r, x - r, y + H);
+    forme2.lineTo(x - r, y + r);
+    forme2.quadraticCurveTo(x - r, y, x, y);
+    const g = new THREE.ExtrudeGeometry(forme2, {
       depth: Math.max(0.01, p - 2 * r),
       bevelEnabled: true,
       bevelThickness: r,
@@ -13326,8 +13568,6 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   }
   const GEO = {
     tete: new THREE.LatheGeometry(profilTete, 28),
-    torse: boiteRonde(2, 2, 1, 0.06),
-    membre: boiteRonde(1, 2, 1, 0.06),
     bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
     main: new THREE.SphereGeometry(0.3, 14, 10),
     cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
@@ -13337,8 +13577,6 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
     oeil: new THREE.SphereGeometry(0.075, 10, 8),
     sourire: new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI),
-    plastron: boiteRonde(0.62, 1.1, 0.04, 0.015),
-    cravate: boiteRonde(0.2, 0.95, 0.05, 0.02),
     cheveuxCourts: new THREE.SphereGeometry(0.7, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.64),
     cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
     chignon: new THREE.SphereGeometry(0.32, 14, 10),
@@ -13352,24 +13590,55 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       m.receiveShadow = true;
     }
   });
-  function personnage(cle) {
+  function blocHabille(l, h, p, faces) {
+    const g = new THREE.BoxGeometry(l, h, p);
+    const uv = g.attributes.uv;
+    ["R", "L", "U", "D", "B", "F"].forEach((cle, f) => {
+      const [x0, y0, lf, hf] = faces[cle];
+      for (let i = f * 4; i < f * 4 + 4; i++) {
+        const u = uv.getX(i), v = uv.getY(i);
+        uv.setXY(i, (x0 + u * lf) / GABARIT.l, 1 - (y0 + (1 - v) * hf) / GABARIT.h);
+      }
+    });
+    uv.needsUpdate = true;
+    return g;
+  }
+  const GEO_TENUE = {
+    torse: blocHabille(2, 2, 1, FACES.torse),
+    droit: blocHabille(1, 2, 1, FACES.droit),
+    gauche: blocHabille(1, 2, 1, FACES.gauche)
+  };
+  for (const g of Object.values(GEO_TENUE)) PARTAGEES.add(g);
+  const cacheTenues = /* @__PURE__ */ new Map();
+  function matieresTenue(nom) {
+    if (cacheTenues.has(nom)) return cacheTenues.get(nom);
+    const fichiers2 = TENUES_IMAGES[nom];
+    const toiles = fichiers2 ? null : toilesTenue(nom);
+    const texture2 = (c) => {
+      const t = typeof c === "string" ? new THREE.TextureLoader().load(c) : new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    };
+    const m = {
+      chemise: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.chemise || toiles.chemise), roughness: 0.82 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.pantalon || toiles.pantalon), roughness: 0.85 })
+    };
+    cacheTenues.set(nom, m);
+    return m;
+  }
+  function personnage(cle, tenue = null) {
     const alea = graine(cle);
     const peau = matDe(choisir(alea, PEAUX));
-    const costume = matDe(choisir(alea, COSTUMES), { roughness: 0.9 });
-    const pantalon = matDe(choisir(alea, ["#1b1d22", "#23262d", "#2a2d33"]), { roughness: 0.9 });
+    const habit = matieresTenue(tenue || choisir(alea, NOMS_TENUES));
     const cheveux = matDe(choisir(alea, CHEVEUX), { roughness: 0.7 });
-    const chemise = matDe(choisir(alea, ["#eef0f2", "#dfe6ee", "#e9e3d6"]));
     const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
     const racine = new THREE.Group();
     const bassin = new THREE.Group();
     racine.add(bassin);
-    const torse = new THREE.Mesh(GEO.torse, costume);
+    const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
     torse.position.y = 1;
-    const plastron = new THREE.Mesh(GEO.plastron, chemise);
-    plastron.position.set(0, 1.45, -0.51);
-    const cravate = new THREE.Mesh(GEO.cravate, matDe(choisir(alea, ["#6b1f24", "#1f2f55", "#2c3b2a", "#3a2a4a"])));
-    cravate.position.set(0, 1.4, -0.54);
-    bassin.add(torse, plastron, cravate);
+    bassin.add(torse);
     const tete = new THREE.Group();
     tete.position.y = 2;
     bassin.add(tete);
@@ -13391,10 +13660,10 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       c.position.set(0, 1.05, 0.55);
       tete.add(c);
     }
-    const membre = (x, y, mat) => {
+    const membre = (x, y, geo, mat) => {
       const epaule = new THREE.Group();
       epaule.position.set(x, y, 0);
-      const bloc = new THREE.Mesh(GEO.membre, mat);
+      const bloc = new THREE.Mesh(geo, mat);
       bloc.position.y = -0.9;
       const coude = new THREE.Group();
       coude.position.y = -1.85;
@@ -13403,10 +13672,10 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       epaule.add(bloc, coude);
       return { epaule, coude, bout };
     };
-    const brasG = membre(-1.5, 1.9, costume);
-    const brasD = membre(1.5, 1.9, costume);
-    const jambeG = membre(-0.5, 0.1, pantalon);
-    const jambeD = membre(0.5, 0.1, pantalon);
+    const brasG = membre(-1.5, 1.9, GEO_TENUE.gauche, habit.chemise);
+    const brasD = membre(1.5, 1.9, GEO_TENUE.droit, habit.chemise);
+    const jambeG = membre(-0.5, 0.1, GEO_TENUE.gauche, habit.pantalon);
+    const jambeD = membre(0.5, 0.1, GEO_TENUE.droit, habit.pantalon);
     for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
     ombrer(racine);
     const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null };
@@ -13856,7 +14125,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       return;
     }
     if (!prof) {
-      const q = personnage(`prof:${p.nom}`);
+      const q = personnage(`prof:${p.nom}`, "gris-bleu");
       scene.add(q.racine);
       prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null };
       placerProf();
@@ -14039,17 +14308,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
   };
 }
-var THREE_LOCAL, THREE_CDN, promesseThree, choisir, PEAUX, CHEVEUX, COSTUMES, OUTILS_MAIN, POSE, LARGEUR;
+var THREE_LOCAL, THREE_CDN, promesseThree, choisir, PEAUX, CHEVEUX, OUTILS_MAIN, POSE, LARGEUR;
 var init_classe_3d = __esm({
   "src/features/classe-3d.js"() {
     init_affaires();
+    init_tenues();
     THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
     THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
     promesseThree = null;
     choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste.length];
     PEAUX = ["#f2cfae", "#e6b48c", "#c98d62", "#a06a47", "#6f4731", "#f5cd30"];
     CHEVEUX = ["#17120f", "#2e2018", "#5a3a22", "#8a5a2b", "#c9a15a", "#7a2c1a", "#3b3b3b"];
-    COSTUMES = ["#2b2f36", "#3a4a66", "#5c6168", "#77736b", "#2f3a2e", "#4a3a2c", "#8a8f96", "#23262c"];
     OUTILS_MAIN = ["crayon", "plume", "stylo-plume", "craie"];
     POSE = [
       { kinds: ["cahier", "carnet", "feuille", "cahier-ouvert"], x: -0.15, z: 0.12, r: 0.06, dx: 0.5, dz: -0.05 },
@@ -16496,7 +16765,7 @@ async function sessionsEnDirect() {
   return sorties;
 }
 function rejoindre() {
-  let champ, bouton;
+  let champ, bouton2;
   async function valider() {
     const code = normaliserCode(champ.value);
     if (code.length < 7) {
@@ -16504,7 +16773,7 @@ function rejoindre() {
       champ.focus();
       return;
     }
-    bouton.disabled = true;
+    bouton2.disabled = true;
     try {
       const sortie = await classes.rejoindre(code);
       await rafraichirClasses();
@@ -16518,7 +16787,7 @@ function rejoindre() {
     } catch (err) {
       erreur("Impossible de rejoindre", messageErreur(err));
     } finally {
-      bouton.disabled = false;
+      bouton2.disabled = false;
     }
   }
   return el(
@@ -16534,7 +16803,7 @@ function rejoindre() {
         if (e.key === "Enter") valider();
       }
     }),
-    bouton = el("button.btn.btn--petit", { onclick: valider }, "Rejoindre")
+    bouton2 = el("button.btn.btn--petit", { onclick: valider }, "Rejoindre")
   );
 }
 var init_accueil = __esm({
@@ -20430,7 +20699,7 @@ function creerTableau(options = {}) {
     },
     imageFond: () => imageFond?.source || null,
     /** Position d'un curseur distant, en coordonnées relatives. */
-    curseurDistant(id, x, y, nom, teinte) {
+    curseurDistant(id, x, y, nom, teinte2) {
       if (x == null) {
         curseursDistants.get(id)?.remove();
         curseursDistants.delete(id);
@@ -20440,7 +20709,7 @@ function creerTableau(options = {}) {
       if (!noeud) {
         noeud = el(
           "div.curseur-distant",
-          el("div.curseur-distant__pointe", { style: { background: teinte || "#c9a227" } }),
+          el("div.curseur-distant__pointe", { style: { background: teinte2 || "#c9a227" } }),
           el("div.curseur-distant__nom", nom || "")
         );
         curseurs.appendChild(noeud);
@@ -20773,11 +21042,11 @@ function creerBureau({ classe, session, surChange = null }) {
           type: "button",
           title: `Sortir ${genre === "cahier" ? c.title : nomObjet(c)}`,
           onclick: async (e) => {
-            const bouton = e.currentTarget;
-            bouton.disabled = true;
-            bouton.classList.add("sac-ouvert__objet--sort");
+            const bouton2 = e.currentTarget;
+            bouton2.disabled = true;
+            bouton2.classList.add("sac-ouvert__objet--sort");
             if (await sortir(c, genre)) setTimeout(peindreSac, 220);
-            else bouton.disabled = false;
+            else bouton2.disabled = false;
           }
         },
         el("span.objet__figure", {
@@ -26571,10 +26840,10 @@ async function vueAdministration() {
         "Les deux cents derni\xE8res remises. Ouvrir un papier est une lecture, inscrite au journal comme telle."
       ),
       el("div.liste", recents.map((r) => {
-        const [libelle, teinte] = ETATS3[r.state] || ETATS3.offered;
+        const [libelle, teinte2] = ETATS3[r.state] || ETATS3.offered;
         return el(
           "div.liste__item",
-          el("span.etiq", { class: teinte }, libelle),
+          el("span.etiq", { class: teinte2 }, libelle),
           el(
             "div",
             { style: { flex: "1", minWidth: "0" } },

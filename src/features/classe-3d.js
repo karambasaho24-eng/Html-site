@@ -25,6 +25,7 @@
  * garde sa vue à plat.
  * ------------------------------------------------------------------------- */
 import { imageDetouree } from "./affaires.js";
+import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, toilesTenue } from "./tenues.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
 const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
@@ -53,7 +54,6 @@ const choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste
 
 const PEAUX = ["#f2cfae", "#e6b48c", "#c98d62", "#a06a47", "#6f4731", "#f5cd30"];
 const CHEVEUX = ["#17120f", "#2e2018", "#5a3a22", "#8a5a2b", "#c9a15a", "#7a2c1a", "#3b3b3b"];
-const COSTUMES = ["#2b2f36", "#3a4a66", "#5c6168", "#77736b", "#2f3a2e", "#4a3a2c", "#8a8f96", "#23262c"];
 
 const OUTILS_MAIN = ["crayon", "plume", "stylo-plume", "craie"];
 
@@ -219,8 +219,6 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   }
   const GEO = {
     tete: new THREE.LatheGeometry(profilTete, 28),
-    torse: boiteRonde(2, 2, 1, 0.06),
-    membre: boiteRonde(1, 2, 1, 0.06),
     bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
     main: new THREE.SphereGeometry(0.3, 14, 10),
     cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
@@ -230,8 +228,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
     oeil: new THREE.SphereGeometry(0.075, 10, 8),
     sourire: new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI),
-    plastron: boiteRonde(0.62, 1.1, 0.04, 0.015),
-    cravate: boiteRonde(0.2, 0.95, 0.05, 0.02),
+
     cheveuxCourts: new THREE.SphereGeometry(0.7, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.64),
     cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
     chignon: new THREE.SphereGeometry(0.32, 14, 10),
@@ -242,32 +239,71 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const ombrer = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
 
   /* --- Un personnage ------------------------------------------------------ */
+  /* --- Les tenues : des blocs dont chaque face montre la bonne part du
+     gabarit Roblox (585 × 559). Même découpage que le jeu : une chemise ou
+     un pantalon fait pour Roblox s'y plaque à l'identique. */
+  function blocHabille(l, h, p, faces) {
+    const g = new THREE.BoxGeometry(l, h, p);
+    const uv = g.attributes.uv;
+    // Ordre des faces de three.js : +x, -x, +y, -y, +z, -z. Le personnage
+    // regarde vers -z : -z est le devant, +z le dos, +x son côté droit.
+    ["R", "L", "U", "D", "B", "F"].forEach((cle, f) => {
+      const [x0, y0, lf, hf] = faces[cle];
+      for (let i = f * 4; i < f * 4 + 4; i++) {
+        const u = uv.getX(i), v = uv.getY(i);
+        uv.setXY(i, (x0 + u * lf) / GABARIT.l, 1 - (y0 + (1 - v) * hf) / GABARIT.h);
+      }
+    });
+    uv.needsUpdate = true;
+    return g;
+  }
+  const GEO_TENUE = {
+    torse: blocHabille(2, 2, 1, FACES.torse),
+    droit: blocHabille(1, 2, 1, FACES.droit),
+    gauche: blocHabille(1, 2, 1, FACES.gauche)
+  };
+  for (const g of Object.values(GEO_TENUE)) PARTAGEES.add(g);
+  const cacheTenues = new Map();
+  function matieresTenue(nom) {
+    if (cacheTenues.has(nom)) return cacheTenues.get(nom);
+    // Une tenue fournie en images (le vrai vêtement du jeu) prime sur le dessin.
+    const fichiers = TENUES_IMAGES[nom];
+    const toiles = fichiers ? null : toilesTenue(nom);
+    const texture = (c) => {
+      const t = typeof c === "string" ? new THREE.TextureLoader().load(c) : new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    };
+    const m = {
+      chemise: new THREE.MeshStandardMaterial({ map: texture(fichiers?.chemise || toiles.chemise), roughness: .82 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture(fichiers?.pantalon || toiles.pantalon), roughness: .85 })
+    };
+    cacheTenues.set(nom, m);
+    return m;
+  }
+
   /* --- Un personnage : la silhouette classique de Roblox -------------------
      Une tête cylindrique aux bords adoucis, un torse carré, deux bras et deux
      jambes d'un seul bloc. Pas de visage : ni yeux, ni sourire. Un costume
      ouvert sur la chemise et la cravate, et des cheveux pour qu'on ne voie
      pas des crânes nus depuis le fond de la salle. */
-  function personnage(cle) {
+  function personnage(cle, tenue = null) {
     const alea = graine(cle);
     const peau = matDe(choisir(alea, PEAUX));
-    const costume = matDe(choisir(alea, COSTUMES), { roughness: .9 });
-    const pantalon = matDe(choisir(alea, ["#1b1d22", "#23262d", "#2a2d33"]), { roughness: .9 });
+    const habit = matieresTenue(tenue || choisir(alea, NOMS_TENUES));
     const cheveux = matDe(choisir(alea, CHEVEUX), { roughness: .7 });
-    const chemise = matDe(choisir(alea, ["#eef0f2", "#dfe6ee", "#e9e3d6"]));
     const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
 
     const racine = new THREE.Group();
     const bassin = new THREE.Group();          // le bas du torse, où naissent les jambes
     racine.add(bassin);
 
-    const torse = new THREE.Mesh(GEO.torse, costume);
+    // Le torse porte la chemise ; tout le dessin (col, cravate, revers,
+    // boutons) est dans l'image, comme dans le jeu.
+    const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
     torse.position.y = 1;
-    // Le costume ouvert : la chemise en V et la cravate, sur le devant.
-    const plastron = new THREE.Mesh(GEO.plastron, chemise);
-    plastron.position.set(0, 1.45, -0.51);
-    const cravate = new THREE.Mesh(GEO.cravate, matDe(choisir(alea, ["#6b1f24", "#1f2f55", "#2c3b2a", "#3a2a4a"])));
-    cravate.position.set(0, 1.4, -0.54);
-    bassin.add(torse, plastron, cravate);
+    bassin.add(torse);
 
     const tete = new THREE.Group();
     tete.position.y = 2;
@@ -293,10 +329,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
     /* Un membre d'un seul bloc, pendu à son articulation. Le « bout » est un
        repère au bas du bloc : c'est là que la main tient le crayon. */
-    const membre = (x, y, mat) => {
+    const membre = (x, y, geo, mat) => {
       const epaule = new THREE.Group();
       epaule.position.set(x, y, 0);
-      const bloc = new THREE.Mesh(GEO.membre, mat);
+      const bloc = new THREE.Mesh(geo, mat);
       bloc.position.y = -0.9;
       const coude = new THREE.Group();          // gardé pour les gestes, invisible
       coude.position.y = -1.85;
@@ -305,10 +341,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       epaule.add(bloc, coude);
       return { epaule, coude, bout };
     };
-    const brasG = membre(-1.5, 1.9, costume);
-    const brasD = membre(1.5, 1.9, costume);
-    const jambeG = membre(-0.5, 0.1, pantalon);
-    const jambeD = membre(0.5, 0.1, pantalon);
+    const brasG = membre(-1.5, 1.9, GEO_TENUE.gauche, habit.chemise);
+    const brasD = membre(1.5, 1.9, GEO_TENUE.droit, habit.chemise);
+    const jambeG = membre(-0.5, 0.1, GEO_TENUE.gauche, habit.pantalon);
+    const jambeD = membre(0.5, 0.1, GEO_TENUE.droit, habit.pantalon);
     for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
     ombrer(racine);
 
@@ -782,7 +818,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       return;
     }
     if (!prof) {
-      const q = personnage(`prof:${p.nom}`);
+      const q = personnage(`prof:${p.nom}`, "gris-bleu");
       scene.add(q.racine);
       prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null };
       placerProf();
