@@ -10,9 +10,10 @@
  *     le président à la tête, soi-même au bord le plus proche. La table
  *     s'agrandit avec le nombre de convives.
  *
- * Les personnages sont dans l'esprit de Roblox — têtes rondes, membres
- * arrondis, un costume sombre, des cheveux — et ce que chacun a SORTI de son
- * sac est posé devant lui : son cahier, sa plume, son encrier, photographiés.
+ * Les personnages ont la silhouette classique de Roblox — tête ronde sans
+ * visage, torse carré, bras et jambes d’un bloc, un costume, des cheveux —
+ * et ce que chacun a SORTI de son sac est posé devant lui : son cahier, sa
+ * plume, son encrier, photographiés.
  * Le crayon qu'il tient est dans sa main. Une main levée se voit.
  *
  * Le tableau est VIVANT : sa texture est la toile même du tableau de la
@@ -52,7 +53,7 @@ const choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste
 
 const PEAUX = ["#f2cfae", "#e6b48c", "#c98d62", "#a06a47", "#6f4731", "#f5cd30"];
 const CHEVEUX = ["#17120f", "#2e2018", "#5a3a22", "#8a5a2b", "#c9a15a", "#7a2c1a", "#3b3b3b"];
-const COSTUMES = ["#23272e", "#1d2536", "#2b2b30", "#353a42", "#1f1f23", "#2a3140"];
+const COSTUMES = ["#2b2f36", "#3a4a66", "#5c6168", "#77736b", "#2f3a2e", "#4a3a2c", "#8a8f96", "#23262c"];
 
 const OUTILS_MAIN = ["crayon", "plume", "stylo-plume", "craie"];
 
@@ -204,7 +205,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   }
   const profilTete = [];
   {
-    const R = 0.62, H = 1.2, r = 0.3;
+    const R = 0.62, H = 1.2, r = 0.2;
     profilTete.push(new THREE.Vector2(0, -H / 2));
     for (let i = 0; i <= 6; i++) {
       const a = -Math.PI / 2 + (i / 6) * (Math.PI / 2);
@@ -218,7 +219,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   }
   const GEO = {
     tete: new THREE.LatheGeometry(profilTete, 28),
-    torse: boiteRonde(1.9, 1.95, 0.95, 0.2),
+    torse: boiteRonde(2, 2, 1, 0.06),
+    membre: boiteRonde(1, 2, 1, 0.06),
     bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
     main: new THREE.SphereGeometry(0.3, 14, 10),
     cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
@@ -228,9 +230,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
     oeil: new THREE.SphereGeometry(0.075, 10, 8),
     sourire: new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI),
-    plastron: boiteRonde(0.5, 0.9, 0.05, 0.02),
-    cravate: boiteRonde(0.18, 0.8, 0.06, 0.03),
-    cheveuxCourts: new THREE.SphereGeometry(0.68, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    plastron: boiteRonde(0.62, 1.1, 0.04, 0.015),
+    cravate: boiteRonde(0.2, 0.95, 0.05, 0.02),
+    cheveuxCourts: new THREE.SphereGeometry(0.7, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.64),
     cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
     chignon: new THREE.SphereGeometry(0.32, 14, 10),
     plan: new THREE.PlaneGeometry(1, 1),
@@ -240,85 +242,73 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const ombrer = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
 
   /* --- Un personnage ------------------------------------------------------ */
+  /* --- Un personnage : la silhouette classique de Roblox -------------------
+     Une tête cylindrique aux bords adoucis, un torse carré, deux bras et deux
+     jambes d'un seul bloc. Pas de visage : ni yeux, ni sourire. Un costume
+     ouvert sur la chemise et la cravate, et des cheveux pour qu'on ne voie
+     pas des crânes nus depuis le fond de la salle. */
   function personnage(cle) {
     const alea = graine(cle);
     const peau = matDe(choisir(alea, PEAUX));
     const costume = matDe(choisir(alea, COSTUMES), { roughness: .9 });
     const pantalon = matDe(choisir(alea, ["#1b1d22", "#23262d", "#2a2d33"]), { roughness: .9 });
     const cheveux = matDe(choisir(alea, CHEVEUX), { roughness: .7 });
-    const chemise = matDe("#eef0f2");
-    const noir = matDe("#141416", { roughness: .4 });
+    const chemise = matDe(choisir(alea, ["#eef0f2", "#dfe6ee", "#e9e3d6"]));
     const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
 
     const racine = new THREE.Group();
-    const bassin = new THREE.Group();
+    const bassin = new THREE.Group();          // le bas du torse, où naissent les jambes
     racine.add(bassin);
 
     const torse = new THREE.Mesh(GEO.torse, costume);
-    torse.position.y = 0.98;
-    const col = new THREE.Mesh(GEO.col, chemise);
-    col.position.y = 1.98;
-    // Le devant : le plastron et la cravate. On les voit en réunion, de face.
+    torse.position.y = 1;
+    // Le costume ouvert : la chemise en V et la cravate, sur le devant.
     const plastron = new THREE.Mesh(GEO.plastron, chemise);
-    plastron.position.set(0, 1.55, -0.49);
+    plastron.position.set(0, 1.45, -0.51);
     const cravate = new THREE.Mesh(GEO.cravate, matDe(choisir(alea, ["#6b1f24", "#1f2f55", "#2c3b2a", "#3a2a4a"])));
-    cravate.position.set(0, 1.5, -0.53);
-    bassin.add(torse, col, plastron, cravate);
+    cravate.position.set(0, 1.4, -0.54);
+    bassin.add(torse, plastron, cravate);
 
     const tete = new THREE.Group();
-    tete.position.y = 2.1;
+    tete.position.y = 2;
     bassin.add(tete);
-    const cou = new THREE.Mesh(GEO.cou, peau);
-    cou.position.y = 0.05;
     const crane = new THREE.Mesh(GEO.tete, peau);
-    crane.position.y = 0.72;
-    tete.add(cou, crane);
+    crane.position.y = 0.62;
+    tete.add(crane);
     const calotte = new THREE.Mesh(GEO.cheveuxCourts, cheveux);
-    calotte.position.y = 0.86;
+    calotte.position.y = 0.74;
     calotte.rotation.x = 0.28;
+    calotte.scale.set(1.04, 1, 1.04);
     tete.add(calotte);
     if (coupe === "longs") {
       const longs = new THREE.Mesh(GEO.cheveuxLongs, cheveux);
-      longs.scale.set(0.5, 0.6, 0.26);
-      longs.position.set(0, 0.42, 0.44);
+      longs.scale.set(0.5, 0.58, 0.24);
+      longs.position.set(0, 0.36, 0.44);
       tete.add(longs);
     } else if (coupe === "chignon") {
       const c = new THREE.Mesh(GEO.chignon, cheveux);
-      c.position.set(0, 1.15, 0.55);
+      c.position.set(0, 1.05, 0.55);
       tete.add(c);
     }
-    // Le visage classique : deux yeux, un sourire.
-    for (const x of [-0.2, 0.2]) {
-      const o = new THREE.Mesh(GEO.oeil, noir);
-      o.scale.set(0.9, 1.4, 0.5);
-      o.position.set(x, 0.82, -0.6);
-      tete.add(o);
-    }
-    const sourire = new THREE.Mesh(GEO.sourire, noir);
-    sourire.rotation.set(0, Math.PI, Math.PI);
-    sourire.position.set(0, 0.58, -0.6);
-    tete.add(sourire);
 
-    const membre = (x, y, geo, matA, bout) => {
+    /* Un membre d'un seul bloc, pendu à son articulation. Le « bout » est un
+       repère au bas du bloc : c'est là que la main tient le crayon. */
+    const membre = (x, y, mat) => {
       const epaule = new THREE.Group();
       epaule.position.set(x, y, 0);
-      const haut = new THREE.Mesh(geo[0], matA);
-      haut.position.y = -0.55;
-      const coude = new THREE.Group();
-      coude.position.y = -0.95;
-      const bas = new THREE.Mesh(geo[1], matA);
-      bas.position.y = -0.5;
-      coude.add(bas);
-      if (bout) coude.add(bout);
-      epaule.add(haut, coude);
+      const bloc = new THREE.Mesh(GEO.membre, mat);
+      bloc.position.y = -0.9;
+      const coude = new THREE.Group();          // gardé pour les gestes, invisible
+      coude.position.y = -1.85;
+      const bout = new THREE.Group();
+      coude.add(bout);
+      epaule.add(bloc, coude);
       return { epaule, coude, bout };
     };
-    const main = () => { const m = new THREE.Mesh(GEO.main, peau); m.position.y = -1.05; return m; };
-    const pied = () => { const s = new THREE.Mesh(GEO.chaussure, noir); s.position.set(0, -1.05, -0.2); return s; };
-    const brasG = membre(-1.3, 1.78, [GEO.bras, GEO.bras], costume, main());
-    const brasD = membre(1.3, 1.78, [GEO.bras, GEO.bras], costume, main());
-    const jambeG = membre(-0.48, 0.05, [GEO.cuisse, GEO.tibia], pantalon, pied());
-    const jambeD = membre(0.48, 0.05, [GEO.cuisse, GEO.tibia], pantalon, pied());
+    const brasG = membre(-1.5, 1.9, costume);
+    const brasD = membre(1.5, 1.9, costume);
+    const jambeG = membre(-0.5, 0.1, pantalon);
+    const jambeD = membre(0.5, 0.1, pantalon);
     for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
     ombrer(racine);
 
@@ -326,40 +316,26 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
     p.poser = (pose) => {
       p.pose = pose;
-      for (const m of [brasG, brasD, jambeG, jambeD]) { m.epaule.rotation.set(0, 0, 0); m.coude.rotation.set(0, 0, 0); }
-      jambeG.epaule.rotation.order = jambeD.epaule.rotation.order = "XYZ";
-      jambeD.coude.position.y = -0.95;
+      for (const m of [brasG, brasD, jambeG, jambeD]) {
+        m.epaule.rotation.set(0, 0, 0); m.coude.rotation.set(0, 0, 0);
+        m.epaule.rotation.order = "XYZ";
+      }
       tete.rotation.set(0, 0, 0);
-      if (pose === "debout") { bassin.position.y = 2.2; return; }
+      if (pose === "debout") { bassin.position.y = 1.9; return; }
       bassin.position.y = 0;
       if (pose === "tailleur") {
-        // Assis en tailleur : les cuisses écartées, les tibias croisés.
+        // En tailleur : les jambes en avant, croisées l'une sur l'autre.
         jambeG.epaule.rotation.order = jambeD.epaule.rotation.order = "YXZ";
-        jambeG.epaule.rotation.set(Math.PI / 2 - 0.15, 0.75, 0);
-        jambeD.epaule.rotation.set(Math.PI / 2 - 0.15, -0.75, 0);
-        jambeG.coude.rotation.z = Math.PI / 2 + 0.35;
-        jambeD.coude.rotation.z = -(Math.PI / 2 + 0.35);
-        jambeD.coude.position.y = -0.9;
+        jambeG.epaule.rotation.set(Math.PI / 2, -0.55, 0);
+        jambeD.epaule.rotation.set(Math.PI / 2 - 0.12, 0.55, 0);
       } else {
+        // Assis : les jambes droites devant soi, comme dans le jeu.
         jambeG.epaule.rotation.x = Math.PI / 2;
         jambeD.epaule.rotation.x = Math.PI / 2;
-        jambeG.coude.rotation.x = -Math.PI / 2;
-        jambeD.coude.rotation.x = -Math.PI / 2;
       }
-      if (pose === "accoude") {
-        // Le coude sur la table, la joue dans la main.
-        brasD.epaule.rotation.set(1.25, 0, 0.1);
-        brasD.coude.rotation.x = 1.9;
-        brasG.epaule.rotation.set(1.0, 0, -0.05);
-        brasG.coude.rotation.x = 0.55;
-        tete.rotation.z = -0.12;
-      } else {
-        // Les avant-bras posés sur la table.
-        brasG.epaule.rotation.set(0.95, 0, -0.08);
-        brasD.epaule.rotation.set(0.95, 0, 0.08);
-        brasG.coude.rotation.x = 0.65;
-        brasD.coude.rotation.x = 0.65;
-      }
+      // Assis comme dans le jeu : les bras le long du corps, un peu en avant.
+      brasG.epaule.rotation.set(0.32, 0, -0.05);
+      brasD.epaule.rotation.set(0.32, 0, 0.05);
     };
 
     /** Ce qu'il tient dans la main droite : un crayon, une plume, la craie. */
@@ -378,8 +354,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       pointe.position.y = -(long / 2 + 0.11);
       pointe.rotation.x = Math.PI;
       g.add(tige, pointe);
-      g.rotation.set(0.6, 0, 0.35);
-      g.position.set(0.05, -0.05, -0.12);
+      // Tenu entre les doigts, la pointe vers la feuille.
+      g.rotation.set(0.9, 0, 0.3);
+      g.position.set(0, 0.05, -0.35);
       ombrer(g);
       brasD.bout.add(g);
       p.outil = g;
@@ -710,11 +687,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   function asseoir(x, siege) {
     const { p } = x;
     const pose = dispo.reunion ? "assis"
-      : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "accoude", "assis"]);
+      : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "assis"]);
     p.poser(pose);
-    p.racine.position.set(siege.x, 1.02 + (pose === "tailleur" ? 0.1 : 0), siege.z);
+    p.racine.position.set(siege.x, 1.31 + (pose === "tailleur" ? 0.05 : 0), siege.z);
     p.racine.rotation.y = siege.angle;
-    p.racine.scale.setScalar(0.8);
+    p.racine.scale.setScalar(0.72);
     x.siege = siege;
     x.sig = null;                        // ses affaires seront reposées devant lui
   }
@@ -747,9 +724,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     if (dispo.reunion) {
       // Le président est à la tête de la table, assis comme les autres.
       p.poser("assis");
-      p.racine.position.set(dispo.tete.x, 1.02, dispo.tete.z);
+      p.racine.position.set(dispo.tete.x, 1.31, dispo.tete.z);
       p.racine.rotation.y = dispo.tete.angle;
-      p.racine.scale.setScalar(0.8);
+      p.racine.scale.setScalar(0.72);
     } else {
       p.poser("debout");
       p.racine.rotation.y = Math.PI;
@@ -924,10 +901,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
       } else if (p.brasD.epaule.rotation.x > 2) {
         p.poser(p.pose);
-      } else if (p.outil && p.pose !== "accoude") {
-        // Il écrit : la main va et vient au-dessus du cahier.
-        p.brasD.coude.rotation.x = 0.65 + Math.sin(k * 7) * 0.05;
-        p.brasD.epaule.rotation.z = 0.08 + Math.sin(k * 3.1) * 0.05;
+      } else if (p.outil) {
+        // Il écrit : le bras sur la table, la main qui va et vient.
+        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 7) * 0.03;
+        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.1) * 0.05;
       }
       // En réunion on regarde les uns, puis les autres ; en classe, le
       // tableau, avec un coup d'œil de temps en temps. Qui écrit baisse la tête.
@@ -950,7 +927,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     renderer.render(scene, camera);
     if (prof) placerEtiquette(prof.etiquette, prof.p.tete, 1.3 * prof.p.racine.scale.x);
-    for (const x of gens.values()) placerEtiquette(x.etiquette, x.p.tete, 1.3 * 0.8);
+    for (const x of gens.values()) placerEtiquette(x.etiquette, x.p.tete, 1.3 * 0.72);
   }
 
   reconstruire();
