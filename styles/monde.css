@@ -571,3 +571,8 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
   display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 10px;
 }
+
+/* La salle en 3D, dans la console au-dessus du jeu. */
+.console__classe3d { position: relative; flex: 1; min-height: 220px; overflow: hidden; border-radius: 12px; margin: 0 8px 8px; }
+.console__classe3d .classe3d__toile { display: block; width: 100%; height: 100%; }
+.console__classe3d .classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }

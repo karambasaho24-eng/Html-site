@@ -739,3 +739,5 @@
 .scene[data-etat="sac"] .scene__sac-zone { top: 10px; align-items: center; }
 .scene[data-etat="sac"] .scene__sac { width: clamp(140px, 15vw, 210px); }
 .scene[data-etat="sac"] .sac__contenu { left: auto; transform: none; width: min(880px, calc(100vw - 40px)); max-height: none; }
+.classe3d__nom--main::before { content: "✋ "; }
+.classe3d__nom--main { background: var(--accent); color: #15130f; }

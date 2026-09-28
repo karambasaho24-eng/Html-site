@@ -133,6 +133,8 @@ export default async function vueSalle({ params }) {
     classe, session,
     surChange: async () => {
       mesAffaires = bureau.objets();
+      // Ce que je sors, les autres le voient se poser sur ma table.
+      try { majPresence(); } catch { /* le canal n'est pas encore ouvert */ }
       decor?.peindre();
       peindreDock();
       if (["bureau", "sac"].includes(consoleSalle?.ouvert())) consoleSalle.rafraichir();
@@ -185,12 +187,15 @@ export default async function vueSalle({ params }) {
     meneur: () => modeSeance.meneur || L("Professeur"),
     participants: () => participants,
     nomDe: nomPersonne,
-    surTableau: () => appliquerFenetre("document"),
+    // En petite fenêtre, le tableau s'ouvre dans la console, pas en grand.
+    surTableau: () => (petit() ? consoleSalle.ouvrir("tableau") : appliquerFenetre("document")),
     surCahier: (c) => { cahierOuvertId = c.id; appliquerFenetre("cahier"); },
     surDossier: () => ouvrirMesDossiers(),
     surNote: () => noteRapide(),
     surPersonne: (ancre, p) => menuPersonne(ancre, p),
-    surEstrade: (present) => basculerEstrade(present)
+    surEstrade: (present) => basculerEstrade(present),
+    mode: () => session.mode || "cours",
+    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id)))
   });
   decor.surChangementEtat((etatDecor) => {
     const voulue = etatDecor === "bureau" && fenetre === "compact" ? "compact" : etatDecor;
@@ -225,16 +230,17 @@ export default async function vueSalle({ params }) {
       } },
       { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
       { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
-      { cle: "personnes", mot: "Personnes", figure: () => pictoPersonneConsole(), rendre: panneauPersonnes({
-        gens: gensPresents, nomDe: nomPersonne,
-        roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
-        gestes: (p) => [
-          { libelle: "Note", action: () => consoleSalle.ouvrir("note") },
-          offre(session, "papiers") ? { libelle: "Document", action: () => remettreUnPapier(p) } : null,
-          { libelle: "Objet", action: () => tendreUnObjet(p) },
-          staff ? { libelle: "Plus…", action: () => menuParticipant(document.activeElement, p, false) } : null
-        ].filter(Boolean)
-      }) },
+      { cle: "classe", get mot() { return ["reunion", "entretien"].includes(session.mode) ? "Table" : "Classe"; },
+        figure: () => icone("eleves", 22), rendre: (zone) => {
+          // La même salle en 3D, dans le panneau : qui est là, ce qu'il a
+          // sorti, le tableau. Allégée pour laisser la carte graphique au jeu.
+          zone.classList.add("console__corps--plein");
+          const hote = el("div.console__classe3d");
+          zone.appendChild(hote);
+          if (!decor.classeDans(hote)) {
+            render(zone, el("p.console__vide", "La vue en 3D n'est pas disponible sur cet appareil."));
+          }
+        } },
       { cle: "tableau", mot: "Tableau", figure: () => icone("tableau", 22), rendre: (zone) => montrerDansConsole(zone, "tableau") },
       { cle: "plus", mot: "Plus", figure: () => icone("points", 20), geste: () => menuPlusConsole() }
     ]
@@ -1388,7 +1394,7 @@ export default async function vueSalle({ params }) {
           modeSeance = modeDe(session);
           if (!offre(session, "tableau") && scene === "tableau") scene = "cahier";
           await diffuserFocus({ kind: scene, ref: null, mode: session.mode });
-          peindreBandeau(); peindrePanneau(); await peindreScene();
+          peindreBandeau(); peindrePanneau(); await peindreScene(); decor.peindre(); consoleSalle.peindreBarre();
           toast(`Séance en mode « ${m.libelle} »`);
         } catch (err) {
           erreur("Changement impossible", messageErreur(err));
@@ -2453,6 +2459,7 @@ export default async function vueSalle({ params }) {
   async function rafraichirMains() {
     listeMains = await mains.liste(session.id).catch(() => []);
     peindreBandeau();
+    decor.peindre();
     if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
   }
 
@@ -2477,9 +2484,23 @@ export default async function vueSalle({ params }) {
       nom: monNom(),
       grade: maFiche()?.rank || null,
       role: staff ? "teacher" : estObservateur() ? "observer" : "student",
-      scene, statut: "present", horodatage: Date.now()
+      scene, statut: "present", horodatage: Date.now(),
+      bureau: resumeBureau()
     });
   }, 250);
+
+  /**
+   * Ce que j'ai devant moi, tel que les autres le voient : le genre de chaque
+   * objet, et ce que je tiens. Pas plus — le contenu d'un cahier ne voyage
+   * pas avec sa couverture.
+   */
+  function resumeBureau() {
+    const tenu = bureau.enMain();
+    return [
+      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+      ...bureau.surLeBureau().map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
+    ].slice(0, 14);
+  }
 
   /* --- Canaux temps réel ------------------------------------------------------------ */
   function brancherCanalSession() {
@@ -2548,7 +2569,7 @@ export default async function vueSalle({ params }) {
               session.mode = nouveau.mode;
               modeSeance = modeDe(session);
               toast(`Séance en mode « ${modeSeance.libelle} »`, { type: "info" });
-              peindreBandeau(); peindrePanneau();
+              peindreBandeau(); peindrePanneau(); decor.peindre(); consoleSalle.peindreBarre();
             }
             if (nouveau?.focus) await appliquerFocus(nouveau.focus);
             break;
@@ -2662,7 +2683,8 @@ export default async function vueSalle({ params }) {
         meta: {
           user_id: etat.utilisateur.id, nom: monNom(),
           grade: maFiche()?.rank || null,
-          role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now()
+          role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now(),
+          bureau: resumeBureau()
         },
         surMaj: (liste) => {
           const uniques = new Map();
@@ -3024,7 +3046,7 @@ export default async function vueSalle({ params }) {
   const petit = () => ["compact", "mini"].includes(etat.taille);
   var lacherTaille = observer("taille", async () => {
     if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
-    else { consoleSalle.fermer(); await appliquerFenetre(fenetre); }
+    else { consoleSalle.fermer(); decor.classeDans(null); await appliquerFenetre(fenetre); }
   });
   if (petit()) consoleSalle.demarrer();
 

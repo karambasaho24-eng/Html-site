@@ -75,7 +75,11 @@ export function creerScene({
   // Chez soi, pas de tableau ni d'estrade : le mur porte autre chose.
   avant = null,
   // Qui mène : professeur, président de séance, chef de mission…
-  meneur = null
+  meneur = null,
+  // La mise en scène : « cours » (des rangées) ou « reunion » (une table ronde).
+  mode = () => "cours",
+  // Qui a la main levée, en ce moment.
+  mains = () => new Set()
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -531,13 +535,26 @@ export function creerScene({
   function maj3d() {
     if (!classe3d) return;
     const moiId = String(etat.utilisateur?.id || "");
+    const levees = mains();
+    const tous = participants();
+    const responsable = tous.find((p) => String(p.user_id) === String(estrade?.user_id || ""))
+      || tous.find((p) => p.role === "teacher");
+    const m = typeof mode === "function" ? mode() : mode;
     classe3d.maj({
-      eleves: participants()
+      mode: ["reunion", "entretien"].includes(m) ? "reunion" : "classe",
+      eleves: tous
         .filter((p) => p.role !== "teacher" && String(p.user_id) !== moiId)
-        .map((p) => ({ id: String(p.user_id), nom: (nomDe(p) || "Participant").split(/\s+/)[0], brut: p })),
+        .map((p) => ({
+          id: String(p.user_id),
+          nom: (nomDe(p) || "Participant").split(/\s+/)[0],
+          brut: p,
+          bureau: Array.isArray(p.bureau) ? p.bureau : [],
+          main: levees.has(String(p.user_id))
+        })),
       prof: {
         present: Boolean(estrade?.present),
-        nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur")
+        nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
+        bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : []
       }
     });
   }
@@ -558,6 +575,9 @@ export function creerScene({
     noeud, ecranTableau, livre, grand,
     /** Le professeur écrit au tableau : on le voit se tourner. */
     signalerEcriture: () => classe3d?.ecrit(),
+    /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
+    classeDans: (conteneur) => { if (classe3d) { classe3d.deplacer(conteneur || vue3d); return true; } return false; },
+    a3d: () => Boolean(classe3d),
     detruire: () => { classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,
