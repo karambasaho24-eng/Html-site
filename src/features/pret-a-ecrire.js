@@ -61,3 +61,36 @@ export async function pretAEcrire(bureau) {
   }
   return { cahier, verdict: bureau.peutFaire("ecrire") };
 }
+
+/**
+ * De quoi écrire une note : un outil sur le bureau (et son encre), une
+ * feuille. Sort du sac ce qui y est ; ne fabrique rien.
+ * @returns {Promise<boolean>} vrai si quelque chose a été sorti
+ */
+export async function pretPourUneNote(bureau) {
+  let bouge = false;
+  if (!bureau.peutFaire("ecrire").ok) {
+    const pose = bureau.surLeBureau().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
+    if (!pose) {
+      const o = range(bureau.dansMonSac().filter((x) => OUTILS_REQUIS.ecrire.includes(x.kind)))[0];
+      if (o && await bureau.sortir(o, "objet")) {
+        bouge = true;
+        if (fiche(o.kind)?.encre && !bureau.surLeBureau().some((x) => x.kind === "encrier")) {
+          const encrier = bureau.dansMonSac().find((x) => x.kind === "encrier");
+          if (encrier) await bureau.sortir(encrier, "objet");
+        }
+      }
+    }
+  }
+  if (!bureau.surLeBureau().some((o) => ["feuilles", "feuille"].includes(o.kind))) {
+    const f = bureau.dansMonSac().find((o) => ["feuilles", "feuille"].includes(o.kind) && Number(o.quantity ?? 1) > 0);
+    if (f && await bureau.sortir(f, "objet")) bouge = true;
+  }
+  return bouge;
+}
+
+/** Y a-t-il dans le sac de quoi réparer ce qui manque pour une note ? */
+export function noteReparable(bureau) {
+  const sac = bureau.dansMonSac();
+  return sac.some((o) => OUTILS_REQUIS.ecrire.includes(o.kind) || ["feuilles", "feuille"].includes(o.kind));
+}

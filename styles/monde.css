@@ -544,3 +544,30 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .chassis[data-taille="compact"] .presence .presence__long,
 .chassis[data-taille="compact"] .contexte__direct { font-size: 0; gap: 0; padding: 0 8px; }
 .chassis[data-taille="compact"] .presence { padding: 0 9px; gap: 0; }
+
+/* « Au-dessus du jeu » : dit en toutes lettres, c'est le geste qui compte. */
+.contexte__action {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px; margin-right: 4px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--texte);
+  background: var(--surface-2); border: 0; box-shadow: inset 0 0 0 1px var(--ligne-forte); cursor: pointer;
+}
+.contexte__action:hover { background: var(--surface-3); }
+.chassis[data-taille="compact"] .contexte__action span,
+.chassis[data-taille="mini"] .contexte__action span { display: none; }
+.chassis[data-taille="compact"] .contexte__action,
+.chassis[data-taille="mini"] .contexte__action { padding: 0 9px; }
+
+/* Petite fenêtre : l'ancienne bande « Mon sac » fait doublon avec la console. */
+.chassis[data-taille="compact"] .salle .bureau,
+.chassis[data-taille="mini"] .salle .bureau { display: none !important; }
+.chassis[data-taille="compact"] .presence .presence__long,
+.chassis[data-taille="mini"] .presence .presence__long { display: none; }
+.chassis[data-taille="compact"] .presence, .chassis[data-taille="mini"] .presence { width: 28px; padding: 0; justify-content: center; }
+.chassis[data-taille="compact"] .contexte__direct { width: 20px; padding: 0; justify-content: center; }
+/* Les libellés de la console ne se chevauchent pas. */
+.console__barre .actions__geste { padding: 0 1px; }
+.console__barre .actions__mot {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px;
+}

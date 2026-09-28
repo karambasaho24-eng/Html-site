@@ -176,7 +176,9 @@ export default async function vueSalle({ params }) {
   };
   let notesRecues = [];
   let fenetre = local.lire("ojm.fenetre", "bureau");
-  if (!["compact", "bureau", "etendu"].includes(fenetre)) fenetre = "bureau";
+  // La fenêtre « compacte » n'existe plus en bouton : c'est la taille de la
+  // fenêtre qui en décide (console). On ne reste pas coincé dedans.
+  if (!["bureau", "etendu"].includes(fenetre)) fenetre = "bureau";
 
   const decor = creerScene({
     bureau, classe, session, staff,
@@ -300,46 +302,12 @@ export default async function vueSalle({ params }) {
           onclick: () => basculerSuivi(!suit)
         }, icone(suit ? "lien" : "main", 13), suit ? "Je suis le cours" : "Navigation libre") : null,
 
-        !staff && contributeur ? el("button.btn", {
-          onclick: basculerMain
-        }, icone("main", 15),
-          maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander) : null,
-
-        !staff && contributeur && (session.mode || "cours") === "cours"
-          ? el("button.btn", { onclick: poserQuestion },
-              icone("interro", 15), "J'ai une question") : null,
-
-        !staff && contributeur ? el("button.btn", {
-          class: scene === "moncahier" ? "btn--primaire" : "",
-          onclick: async () => {
-            scene = scene === "moncahier" ? "tableau" : "moncahier";
-            if (suit && scene === "moncahier") basculerSuivi(false);
-            await peindreScene();
-            peindreBandeau();
-          },
-          title: "Prendre mes notes dans mon propre cahier"
-        }, icone("cahier", 15), "Mon cahier") : null,
-
+        // Lever la main, poser une question, ouvrir son cahier : ces gestes
+        // sont dans le dock, toujours visible. On ne les répète pas ici.
         !staff && offre(session, "cartable") ? el("button.btn", {
           onclick: () => ouvrirCartable(), title: "Ce que j'ai apporté en séance"
         }, icone("sac", 15), "Mes affaires") : null,
 
-        offre(session, "papiers") ? el("button.btn", {
-          // Sans la lambda, le gestionnaire recevrait l'événement comme
-          // destinataire — et le papier partirait à personne.
-          onclick: () => remettreUnPapier(), title: "Rédiger et tendre un papier"
-        }, icone("papier", 15), "Papier") : null,
-
-        staff ? el("button.btn", { onclick: (e) => menuProfesseur(e.currentTarget) },
-          icone("reglages", 15), "Outils") : null,
-
-        staff ? el("button.btn.btn--danger", { onclick: terminerSession },
-          icone("stop", 15), "Terminer") : null,
-
-        el("button.btn.btn--fantome.btn--icone", {
-          "aria-label": "Quitter la salle", title: "Quitter la salle",
-          onclick: () => aller(`/classe/${classe.id}`)
-        }, icone("sortie", 16))
       )
     );
   }
@@ -695,7 +663,10 @@ export default async function vueSalle({ params }) {
       surElementRetire: async (element) => {
         try { await tableaux.supprimerElement(element.id); } catch { /* déjà supprimé */ }
       },
-      surFragment: (fragment) => canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id }),
+      surFragment: (fragment) => {
+        canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id });
+        if (staff) decor.signalerEcriture();
+      },
       surCurseur: (x, y) => canalSession?.envoyer("curseur", {
         id: etat.utilisateur.id, x, y,
         nom: monNom(), page: pageCourante.id
@@ -2653,6 +2624,7 @@ export default async function vueSalle({ params }) {
           if (scene !== "tableau") return;
           if (fragment.page !== pagesTableau[indexPage]?.id) return;
           moteurTableau?.fragmentDistant(fragment);
+          decor.signalerEcriture();
         },
         curseur: (position) => {
           if (scene !== "tableau" || position.id === etat.utilisateur.id) return;
@@ -2945,31 +2917,16 @@ export default async function vueSalle({ params }) {
         (session.mode || "cours") === "cours"
           ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() })
           : null) : null,
-      el("span.dock__sep"),
-      el("div.dock__groupe",
-        chose({ signe: pictoPersonneConsole(), mot: `${autres.length} ${autres.length > 1 ? "personnes" : "personne"}`,
-          titre: "Personnes présentes",
-          action: (b) => ouvrirBande(b, {
-            personnes: autres, nomDe: nomPersonne,
-            roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
-            surChoix: (p, x) => menuPersonne(x, p)
-          }) })),
       el("span.dock__pousse"),
       staff ? el("div.dock__groupe",
         chose({ signe: icone("reglages", 24), mot: "Outils", titre: "Outils du professeur",
           action: (b) => menuProfesseur(b) }),
         chose({ signe: icone("stop", 24), mot: "Terminer", titre: "Terminer la séance", action: () => terminerSession() })) : null,
       el("div.dock__fenetre", { role: "group", "aria-label": "Fenêtre" },
-        el("button", { type: "button", title: "Compacte : juste les gestes", "aria-pressed": String(fenetre === "compact"),
-          onclick: () => appliquerFenetre("compact") }, icone("moins", 15)),
-        el("button", { type: "button", title: "Le bureau", "aria-pressed": String(["bureau", "sac", "cahier", "document"].includes(fenetre)),
-          onclick: () => appliquerFenetre("bureau") }, icone("sac", 15)),
-        el("button", { type: "button", title: "Étendue : tout le détail", "aria-pressed": String(fenetre === "etendu"),
-          onclick: () => appliquerFenetre("etendu") }, icone("grille", 15)),
-        flottantDisponible() ? el("button", { type: "button",
-          title: estFlottant() ? "Revenir dans le navigateur" : "Détacher au-dessus du jeu",
-          "aria-pressed": String(estFlottant()),
-          onclick: () => basculerFenetreFlottante() }, icone(estFlottant() ? "entree" : "sortie", 15)) : null,
+        el("button", { type: "button",
+          title: fenetre === "etendu" ? "Revenir à la classe" : "Vue détaillée : tableau, cahiers, participants",
+          "aria-pressed": String(fenetre === "etendu"),
+          onclick: () => appliquerFenetre(fenetre === "etendu" ? "bureau" : "etendu") }, icone("grille", 15)),
         el("button", { type: "button", title: "Quitter la salle", onclick: () => aller(`/classe/${classe.id}`) },
           icone("croix", 15)))
     );
@@ -3108,6 +3065,7 @@ export default async function vueSalle({ params }) {
     titre: `${session.title} — ${classe.name}`,
     nettoyer: () => {
       quitte = true;
+      decor.detruire();
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();

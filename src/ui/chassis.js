@@ -232,14 +232,15 @@ function peindreOutils() {
     etatReseau !== "ok" ? el("span.contexte__reseau", { dataset: { etat: etatReseau }, title: libelleReseau },
       el("span.contexte__voyant"), el("span", libelleReseau)) : null,
 
-    flottantDisponible() && etat.utilisateur ? el("button.contexte__bouton", {
+    flottantDisponible() && etat.utilisateur ? el("button.contexte__action", {
       type: "button",
       "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Au-dessus du jeu",
       title: estFlottant() ? "Revenir dans le navigateur"
         : flottantAuPremierPlan() ? "Poser la fenêtre au-dessus de Roblox" : "Détacher dans sa propre fenêtre",
       "aria-pressed": String(estFlottant()),
       onclick: () => basculerFenetreFlottante()
-    }, icone(estFlottant() ? "entree" : "sortie", 16)) : null,
+    }, icone(estFlottant() ? "entree" : "incruste", 15),
+      el("span", estFlottant() ? "Revenir" : "Au-dessus du jeu")) : null,
 
     etat.utilisateur ? el("button.contexte__bouton", {
       type: "button",

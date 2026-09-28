@@ -3805,6 +3805,63 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 4px rgba(232,200,150,.7)) drop-shadow(0 5px 5px rgba(0,0,0,.45)); }
 .bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-fond); }
 
+/* ===========================================================================
+   La classe en 3D
+   ========================================================================= */
+.scene__classe3d { display: none; }
+.scene--3d { grid-template-rows: minmax(230px, 58%) minmax(0, 1fr); }
+.scene--3d .scene__avant { padding: 10px 1.5% 0; }
+.scene--3d .scene__classe3d {
+  display: block; position: relative;
+  width: 100%; height: 100%;
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--ligne), 0 20px 40px -24px rgba(0,0,0,.8);
+  animation: apparait .6s var(--doux);
+}
+/* Le tableau à plat reste là, invisible : c'est sa toile qu'on voit en 3D. */
+.scene--3d .scene__tableau {
+  position: absolute; left: 0; top: 0; width: 320px; height: 180px; max-width: none;
+  opacity: 0; pointer-events: none; z-index: -1;
+}
+.scene--3d .scene__estrade,
+.scene--3d .scene__banc { display: none; }
+.scene--3d .scene__pupitre { margin-top: 12px; }
+.classe3d__toile { display: block; width: 100%; height: 100%; }
+.classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.classe3d__nom {
+  position: absolute; left: 0; top: 0;
+  padding: 2px 8px; border-radius: 999px; border: 0;
+  font: inherit; font-size: 11px; font-weight: 500; line-height: 16px; white-space: nowrap;
+  color: #f1efe9; background: rgba(12,14,16,.62); backdrop-filter: blur(4px);
+  pointer-events: auto; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.classe3d__nom[hidden] { display: none; }
+.classe3d__nom--survol, .classe3d__nom:hover { background: var(--accent); color: #15130f; }
+.classe3d__nom--prof { background: rgba(127,197,138,.85); color: #0f1a12; font-weight: 600; }
+.chassis[data-taille="moyen"] .scene--3d { grid-template-rows: minmax(200px, 50%) minmax(0, 1fr); }
+
+/* ===========================================================================
+   Le sac ouvert tient TOUJOURS dans la fenêtre : la zone du sac occupe la
+   hauteur de la scène, le contenu se glisse au-dessus du sac et défile.
+   ========================================================================= */
+.scene__sac-zone {
+  top: 10px; bottom: 8px; width: auto;
+  justify-content: flex-end; align-items: flex-start;
+  pointer-events: none;
+}
+.scene__sac-zone > * { pointer-events: auto; }
+.scene__sac { width: clamp(104px, 11vw, 165px); }
+.sac__contenu {
+  position: relative; left: auto; bottom: auto;
+  flex: 0 1 auto; min-height: 0; max-height: none;
+  margin-bottom: 8px;
+  width: min(600px, calc(100vw - 40px));
+}
+.scene[data-etat="sac"] .scene__sac-zone { top: 10px; align-items: center; }
+.scene[data-etat="sac"] .scene__sac { width: clamp(140px, 15vw, 210px); }
+.scene[data-etat="sac"] .sac__contenu { left: auto; transform: none; width: min(880px, calc(100vw - 40px)); max-height: none; }
+
 /* ---- monde.css ---- */
 /* ===========================================================================
    LE MONDE — châssis, ligne de contexte, barre des gestes, tiroir, console
@@ -4352,6 +4409,33 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .chassis[data-taille="compact"] .presence .presence__long,
 .chassis[data-taille="compact"] .contexte__direct { font-size: 0; gap: 0; padding: 0 8px; }
 .chassis[data-taille="compact"] .presence { padding: 0 9px; gap: 0; }
+
+/* « Au-dessus du jeu » : dit en toutes lettres, c'est le geste qui compte. */
+.contexte__action {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px; margin-right: 4px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--texte);
+  background: var(--surface-2); border: 0; box-shadow: inset 0 0 0 1px var(--ligne-forte); cursor: pointer;
+}
+.contexte__action:hover { background: var(--surface-3); }
+.chassis[data-taille="compact"] .contexte__action span,
+.chassis[data-taille="mini"] .contexte__action span { display: none; }
+.chassis[data-taille="compact"] .contexte__action,
+.chassis[data-taille="mini"] .contexte__action { padding: 0 9px; }
+
+/* Petite fenêtre : l'ancienne bande « Mon sac » fait doublon avec la console. */
+.chassis[data-taille="compact"] .salle .bureau,
+.chassis[data-taille="mini"] .salle .bureau { display: none !important; }
+.chassis[data-taille="compact"] .presence .presence__long,
+.chassis[data-taille="mini"] .presence .presence__long { display: none; }
+.chassis[data-taille="compact"] .presence, .chassis[data-taille="mini"] .presence { width: 28px; padding: 0; justify-content: center; }
+.chassis[data-taille="compact"] .contexte__direct { width: 20px; padding: 0; justify-content: center; }
+/* Les libellés de la console ne se chevauchent pas. */
+.console__barre .actions__geste { padding: 0 1px; }
+.console__barre .actions__mot {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px;
+}
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -8052,6 +8136,7 @@ var init_icons = __esm({
       stop: "M6 6h12v12H6z",
       rejouer: "M4 12a8 8 0 1 1 2.3 5.6M4 12V7M4 12h5",
       grille: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+      incruste: "M3 5h18v14H3zM12 12h7v5h-7z",
       liste: "M4 6h16M4 12h16M4 18h16",
       livre: "M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2zM20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z",
       robot: "M8 3v3M16 3v3M5 8h14v11H5zM9 13h.01M15 13h.01M9.5 16h5",
@@ -10431,6 +10516,79 @@ var init_bureau_maison = __esm({
   }
 });
 
+// src/features/pret-a-ecrire.js
+function diagnostic(bureau) {
+  const verdict = bureau.peutFaire("ecrire");
+  const cahier = bureau.cahiersSurLeBureau()[0] || null;
+  if (verdict.ok && cahier) return { pret: true, cahier };
+  const outilPose = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+  const outilSac = range(bureau.dansMonSac().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+  const cahierSac = bureau.cahiersDansMonSac()[0];
+  const faisable = (cahier || cahierSac) && (verdict.ok || outilPose || outilSac);
+  let phrase;
+  if (!cahier && !cahierSac) phrase = "Aucun cahier sur vous.";
+  else if (!verdict.ok && !outilPose && !outilSac) phrase = verdict.message || "Rien pour \xE9crire.";
+  else if (!cahier) phrase = "Votre cahier est dans le sac.";
+  else if (outilPose) phrase = `Prenez ${nomObjet(outilPose).toLowerCase()} en main.`;
+  else phrase = `${nomObjet(outilSac)} est dans le sac.`;
+  return { pret: false, faisable: Boolean(faisable), phrase, cahier, outil: outilPose || outilSac || null };
+}
+async function pretAEcrire(bureau) {
+  let cahier = bureau.cahiersSurLeBureau()[0] || null;
+  if (!cahier) {
+    const c = bureau.cahiersDansMonSac()[0];
+    if (c && await bureau.sortir(c, "cahier")) cahier = c;
+  }
+  const tenu = bureau.enMain();
+  if (!(tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind))) {
+    let outil = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
+    if (!outil) {
+      const o = range(bureau.dansMonSac().filter((x) => OUTILS_REQUIS.ecrire.includes(x.kind)))[0];
+      if (o && await bureau.sortir(o, "objet")) outil = o;
+    }
+    if (outil && fiche(outil.kind)?.encre && !bureau.surLeBureau().some((o) => o.kind === "encrier")) {
+      const encrier = bureau.dansMonSac().find((o) => o.kind === "encrier");
+      if (encrier) await bureau.sortir(encrier, "objet");
+    }
+    if (outil) bureau.prendre(outil);
+  }
+  return { cahier, verdict: bureau.peutFaire("ecrire") };
+}
+async function pretPourUneNote(bureau) {
+  let bouge = false;
+  if (!bureau.peutFaire("ecrire").ok) {
+    const pose = bureau.surLeBureau().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
+    if (!pose) {
+      const o = range(bureau.dansMonSac().filter((x) => OUTILS_REQUIS.ecrire.includes(x.kind)))[0];
+      if (o && await bureau.sortir(o, "objet")) {
+        bouge = true;
+        if (fiche(o.kind)?.encre && !bureau.surLeBureau().some((x) => x.kind === "encrier")) {
+          const encrier = bureau.dansMonSac().find((x) => x.kind === "encrier");
+          if (encrier) await bureau.sortir(encrier, "objet");
+        }
+      }
+    }
+  }
+  if (!bureau.surLeBureau().some((o) => ["feuilles", "feuille"].includes(o.kind))) {
+    const f = bureau.dansMonSac().find((o) => ["feuilles", "feuille"].includes(o.kind) && Number(o.quantity ?? 1) > 0);
+    if (f && await bureau.sortir(f, "objet")) bouge = true;
+  }
+  return bouge;
+}
+function noteReparable(bureau) {
+  const sac = bureau.dansMonSac();
+  return sac.some((o) => OUTILS_REQUIS.ecrire.includes(o.kind) || ["feuilles", "feuille"].includes(o.kind));
+}
+var ORDRE, range;
+var init_pret_a_ecrire = __esm({
+  "src/features/pret-a-ecrire.js"() {
+    init_portee();
+    init_affaires();
+    ORDRE = ["crayon", "stylo-plume", "plume"];
+    range = (liste) => [...liste].sort((a, b) => ORDRE.indexOf(a.kind) - ORDRE.indexOf(b.kind));
+  }
+});
+
 // src/features/personnes.js
 function pictogramme(role = "") {
   const doc = docHote();
@@ -10555,11 +10713,21 @@ function formulaireNote({ bureau, classe, session, gens = [], nomDe, destinatair
   let atteste = false;
   let zoneTexte;
   if (!verdict.ok) {
+    const args = { bureau, classe, session, gens, nomDe, destinataire, surEnvoi, avecBouton };
+    const noeud2 = el(
+      "div.note-rapide.note-rapide--impossible",
+      el("p.note-rapide__manque", el("b", verdict.message), el("span", verdict.conseil || "")),
+      noteReparable(bureau) ? el("button.btn.btn--primaire", {
+        type: "button",
+        onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          await pretPourUneNote(bureau);
+          noeud2.replaceWith(formulaireNote(args).noeud);
+        }
+      }, "Sortir de quoi \xE9crire") : null
+    );
     return {
-      noeud: el(
-        "div.note-rapide.note-rapide--impossible",
-        el("p.note-rapide__manque", el("b", verdict.message), el("span", verdict.conseil || ""))
-      ),
+      noeud: noeud2,
       valider: async () => {
         toast(verdict.message, { corps: verdict.conseil, type: "attn" });
         return false;
@@ -10666,7 +10834,8 @@ function formulaireNote({ bureau, classe, session, gens = [], nomDe, destinatair
   return { noeud, valider };
 }
 async function ecrireUneNote({ bureau, classe, session, gens = [], nomDe, destinataire = null }) {
-  const verdict = deQuoiEcrireUneNote(bureau);
+  let verdict = deQuoiEcrireUneNote(bureau);
+  if (!verdict.ok && noteReparable(bureau) && await pretPourUneNote(bureau)) verdict = deQuoiEcrireUneNote(bureau);
   if (!verdict.ok) {
     toast(verdict.message, { corps: verdict.conseil, type: "attn", duree: 6e3 });
     return false;
@@ -10684,6 +10853,7 @@ async function ecrireUneNote({ bureau, classe, session, gens = [], nomDe, destin
 }
 var init_note_rapide = __esm({
   "src/features/note-rapide.js"() {
+    init_pret_a_ecrire();
     init_dom();
     init_modal();
     init_toast();
@@ -12613,13 +12783,18 @@ function peindreOutils() {
       el("span.contexte__voyant"),
       el("span", libelleReseau)
     ) : null,
-    flottantDisponible() && etat.utilisateur ? el("button.contexte__bouton", {
-      type: "button",
-      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Au-dessus du jeu",
-      title: estFlottant() ? "Revenir dans le navigateur" : flottantAuPremierPlan() ? "Poser la fen\xEAtre au-dessus de Roblox" : "D\xE9tacher dans sa propre fen\xEAtre",
-      "aria-pressed": String(estFlottant()),
-      onclick: () => basculerFenetreFlottante()
-    }, icone(estFlottant() ? "entree" : "sortie", 16)) : null,
+    flottantDisponible() && etat.utilisateur ? el(
+      "button.contexte__action",
+      {
+        type: "button",
+        "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Au-dessus du jeu",
+        title: estFlottant() ? "Revenir dans le navigateur" : flottantAuPremierPlan() ? "Poser la fen\xEAtre au-dessus de Roblox" : "D\xE9tacher dans sa propre fen\xEAtre",
+        "aria-pressed": String(estFlottant()),
+        onclick: () => basculerFenetreFlottante()
+      },
+      icone(estFlottant() ? "entree" : "incruste", 15),
+      el("span", estFlottant() ? "Revenir" : "Au-dessus du jeu")
+    ) : null,
     etat.utilisateur ? el(
       "button.contexte__bouton",
       {
@@ -12966,6 +13141,603 @@ var init_auth = __esm({
   }
 });
 
+// src/features/classe-3d.js
+function chargerThree() {
+  promesseThree ?? (promesseThree = import(
+    /* @vite-ignore */
+    THREE_LOCAL
+  ).catch(() => import(
+    /* @vite-ignore */
+    THREE_CDN
+  )));
+  return promesseThree;
+}
+function webglDisponible() {
+  try {
+    const c = document.createElement("canvas");
+    return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+function graine(texte) {
+  let h = 2166136261;
+  for (const c of String(texte)) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return (h >>> 0) % 1e4 / 1e4;
+  };
+}
+async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null }) {
+  const THREE = await chargerThree();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const canvas = renderer.domElement;
+  canvas.className = "classe3d__toile";
+  const etiquettes = document.createElement("div");
+  etiquettes.className = "classe3d__etiquettes";
+  hote.append(canvas, etiquettes);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color("#171a1d");
+  scene.fog = new THREE.Fog("#171a1d", 24, 40);
+  const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 80);
+  const regard = new THREE.Vector3(0, 3.1, -7);
+  scene.add(new THREE.HemisphereLight("#fff4e4", "#3a2c22", 1.25));
+  const soleil = new THREE.DirectionalLight("#ffe9cc", 2.2);
+  soleil.position.set(-12, 16, 6);
+  soleil.castShadow = true;
+  soleil.shadow.mapSize.set(1024, 1024);
+  Object.assign(soleil.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50 });
+  soleil.shadow.bias = -4e-4;
+  scene.add(soleil);
+  const tableauLumiere = new THREE.PointLight("#fff2dc", 14, 14, 2);
+  tableauLumiere.position.set(0, 7, -6);
+  scene.add(tableauLumiere);
+  const mat = (couleur, extra = {}) => new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.8, metalness: 0, ...extra });
+  const cacheMat = /* @__PURE__ */ new Map();
+  const matDe = (c) => {
+    if (!cacheMat.has(c)) cacheMat.set(c, mat(c));
+    return cacheMat.get(c);
+  };
+  function texturePlancher() {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 512;
+    const g = c.getContext("2d");
+    for (let i = 0; i < 8; i++) {
+      const teinte = 38 + i * 37 % 7;
+      g.fillStyle = `hsl(28, 32%, ${teinte}%)`;
+      g.fillRect(0, i * 64, 512, 64);
+      g.fillStyle = "rgba(0,0,0,.18)";
+      g.fillRect(0, i * 64, 512, 2);
+      for (let k = 0; k < 40; k++) {
+        g.fillStyle = `rgba(${k % 2 ? "255,230,200" : "40,20,10"},.035)`;
+        g.fillRect(0, i * 64 + Math.random() * 64, 512, 1);
+      }
+      g.fillStyle = "rgba(0,0,0,.2)";
+      g.fillRect(i * 173 % 512, i * 64, 2, 64);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(4, 4);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+  function boiteRonde(l, h, p, r = 0.12) {
+    const forme = new THREE.Shape();
+    const x = -l / 2 + r, y = -h / 2 + r, L2 = l - 2 * r, H = h - 2 * r;
+    forme.moveTo(x, y);
+    forme.lineTo(x + L2, y);
+    forme.quadraticCurveTo(x + L2 + r, y, x + L2 + r, y + r);
+    forme.lineTo(x + L2 + r, y + H);
+    forme.quadraticCurveTo(x + L2 + r, y + H + r, x + L2, y + H + r);
+    forme.lineTo(x, y + H + r);
+    forme.quadraticCurveTo(x - r, y + H + r, x - r, y + H);
+    forme.lineTo(x - r, y + r);
+    forme.quadraticCurveTo(x - r, y, x, y);
+    const g = new THREE.ExtrudeGeometry(forme, {
+      depth: Math.max(0.01, p - 2 * r),
+      bevelEnabled: true,
+      bevelThickness: r,
+      bevelSize: 0,
+      bevelSegments: 3,
+      curveSegments: 6
+    });
+    g.translate(0, 0, -(p - 2 * r) / 2);
+    g.computeVertexNormals();
+    return g;
+  }
+  const profilTete = [];
+  {
+    const R = 0.62, H = 1.2, r = 0.3;
+    profilTete.push(new THREE.Vector2(0, -H / 2));
+    for (let i = 0; i <= 6; i++) {
+      const a = -Math.PI / 2 + i / 6 * (Math.PI / 2);
+      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, -H / 2 + r + Math.sin(a) * r));
+    }
+    for (let i = 0; i <= 6; i++) {
+      const a = i / 6 * (Math.PI / 2);
+      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, H / 2 - r + Math.sin(a) * r));
+    }
+    profilTete.push(new THREE.Vector2(0, H / 2));
+  }
+  const GEO = {
+    tete: new THREE.LatheGeometry(profilTete, 28),
+    torse: boiteRonde(1.9, 1.95, 0.95, 0.2),
+    bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
+    main: new THREE.SphereGeometry(0.3, 14, 10),
+    cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
+    tibia: new THREE.CapsuleGeometry(0.38, 0.55, 6, 12),
+    chaussure: boiteRonde(0.72, 0.36, 1, 0.14),
+    cou: new THREE.CylinderGeometry(0.3, 0.34, 0.25, 14),
+    col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
+    oeil: new THREE.SphereGeometry(0.075, 10, 8),
+    cheveuxCourts: new THREE.SphereGeometry(0.68, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
+    chignon: new THREE.SphereGeometry(0.32, 14, 10)
+  };
+  function personnage(cle, { face = false } = {}) {
+    const alea = graine(cle);
+    const peau = matDe(choisir(alea, PEAUX));
+    const costume = matDe(choisir(alea, COSTUMES));
+    const pantalon = matDe(choisir(alea, ["#1b1d22", "#23262d", "#2a2d33"]));
+    const cheveux = matDe(choisir(alea, CHEVEUX));
+    const chemise = matDe("#eef0f2");
+    const noir = matDe("#141416");
+    const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
+    const racine = new THREE.Group();
+    const bassin = new THREE.Group();
+    racine.add(bassin);
+    const torse = new THREE.Mesh(GEO.torse, costume);
+    torse.position.y = 0.98;
+    bassin.add(torse);
+    const col = new THREE.Mesh(GEO.col, chemise);
+    col.position.y = 1.98;
+    bassin.add(col);
+    if (face) {
+      const plastron = new THREE.Mesh(boiteRonde(0.5, 0.9, 0.05, 0.02), chemise);
+      plastron.position.set(0, 1.55, -0.49);
+      const cravate = new THREE.Mesh(boiteRonde(0.18, 0.8, 0.06, 0.03), matDe("#6b1f24"));
+      cravate.position.set(0, 1.5, -0.53);
+      bassin.add(plastron, cravate);
+    }
+    const tete = new THREE.Group();
+    tete.position.y = 2.1;
+    bassin.add(tete);
+    const cou = new THREE.Mesh(GEO.cou, peau);
+    cou.position.y = 0.05;
+    const crane = new THREE.Mesh(GEO.tete, peau);
+    crane.position.y = 0.72;
+    tete.add(cou, crane);
+    const calotte = new THREE.Mesh(GEO.cheveuxCourts, cheveux);
+    calotte.position.y = 0.86;
+    calotte.rotation.x = 0.28;
+    tete.add(calotte);
+    if (coupe === "longs") {
+      const longs = new THREE.Mesh(GEO.cheveuxLongs, cheveux);
+      longs.scale.set(0.5, 0.6, 0.26);
+      longs.position.set(0, 0.42, 0.44);
+      tete.add(longs);
+    } else if (coupe === "chignon") {
+      const c = new THREE.Mesh(GEO.chignon, cheveux);
+      c.position.set(0, 1.15, 0.55);
+      tete.add(c);
+    }
+    if (face) {
+      for (const x of [-0.2, 0.2]) {
+        const o = new THREE.Mesh(GEO.oeil, noir);
+        o.scale.set(0.9, 1.4, 0.5);
+        o.position.set(x, 0.82, -0.6);
+        tete.add(o);
+      }
+      const sourire = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI), noir);
+      sourire.rotation.set(0, Math.PI, Math.PI);
+      sourire.position.set(0, 0.58, -0.6);
+      tete.add(sourire);
+    }
+    const membre = (x, y, geoA, geoB, matA, matB, bout) => {
+      const epaule = new THREE.Group();
+      epaule.position.set(x, y, 0);
+      const haut = new THREE.Mesh(geoA, matA);
+      haut.position.y = -0.55;
+      const coude = new THREE.Group();
+      coude.position.y = -0.95;
+      const bas = new THREE.Mesh(geoB, matB);
+      bas.position.y = -0.5;
+      coude.add(bas);
+      if (bout) coude.add(bout);
+      epaule.add(haut, coude);
+      return { epaule, coude };
+    };
+    const main = () => {
+      const m = new THREE.Mesh(GEO.main, peau);
+      m.position.y = -1.05;
+      return m;
+    };
+    const pied = () => {
+      const s = new THREE.Mesh(GEO.chaussure, noir);
+      s.position.set(0, -1.05, -0.2);
+      return s;
+    };
+    const brasG = membre(-1.3, 1.78, GEO.bras, GEO.bras, costume, costume, main());
+    const brasD = membre(1.3, 1.78, GEO.bras, GEO.bras, costume, costume, main());
+    const jambeG = membre(-0.48, 0.05, GEO.cuisse, GEO.tibia, pantalon, pantalon, pied());
+    const jambeD = membre(0.48, 0.05, GEO.cuisse, GEO.tibia, pantalon, pantalon, pied());
+    for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
+    racine.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10 };
+    p.poser = (pose) => {
+      p.pose = pose;
+      for (const m of [brasG, brasD, jambeG, jambeD]) {
+        m.epaule.rotation.set(0, 0, 0);
+        m.coude.rotation.set(0, 0, 0);
+      }
+      bassin.rotation.set(0, 0, 0);
+      if (pose === "debout") {
+        bassin.position.y = 2.2;
+        return;
+      }
+      bassin.position.y = 0;
+      if (pose === "tailleur") {
+        jambeG.epaule.rotation.set(Math.PI / 2 - 0.15, 0, 0);
+        jambeD.epaule.rotation.set(Math.PI / 2 - 0.15, 0, 0);
+        jambeG.epaule.rotation.order = jambeD.epaule.rotation.order = "YXZ";
+        jambeG.epaule.rotation.y = 0.75;
+        jambeD.epaule.rotation.y = -0.75;
+        jambeG.coude.rotation.z = Math.PI / 2 + 0.35;
+        jambeD.coude.rotation.z = -(Math.PI / 2 + 0.35);
+        jambeD.coude.position.y = -0.9;
+        brasG.epaule.rotation.set(0.35, 0, -0.12);
+        brasD.epaule.rotation.set(0.35, 0, 0.12);
+        brasG.coude.rotation.x = 0.9;
+        brasD.coude.rotation.x = 0.9;
+        return;
+      }
+      jambeG.epaule.rotation.x = Math.PI / 2;
+      jambeD.epaule.rotation.x = Math.PI / 2;
+      jambeG.coude.rotation.x = -Math.PI / 2;
+      jambeD.coude.rotation.x = -Math.PI / 2;
+      if (pose === "accoude") {
+        brasD.epaule.rotation.set(1.25, 0, 0.1);
+        brasD.coude.rotation.x = 1.9;
+        brasG.epaule.rotation.set(1, 0, -0.05);
+        brasG.coude.rotation.x = 0.55;
+        tete.rotation.z = -0.12;
+      } else {
+        brasG.epaule.rotation.set(0.95, 0, -0.08);
+        brasD.epaule.rotation.set(0.95, 0, 0.08);
+        brasG.coude.rotation.x = 0.65;
+        brasD.coude.rotation.x = 0.65;
+      }
+    };
+    return p;
+  }
+  const sol = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ map: texturePlancher(), roughness: 0.85 }));
+  sol.rotation.x = -Math.PI / 2;
+  sol.receiveShadow = true;
+  scene.add(sol);
+  const murMat = mat("#b9b2a6");
+  const soubassement = mat("#5b4a3b");
+  const mur = (l, h, x, y, z, ry = 0) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(l, h), murMat);
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    m.receiveShadow = true;
+    scene.add(m);
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(l, 1.6), soubassement);
+    b.position.set(x, 0.8, z);
+    b.rotation.y = ry;
+    b.translateZ(0.01);
+    scene.add(b);
+  };
+  mur(30, 12, 0, 6, -10);
+  mur(30, 12, -9.5, 6, 0, Math.PI / 2);
+  mur(30, 12, 9.5, 6, 0, -Math.PI / 2);
+  for (const z of [-4, 3]) {
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.5), new THREE.MeshBasicMaterial({ color: "#c4d3dc" }));
+    f.position.set(-9.48, 5.4, z);
+    f.rotation.y = Math.PI / 2;
+    scene.add(f);
+    const traverse = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.5, 0.12), matDe("#3a2d22"));
+    traverse.position.set(-9.45, 5.4, z);
+    scene.add(traverse);
+  }
+  const LT = 9.6, HT = LT * 9 / 16;
+  const cadre = new THREE.Mesh(boiteRonde(LT + 0.5, HT + 0.5, 0.2, 0.06), matDe("#4a3321"));
+  cadre.position.set(0, 4.9, -9.85);
+  cadre.castShadow = true;
+  scene.add(cadre);
+  const ardoiseMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.92 });
+  const ardoiseVide = mat("#22332c");
+  const ardoise = new THREE.Mesh(new THREE.PlaneGeometry(LT, HT), ardoiseVide);
+  ardoise.position.set(0, 4.9, -9.72);
+  ardoise.userData.tableau = true;
+  scene.add(ardoise);
+  const rebord = new THREE.Mesh(boiteRonde(LT + 0.3, 0.14, 0.4, 0.05), matDe("#4a3321"));
+  rebord.position.set(0, 4.9 - HT / 2 - 0.25, -9.6);
+  scene.add(rebord);
+  const craie = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 8), matDe("#f3f0e6"));
+  craie.rotation.z = Math.PI / 2;
+  craie.position.set(-2.8, rebord.position.y + 0.12, -9.55);
+  scene.add(craie);
+  let texture = null;
+  let toileSuivie = null;
+  function suivreToile() {
+    const t = toile();
+    if (t !== toileSuivie) {
+      texture?.dispose();
+      texture = null;
+      toileSuivie = t;
+      if (t) {
+        texture = new THREE.CanvasTexture(t);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 4;
+        ardoiseMat.map = texture;
+        ardoiseMat.needsUpdate = true;
+        ardoise.material = ardoiseMat;
+      } else {
+        ardoise.material = ardoiseVide;
+      }
+    }
+    if (texture) texture.needsUpdate = true;
+  }
+  const estrade = new THREE.Mesh(boiteRonde(14, 0.4, 3.2, 0.06), matDe("#4d3b2c"));
+  estrade.position.set(0, 0.2, -8.3);
+  estrade.receiveShadow = true;
+  scene.add(estrade);
+  const bureauProf = new THREE.Group();
+  const plateauProf = new THREE.Mesh(boiteRonde(4, 0.2, 1.8, 0.05), matDe("#5e4230"));
+  plateauProf.position.y = 2.6;
+  const caisson = new THREE.Mesh(boiteRonde(3.8, 2.2, 0.15, 0.03), matDe("#523a2a"));
+  caisson.position.set(0, 1.5, 0.8);
+  bureauProf.add(plateauProf, caisson);
+  bureauProf.position.set(-4.6, 0.4, -7.6);
+  bureauProf.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  scene.add(bureauProf);
+  const boisPupitre = matDe("#6b4b33");
+  const metal = matDe("#2d3033");
+  for (const { x, z } of PLACES) {
+    const g = new THREE.Group();
+    const plateau = new THREE.Mesh(boiteRonde(2.6, 0.16, 1.5, 0.05), boisPupitre);
+    plateau.position.set(0, 2.15, -1.15);
+    g.add(plateau);
+    for (const [dx, dz] of [[-1.15, -1.75], [1.15, -1.75], [-1.15, -0.55], [1.15, -0.55]]) {
+      const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.1, 8), metal);
+      pied.position.set(dx, 1.05, dz);
+      g.add(pied);
+    }
+    const assise = new THREE.Mesh(boiteRonde(1.5, 0.14, 1.3, 0.05), boisPupitre);
+    assise.position.set(0, 0.95, 0.35);
+    g.add(assise);
+    for (const [dx, dz] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.9], [0.6, 0.9]]) {
+      const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.95, 8), metal);
+      pied.position.set(dx, 0.47, dz);
+      g.add(pied);
+    }
+    const cahier = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.03, 0.65), matDe("#efe6d2"));
+    cahier.position.set(-0.3, 2.25, -1.25);
+    cahier.rotation.y = 0.12;
+    g.add(cahier);
+    g.position.set(x, 0, z);
+    g.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+    scene.add(g);
+  }
+  const eleves = /* @__PURE__ */ new Map();
+  let prof = null;
+  let profEtat = { present: false, nom: "" };
+  let ecritJusqua = 0;
+  function etiquette(texte, classe = "") {
+    const e = document.createElement("button");
+    e.type = "button";
+    e.className = `classe3d__nom ${classe}`.trim();
+    e.textContent = texte;
+    etiquettes.appendChild(e);
+    return e;
+  }
+  function placerEleve(personne, index) {
+    const place = PLACES[index];
+    const p = personnage(personne.id);
+    const alea = graine(`pose:${personne.id}`);
+    const pose = choisir(alea, ["assis", "assis", "tailleur", "accoude", "assis"]);
+    p.poser(pose);
+    p.racine.position.set(place.x, 1.02 + (pose === "tailleur" ? 0.1 : 0), place.z + (pose === "tailleur" ? 0.5 : 0.35));
+    p.racine.scale.setScalar(0.8);
+    scene.add(p.racine);
+    const e = etiquette(personne.nom);
+    e.onclick = () => surPersonne?.(e, personne.brut);
+    p.racine.traverse((o) => {
+      o.userData.personne = personne;
+    });
+    eleves.set(personne.id, { p, place, etiquette: e, personne });
+  }
+  function retirerEleve(id) {
+    const x = eleves.get(id);
+    if (!x) return;
+    scene.remove(x.p.racine);
+    x.etiquette.remove();
+    eleves.delete(id);
+  }
+  function majProf() {
+    if (!profEtat.present) {
+      if (prof) {
+        scene.remove(prof.p.racine);
+        prof.etiquette.remove();
+        prof = null;
+      }
+      return;
+    }
+    if (!prof) {
+      const p = personnage(`prof:${profEtat.nom}`, { face: true });
+      p.poser("debout");
+      p.racine.rotation.y = Math.PI;
+      p.racine.position.set(6.4, 0.4, -8.1);
+      p.racine.scale.setScalar(0.85);
+      scene.add(p.racine);
+      prof = { p, etiquette: etiquette(profEtat.nom, "classe3d__nom--prof") };
+    }
+    prof.etiquette.textContent = profEtat.nom;
+  }
+  function cadrer() {
+    const l = hote.clientWidth || 1, h = hote.clientHeight || 1;
+    renderer.setSize(l, h, false);
+    camera.aspect = l / h;
+    const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
+    camera.fov = 56 - k * 24;
+    camera.position.set(0.4, 10.2 - k * 2.4, 14 - k * 4);
+    regard.set(0, 3.2 + k * 0.5, -7);
+    camera.lookAt(regard);
+    camera.updateProjectionMatrix();
+  }
+  const observateur = new ResizeObserver(cadrer);
+  observateur.observe(hote);
+  cadrer();
+  const rayon = new THREE.Raycaster();
+  const pointeur = new THREE.Vector2();
+  function viser(e) {
+    const r = canvas.getBoundingClientRect();
+    pointeur.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    rayon.setFromCamera(pointeur, camera);
+    return rayon.intersectObjects(scene.children, true)[0]?.object || null;
+  }
+  let survol = null;
+  canvas.addEventListener("pointermove", (e) => {
+    const o = viser(e);
+    const cible = o?.userData.tableau ? "tableau" : o?.userData.personne?.id || null;
+    canvas.style.cursor = cible ? "pointer" : "";
+    if (cible !== survol) {
+      for (const x of eleves.values()) x.etiquette.classList.toggle("classe3d__nom--survol", x.personne.id === cible);
+      survol = cible;
+    }
+  });
+  canvas.addEventListener("click", (e) => {
+    const o = viser(e);
+    if (o?.userData.tableau) surTableau?.();
+    else if (o?.userData.personne) {
+      const x = eleves.get(o.userData.personne.id);
+      if (x) surPersonne?.(x.etiquette, x.personne.brut);
+    }
+  });
+  const vecteur = new THREE.Vector3();
+  let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true;
+  const io = new IntersectionObserver(([x]) => {
+    visible = x.isIntersecting;
+  });
+  io.observe(hote);
+  function placerEtiquette(el2, objet, hauteur) {
+    vecteur.setFromMatrixPosition(objet.matrixWorld);
+    vecteur.y += hauteur;
+    vecteur.project(camera);
+    const derriere = vecteur.z > 1;
+    el2.style.transform = `translate(-50%, -100%) translate(${(vecteur.x * 0.5 + 0.5) * hote.clientWidth}px, ${(-vecteur.y * 0.5 + 0.5) * hote.clientHeight}px)`;
+    el2.hidden = derriere;
+  }
+  function image(t) {
+    if (!vivant) return;
+    anime = requestAnimationFrame(image);
+    if (!visible || document.hidden || t - dernier < 33) return;
+    dernier = t;
+    const s = t / 1e3;
+    if (t - dernierTableau > 300) {
+      suivreToile();
+      dernierTableau = t;
+    }
+    for (const { p } of eleves.values()) {
+      const k = s + p.phase;
+      p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
+      p.tete.rotation.y = Math.sin(k * 0.35) * 0.18 + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
+      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04;
+      if (p.pose === "assis") p.brasD.coude.rotation.x = 0.65 + Math.max(0, Math.sin(k * 3)) * 0.12 * (Math.sin(k * 0.3) > 0 ? 1 : 0);
+    }
+    if (prof) {
+      const p = prof.p;
+      const ecrit = Date.now() < ecritJusqua;
+      const cibleY = ecrit ? 0.1 : Math.PI - 0.35 + Math.sin(s * 0.4) * 0.25;
+      p.racine.rotation.y += (cibleY - p.racine.rotation.y) * 0.08;
+      const bras = ecrit ? -2.3 + Math.sin(s * 6) * 0.12 : Math.sin(s * 0.9) * 0.08;
+      p.brasD.epaule.rotation.x += (bras - p.brasD.epaule.rotation.x) * 0.12;
+      p.torse.scale.y = 1 + Math.sin(s * 1.4) * 0.012;
+      p.racine.position.x += ((ecrit ? 4.2 : 6.4) - p.racine.position.x) * 0.03;
+      placerEtiquette(prof.etiquette, p.tete, 1.3 * 0.85);
+    }
+    renderer.render(scene, camera);
+    for (const x of eleves.values()) placerEtiquette(x.etiquette, x.p.tete, 1.3 * 0.8);
+  }
+  anime = requestAnimationFrame(image);
+  return {
+    /** Qui est là. `eleves` : [{ id, nom, brut }] ; `prof` : { present, nom }. */
+    maj({ eleves: liste = [], prof: p = null } = {}) {
+      const ids = new Set(liste.map((x) => String(x.id)));
+      for (const id of [...eleves.keys()]) if (!ids.has(id)) retirerEleve(id);
+      const prises = new Set([...eleves.values()].map((x) => PLACES.indexOf(x.place)));
+      for (const x of liste.slice(0, PLACES.length)) {
+        const id = String(x.id);
+        if (eleves.has(id)) continue;
+        let i = 0;
+        while (prises.has(i) && i < PLACES.length) i++;
+        prises.add(i);
+        placerEleve({ ...x, id }, i);
+      }
+      if (p) {
+        profEtat = p;
+        majProf();
+      }
+    },
+    /** Le professeur écrit : on le voit se tourner vers le tableau. */
+    ecrit() {
+      ecritJusqua = Date.now() + 2500;
+    },
+    detruire() {
+      vivant = false;
+      cancelAnimationFrame(anime);
+      observateur.disconnect();
+      io.disconnect();
+      texture?.dispose();
+      renderer.dispose();
+      canvas.remove();
+      etiquettes.remove();
+    }
+  };
+}
+var THREE_LOCAL, THREE_CDN, promesseThree, choisir, PEAUX, CHEVEUX, COSTUMES, PLACES;
+var init_classe_3d = __esm({
+  "src/features/classe-3d.js"() {
+    THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
+    THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
+    promesseThree = null;
+    choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste.length];
+    PEAUX = ["#f2cfae", "#e6b48c", "#c98d62", "#a06a47", "#6f4731", "#f5cd30"];
+    CHEVEUX = ["#17120f", "#2e2018", "#5a3a22", "#8a5a2b", "#c9a15a", "#7a2c1a", "#3b3b3b"];
+    COSTUMES = ["#23272e", "#1d2536", "#2b2b30", "#353a42", "#1f1f23", "#2a3140"];
+    PLACES = [];
+    for (const z of [-4.6, -1.7, 1.2]) for (const x of [-1.8, 1.8, -5.4, 5.4]) PLACES.push({ x, z });
+  }
+});
+
 // src/features/scene-bureau.js
 function biais(id) {
   let h = 0;
@@ -13011,6 +13783,7 @@ function creerScene({
   const livre = el("div.scene__livre-page");
   const grand = el("div.scene__grand-page");
   const zoneEstrade = el("div.scene__estrade");
+  const vue3d = el("div.scene__classe3d");
   const legendeTableau = el("span.scene__legende");
   const objetsPupitre = el("div.pupitre__objets");
   const banc = el("div.scene__banc", { "aria-label": "\xC0 la table" });
@@ -13040,7 +13813,8 @@ function creerScene({
         ),
         legendeTableau
       ),
-      zoneEstrade
+      zoneEstrade,
+      vue3d
     ),
     el(
       "div.scene__pupitre",
@@ -13081,7 +13855,7 @@ function creerScene({
     const garde = local.lire(clePose(chose.id), null);
     if (garde && Number.isFinite(garde.x) && Number.isFinite(garde.y)) return garde;
     const kind = kindDe(genre, chose);
-    const place = PLACES.find((p) => p.kinds.includes(kind)) || { x: 0.32 + rang % 4 * 0.12, y: 0.5, dx: 0, dy: 0.1 };
+    const place = PLACES2.find((p) => p.kinds.includes(kind)) || { x: 0.32 + rang % 4 * 0.12, y: 0.5, dx: 0, dy: 0.1 };
     const n = rang;
     return {
       x: Math.min(0.93, Math.max(0.07, place.x + place.dx * n)),
@@ -13097,7 +13871,7 @@ function creerScene({
     const rangs = /* @__PURE__ */ new Map();
     render(objetsPupitre, devant.length ? devant.map(([genre, chose]) => {
       const kind = kindDe(genre, chose);
-      const groupe = PLACES.find((p) => p.kinds.includes(kind))?.kinds.join() || kind;
+      const groupe = PLACES2.find((p) => p.kinds.includes(kind))?.kinds.join() || kind;
       const rang = rangs.get(groupe) || 0;
       rangs.set(groupe, rang + 1);
       return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
@@ -13491,13 +14265,44 @@ function creerScene({
     peindreOublis();
     peindreSac();
     if (!avant) peindreEstrade();
+    maj3d();
     peindreRail2();
+  }
+  let classe3d = null;
+  function maj3d() {
+    if (!classe3d) return;
+    const moiId = String(etat.utilisateur?.id || "");
+    classe3d.maj({
+      eleves: participants().filter((p) => p.role !== "teacher" && String(p.user_id) !== moiId).map((p) => ({ id: String(p.user_id), nom: (nomDe(p) || "Participant").split(/\s+/)[0], brut: p })),
+      prof: {
+        present: Boolean(estrade?.present),
+        nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur")
+      }
+    });
+  }
+  if (!avant && webglDisponible()) {
+    creerClasse3D({
+      hote: vue3d,
+      toile: () => noeud.querySelector(".scene__ecran canvas.tableau__toile"),
+      surTableau: () => surTableau?.(),
+      surPersonne: (ancre, p) => surPersonne?.(ancre, p)
+    }).then((c) => {
+      classe3d = c;
+      noeud.classList.add("scene--3d");
+      maj3d();
+    }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste \xE0 plat", err));
   }
   return {
     noeud,
     ecranTableau,
     livre,
     grand,
+    /** Le professeur écrit au tableau : on le voit se tourner. */
+    signalerEcriture: () => classe3d?.ecrit(),
+    detruire: () => {
+      classe3d?.detruire();
+      classe3d = null;
+    },
     peindre,
     definirEtat,
     etat: () => etatScene,
@@ -13511,6 +14316,7 @@ function creerScene({
     majEstrade(nouvelle) {
       estrade = nouvelle || {};
       peindreEstrade();
+      maj3d();
     },
     majLegende(texte) {
       legendeTableau.textContent = texte || "";
@@ -13520,7 +14326,7 @@ function creerScene({
     }
   };
 }
-var LARGEUR, PLACES, clePose;
+var LARGEUR, PLACES2, clePose;
 var init_scene_bureau = __esm({
   "src/features/scene-bureau.js"() {
     init_dom();
@@ -13531,6 +14337,7 @@ var init_scene_bureau = __esm({
     init_affaires();
     init_portee();
     init_lexique();
+    init_classe_3d();
     LARGEUR = {
       cahier: 0.17,
       carnet: 0.12,
@@ -13564,7 +14371,7 @@ var init_scene_bureau = __esm({
       montre: 0.07,
       gourde: 0.09
     };
-    PLACES = [
+    PLACES2 = [
       { kinds: ["cahier", "carnet", "feuille"], x: 0.47, y: 0.56, dx: 0.07, dy: -0.03 },
       { kinds: ["crayon", "plume", "stylo-plume"], x: 0.7, y: 0.6, dx: 0.015, dy: 0.08 },
       { kinds: ["gomme", "buvard"], x: 0.83, y: 0.78, dx: -0.06, dy: -0.02 },
@@ -14737,54 +15544,6 @@ var init_dossiers = __esm({
   }
 });
 
-// src/features/pret-a-ecrire.js
-function diagnostic(bureau) {
-  const verdict = bureau.peutFaire("ecrire");
-  const cahier = bureau.cahiersSurLeBureau()[0] || null;
-  if (verdict.ok && cahier) return { pret: true, cahier };
-  const outilPose = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
-  const outilSac = range(bureau.dansMonSac().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
-  const cahierSac = bureau.cahiersDansMonSac()[0];
-  const faisable = (cahier || cahierSac) && (verdict.ok || outilPose || outilSac);
-  let phrase;
-  if (!cahier && !cahierSac) phrase = "Aucun cahier sur vous.";
-  else if (!verdict.ok && !outilPose && !outilSac) phrase = verdict.message || "Rien pour \xE9crire.";
-  else if (!cahier) phrase = "Votre cahier est dans le sac.";
-  else if (outilPose) phrase = `Prenez ${nomObjet(outilPose).toLowerCase()} en main.`;
-  else phrase = `${nomObjet(outilSac)} est dans le sac.`;
-  return { pret: false, faisable: Boolean(faisable), phrase, cahier, outil: outilPose || outilSac || null };
-}
-async function pretAEcrire(bureau) {
-  let cahier = bureau.cahiersSurLeBureau()[0] || null;
-  if (!cahier) {
-    const c = bureau.cahiersDansMonSac()[0];
-    if (c && await bureau.sortir(c, "cahier")) cahier = c;
-  }
-  const tenu = bureau.enMain();
-  if (!(tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind))) {
-    let outil = range(bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind)))[0];
-    if (!outil) {
-      const o = range(bureau.dansMonSac().filter((x) => OUTILS_REQUIS.ecrire.includes(x.kind)))[0];
-      if (o && await bureau.sortir(o, "objet")) outil = o;
-    }
-    if (outil && fiche(outil.kind)?.encre && !bureau.surLeBureau().some((o) => o.kind === "encrier")) {
-      const encrier = bureau.dansMonSac().find((o) => o.kind === "encrier");
-      if (encrier) await bureau.sortir(encrier, "objet");
-    }
-    if (outil) bureau.prendre(outil);
-  }
-  return { cahier, verdict: bureau.peutFaire("ecrire") };
-}
-var ORDRE, range;
-var init_pret_a_ecrire = __esm({
-  "src/features/pret-a-ecrire.js"() {
-    init_portee();
-    init_affaires();
-    ORDRE = ["crayon", "stylo-plume", "plume"];
-    range = (liste) => [...liste].sort((a, b) => ORDRE.indexOf(a.kind) - ORDRE.indexOf(b.kind));
-  }
-});
-
 // src/features/console.js
 function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null }) {
   const zone = el("div.console__panneau");
@@ -14953,7 +15712,7 @@ function panneauSac(bureau, { apres = null } = {}) {
     )) : el("p.console__vide", "Votre sac est vide."));
   };
 }
-function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {
+function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir: choisir2 = () => {
 }, surNouveau = null } = {}) {
   let editeur = null;
   return (zone, api) => {
@@ -14964,7 +15723,7 @@ function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = (
     const preparer = async (e) => {
       e.currentTarget.disabled = true;
       const { cahier: pose } = await pretAEcrire(bureau);
-      if (pose) choisir(pose);
+      if (pose) choisir2(pose);
       else api?.rafraichir();
     };
     if (!cahiers2.length) {
@@ -14974,7 +15733,7 @@ function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = (
         etat_.faisable ? el("button.btn.btn--primaire", { type: "button", onclick: preparer }, icone("crayon", 14), "Pr\xEAt \xE0 \xE9crire") : !bureau.supports().length && surNouveau ? el("button.btn.btn--primaire", { type: "button", onclick: async (e) => {
           e.currentTarget.disabled = true;
           const c = await surNouveau();
-          if (c) choisir(c);
+          if (c) choisir2(c);
           else api?.rafraichir();
         } }, icone("plus", 14), "Prendre un cahier neuf") : surSac ? el("button.btn", { type: "button", onclick: surSac }, "Ouvrir le sac") : null
       ));
@@ -15007,7 +15766,7 @@ function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = (
       cahiers2.length > 1 ? el("div.console__onglets", cahiers2.map((c) => el("button.console__onglet", {
         type: "button",
         "aria-pressed": String(c.id === cahier.id),
-        onclick: () => choisir(c)
+        onclick: () => choisir2(c)
       }, c.title))) : null,
       el("div.console__outils", outils.length ? outils.map((o) => el("button.console__outil", {
         type: "button",
@@ -20440,7 +21199,7 @@ async function vueSalle({ params }) {
   };
   let notesRecues = [];
   let fenetre2 = local.lire("ojm.fenetre", "bureau");
-  if (!["compact", "bureau", "etendu"].includes(fenetre2)) fenetre2 = "bureau";
+  if (!["bureau", "etendu"].includes(fenetre2)) fenetre2 = "bureau";
   const decor = creerScene({
     bureau,
     classe,
@@ -20571,57 +21330,12 @@ async function vueSalle({ params }) {
           title: "Suivre la page affich\xE9e par le professeur",
           onclick: () => basculerSuivi(!suit)
         }, icone(suit ? "lien" : "main", 13), suit ? "Je suis le cours" : "Navigation libre") : null,
-        !staff && contributeur ? el(
-          "button.btn",
-          {
-            onclick: basculerMain
-          },
-          icone("main", 15),
-          maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander
-        ) : null,
-        !staff && contributeur && (session.mode || "cours") === "cours" ? el(
-          "button.btn",
-          { onclick: poserQuestion },
-          icone("interro", 15),
-          "J'ai une question"
-        ) : null,
-        !staff && contributeur ? el("button.btn", {
-          class: scene === "moncahier" ? "btn--primaire" : "",
-          onclick: async () => {
-            scene = scene === "moncahier" ? "tableau" : "moncahier";
-            if (suit && scene === "moncahier") basculerSuivi(false);
-            await peindreScene();
-            peindreBandeau();
-          },
-          title: "Prendre mes notes dans mon propre cahier"
-        }, icone("cahier", 15), "Mon cahier") : null,
+        // Lever la main, poser une question, ouvrir son cahier : ces gestes
+        // sont dans le dock, toujours visible. On ne les répète pas ici.
         !staff && offre(session, "cartable") ? el("button.btn", {
           onclick: () => ouvrirCartable(),
           title: "Ce que j'ai apport\xE9 en s\xE9ance"
-        }, icone("sac", 15), "Mes affaires") : null,
-        offre(session, "papiers") ? el("button.btn", {
-          // Sans la lambda, le gestionnaire recevrait l'événement comme
-          // destinataire — et le papier partirait à personne.
-          onclick: () => remettreUnPapier(),
-          title: "R\xE9diger et tendre un papier"
-        }, icone("papier", 15), "Papier") : null,
-        staff ? el(
-          "button.btn",
-          { onclick: (e) => menuProfesseur(e.currentTarget) },
-          icone("reglages", 15),
-          "Outils"
-        ) : null,
-        staff ? el(
-          "button.btn.btn--danger",
-          { onclick: terminerSession },
-          icone("stop", 15),
-          "Terminer"
-        ) : null,
-        el("button.btn.btn--fantome.btn--icone", {
-          "aria-label": "Quitter la salle",
-          title: "Quitter la salle",
-          onclick: () => aller(`/classe/${classe.id}`)
-        }, icone("sortie", 16))
+        }, icone("sac", 15), "Mes affaires") : null
       )
     );
   }
@@ -20968,7 +21682,10 @@ async function vueSalle({ params }) {
         } catch {
         }
       },
-      surFragment: (fragment) => canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id }),
+      surFragment: (fragment) => {
+        canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id });
+        if (staff) decor.signalerEcriture();
+      },
       surCurseur: (x, y) => canalSession?.envoyer("curseur", {
         id: etat.utilisateur.id,
         x,
@@ -22984,6 +23701,7 @@ async function vueSalle({ params }) {
           if (scene !== "tableau") return;
           if (fragment.page !== pagesTableau[indexPage]?.id) return;
           moteurTableau?.fragmentDistant(fragment);
+          decor.signalerEcriture();
         },
         curseur: (position) => {
           if (scene !== "tableau" || position.id === etat.utilisateur.id) return;
@@ -23338,21 +24056,6 @@ async function vueSalle({ params }) {
         }),
         (session.mode || "cours") === "cours" ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() }) : null
       ) : null,
-      el("span.dock__sep"),
-      el(
-        "div.dock__groupe",
-        chose({
-          signe: pictoPersonneConsole(),
-          mot: `${autres.length} ${autres.length > 1 ? "personnes" : "personne"}`,
-          titre: "Personnes pr\xE9sentes",
-          action: (b) => ouvrirBande(b, {
-            personnes: autres,
-            nomDe: nomPersonne,
-            roleDe: (p) => p.role === "teacher" ? "responsable" : "",
-            surChoix: (p, x) => menuPersonne(x, p)
-          })
-        })
-      ),
       el("span.dock__pousse"),
       staff ? el(
         "div.dock__groupe",
@@ -23369,28 +24072,10 @@ async function vueSalle({ params }) {
         { role: "group", "aria-label": "Fen\xEAtre" },
         el("button", {
           type: "button",
-          title: "Compacte : juste les gestes",
-          "aria-pressed": String(fenetre2 === "compact"),
-          onclick: () => appliquerFenetre("compact")
-        }, icone("moins", 15)),
-        el("button", {
-          type: "button",
-          title: "Le bureau",
-          "aria-pressed": String(["bureau", "sac", "cahier", "document"].includes(fenetre2)),
-          onclick: () => appliquerFenetre("bureau")
-        }, icone("sac", 15)),
-        el("button", {
-          type: "button",
-          title: "\xC9tendue : tout le d\xE9tail",
+          title: fenetre2 === "etendu" ? "Revenir \xE0 la classe" : "Vue d\xE9taill\xE9e : tableau, cahiers, participants",
           "aria-pressed": String(fenetre2 === "etendu"),
-          onclick: () => appliquerFenetre("etendu")
+          onclick: () => appliquerFenetre(fenetre2 === "etendu" ? "bureau" : "etendu")
         }, icone("grille", 15)),
-        flottantDisponible() ? el("button", {
-          type: "button",
-          title: estFlottant() ? "Revenir dans le navigateur" : "D\xE9tacher au-dessus du jeu",
-          "aria-pressed": String(estFlottant()),
-          onclick: () => basculerFenetreFlottante()
-        }, icone(estFlottant() ? "entree" : "sortie", 15)) : null,
         el(
           "button",
           { type: "button", title: "Quitter la salle", onclick: () => aller(`/classe/${classe.id}`) },
@@ -23483,6 +24168,7 @@ async function vueSalle({ params }) {
     titre: `${session.title} \u2014 ${classe.name}`,
     nettoyer: () => {
       quitte = true;
+      decor.detruire();
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();

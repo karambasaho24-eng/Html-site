@@ -19,6 +19,7 @@ import { toast } from "../ui/toast.js";
 import { fiche, nomObjet, imageDetouree } from "./affaires.js";
 import { OUTILS_REQUIS } from "./portee.js";
 import { L } from "../core/lexique.js";
+import { creerClasse3D, webglDisponible } from "./classe-3d.js";
 
 /* --- L'échelle des choses --------------------------------------------------
    Largeur de chaque objet, en fraction de la largeur du pupitre. Un crayon
@@ -86,6 +87,7 @@ export function creerScene({
   const grand = el("div.scene__grand-page");           // le document, en grand
 
   const zoneEstrade = el("div.scene__estrade");
+  const vue3d = el("div.scene__classe3d");
   const legendeTableau = el("span.scene__legende");
   const objetsPupitre = el("div.pupitre__objets");
   const banc = el("div.scene__banc", { "aria-label": "À la table" });
@@ -105,7 +107,8 @@ export function creerScene({
         el("span.scene__rebord", { "aria-hidden": "true" },
           el("span.scene__baton"), el("span.scene__brosse")),
         legendeTableau),
-      zoneEstrade),
+      zoneEstrade,
+      vue3d),
     el("div.scene__pupitre",
       el("div.pupitre__surface", { "aria-hidden": "true" }),
       avant ? null : banc,
@@ -517,16 +520,50 @@ export function creerScene({
     peindreOublis();
     peindreSac();
     if (!avant) peindreEstrade();
+    maj3d();
     peindreRail();
+  }
+
+  /* ======================================================================
+     La classe en 3D : le tableau au fond, le professeur, les autres de dos
+     ==================================================================== */
+  let classe3d = null;
+  function maj3d() {
+    if (!classe3d) return;
+    const moiId = String(etat.utilisateur?.id || "");
+    classe3d.maj({
+      eleves: participants()
+        .filter((p) => p.role !== "teacher" && String(p.user_id) !== moiId)
+        .map((p) => ({ id: String(p.user_id), nom: (nomDe(p) || "Participant").split(/\s+/)[0], brut: p })),
+      prof: {
+        present: Boolean(estrade?.present),
+        nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur")
+      }
+    });
+  }
+  if (!avant && webglDisponible()) {
+    creerClasse3D({
+      hote: vue3d,
+      toile: () => noeud.querySelector(".scene__ecran canvas.tableau__toile"),
+      surTableau: () => surTableau?.(),
+      surPersonne: (ancre, p) => surPersonne?.(ancre, p)
+    }).then((c) => {
+      classe3d = c;
+      noeud.classList.add("scene--3d");
+      maj3d();
+    }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste à plat", err));
   }
 
   return {
     noeud, ecranTableau, livre, grand,
+    /** Le professeur écrit au tableau : on le voit se tourner. */
+    signalerEcriture: () => classe3d?.ecrit(),
+    detruire: () => { classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,
     surChangementEtat: (fn) => { surChangementEtat = fn; },
     ouvrirSac: () => { sacOuvert = true; peindre(); },
-    majEstrade(nouvelle) { estrade = nouvelle || {}; peindreEstrade(); },
+    majEstrade(nouvelle) { estrade = nouvelle || {}; peindreEstrade(); maj3d(); },
     majLegende(texte) { legendeTableau.textContent = texte || ""; },
     signaler(message) { toast(message, { type: "attn" }); }
   };

@@ -6,6 +6,7 @@
  * feuille sur le bureau, et la feuille quitte la pile. Celui qui la reçoit la
  * trouve dans ses papiers, et le sait tout de suite.
  * ------------------------------------------------------------------------- */
+import { pretPourUneNote, noteReparable } from "./pret-a-ecrire.js";
 import { el } from "../ui/dom.js";
 import { ouvrirModale } from "../ui/modal.js";
 import { toast, succes, erreur, messageErreur } from "../ui/toast.js";
@@ -53,9 +54,19 @@ export function formulaireNote({ bureau, classe, session, gens = [], nomDe, dest
   let zoneTexte;
 
   if (!verdict.ok) {
+    const args = { bureau, classe, session, gens, nomDe, destinataire, surEnvoi, avecBouton };
+    const noeud = el("div.note-rapide.note-rapide--impossible",
+      el("p.note-rapide__manque", el("b", verdict.message), el("span", verdict.conseil || "")),
+      noteReparable(bureau) ? el("button.btn.btn--primaire", {
+        type: "button",
+        onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          await pretPourUneNote(bureau);
+          noeud.replaceWith(formulaireNote(args).noeud);
+        }
+      }, "Sortir de quoi écrire") : null);
     return {
-      noeud: el("div.note-rapide.note-rapide--impossible",
-        el("p.note-rapide__manque", el("b", verdict.message), el("span", verdict.conseil || ""))),
+      noeud,
       valider: async () => { toast(verdict.message, { corps: verdict.conseil, type: "attn" }); return false; }
     };
   }
@@ -122,7 +133,9 @@ export function formulaireNote({ bureau, classe, session, gens = [], nomDe, dest
 }
 
 export async function ecrireUneNote({ bureau, classe, session, gens = [], nomDe, destinataire = null }) {
-  const verdict = deQuoiEcrireUneNote(bureau);
+  let verdict = deQuoiEcrireUneNote(bureau);
+  // Ce qui manque est dans le sac : on le sort, comme on le ferait en vrai.
+  if (!verdict.ok && noteReparable(bureau) && await pretPourUneNote(bureau)) verdict = deQuoiEcrireUneNote(bureau);
   if (!verdict.ok) {
     toast(verdict.message, { corps: verdict.conseil, type: "attn", duree: 6000 });
     return false;

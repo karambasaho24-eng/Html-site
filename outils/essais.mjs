@@ -709,13 +709,13 @@ try {
   await maitre.goto(`${RACINE}#/classe/${classeId}/salle`);
   await maitre.reload();
   await maitre.waitForTimeout(3000);
-  await maitre.click(".estrade__bascule");
+  await maitre.click(".contexte__statut button.presence");
   await maitre.waitForTimeout(900);
   await maitre.screenshot({ path: `${CAPT}/scene-6-professeur.png` });
   await cadet.click(".scene__livre .scene__fermer");
   await cadet.waitForTimeout(1500);
   verifier("l'eleve voit le professeur devant la classe",
-    await cadet.locator(".estrade__prof--present").count() === 1);
+    await cadet.locator(".contexte__statut .presence--oui").count() === 1);
   await cadet.screenshot({ path: `${CAPT}/scene-7-professeur-present.png` });
 
   await cadet.click('.dock__chose[aria-label="Écrire une note à quelqu\'un"]');

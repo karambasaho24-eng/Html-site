@@ -682,3 +682,60 @@
 .cartable .objet__nom { font-size: 13px; font-weight: 600; }
 .cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 4px rgba(232,200,150,.7)) drop-shadow(0 5px 5px rgba(0,0,0,.45)); }
 .bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-fond); }
+
+/* ===========================================================================
+   La classe en 3D
+   ========================================================================= */
+.scene__classe3d { display: none; }
+.scene--3d { grid-template-rows: minmax(230px, 58%) minmax(0, 1fr); }
+.scene--3d .scene__avant { padding: 10px 1.5% 0; }
+.scene--3d .scene__classe3d {
+  display: block; position: relative;
+  width: 100%; height: 100%;
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--ligne), 0 20px 40px -24px rgba(0,0,0,.8);
+  animation: apparait .6s var(--doux);
+}
+/* Le tableau à plat reste là, invisible : c'est sa toile qu'on voit en 3D. */
+.scene--3d .scene__tableau {
+  position: absolute; left: 0; top: 0; width: 320px; height: 180px; max-width: none;
+  opacity: 0; pointer-events: none; z-index: -1;
+}
+.scene--3d .scene__estrade,
+.scene--3d .scene__banc { display: none; }
+.scene--3d .scene__pupitre { margin-top: 12px; }
+.classe3d__toile { display: block; width: 100%; height: 100%; }
+.classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.classe3d__nom {
+  position: absolute; left: 0; top: 0;
+  padding: 2px 8px; border-radius: 999px; border: 0;
+  font: inherit; font-size: 11px; font-weight: 500; line-height: 16px; white-space: nowrap;
+  color: #f1efe9; background: rgba(12,14,16,.62); backdrop-filter: blur(4px);
+  pointer-events: auto; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.classe3d__nom[hidden] { display: none; }
+.classe3d__nom--survol, .classe3d__nom:hover { background: var(--accent); color: #15130f; }
+.classe3d__nom--prof { background: rgba(127,197,138,.85); color: #0f1a12; font-weight: 600; }
+.chassis[data-taille="moyen"] .scene--3d { grid-template-rows: minmax(200px, 50%) minmax(0, 1fr); }
+
+/* ===========================================================================
+   Le sac ouvert tient TOUJOURS dans la fenêtre : la zone du sac occupe la
+   hauteur de la scène, le contenu se glisse au-dessus du sac et défile.
+   ========================================================================= */
+.scene__sac-zone {
+  top: 10px; bottom: 8px; width: auto;
+  justify-content: flex-end; align-items: flex-start;
+  pointer-events: none;
+}
+.scene__sac-zone > * { pointer-events: auto; }
+.scene__sac { width: clamp(104px, 11vw, 165px); }
+.sac__contenu {
+  position: relative; left: auto; bottom: auto;
+  flex: 0 1 auto; min-height: 0; max-height: none;
+  margin-bottom: 8px;
+  width: min(600px, calc(100vw - 40px));
+}
+.scene[data-etat="sac"] .scene__sac-zone { top: 10px; align-items: center; }
+.scene[data-etat="sac"] .scene__sac { width: clamp(140px, 15vw, 210px); }
+.scene[data-etat="sac"] .sac__contenu { left: auto; transform: none; width: min(880px, calc(100vw - 40px)); max-height: none; }
