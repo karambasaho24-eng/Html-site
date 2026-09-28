@@ -34,6 +34,8 @@ import {
 import { observer } from "../core/store.js";
 import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
 import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
+import { monAvatar } from "../features/apparence.js";
+import { ecouter } from "../core/bus.js";
 import { ecrireUneNote } from "../features/note-rapide.js";
 import { panneauDossiers } from "../features/dossiers.js";
 import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
@@ -2485,7 +2487,7 @@ export default async function vueSalle({ params }) {
       grade: maFiche()?.rank || null,
       role: staff ? "teacher" : estObservateur() ? "observer" : "student",
       scene, statut: "present", horodatage: Date.now(),
-      bureau: resumeBureau()
+      bureau: resumeBureau(), avatar: monAvatar()
     });
   }, 250);
 
@@ -2684,7 +2686,7 @@ export default async function vueSalle({ params }) {
           user_id: etat.utilisateur.id, nom: monNom(),
           grade: maFiche()?.rank || null,
           role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now(),
-          bureau: resumeBureau()
+          bureau: resumeBureau(), avatar: monAvatar()
         },
         surMaj: (liste) => {
           const uniques = new Map();
@@ -3044,6 +3046,8 @@ export default async function vueSalle({ params }) {
   // La taille de la fenêtre change le comportement : en petit, la console ;
   // en grand, la scène — et la zone de scène revient à sa place.
   const petit = () => ["compact", "mini"].includes(etat.taille);
+  // J'ai changé de tenue : les autres le voient aussitôt.
+  const lacherAvatar = ecouter("avatar:change", () => majPresence());
   var lacherTaille = observer("taille", async () => {
     if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
     else { consoleSalle.fermer(); decor.classeDans(null); await appliquerFenetre(fenetre); }
@@ -3091,6 +3095,7 @@ export default async function vueSalle({ params }) {
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();
+      lacherAvatar();
       // On sort de la salle : ce qui n'a pas été rangé y reste.
       bureau.laisserTout();
       clearInterval(tictac);

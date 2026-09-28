@@ -254,6 +254,7 @@ export default async function vueAccueil() {
       rendre();
       for (const l of lachers) l?.();
       editeur?.detruire?.();
+      decor.detruire?.();
       modePleineVue(false);
     }
   };

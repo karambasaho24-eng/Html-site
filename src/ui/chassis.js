@@ -167,6 +167,11 @@ function peindreRail() {
     estAdmin() ? lienRail("/administration", "administration", "Comptes et journaux", "bouclier") : null,
 
     el("div.rail__pied",
+      etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: async () => {
+        fermer();
+        const { ouvrirApparence } = await import("../features/apparence.js");
+        ouvrirApparence();
+      } }, icone("eleves", 16), el("span", "Mon personnage")) : null,
       lienRail("/profil", "profil", "Profil", "profil"),
       lienRail("/reglages", "reglages", "Réglages", "reglages"),
       el("button.rail__lien", { type: "button", onclick: () => { basculerTheme(); fermer(); } },

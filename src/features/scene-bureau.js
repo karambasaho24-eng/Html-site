@@ -20,6 +20,8 @@ import { fiche, nomObjet, imageDetouree } from "./affaires.js";
 import { OUTILS_REQUIS } from "./portee.js";
 import { L } from "../core/lexique.js";
 import { creerClasse3D, webglDisponible } from "./classe-3d.js";
+import { monAvatar, ouvrirApparence } from "./apparence.js";
+import { ecouter } from "../core/bus.js";
 
 /* --- L'échelle des choses --------------------------------------------------
    Largeur de chaque objet, en fraction de la largeur du pupitre. Un crayon
@@ -532,6 +534,7 @@ export function creerScene({
      La classe en 3D : le tableau au fond, le professeur, les autres de dos
      ==================================================================== */
   let classe3d = null;
+  let lacherAvatar = null;
   function maj3d() {
     if (!classe3d) return;
     if (avant) {
@@ -540,7 +543,7 @@ export function creerScene({
       classe3d.maj({
         mode: "maison",
         eleves: [{
-          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null,
+          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: monAvatar(),
           bureau: [
             ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
             ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
@@ -564,13 +567,15 @@ export function creerScene({
           id: String(p.user_id),
           nom: (nomDe(p) || "Participant").split(/\s+/)[0],
           brut: p,
+          avatar: p.avatar || null,
           bureau: Array.isArray(p.bureau) ? p.bureau : [],
           main: levees.has(String(p.user_id))
         })),
       prof: {
         present: Boolean(estrade?.present),
         nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
-        bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : []
+        bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : [],
+        avatar: responsable?.avatar || null
       }
     });
   }
@@ -584,6 +589,12 @@ export function creerScene({
       classe3d = c;
       noeud.classList.add("scene--3d");
       maj3d();
+      // Chez soi, on s'habille : le bouton est posé sur la vue.
+      if (avant) {
+        vue3d.appendChild(el("button.classe3d__habiller", { type: "button", onclick: () => ouvrirApparence() },
+          icone("profil", 14), "Mon personnage"));
+      }
+      lacherAvatar = ecouter("avatar:change", maj3d);
     }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste à plat", err));
   }
 
@@ -594,7 +605,7 @@ export function creerScene({
     /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
     classeDans: (conteneur) => { if (classe3d) { classe3d.deplacer(conteneur || vue3d); return true; } return false; },
     a3d: () => Boolean(classe3d),
-    detruire: () => { classe3d?.detruire(); classe3d = null; },
+    detruire: () => { lacherAvatar?.(); classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,
     surChangementEtat: (fn) => { surChangementEtat = fn; },

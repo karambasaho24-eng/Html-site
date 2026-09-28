@@ -25,7 +25,8 @@
  * garde sa vue à plat.
  * ------------------------------------------------------------------------- */
 import { imageDetouree } from "./affaires.js";
-import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, toilesTenue } from "./tenues.js";
+import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, toilesTenue, toileCape } from "./tenues.js";
+import { COIFFURES, COULEURS_CHEVEUX, TEINTS, construireCoiffure, toileCheveux } from "./coiffures.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
 const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
@@ -246,6 +247,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
     chignon: new THREE.SphereGeometry(0.32, 14, 10),
     plan: new THREE.PlaneGeometry(1, 1),
+    cape: new THREE.PlaneGeometry(2.2, 2.7),
     pied: new THREE.CylinderGeometry(0.06, 0.06, 1, 8)
   };
   const PARTAGEES = new Set(Object.values(GEO));
@@ -296,17 +298,58 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return m;
   }
 
+  /* --- L'apparence : ce que le joueur a choisi, ou ce que son nom tire au sort */
+  const DEFAUTS = {
+    tenue: NOMS_TENUES.filter((n) => !["exploration", "garnison", "brigade", "cadet"].includes(n)),
+    coiffure: COIFFURES.map((c) => c.cle),
+    cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
+    peau: TEINTS.map((t) => t.cle).slice(0, 6)
+  };
+  function avatarComplet(cle, avatar = {}) {
+    const alea = graine(`apparence:${cle}`);
+    return {
+      tenue: NOMS_TENUES.includes(avatar?.tenue) ? avatar.tenue : choisir(alea, DEFAUTS.tenue),
+      coiffure: COIFFURES.some((c) => c.cle === avatar?.coiffure) ? avatar.coiffure : choisir(alea, DEFAUTS.coiffure),
+      cheveux: /^#[0-9a-f]{6}$/i.test(avatar?.cheveux || "") ? avatar.cheveux : choisir(alea, DEFAUTS.cheveux),
+      peau: /^#[0-9a-f]{6}$/i.test(avatar?.peau || "") ? avatar.peau : choisir(alea, DEFAUTS.peau)
+    };
+  }
+  let texCheveux = null;
+  const cacheCheveux = new Map();
+  function matiereCheveux(couleur) {
+    if (!cacheCheveux.has(couleur)) {
+      texCheveux ??= Object.assign(new THREE.CanvasTexture(toileCheveux()), { wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
+      texCheveux.repeat?.set(3, 1);
+      cacheCheveux.set(couleur, new THREE.MeshStandardMaterial({
+        color: couleur, map: texCheveux, roughness: .42, metalness: .05, side: THREE.DoubleSide
+      }));
+    }
+    return cacheCheveux.get(couleur);
+  }
+  const cacheCapes = new Map();
+  function matiereCape(tenue) {
+    if (!cacheCapes.has(tenue)) {
+      const toile = toileCape(tenue);
+      cacheCapes.set(tenue, toile ? new THREE.MeshStandardMaterial({
+        map: Object.assign(new THREE.CanvasTexture(toile), { colorSpace: THREE.SRGBColorSpace }),
+        roughness: .9, side: THREE.DoubleSide
+      }) : null);
+    }
+    return cacheCapes.get(tenue);
+  }
+
   /* --- Un personnage : la silhouette classique de Roblox -------------------
      Une tête cylindrique aux bords adoucis, un torse carré, deux bras et deux
      jambes d'un seul bloc. Pas de visage : ni yeux, ni sourire. Un costume
      ouvert sur la chemise et la cravate, et des cheveux pour qu'on ne voie
      pas des crânes nus depuis le fond de la salle. */
-  function personnage(cle, tenue = null) {
+  function personnage(cle, avatar = {}) {
     const alea = graine(cle);
-    const peau = matDe(choisir(alea, PEAUX));
-    const habit = matieresTenue(tenue || choisir(alea, NOMS_TENUES));
-    const cheveux = matDe(choisir(alea, CHEVEUX), { roughness: .7 });
-    const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
+    // Ce que le joueur a choisi ; à défaut, une apparence tirée de son nom.
+    const a = avatarComplet(cle, avatar);
+    const peau = matDe(a.peau);
+    const habit = matieresTenue(a.tenue);
+    const cheveux = matiereCheveux(a.cheveux);
 
     const racine = new THREE.Group();
     const bassin = new THREE.Group();          // le bas du torse, où naissent les jambes
@@ -324,20 +367,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const crane = new THREE.Mesh(GEO.tete, peau);
     crane.position.y = 0.62;
     tete.add(crane);
-    const calotte = new THREE.Mesh(GEO.cheveuxCourts, cheveux);
-    calotte.position.y = 0.74;
-    calotte.rotation.x = 0.28;
-    calotte.scale.set(1.04, 1, 1.04);
-    tete.add(calotte);
-    if (coupe === "longs") {
-      const longs = new THREE.Mesh(GEO.cheveuxLongs, cheveux);
-      longs.scale.set(0.5, 0.58, 0.24);
-      longs.position.set(0, 0.36, 0.44);
-      tete.add(longs);
-    } else if (coupe === "chignon") {
-      const c = new THREE.Mesh(GEO.chignon, cheveux);
-      c.position.set(0, 1.05, 0.55);
-      tete.add(c);
+    tete.add(construireCoiffure(THREE, a.coiffure, cheveux));
+    // L'éclaireur porte la cape, dans le dos.
+    const cape = matiereCape(a.tenue);
+    if (cape) {
+      const m = new THREE.Mesh(GEO.cape, cape);
+      m.position.set(0, 0.75, 0.56);
+      m.rotation.x = 0.06;
+      bassin.add(m);
     }
 
     /* Un membre d'un seul bloc, pendu à son articulation. Le « bout » est un
@@ -673,6 +710,21 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return { sieges, rangs, cols, dernier, fond, prof: { x: 6.4, z: fond + 1.9 } };
   }
 
+  /* --- Le portrait : on se regarde, debout, qui tourne lentement ---------- */
+  function construirePortrait() {
+    const sol = new THREE.Mesh(new THREE.CircleGeometry(3.2, 48), new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: .8 }));
+    sol.rotation.x = -Math.PI / 2;
+    sol.receiveShadow = true;
+    const fond = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), new THREE.MeshStandardMaterial({ color: "#2a2d31", roughness: 1 }));
+    fond.position.set(0, 6, -6);
+    decor.add(sol, fond);
+    soleil.position.set(-5, 10, 8);
+    soleil.target.position.set(0, 1.5, 0);
+    Object.assign(soleil.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+    soleil.shadow.camera.updateProjectionMatrix();
+    return { sieges: [{ x: 0, z: 0, angle: Math.PI, objets: new THREE.Group() }], fond: -6 };
+  }
+
   /* --- Chez soi : une chambre avec son bureau ------------------------------
      Le bureau contre le mur, sous la fenêtre ; une lampe, une bibliothèque,
      le lit, un tapis, la carte des Murs épinglée. On y est assis, de dos. */
@@ -884,6 +936,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   function asseoir(x, siege) {
     const { p } = x;
+    if (dispo.portrait) {
+      p.poser("debout");
+      p.racine.position.set(0, 0.05, 0);
+      p.racine.rotation.y = Math.PI;
+      p.racine.scale.setScalar(0.72);
+      x.siege = siege; x.sig = null; x.arrive = 0;
+      return;
+    }
     const pose = dispo.reunion ? "assis"
       : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "assis"]);
     p.poser(pose);
@@ -900,7 +960,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const total = Math.max(6, n + (etat.prof.present ? 1 : 0) + 1);
     const cols = colonnesPour(n);
     const maison = etat.mode === "maison";
-    const cle = maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
+    const portrait = etat.mode === "portrait";
+    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
     if (cle === dispo.cle) return;
     for (const o of [...decor.children]) {
       decor.remove(o);
@@ -908,7 +969,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     ardoise = null;
     objetsProf = null;
-    dispo = maison ? { cle, reunion: false, maison: true, ...construireMaison() }
+    dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() }
+      : maison ? { cle, reunion: false, maison: true, ...construireMaison() }
       : reunion ? { cle, reunion: true, ...construireReunion(total) }
       : { cle, reunion: false, ...construireClasse(n) };
     // Chacun reprend une place dans la nouvelle salle.
@@ -952,13 +1014,24 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         const siege = dispo.sieges.find((s) => !prises.has(s));
         if (!siege) continue;
         prises.add(siege);
-        const p = personnage(id);
+        const p = personnage(id, e.avatar);
         scene.add(p.racine);
-        x = { p, personne: e, etiquette: etiquette(e.nom), sig: null, arrive: performance.now() };
+        x = { p, personne: e, etiquette: etiquette(e.nom), sig: null, arrive: performance.now(),
+              avSig: JSON.stringify(e.avatar || {}) };
         x.etiquette.onclick = () => surPersonne?.(x.etiquette, x.personne.brut);
         p.racine.traverse((o) => { o.userData.personne = id; });
         gens.set(id, x);
         asseoir(x, siege);
+      }
+      // Il a changé d'apparence : on le rhabille, à la même place.
+      const avSig = JSON.stringify(e.avatar || {});
+      if (avSig !== x.avSig) {
+        scene.remove(x.p.racine);
+        x.p = personnage(id, e.avatar);
+        x.p.racine.traverse((o) => { o.userData.personne = id; });
+        scene.add(x.p.racine);
+        x.avSig = avSig;
+        asseoir(x, x.siege);
       }
       x.personne = e;
       x.etiquette.textContent = e.nom;
@@ -980,10 +1053,12 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       if (dispo.tete) garnir(dispo.tete.objets, []);
       return;
     }
+    const avSig = JSON.stringify(p.avatar || {});
+    if (prof && prof.avSig !== avSig) { scene.remove(prof.p.racine); prof.etiquette.remove(); prof = null; }
     if (!prof) {
-      const q = personnage(`prof:${p.nom}`, "gris-bleu");
+      const q = personnage(`prof:${p.nom}`, p.avatar || { tenue: "gris-bleu" });
       scene.add(q.racine);
-      prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null };
+      prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null, avSig };
       placerProf();
     }
     prof.etiquette.textContent = p.nom;
@@ -1006,7 +1081,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     renderer.setSize(l, h, false);
     camera.aspect = l / h;
     const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
-    if (dispo.maison) {
+    if (dispo.portrait) {
+      // Qu'il tienne en entier, de la tête aux pieds, bras compris — même
+      // dans un aperçu étroit.
+      camera.fov = 30;
+      const t = 2 * Math.tan((camera.fov / 2) * Math.PI / 180);
+      const d = Math.max(4.5 / t, 3.6 / (t * camera.aspect));
+      camera.position.set(0, 2.4, d);
+      regard.set(0, 1.95, 0);
+    } else if (dispo.maison) {
       // Chez soi : on se voit de trois quarts dos, assis à son bureau.
       // Fenêtre très large : on recule et on resserre, sans déformer la pièce.
       camera.fov = 48 - k * 18;
@@ -1048,6 +1131,18 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       survol = cible;
     }
   });
+  // Dans le portrait, on fait tourner le personnage en le glissant.
+  let tourPortrait = 0, glisse = null;
+  const fige = hote.dataset.fige === "1";
+  canvas.addEventListener("pointerdown", (e) => {
+    if (!dispo.portrait) return;
+    glisse = { x: e.clientX, depart: tourPortrait };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (glisse) tourPortrait = glisse.depart + (e.clientX - glisse.x) / 80;
+  });
+  canvas.addEventListener("pointerup", () => { glisse = null; });
   canvas.addEventListener("click", (e) => {
     const o = viser(e);
     if (o?.userData.tableau) surTableau?.();
@@ -1091,6 +1186,16 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const s = t / 1000;
     if (t - dernierTableau > (leger ? 500 : 300)) { suivreToile(); dernierTableau = t; qualite(); }
 
+    if (dispo.portrait) {
+      for (const x of gens.values()) {
+        // Il se balance doucement de trois quarts en trois quarts ; on peut
+        // aussi le faire tourner en le glissant.
+        x.p.racine.rotation.y = Math.PI + tourPortrait + (glisse || fige ? 0 : Math.sin(s * 0.6) * 0.7);
+        x.p.torse.scale.y = 1 + Math.sin(s * 1.6) * 0.01;
+      }
+      renderer.render(scene, camera);
+      return;
+    }
     for (const x of gens.values()) {
       const p = x.p;
       const k = s + p.phase;

@@ -4454,6 +4454,44 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .chez-moi .scene--3d .scene__pupitre { margin-top: 14px; }
 .classe3d__nom:empty { display: none; }
 
+/* --- Mon personnage ------------------------------------------------------- */
+.classe3d__habiller {
+  position: absolute; right: 12px; top: 12px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 13px; border-radius: 999px; border: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 500; color: #15130f; background: var(--accent);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.classe3d__habiller:hover { background: #f0d5ab; }
+.apparence { display: grid; grid-template-columns: minmax(240px, 34%) 1fr; gap: 18px; min-height: 0; }
+.apparence__gauche { display: flex; flex-direction: column; gap: 8px; }
+.apparence__apercu { position: relative; height: min(56vh, 460px); border-radius: 16px; overflow: hidden; background: #2a2d31; }
+.apparence__apercu .classe3d__toile { cursor: grab; }
+.apparence__aide { margin: 0; font-size: 12px; color: var(--texte-faible); text-align: center; }
+.apparence__choix { display: flex; flex-direction: column; gap: 16px; max-height: min(62vh, 540px); overflow: auto; padding-right: 4px; }
+.apparence__titre { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }
+.apparence__sous-titre { margin: 8px 0 6px; font-size: 12px; color: var(--texte-doux); }
+.apparence__tenues { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.apparence__tenue, .apparence__coupe {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 12px; border: 0; cursor: pointer; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--texte-doux);
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background .15s, color .15s;
+}
+.apparence__tenue:hover, .apparence__coupe:hover { background: var(--surface-3); color: var(--texte); }
+.apparence__tenue[aria-pressed="true"], .apparence__coupe[aria-pressed="true"] { color: var(--texte); background: var(--accent-fond); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.apparence__nuancier { display: flex; flex: 0 0 auto; }
+.apparence__nuancier span { width: 14px; height: 22px; border-radius: 4px; margin-right: -4px; box-shadow: 0 0 0 1.5px var(--surface-2); }
+.apparence__coupes { display: flex; flex-wrap: wrap; gap: 6px; }
+.apparence__pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.apparence__pastille { width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
+.apparence__pastille[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
+@media (max-width: 720px) {
+  .apparence { grid-template-columns: 1fr; }
+  .apparence__apercu { height: 260px; }
+}
+
 /* ---- responsive.css ---- */
 /* ===========================================================================
    Adaptation : PC d'abord (cohabitation Roblox), puis tablette, puis mobile
@@ -12581,6 +12619,2374 @@ var init_interface = __esm({
   }
 });
 
+// src/features/tenues.js
+function rgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [n >> 16, n >> 8 & 255, n & 255];
+}
+function teinte(hex, k) {
+  const [r, g, b] = rgb(hex);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c * k)));
+  return `rgb(${f(r)}, ${f(g)}, ${f(b)})`;
+}
+function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = true } = {}) {
+  const d = g.createLinearGradient(0, y, 0, y + h);
+  d.addColorStop(0, teinte(couleur, 1.07));
+  d.addColorStop(0.55, couleur);
+  d.addColorStop(1, teinte(couleur, 1 - ombreBas));
+  g.fillStyle = d;
+  g.fillRect(x, y, l, h);
+  if (bords) {
+    for (const [x0, x1] of [[x, x + 7], [x + l, x + l - 7]]) {
+      const b = g.createLinearGradient(x0, 0, x1, 0);
+      b.addColorStop(0, "rgba(0,0,0,.22)");
+      b.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = b;
+      g.fillRect(Math.min(x0, x1), y, 7, h);
+    }
+  }
+  for (let i = 0; i < l * h / 5; i++) {
+    g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "0,0,0"},${Math.random() * 0.045})`;
+    g.fillRect(x + Math.random() * l, y + Math.random() * h, 0.6, 0.6);
+  }
+  if (rayure) {
+    g.fillStyle = `rgba(255,255,255,${rayure})`;
+    for (let i = x + 3; i < x + l; i += 5) g.fillRect(i, y, 0.5, h);
+  }
+}
+function trait(g, points, couleur, largeur = 1, pointille = null) {
+  g.save();
+  g.strokeStyle = couleur;
+  g.lineWidth = largeur;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  if (pointille) g.setLineDash(pointille);
+  g.beginPath();
+  g.moveTo(...points[0]);
+  for (const p of points.slice(1)) g.lineTo(...p);
+  g.stroke();
+  g.restore();
+}
+function forme(g, points, remplissage) {
+  g.fillStyle = remplissage;
+  g.beginPath();
+  g.moveTo(...points[0]);
+  for (const p of points.slice(1)) g.lineTo(...p);
+  g.closePath();
+  g.fill();
+}
+function bouton(g, x, y, couleur, r = 2.6) {
+  const d = g.createRadialGradient(x - r / 3, y - r / 3, 0.2, x, y, r);
+  d.addColorStop(0, teinte(couleur, 1.6));
+  d.addColorStop(1, teinte(couleur, 0.5));
+  g.fillStyle = d;
+  g.beginPath();
+  g.arc(x, y, r, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "rgba(0,0,0,.35)";
+  g.fillRect(x - 0.7, y - 0.7, 0.5, 0.5);
+  g.fillRect(x + 0.3, y + 0.2, 0.5, 0.5);
+}
+function pli(g, points, force = 1) {
+  trait(g, points, `rgba(0,0,0,${0.2 * force})`, 1.4);
+  trait(g, points.map(([a, b]) => [a + 1.2, b]), `rgba(255,255,255,${0.07 * force})`, 0.8);
+}
+function ecu(g, cx, cy, l, h) {
+  g.beginPath();
+  g.moveTo(cx - l / 2, cy - h / 2);
+  g.lineTo(cx + l / 2, cy - h / 2);
+  g.lineTo(cx + l / 2, cy);
+  g.quadraticCurveTo(cx + l / 2, cy + h * 0.35, cx, cy + h / 2);
+  g.quadraticCurveTo(cx - l / 2, cy + h * 0.35, cx - l / 2, cy);
+  g.closePath();
+}
+function dessinerInsigne(g, type, cx, cy, s = 1) {
+  const l = 26 * s, h = 30 * s;
+  const fonds = { entrainement: "#5d1f24", exploration: "#1f2c4a", garnison: "#5a5d62", brigade: "#223a2a", ecole: "#1d2a4a" };
+  g.save();
+  ecu(g, cx, cy, l, h);
+  const d = g.createLinearGradient(0, cy - h / 2, 0, cy + h / 2);
+  d.addColorStop(0, teinte(fonds[type] || "#333333", 1.25));
+  d.addColorStop(1, fonds[type] || "#333333");
+  g.fillStyle = d;
+  g.fill();
+  g.lineWidth = 1.6 * s;
+  g.strokeStyle = "#c9a24a";
+  g.stroke();
+  g.clip();
+  const or = "#d9b45a", argent = "#e3e6ea";
+  if (type === "entrainement") {
+    for (const sens of [-1, 1]) {
+      g.save();
+      g.translate(cx, cy + 1 * s);
+      g.rotate(sens * 0.7);
+      g.fillStyle = argent;
+      g.fillRect(-1.2 * s, -12 * s, 2.4 * s, 18 * s);
+      g.fillStyle = or;
+      g.fillRect(-4 * s, 5 * s, 8 * s, 1.8 * s);
+      g.fillRect(-1 * s, 6.5 * s, 2 * s, 4 * s);
+      g.restore();
+    }
+    g.strokeStyle = "#7fa36b";
+    g.lineWidth = 1.2 * s;
+    for (const sens of [-1, 1]) {
+      g.beginPath();
+      g.arc(cx, cy + 2 * s, 9 * s, Math.PI / 2 + sens * 0.3, Math.PI / 2 + sens * 1.6, sens < 0);
+      g.stroke();
+    }
+  } else if (type === "exploration") {
+    g.fillStyle = argent;
+    for (let i = 0; i < 5; i++) {
+      g.save();
+      g.translate(cx - 6 * s, cy + 6 * s);
+      g.rotate(-1.25 + i * 0.22);
+      g.beginPath();
+      g.ellipse(0, -8 * s, 2.4 * s, 9 * s - i * s, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+    g.fillStyle = or;
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 2 : 4.6) * s;
+      g.lineTo(cx + 6 * s + Math.cos(a) * r, cy - 6 * s + Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+  } else if (type === "garnison") {
+    g.fillStyle = "#3e4146";
+    g.fillRect(cx - l / 2, cy + 5 * s, l, 12 * s);
+    for (let x = cx - l / 2; x < cx + l / 2; x += 6 * s) g.fillRect(x, cy + 2 * s, 3.5 * s, 4 * s);
+    g.strokeStyle = "#5f8a4a";
+    g.lineWidth = 1.3 * s;
+    g.beginPath();
+    g.moveTo(cx, cy + 3 * s);
+    g.lineTo(cx, cy - 3 * s);
+    g.stroke();
+    g.fillStyle = "#b8303a";
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5;
+      g.beginPath();
+      g.arc(cx + Math.cos(a) * 3 * s, cy - 7 * s + Math.sin(a) * 3 * s, 3 * s, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = "#e0606a";
+    g.beginPath();
+    g.arc(cx, cy - 7 * s, 2 * s, 0, Math.PI * 2);
+    g.fill();
+  } else if (type === "brigade") {
+    g.fillStyle = argent;
+    g.fillRect(cx - 1.1 * s, cy - 4 * s, 2.2 * s, 16 * s);
+    g.fillStyle = or;
+    g.fillRect(cx - 5 * s, cy - 4.5 * s, 10 * s, 1.8 * s);
+    g.beginPath();
+    g.moveTo(cx - 7 * s, cy - 7 * s);
+    g.lineTo(cx - 7 * s, cy - 12 * s);
+    g.lineTo(cx - 3.5 * s, cy - 9 * s);
+    g.lineTo(cx, cy - 13 * s);
+    g.lineTo(cx + 3.5 * s, cy - 9 * s);
+    g.lineTo(cx + 7 * s, cy - 12 * s);
+    g.lineTo(cx + 7 * s, cy - 7 * s);
+    g.closePath();
+    g.fill();
+  } else if (type === "ecole") {
+    g.fillStyle = "#efe6d0";
+    g.beginPath();
+    g.moveTo(cx, cy + 6 * s);
+    g.quadraticCurveTo(cx - 5 * s, cy + 3 * s, cx - 10 * s, cy + 5 * s);
+    g.lineTo(cx - 10 * s, cy - 2 * s);
+    g.quadraticCurveTo(cx - 5 * s, cy - 4 * s, cx, cy - 1 * s);
+    g.closePath();
+    g.fill();
+    g.beginPath();
+    g.moveTo(cx, cy + 6 * s);
+    g.quadraticCurveTo(cx + 5 * s, cy + 3 * s, cx + 10 * s, cy + 5 * s);
+    g.lineTo(cx + 10 * s, cy - 2 * s);
+    g.quadraticCurveTo(cx + 5 * s, cy - 4 * s, cx, cy - 1 * s);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = or;
+    g.lineWidth = 1.2 * s;
+    g.beginPath();
+    g.moveTo(cx - 3 * s, cy - 3 * s);
+    g.quadraticCurveTo(cx + 2 * s, cy - 9 * s, cx + 6 * s, cy - 12 * s);
+    g.stroke();
+  }
+  g.restore();
+}
+function dessinerHaut(g, t) {
+  const T2 = FACES.torse;
+  const [fx, fy] = T2.F;
+  const c = fx + 64;
+  const matiere = t.veste || t.pull || t.chemise;
+  for (const k of ["R", "L", "B", "U", "D", "F"]) drap(g, T2[k], matiere, { rayure: t.veste ? t.rayure : 0 });
+  const [ux, uy, ul, uh] = T2.U;
+  g.fillStyle = teinte(t.chemise, 0.92);
+  g.beginPath();
+  g.ellipse(ux + ul / 2, uy + uh / 2 + 6, 22, 14, 0, 0, Math.PI * 2);
+  g.fill();
+  couture(g, [[ux + 10, uy + uh / 2], [ux + 40, uy + uh / 2]]);
+  couture(g, [[ux + ul - 40, uy + uh / 2], [ux + ul - 10, uy + uh / 2]]);
+  for (const k of ["R", "L"]) {
+    const [x, y, l, h] = T2[k];
+    couture(g, [[x + l / 2, y + 4], [x + l / 2, y + h]]);
+    pli(g, [[x + l / 2 - 8, y + 16], [x + l / 2 - 4, y + 34]], 0.8);
+  }
+  const [bx, by, bl, bh] = T2.B;
+  couture(g, [[bx + bl / 2, by + 2], [bx + bl / 2, by + bh]]);
+  pli(g, [[bx + 24, by + 18], [bx + 34, by + 40]], 0.7);
+  pli(g, [[bx + bl - 24, by + 18], [bx + bl - 34, by + 40]], 0.7);
+  if (t.veste && !t.militaire) trait(g, [[bx + bl / 2, by + bh - 26], [bx + bl / 2, by + bh]], "rgba(0,0,0,.55)", 1.6);
+  const cou = g.createLinearGradient(0, by, 0, by + 14);
+  cou.addColorStop(0, "rgba(0,0,0,.3)");
+  cou.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = cou;
+  g.fillRect(bx, by, bl, 14);
+  const [dx, dy, dl, dh] = T2.D;
+  g.fillStyle = t.harnais || "#141414";
+  g.fillRect(dx, dy + dh / 2 - 5, dl, 10);
+  if (t.militaire) dessinerUniformeTorse(g, t);
+  else dessinerCostumeTorse(g, t, c);
+  for (const cote of ["droit", "gauche"]) {
+    const B = FACES[cote];
+    const manche = t.veste || t.chemise;
+    for (const k of ["U", "L", "B", "R", "F"]) drap(g, B[k], manche, { rayure: t.veste ? t.rayure : 0 });
+    const exterieur = cote === "droit" ? "R" : "L";
+    for (const k of ["L", "B", "R", "F"]) {
+      const [x, y, l, h] = B[k];
+      const ep = g.createLinearGradient(0, y, 0, y + 10);
+      ep.addColorStop(0, "rgba(0,0,0,.28)");
+      ep.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = ep;
+      g.fillRect(x, y, l, 10);
+      pli(g, [[x + 10, y + 62], [x + 26, y + 70], [x + 40, y + 66]], 0.9);
+      pli(g, [[x + 22, y + 76], [x + 44, y + 82]], 0.6);
+      if (t.veste) {
+        g.fillStyle = t.poignets || t.chemise;
+        g.fillRect(x, y + h - 10, l, 10);
+        g.fillStyle = "rgba(0,0,0,.18)";
+        g.fillRect(x, y + h - 10, l, 1.2);
+        trait(g, [[x, y + h - 12], [x + l, y + h - 12]], "rgba(0,0,0,.4)", 1);
+        if (k === "F" && !t.militaire) for (const yy of [h - 20, h - 26, h - 32]) bouton(g, x + l - 11, y + yy, teinte(t.veste, 0.6), 1.8);
+      } else {
+        g.fillStyle = teinte(t.chemise, 0.92);
+        g.fillRect(x, y + 70, l, 12);
+        trait(g, [[x, y + 70], [x + l, y + 70]], "rgba(0,0,0,.2)", 1);
+        trait(g, [[x, y + 82], [x + l, y + 82]], "rgba(0,0,0,.25)", 1);
+        g.fillStyle = "#e8c9a6";
+        g.fillRect(x, y + 82, l, h - 82);
+        g.fillStyle = "rgba(0,0,0,.12)";
+        g.fillRect(x, y + 82, l, 3);
+      }
+      if (t.militaire && k === exterieur) dessinerInsigne(g, t.insigne, x + l / 2, y + 26, 0.95);
+      if (t.passepoil && k === exterieur) trait(g, [[x, y + h - 14], [x + l, y + h - 14]], t.passepoil, 1.2);
+    }
+    const [hx, hy, hl, hh] = B.D;
+    g.fillStyle = "#e8c9a6";
+    g.fillRect(hx, hy, hl, hh);
+    g.fillStyle = "rgba(0,0,0,.1)";
+    g.fillRect(hx, hy + hh / 2, hl, hh / 2);
+  }
+}
+function dessinerCostumeTorse(g, t, c) {
+  const [fx, fy] = FACES.torse.F;
+  const bas = fy + 128;
+  const ouverte = Boolean(t.ouverte);
+  const creux = !t.veste ? 0 : ouverte ? 128 : t.gilet ? 88 : t.croise ? 62 : 72;
+  if (!t.veste && !t.pull) drap(g, FACES.torse.F, t.chemise, { ombreBas: 0.1 });
+  forme(g, [[c - 24, fy], [c + 24, fy], [c + (t.veste ? 0 : 24), fy + (creux || 128)], [c - (t.veste ? 0 : 24), fy + (creux || 128)]], t.chemise);
+  if (!t.veste && !t.pull) {
+    trait(g, [[c, fy + 10], [c, bas]], "rgba(0,0,0,.18)", 1);
+    for (let yy = 26; yy < 128; yy += 18) bouton(g, c + 3, fy + yy, "#e8e6e0", 1.6);
+    trait(g, [[fx + 84, fy + 38], [fx + 104, fy + 38], [fx + 104, fy + 58], [fx + 84, fy + 58], [fx + 84, fy + 38]], "rgba(0,0,0,.18)", 1);
+    pli(g, [[fx + 30, fy + 70], [fx + 38, fy + 110]], 0.5);
+    pli(g, [[fx + 98, fy + 72], [fx + 90, fy + 112]], 0.5);
+  }
+  if (t.gilet || t.pull) {
+    const m = t.gilet || t.pull;
+    forme(g, [[c - 36, fy], [c - 20, fy], [c, fy + 54], [c + 20, fy], [c + 36, fy], [c + 34, bas], [c - 34, bas]], m);
+    drap(g, [c - 34, fy + 54, 68, 74], m, { bords: false, ombreBas: 0.2 });
+    forme(g, [[c - 20, fy], [c, fy + 54], [c - 3, fy + 56], [c - 23, fy + 2]], teinte(m, 0.75));
+    forme(g, [[c + 20, fy], [c, fy + 54], [c + 3, fy + 56], [c + 23, fy + 2]], teinte(m, 0.75));
+    if (t.pull) {
+      for (const xx of [c - 22, c + 22]) for (let yy = fy + 60; yy < bas - 12; yy += 7) {
+        trait(g, [[xx - 3, yy], [xx + 3, yy + 5]], "rgba(0,0,0,.18)", 1.2);
+        trait(g, [[xx + 3, yy], [xx - 3, yy + 5]], "rgba(255,255,255,.15)", 1.2);
+      }
+      g.fillStyle = teinte(m, 0.85);
+      g.fillRect(c - 34, bas - 10, 68, 10);
+      for (let x = c - 34; x < c + 34; x += 2.5) trait(g, [[x, bas - 10], [x, bas]], "rgba(0,0,0,.15)", 0.6);
+    } else {
+      for (const yy of [64, 80, 96, 112]) bouton(g, c, fy + yy, teinte(t.gilet, 1.5), 2);
+      if (t.chaine) {
+        g.strokeStyle = "#cfb46a";
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(c, fy + 88);
+        g.quadraticCurveTo(c + 14, fy + 100, c + 26, fy + 90);
+        g.stroke();
+      }
+    }
+  }
+  forme(g, [[c - 24, fy], [c - 3, fy + 5], [c - 13, fy + 20]], teinte(t.chemise, 0.93));
+  forme(g, [[c + 24, fy], [c + 3, fy + 5], [c + 13, fy + 20]], teinte(t.chemise, 0.93));
+  trait(g, [[c - 13, fy + 20], [c - 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
+  trait(g, [[c + 13, fy + 20], [c + 3, fy + 5]], "rgba(0,0,0,.18)", 0.8);
+  if (t.cravate) {
+    const w = t.largeurCravate || 8;
+    forme(g, [[c - w / 2, fy + 5], [c + w / 2, fy + 5], [c + w / 2 - 1.5, fy + 13], [c - w / 2 + 1.5, fy + 13]], teinte(t.cravate, 0.78));
+    g.fillStyle = "rgba(255,255,255,.18)";
+    g.fillRect(c - w / 2 + 1.5, fy + 6, 2, 5);
+    forme(g, [[c - w / 2 + 1.5, fy + 13], [c + w / 2 - 1.5, fy + 13], [c + w / 2 + 1, fy + 52], [c, fy + 60], [c - w / 2 - 1, fy + 52]], t.cravate);
+    if (t.rayuresCravate) {
+      g.save();
+      g.beginPath();
+      g.moveTo(c - w / 2 + 1.5, fy + 13);
+      g.lineTo(c + w / 2 - 1.5, fy + 13);
+      g.lineTo(c + w / 2 + 1, fy + 52);
+      g.lineTo(c, fy + 60);
+      g.lineTo(c - w / 2 - 1, fy + 52);
+      g.closePath();
+      g.clip();
+      g.strokeStyle = t.rayuresCravate;
+      g.lineWidth = 1.4;
+      for (let i = -10; i < 60; i += 6) {
+        g.beginPath();
+        g.moveTo(c - 10, fy + 12 + i);
+        g.lineTo(c + 10, fy + i);
+        g.stroke();
+      }
+      g.restore();
+    }
+    trait(g, [[c, fy + 15], [c, fy + 57]], "rgba(0,0,0,.14)", 0.8);
+    g.fillStyle = "rgba(0,0,0,.2)";
+    g.fillRect(c + w / 2 - 1, fy + 14, 1.5, 36);
+  }
+  if (t.noeud) {
+    forme(g, [[c, fy + 9], [c - 11, fy + 4], [c - 11, fy + 15]], t.noeud);
+    forme(g, [[c, fy + 9], [c + 11, fy + 4], [c + 11, fy + 15]], t.noeud);
+    g.fillStyle = teinte(t.noeud, 0.6);
+    g.fillRect(c - 2.5, fy + 6, 5, 6);
+  }
+  if (t.bretelles) {
+    for (const xx of [c - 30, c + 30]) {
+      g.fillStyle = t.bretelles;
+      g.fillRect(xx - 3, fy, 6, 128);
+      g.fillStyle = "rgba(255,255,255,.12)";
+      g.fillRect(xx - 3, fy, 1.2, 128);
+      g.fillStyle = "#c9a24a";
+      g.fillRect(xx - 4, fy + 110, 8, 6);
+    }
+    const [bx, by, bl] = FACES.torse.B;
+    trait(g, [[bx + 34, by], [bx + bl / 2, by + 60], [bx + bl - 34, by]], t.bretelles, 6);
+    trait(g, [[bx + bl / 2, by + 60], [bx + bl / 2, by + 128]], t.bretelles, 6);
+  }
+  if (!t.veste) return;
+  const pan = ouverte ? 30 : t.croise ? -6 : 0;
+  const x1 = c - 2 - pan, x2 = c + 2 + pan;
+  forme(g, [[fx, fy], [c - 24, fy], [x1, fy + creux], [x1, bas], [fx, bas]], t.veste);
+  forme(g, [[fx + 128, fy], [c + 24, fy], [x2, fy + creux], [x2, bas], [fx + 128, bas]], t.veste);
+  drap(g, [fx, fy + creux - 2, x1 - fx, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false });
+  drap(g, [x2, fy + creux - 2, fx + 128 - x2, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false });
+  const revers = teinte(t.veste, ouverte ? 0.78 : 1.22);
+  const ombreRevers = teinte(t.veste, 0.62);
+  for (const s of [-1, 1]) {
+    const xp = s < 0 ? x1 : x2;
+    forme(g, [[c + s * 24, fy], [c + s * 36, fy + 6], [c + s * 32, fy + 22], [c + s * 26, fy + 24], [c + s * 20, fy + 38], [xp, fy + creux]], revers);
+    trait(g, [[c + s * 24, fy], [c + s * 36, fy + 6], [c + s * 32, fy + 22], [c + s * 26, fy + 24], [c + s * 20, fy + 38], [xp, fy + creux]], ombreRevers, 1.2);
+    trait(g, [[c + s * 23, fy + 1], [xp + s * 1.5, fy + creux]], "rgba(0,0,0,.35)", 2);
+  }
+  trait(g, [[x1, fy + creux], [x1, bas]], "rgba(0,0,0,.5)", 1.4);
+  trait(g, [[x2, fy + creux], [x2, bas]], "rgba(0,0,0,.5)", 1.4);
+  if (!ouverte && !t.croise) {
+    forme(g, [[c - 2, bas - 16], [c + 2, bas - 16], [c + 14, bas], [c - 14, bas]], t.pantalon);
+    trait(g, [[c - 2, bas - 16], [c - 14, bas]], "rgba(0,0,0,.4)", 1);
+    trait(g, [[c + 2, bas - 16], [c + 14, bas]], "rgba(0,0,0,.4)", 1);
+  }
+  if (!ouverte) {
+    const cols = t.croise ? [c - 11, c + 11] : [c + 6];
+    const lignes = t.croise ? [74, 92, 110] : [84, 104];
+    for (const xx of cols) for (const yy of lignes) bouton(g, xx, fy + yy, teinte(t.veste, 0.9));
+  }
+  const px = fx + 88;
+  trait(g, [[px, fy + 44], [px + 20, fy + 42]], teinte(t.veste, 0.5), 1.8);
+  if (t.pochette) {
+    forme(g, [[px + 3, fy + 43], [px + 7, fy + 36], [px + 10, fy + 40], [px + 14, fy + 35], [px + 17, fy + 42]], t.pochette);
+  }
+  if (t.ecusson) dessinerInsigne(g, t.ecusson, px + 10, fy + 30, 0.75);
+  for (const x0 of [fx + 8, fx + 92]) {
+    forme(g, [[x0, fy + 98], [x0 + 28, fy + 98], [x0 + 28, fy + 104], [x0, fy + 104]], teinte(t.veste, 0.92));
+    trait(g, [[x0, fy + 104], [x0 + 28, fy + 104]], "rgba(0,0,0,.45)", 1);
+    trait(g, [[x0, fy + 98], [x0 + 28, fy + 98]], "rgba(255,255,255,.08)", 0.8);
+  }
+  pli(g, [[fx + 22, fy + 60], [fx + 28, fy + 90]], 0.6);
+  pli(g, [[fx + 106, fy + 60], [fx + 100, fy + 90]], 0.6);
+  if (t.passepoil) {
+    trait(g, [[c - 24, fy], [c - 36, fy + 6], [c - 32, fy + 22], [c - 26, fy + 24], [c - 20, fy + 38], [x1, fy + creux]], t.passepoil, 0.9);
+    trait(g, [[c + 24, fy], [c + 36, fy + 6], [c + 32, fy + 22], [c + 26, fy + 24], [c + 20, fy + 38], [x2, fy + creux]], t.passepoil, 0.9);
+  }
+}
+function dessinerUniformeTorse(g, t) {
+  const [fx, fy] = FACES.torse.F;
+  const c = fx + 64, bas = fy + 128, courte = fy + 92;
+  drap(g, [c - 30, fy, 60, 128], t.chemise, { bords: false, ombreBas: 0.1 });
+  forme(g, [[c - 24, fy], [c - 3, fy + 6], [c - 14, fy + 22]], teinte(t.chemise, 0.92));
+  forme(g, [[c + 24, fy], [c + 3, fy + 6], [c + 14, fy + 22]], teinte(t.chemise, 0.92));
+  for (let yy = 30; yy < 128; yy += 18) bouton(g, c, fy + yy, "#e8e3d6", 1.5);
+  pli(g, [[c - 14, fy + 96], [c - 10, fy + 124]], 0.5);
+  pli(g, [[c + 14, fy + 96], [c + 10, fy + 124]], 0.5);
+  drap(g, [fx, courte, 128, bas - courte], t.pantalon, { ombreBas: 0.15 });
+  g.fillStyle = t.harnais;
+  g.fillRect(fx, fy + 104, 128, 9);
+  g.fillStyle = "#b7a06a";
+  g.fillRect(c - 6, fy + 103, 12, 11);
+  g.fillStyle = t.harnais;
+  g.fillRect(c - 3, fy + 106, 6, 5);
+  for (const s of [-1, 1]) {
+    const bord = c + s * 26;
+    const pan = s < 0 ? [[fx, fy], [c - 24, fy], [bord, fy + 30], [bord, courte], [fx, courte]] : [[fx + 128, fy], [c + 24, fy], [bord, fy + 30], [bord, courte], [fx + 128, courte]];
+    forme(g, pan, t.veste);
+    forme(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30]], teinte(t.veste, 1.18));
+    trait(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30], [bord, courte]], teinte(t.veste, 0.55), 1.2);
+    trait(g, [[bord + s * 1.5, fy + 30], [bord + s * 1.5, courte]], "rgba(0,0,0,.3)", 2);
+    const px = s < 0 ? fx + 12 : fx + 88;
+    forme(g, [[px, fy + 34], [px + 28, fy + 34], [px + 28, fy + 58], [px, fy + 58]], teinte(t.veste, 0.92));
+    forme(g, [[px - 1, fy + 32], [px + 29, fy + 32], [px + 29, fy + 40], [px + 14, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
+    trait(g, [[px - 1, fy + 40], [px + 14, fy + 43], [px + 29, fy + 40]], "rgba(0,0,0,.4)", 1);
+    bouton(g, px + 14, fy + 38, "#b7a06a", 1.8);
+    couture(g, [[px, fy + 58], [px + 28, fy + 58]]);
+  }
+  g.fillStyle = teinte(t.veste, 0.85);
+  g.fillRect(fx, courte - 6, c - 26 - fx, 6);
+  g.fillRect(c + 26, courte - 6, fx + 128 - c - 26, 6);
+  trait(g, [[fx, courte], [c - 26, courte]], "rgba(0,0,0,.45)", 1.2);
+  trait(g, [[c + 26, courte], [fx + 128, courte]], "rgba(0,0,0,.45)", 1.2);
+  dessinerInsigne(g, t.insigne, fx + 102, fy + 72, 0.7);
+  const cuir = (pts, l = 5) => {
+    trait(g, pts, t.harnais, l);
+    trait(g, pts.map(([a, b]) => [a - 1.2, b]), "rgba(255,255,255,.08)", 1);
+  };
+  cuir([[c - 38, fy], [c - 38, fy + 104]]);
+  cuir([[c + 38, fy], [c + 38, fy + 104]]);
+  cuir([[c - 38, fy + 64], [c + 38, fy + 64]], 4);
+  for (const xx of [c - 38, c + 38]) {
+    g.strokeStyle = "#b7a06a";
+    g.lineWidth = 1.2;
+    g.strokeRect(xx - 4, fy + 60, 8, 8);
+  }
+  const [bx, by, bl] = FACES.torse.B;
+  drap(g, [bx, by + 92, bl, 36], t.pantalon, { ombreBas: 0.15 });
+  g.fillStyle = t.harnais;
+  g.fillRect(bx, by + 104, bl, 9);
+  g.fillStyle = teinte(t.veste, 0.85);
+  g.fillRect(bx, by + 86, bl, 6);
+  trait(g, [[bx, by + 92], [bx + bl, by + 92]], "rgba(0,0,0,.45)", 1.2);
+  dessinerInsigne(g, t.insigne, bx + bl / 2, by + 44, 1.35);
+  cuir([[bx + 26, by], [bx + 26, by + 104]]);
+  cuir([[bx + bl - 26, by], [bx + bl - 26, by + 104]]);
+  for (const k of ["R", "L"]) {
+    const [x, y, l] = FACES.torse[k];
+    drap(g, [x, y + 92, l, 36], t.pantalon, { ombreBas: 0.15 });
+    g.fillStyle = teinte(t.veste, 0.85);
+    g.fillRect(x, y + 86, l, 6);
+    g.fillStyle = t.harnais;
+    g.fillRect(x, y + 104, l, 9);
+  }
+}
+function dessinerBas(g, t) {
+  const T2 = FACES.torse;
+  for (const k of Object.keys(T2)) drap(g, T2[k], t.pantalon);
+  const [dx, dy, dl, dh] = T2.D;
+  g.fillStyle = t.harnais || "#141414";
+  g.fillRect(dx, dy + dh / 2 - 5, dl, 10);
+  for (const cote of ["droit", "gauche"]) {
+    const J = FACES[cote];
+    const exterieur = cote === "droit" ? "R" : "L";
+    for (const k of ["U", "L", "B", "R", "F"]) drap(g, J[k], t.pantalon, { ombreBas: 0.18 });
+    for (const k of ["L", "B", "R", "F"]) {
+      const [x2, y2, l2, h2] = J[k];
+      if (t.bottes) {
+        for (const yy of [18, 40]) {
+          g.fillStyle = t.harnais;
+          g.fillRect(x2, y2 + yy, l2, 5);
+          g.fillStyle = "rgba(255,255,255,.07)";
+          g.fillRect(x2, y2 + yy, l2, 1);
+        }
+        if (k === exterieur) {
+          g.fillStyle = t.harnais;
+          g.fillRect(x2 + l2 / 2 - 3, y2, 6, 45);
+          g.strokeStyle = "#b7a06a";
+          g.lineWidth = 1;
+          g.strokeRect(x2 + l2 / 2 - 4, y2 + 16, 8, 8);
+        }
+        pli(g, [[x2 + 16, y2 + 52], [x2 + 30, y2 + 58]], 0.6);
+        const haut = y2 + 66;
+        const d = g.createLinearGradient(0, haut, 0, y2 + h2);
+        d.addColorStop(0, teinte(t.bottes, 1.35));
+        d.addColorStop(0.35, t.bottes);
+        d.addColorStop(1, teinte(t.bottes, 0.7));
+        g.fillStyle = d;
+        g.fillRect(x2, haut, l2, y2 + h2 - haut);
+        g.fillStyle = teinte(t.bottes, 1.5);
+        g.fillRect(x2, haut, l2, 4);
+        g.fillStyle = "rgba(255,255,255,.1)";
+        g.fillRect(x2 + 8, haut + 8, 3, h2 - 80);
+        g.fillStyle = "rgba(0,0,0,.6)";
+        g.fillRect(x2, y2 + h2 - 5, l2, 5);
+      } else {
+        if (k === "F" || k === "B") {
+          trait(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 24]], "rgba(255,255,255,.11)", 1.3);
+          trait(g, [[x2 + l2 / 2 + 1.2, y2 + 4], [x2 + l2 / 2 + 1.2, y2 + h2 - 24]], "rgba(0,0,0,.14)", 1);
+        }
+        pli(g, [[x2 + 14, y2 + 90], [x2 + 32, y2 + 96], [x2 + 48, y2 + 92]], 0.5);
+        g.fillStyle = "rgba(0,0,0,.28)";
+        g.fillRect(x2, y2 + h2 - 24, l2, 3);
+        const d = g.createLinearGradient(0, y2 + h2 - 21, 0, y2 + h2);
+        d.addColorStop(0, teinte(t.chaussures, 1.4));
+        d.addColorStop(1, teinte(t.chaussures, 0.75));
+        g.fillStyle = d;
+        g.fillRect(x2, y2 + h2 - 21, l2, 21);
+        g.fillStyle = "rgba(255,255,255,.14)";
+        g.fillRect(x2 + 10, y2 + h2 - 17, l2 - 20, 2);
+        g.fillStyle = "rgba(0,0,0,.6)";
+        g.fillRect(x2, y2 + h2 - 4, l2, 4);
+        if (k === "F") trait(g, [[x2 + 22, y2 + h2 - 14], [x2 + 42, y2 + h2 - 14]], "rgba(0,0,0,.35)", 1);
+      }
+      if (k === exterieur && !t.bottes) couture(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 24]]);
+    }
+    const [x, y, l, h] = J.D;
+    g.fillStyle = "#0b0b0b";
+    g.fillRect(x, y, l, h);
+  }
+}
+function toilesTenue(nom) {
+  if (cache.has(nom)) return cache.get(nom);
+  const t = TENUES[nom] || TENUES["croise-noir"];
+  const toile = (dessin) => {
+    const c = document.createElement("canvas");
+    c.width = GABARIT.l * ECHELLE;
+    c.height = GABARIT.h * ECHELLE;
+    const g = c.getContext("2d");
+    g.scale(ECHELLE, ECHELLE);
+    dessin(g, t);
+    return c;
+  };
+  const x = { chemise: toile(dessinerHaut), pantalon: toile(dessinerBas) };
+  cache.set(nom, x);
+  return x;
+}
+function toileCape(nom) {
+  const t = TENUES[nom];
+  if (!t?.cape) return null;
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 320;
+  const g = c.getContext("2d");
+  drap(g, [0, 0, 256, 320], t.cape, { ombreBas: 0.25 });
+  for (let x = 20; x < 256; x += 36) pli(g, [[x, 40], [x + 6, 320]], 1.2);
+  g.fillStyle = teinte(t.cape, 0.75);
+  g.fillRect(0, 0, 256, 26);
+  dessinerInsigne(g, t.insigne, 128, 120, 3.6);
+  return c;
+}
+var GABARIT, ECHELLE, FACES, TENUES_IMAGES, TENUES, NOMS_TENUES, libelleTenue, ficheTenue, couture, cache;
+var init_tenues = __esm({
+  "src/features/tenues.js"() {
+    GABARIT = { l: 585, h: 559 };
+    ECHELLE = 2;
+    FACES = {
+      torse: {
+        F: [231, 74, 128, 128],
+        R: [165, 74, 64, 128],
+        L: [361, 74, 64, 128],
+        B: [427, 74, 128, 128],
+        U: [231, 8, 128, 64],
+        D: [231, 204, 128, 64]
+      },
+      // Le bras droit (la jambe droite) : le bloc en bas à gauche. Sa face L
+      // touche le torse.
+      droit: {
+        U: [217, 289, 64, 64],
+        D: [217, 485, 64, 64],
+        L: [19, 355, 64, 128],
+        B: [85, 355, 64, 128],
+        R: [151, 355, 64, 128],
+        F: [217, 355, 64, 128]
+      },
+      // Le bras gauche (la jambe gauche) : le bloc en bas à droite. Sa face R
+      // touche le torse.
+      gauche: {
+        U: [308, 289, 64, 64],
+        D: [308, 485, 64, 64],
+        F: [308, 355, 64, 128],
+        L: [374, 355, 64, 128],
+        B: [440, 355, 64, 128],
+        R: [506, 355, 64, 128]
+      }
+    };
+    TENUES_IMAGES = {};
+    TENUES = {
+      "croise-noir": {
+        libelle: "Costume crois\xE9 noir",
+        famille: "costume",
+        veste: "#1c1c20",
+        chemise: "#f3f2ee",
+        cravate: "#8e1b22",
+        largeurCravate: 10,
+        croise: true,
+        rayure: 0.045,
+        pochette: "#f3f2ee",
+        pantalon: "#1a1a1e",
+        chaussures: "#101011"
+      },
+      "bordeaux-gilet": {
+        libelle: "Veste bordeaux et gilet",
+        famille: "costume",
+        veste: "#4a1c21",
+        gilet: "#141417",
+        chemise: "#f2efe8",
+        cravate: "#cdbb95",
+        largeurCravate: 8,
+        rayure: 0.07,
+        pochette: "#cdbb95",
+        pantalon: "#1c1c21",
+        chaussures: "#3a2418"
+      },
+      "noir-fin": {
+        libelle: "Costume noir, cravate fine",
+        famille: "costume",
+        veste: "#16161a",
+        chemise: "#f5f5f3",
+        cravate: "#0c0c0e",
+        largeurCravate: 5,
+        pantalon: "#16161a",
+        chaussures: "#0b0b0c"
+      },
+      "gris-bleu": {
+        libelle: "Veste grise sur gilet bleu",
+        famille: "costume",
+        veste: "#b3b6ba",
+        gilet: "#2e4878",
+        chemise: "#e8edf3",
+        ouverte: true,
+        pantalon: "#d4d5d8",
+        chaussures: "#3a3a3c",
+        poignets: "#2e4878"
+      },
+      "trois-pieces": {
+        libelle: "Trois-pi\xE8ces anthracite",
+        famille: "costume",
+        veste: "#34373d",
+        gilet: "#4b4f57",
+        chemise: "#eef0f3",
+        cravate: "#9aa3ad",
+        largeurCravate: 9,
+        rayure: 0.06,
+        pochette: "#c9ced5",
+        chaine: true,
+        pantalon: "#303339",
+        chaussures: "#141416"
+      },
+      camel: {
+        libelle: "Costume camel",
+        famille: "costume",
+        veste: "#a57a4c",
+        chemise: "#f4f1ea",
+        cravate: "#4a2a18",
+        largeurCravate: 9,
+        pochette: "#e9dcc3",
+        pantalon: "#9a7248",
+        chaussures: "#3b2416"
+      },
+      "blazer-ecole": {
+        libelle: "Blazer d'\xE9cole",
+        famille: "costume",
+        veste: "#1d2a4a",
+        chemise: "#f4f4f2",
+        cravate: "#6d1b24",
+        rayuresCravate: "#caa24a",
+        largeurCravate: 9,
+        ecusson: "ecole",
+        passepoil: "#caa24a",
+        pantalon: "#5a5d63",
+        chaussures: "#141416"
+      },
+      bretelles: {
+        libelle: "Chemise et bretelles",
+        famille: "costume",
+        veste: null,
+        chemise: "#f1efe9",
+        noeud: "#1c1c20",
+        bretelles: "#1c1c20",
+        pantalon: "#2b2d33",
+        chaussures: "#2a1a10"
+      },
+      "pull-college": {
+        libelle: "Pull sans manches",
+        famille: "costume",
+        veste: null,
+        pull: "#d8ccb0",
+        chemise: "#f4f3ef",
+        cravate: "#233a5c",
+        rayuresCravate: "#b8c4d4",
+        largeurCravate: 9,
+        pantalon: "#5b4634",
+        chaussures: "#2a1a10"
+      },
+      cadet: {
+        libelle: "Cadet (entra\xEEnement)",
+        famille: "uniforme",
+        militaire: true,
+        veste: "#7a5a3a",
+        chemise: "#efeadf",
+        insigne: "entrainement",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10"
+      },
+      exploration: {
+        libelle: "\xC9claireur",
+        famille: "uniforme",
+        militaire: true,
+        veste: "#7a5a3a",
+        chemise: "#efeadf",
+        insigne: "exploration",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10",
+        cape: "#2f5a3c"
+      },
+      garnison: {
+        libelle: "Garnison",
+        famille: "uniforme",
+        militaire: true,
+        veste: "#7a5a3a",
+        chemise: "#efeadf",
+        insigne: "garnison",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10"
+      },
+      brigade: {
+        libelle: "Brigade",
+        famille: "uniforme",
+        militaire: true,
+        veste: "#7a5a3a",
+        chemise: "#efeadf",
+        insigne: "brigade",
+        pantalon: "#e7e1d2",
+        harnais: "#3b2618",
+        bottes: "#2b1a10"
+      }
+    };
+    NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
+    libelleTenue = (nom) => TENUES_IMAGES[nom]?.libelle || TENUES[nom]?.libelle || nom;
+    ficheTenue = (nom) => TENUES[nom] || null;
+    couture = (g, points, couleur = "rgba(0,0,0,.35)") => trait(g, points, couleur, 0.7, [1.5, 1.2]);
+    cache = /* @__PURE__ */ new Map();
+  }
+});
+
+// src/features/coiffures.js
+function construireCoiffure(THREE, style, mat) {
+  const g = new THREE.Group();
+  const DEVANT = Math.PI;
+  const calotte = (hauteur = 0.58, rayon = 0.71, releve = 0.1) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(rayon, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+    m.scale.set(1, hauteur, 1);
+    m.position.y = 0.95;
+    m.rotation.x = releve;
+    g.add(m);
+    return m;
+  };
+  const tour = (bas, ouverture, { rayonHaut = 0.71, rayonBas = 0.73, haut = 1.12 } = {}) => {
+    const h = haut - bas;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(
+      rayonHaut,
+      rayonBas,
+      h,
+      48,
+      1,
+      true,
+      DEVANT + ouverture / 2,
+      Math.PI * 2 - ouverture
+    ), mat);
+    m.position.y = bas + h / 2;
+    g.add(m);
+    return m;
+  };
+  const meche = (angle, largeur, haut, bas, { rayon = 0.725, pointe = 0.9, evase = 0.04 } = {}) => {
+    const h = haut - bas;
+    const geo = new THREE.CylinderGeometry(rayon, rayon + evase, h, 6, 2, true, angle - largeur / 2, largeur);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      const t = (h / 2 - y) / h;
+      if (t <= 0) continue;
+      const x = pos.getX(i), z = pos.getZ(i);
+      const r = Math.hypot(x, z);
+      const a = Math.atan2(x, z);
+      const ecart2 = (angle - a + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+      const a2 = a + ecart2 * pointe * t * t;
+      pos.setXYZ(i, Math.sin(a2) * r, y, Math.cos(a2) * r);
+    }
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat);
+    m.position.y = bas + h / 2;
+    g.add(m);
+    return m;
+  };
+  const frange = (bas, largeur, n, { centre = 0, haut = 1.17, varier = 0.07, rayon = 0.725, evase = 0.04 } = {}) => {
+    const pas = largeur / n;
+    for (let i = 0; i < n; i++) {
+      const a = DEVANT + centre - largeur / 2 + pas * (i + 0.5);
+      const b = bas + (i * 37 % 5 / 4 - 0.5) * varier * 2;
+      meche(a, pas * 1.55, haut, b, { rayon: rayon + i % 2 * 6e-3, evase });
+    }
+  };
+  const volume = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), mat);
+    m.scale.set(sx, sy, sz);
+    m.position.set(x, y, z);
+    m.rotation.set(rx, ry, rz);
+    g.add(m);
+    return m;
+  };
+  switch (style) {
+    case "degrade":
+      calotte(0.46, 0.68, 0.08);
+      tour(0.8, 2.35, { rayonHaut: 0.68, rayonBas: 0.652, haut: 1.08 });
+      frange(1.04, 1.6, 6, { rayon: 0.685, varier: 0.03, evase: 0.01 });
+      break;
+    case "undercut":
+      tour(0.76, 2.3, { rayonHaut: 0.648, rayonBas: 0.638, haut: 1.06 });
+      calotte(0.34, 0.665, 0.05);
+      volume(0, 1.25, -0.02, 0.73, 0.27, 0.77, 0.1);
+      frange(0.84, 0.95, 3, { centre: -0.52, varier: 0.06 });
+      frange(0.84, 0.95, 3, { centre: 0.52, varier: 0.06 });
+      break;
+    case "meche":
+      calotte(0.52, 0.7, 0.14);
+      tour(0.76, 2.2, { rayonHaut: 0.7, rayonBas: 0.7 });
+      volume(-0.04, 1.32, -0.3, 0.6, 0.3, 0.46, -0.4, 0.15);
+      volume(0.2, 1.35, -0.02, 0.44, 0.22, 0.56, -0.1, -0.2);
+      break;
+    case "mi-long":
+      calotte(0.62, 0.73, 0.08);
+      tour(0.5, 1.9, { rayonHaut: 0.73, rayonBas: 0.75 });
+      frange(0.84, 1.95, 7, { varier: 0.09 });
+      for (const s of [-1, 1]) for (const [d, b] of [[1.15, 0.24], [1.45, 0.18], [1.8, 0.26], [2.2, 0.3], [2.6, 0.24]]) {
+        meche(DEVANT + s * d, 0.42, 1, b, { rayon: 0.74, evase: 0.05 });
+      }
+      break;
+    case "carre":
+      calotte(0.6, 0.73, 0.08);
+      tour(0.16, 1.72, { rayonHaut: 0.73, rayonBas: 0.8 });
+      frange(0.97, 1.74, 9, { varier: 0.012, rayon: 0.735, evase: 0.01 });
+      break;
+    case "long":
+      calotte(0.6, 0.73, 0.08);
+      tour(-0.6, 1.8, { rayonHaut: 0.73, rayonBas: 0.85 });
+      volume(0, 0.25, 0.68, 0.66, 1, 0.22);
+      for (const s of [-1, 1]) {
+        meche(DEVANT + s * 0.45, 0.62, 1.17, 0.7, { evase: 0.06 });
+        meche(DEVANT + s * 0.95, 0.55, 1.1, -0.35, { rayon: 0.74, evase: 0.12 });
+      }
+      break;
+    case "queue":
+      calotte(0.54, 0.7, 0.06);
+      tour(0.62, 2.1, { rayonHaut: 0.7, rayonBas: 0.7 });
+      {
+        const lien = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.05, 8, 18), mat);
+        lien.position.set(0, 1.1, 0.74);
+        lien.rotation.x = 1.2;
+        g.add(lien);
+      }
+      volume(0, 0.95, 0.88, 0.21, 0.27, 0.18, 0.3);
+      volume(0, 0.6, 0.94, 0.18, 0.27, 0.16, 0.1);
+      volume(0, 0.28, 0.92, 0.13, 0.24, 0.12, -0.1);
+      frange(0.96, 1, 4, { centre: -0.3, varier: 0.06 });
+      break;
+    case "chignon":
+      calotte(0.54, 0.7, 0.06);
+      tour(0.66, 2.1, { rayonHaut: 0.7, rayonBas: 0.7 });
+      volume(0, 1.2, 0.66, 0.33, 0.31, 0.29);
+      {
+        const tour2 = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 8, 20), mat);
+        tour2.position.set(0, 1.13, 0.6);
+        tour2.rotation.x = 1.3;
+        g.add(tour2);
+      }
+      frange(1, 1.2, 5, { varier: 0.05 });
+      for (const s of [-1, 1]) meche(DEVANT + s * 0.98, 0.3, 1.05, 0.3, { rayon: 0.71 });
+      break;
+    case "raie":
+    default:
+      calotte(0.56, 0.71, 0.12);
+      tour(0.72, 2.1, { rayonHaut: 0.71, rayonBas: 0.71 });
+      volume(-0.14, 1.28, -0.2, 0.6, 0.24, 0.58, -0.1, 0.35, 0.08);
+      volume(0.3, 1.24, -0.04, 0.44, 0.2, 0.58, 0, -0.2, -0.12);
+      frange(1, 1.3, 5, { centre: 0.32, varier: 0.05 });
+      break;
+  }
+  return g;
+}
+function toileCheveux() {
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "#b8b8b8";
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * 128;
+    g.strokeStyle = Math.random() > 0.5 ? `rgba(255,255,255,${Math.random() * 0.5})` : `rgba(0,0,0,${Math.random() * 0.45})`;
+    g.lineWidth = 0.5 + Math.random();
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.bezierCurveTo(x + 4, 40, x - 4, 90, x + 2, 128);
+    g.stroke();
+  }
+  return c;
+}
+var COIFFURES, COULEURS_CHEVEUX, TEINTS;
+var init_coiffures = __esm({
+  "src/features/coiffures.js"() {
+    COIFFURES = [
+      { cle: "raie", libelle: "Raie sur le c\xF4t\xE9" },
+      { cle: "degrade", libelle: "Courte, d\xE9grad\xE9e" },
+      { cle: "undercut", libelle: "Undercut" },
+      { cle: "meche", libelle: "M\xE8che relev\xE9e" },
+      { cle: "mi-long", libelle: "Mi-longue en bataille" },
+      { cle: "carre", libelle: "Carr\xE9" },
+      { cle: "long", libelle: "Longue" },
+      { cle: "queue", libelle: "Queue de cheval" },
+      { cle: "chignon", libelle: "Chignon" }
+    ];
+    COULEURS_CHEVEUX = [
+      { cle: "#15110f", libelle: "Noir" },
+      { cle: "#2f2018", libelle: "Brun fonc\xE9" },
+      { cle: "#5a3a22", libelle: "Ch\xE2tain" },
+      { cle: "#7a3a1e", libelle: "Auburn" },
+      { cle: "#a4481f", libelle: "Roux" },
+      { cle: "#b9a27a", libelle: "Blond cendr\xE9" },
+      { cle: "#d2a85a", libelle: "Blond dor\xE9" },
+      { cle: "#8d8f93", libelle: "Gris" },
+      { cle: "#e6e1d8", libelle: "Blanc" }
+    ];
+    TEINTS = [
+      { cle: "#f5d6bd", libelle: "Tr\xE8s clair" },
+      { cle: "#eac29f", libelle: "Clair" },
+      { cle: "#d9a77c", libelle: "Mat" },
+      { cle: "#b77e57", libelle: "H\xE2l\xE9" },
+      { cle: "#8d5a3b", libelle: "Brun" },
+      { cle: "#5e3a26", libelle: "Fonc\xE9" },
+      { cle: "#f5cd30", libelle: "Classique" }
+    ];
+  }
+});
+
+// src/features/classe-3d.js
+function chargerThree() {
+  promesseThree ?? (promesseThree = import(
+    /* @vite-ignore */
+    THREE_LOCAL
+  ).catch(() => import(
+    /* @vite-ignore */
+    THREE_CDN
+  )));
+  return promesseThree;
+}
+function webglDisponible() {
+  try {
+    const c = document.createElement("canvas");
+    return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+function graine(texte) {
+  let h = 2166136261;
+  for (const c of String(texte)) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    return (h >>> 0) % 1e4 / 1e4;
+  };
+}
+async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null }) {
+  const THREE = await chargerThree();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const canvas = renderer.domElement;
+  canvas.className = "classe3d__toile";
+  const etiquettes = document.createElement("div");
+  etiquettes.className = "classe3d__etiquettes";
+  hote.append(canvas, etiquettes);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color("#171a1d");
+  const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 120);
+  const regard = new THREE.Vector3(0, 3.2, -7);
+  scene.add(new THREE.HemisphereLight("#fff4e4", "#3a2c22", 1.1));
+  const soleil = new THREE.DirectionalLight("#ffe9cc", 2.4);
+  soleil.castShadow = true;
+  soleil.shadow.mapSize.set(2048, 2048);
+  soleil.shadow.bias = -3e-4;
+  soleil.shadow.normalBias = 0.02;
+  scene.add(soleil, soleil.target);
+  const plafonnier = new THREE.PointLight("#ffe7c7", 18, 30, 2);
+  plafonnier.position.set(0, 9.5, -2);
+  scene.add(plafonnier);
+  const cacheMat = /* @__PURE__ */ new Map();
+  const matDe = (c, extra = {}) => {
+    const cle = c + JSON.stringify(extra);
+    if (!cacheMat.has(cle)) cacheMat.set(cle, new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0, ...extra }));
+    return cacheMat.get(cle);
+  };
+  function texturePeinte(l, h, peindre, repete = [1, 1]) {
+    const c = document.createElement("canvas");
+    c.width = l;
+    c.height = h;
+    peindre(c.getContext("2d"), l, h);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(...repete);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }
+  const veines = (g, l, h, teinte2, clarte) => {
+    g.fillStyle = `hsl(${teinte2}, 38%, ${clarte}%)`;
+    g.fillRect(0, 0, l, h);
+    for (let i = 0; i < 180; i++) {
+      const y = Math.random() * h;
+      const a = Math.random() * 0.12;
+      g.strokeStyle = Math.random() > 0.5 ? `rgba(30,15,5,${a})` : `rgba(255,225,190,${a * 0.7})`;
+      g.lineWidth = 0.5 + Math.random() * 2.2;
+      g.beginPath();
+      g.moveTo(0, y);
+      for (let x = 0; x <= l; x += 32) g.lineTo(x, y + Math.sin(x / 90 + i) * 3 + (Math.random() - 0.5) * 1.5);
+      g.stroke();
+    }
+    for (let k = 0; k < 3; k++) {
+      const x = Math.random() * l, y = Math.random() * h;
+      const d = g.createRadialGradient(x, y, 1, x, y, 14);
+      d.addColorStop(0, "rgba(40,20,8,.45)");
+      d.addColorStop(1, "rgba(40,20,8,0)");
+      g.fillStyle = d;
+      g.beginPath();
+      g.ellipse(x, y, 22, 7, 0, 0, 7);
+      g.fill();
+    }
+  };
+  const TEX = {
+    plancher: texturePeinte(1024, 1024, (g, l, h) => {
+      const lames = 8;
+      for (let i = 0; i < lames; i++) {
+        const y0 = i * h / lames;
+        const c = document.createElement("canvas");
+        c.width = l;
+        c.height = h / lames;
+        veines(c.getContext("2d"), l, h / lames, 26 + i * 7 % 8, 30 + i * 37 % 9);
+        const decal = i * 389 % l;
+        g.drawImage(c, decal, y0);
+        g.drawImage(c, decal - l, y0);
+        g.fillStyle = "rgba(0,0,0,.35)";
+        g.fillRect(0, y0, l, 2);
+        g.fillRect(i * 211 % l, y0, 2, h / lames);
+      }
+    }, [5, 5]),
+    pupitre: texturePeinte(512, 256, (g, l, h) => veines(g, l, h, 28, 34)),
+    table: texturePeinte(1024, 1024, (g, l, h) => veines(g, l, h, 24, 27)),
+    mur: texturePeinte(512, 512, (g, l, h) => {
+      g.fillStyle = "#bdb5a8";
+      g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 9e3; i++) {
+        g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "60,50,40"},${Math.random() * 0.05})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+    }, [6, 3]),
+    papierPeint: texturePeinte(512, 512, (g, l, h) => {
+      g.fillStyle = "#c9c3ad";
+      g.fillRect(0, 0, l, h);
+      for (let x = 0; x < l; x += 64) {
+        g.fillStyle = "rgba(92,112,86,.22)";
+        g.fillRect(x, 0, 22, h);
+      }
+      g.fillStyle = "rgba(92,112,86,.28)";
+      for (let y = 16; y < h; y += 64) for (let x = 43; x < l; x += 64) {
+        g.beginPath();
+        g.ellipse(x, y, 3, 6, 0, 0, 7);
+        g.fill();
+      }
+      for (let i = 0; i < 6e3; i++) {
+        g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "60,50,40"},${Math.random() * 0.04})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+    }, [5, 2]),
+    lambris: texturePeinte(512, 128, (g, l, h) => {
+      veines(g, l, h, 25, 26);
+      g.fillStyle = "rgba(0,0,0,.28)";
+      for (let x = 0; x < l; x += 64) g.fillRect(x, 0, 2, h);
+      g.fillRect(0, 0, l, 5);
+    }, [10, 1])
+  };
+  const matBois = new THREE.MeshStandardMaterial({ map: TEX.pupitre, roughness: 0.62 });
+  const matTable = new THREE.MeshStandardMaterial({ map: TEX.table, roughness: 0.5 });
+  const matMetal = matDe("#2d3033", { metalness: 0.6, roughness: 0.45 });
+  function boiteRonde(l, h, p, r = 0.12) {
+    const forme2 = new THREE.Shape();
+    const x = -l / 2 + r, y = -h / 2 + r, L2 = l - 2 * r, H = h - 2 * r;
+    forme2.moveTo(x, y);
+    forme2.lineTo(x + L2, y);
+    forme2.quadraticCurveTo(x + L2 + r, y, x + L2 + r, y + r);
+    forme2.lineTo(x + L2 + r, y + H);
+    forme2.quadraticCurveTo(x + L2 + r, y + H + r, x + L2, y + H + r);
+    forme2.lineTo(x, y + H + r);
+    forme2.quadraticCurveTo(x - r, y + H + r, x - r, y + H);
+    forme2.lineTo(x - r, y + r);
+    forme2.quadraticCurveTo(x - r, y, x, y);
+    const g = new THREE.ExtrudeGeometry(forme2, {
+      depth: Math.max(0.01, p - 2 * r),
+      bevelEnabled: true,
+      bevelThickness: r,
+      bevelSize: 0,
+      bevelSegments: 3,
+      curveSegments: 6
+    });
+    g.translate(0, 0, -(p - 2 * r) / 2);
+    g.computeVertexNormals();
+    return g;
+  }
+  const profilTete = [];
+  {
+    const R = 0.62, H = 1.2, r = 0.2;
+    profilTete.push(new THREE.Vector2(0, -H / 2));
+    for (let i = 0; i <= 6; i++) {
+      const a = -Math.PI / 2 + i / 6 * (Math.PI / 2);
+      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, -H / 2 + r + Math.sin(a) * r));
+    }
+    for (let i = 0; i <= 6; i++) {
+      const a = i / 6 * (Math.PI / 2);
+      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, H / 2 - r + Math.sin(a) * r));
+    }
+    profilTete.push(new THREE.Vector2(0, H / 2));
+  }
+  const GEO = {
+    tete: new THREE.LatheGeometry(profilTete, 28),
+    bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
+    main: new THREE.SphereGeometry(0.3, 14, 10),
+    cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
+    tibia: new THREE.CapsuleGeometry(0.38, 0.55, 6, 12),
+    chaussure: boiteRonde(0.72, 0.36, 1, 0.14),
+    cou: new THREE.CylinderGeometry(0.3, 0.34, 0.25, 14),
+    col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
+    oeil: new THREE.SphereGeometry(0.075, 10, 8),
+    sourire: new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI),
+    cheveuxCourts: new THREE.SphereGeometry(0.7, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.64),
+    cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
+    chignon: new THREE.SphereGeometry(0.32, 14, 10),
+    plan: new THREE.PlaneGeometry(1, 1),
+    cape: new THREE.PlaneGeometry(2.2, 2.7),
+    pied: new THREE.CylinderGeometry(0.06, 0.06, 1, 8)
+  };
+  const PARTAGEES = new Set(Object.values(GEO));
+  const ombrer = (o) => o.traverse((m) => {
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
+  function blocHabille(l, h, p, faces) {
+    const g = new THREE.BoxGeometry(l, h, p);
+    const uv = g.attributes.uv;
+    ["R", "L", "U", "D", "B", "F"].forEach((cle, f) => {
+      const [x0, y0, lf, hf] = faces[cle];
+      for (let i = f * 4; i < f * 4 + 4; i++) {
+        const u = uv.getX(i), v = uv.getY(i);
+        uv.setXY(i, (x0 + u * lf) / GABARIT.l, 1 - (y0 + (1 - v) * hf) / GABARIT.h);
+      }
+    });
+    uv.needsUpdate = true;
+    return g;
+  }
+  const GEO_TENUE = {
+    torse: blocHabille(2, 2, 1, FACES.torse),
+    droit: blocHabille(1, 2, 1, FACES.droit),
+    gauche: blocHabille(1, 2, 1, FACES.gauche)
+  };
+  for (const g of Object.values(GEO_TENUE)) PARTAGEES.add(g);
+  const cacheTenues = /* @__PURE__ */ new Map();
+  function matieresTenue(nom) {
+    if (cacheTenues.has(nom)) return cacheTenues.get(nom);
+    const fichiers2 = TENUES_IMAGES[nom];
+    const toiles = fichiers2 ? null : toilesTenue(nom);
+    const texture2 = (c) => {
+      const t = typeof c === "string" ? new THREE.TextureLoader().load(c) : new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    };
+    const m = {
+      chemise: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.chemise || toiles.chemise), roughness: 0.82 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.pantalon || toiles.pantalon), roughness: 0.85 })
+    };
+    cacheTenues.set(nom, m);
+    return m;
+  }
+  const DEFAUTS3 = {
+    tenue: NOMS_TENUES.filter((n) => !["exploration", "garnison", "brigade", "cadet"].includes(n)),
+    coiffure: COIFFURES.map((c) => c.cle),
+    cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
+    peau: TEINTS.map((t) => t.cle).slice(0, 6)
+  };
+  function avatarComplet(cle, avatar2 = {}) {
+    const alea = graine(`apparence:${cle}`);
+    return {
+      tenue: NOMS_TENUES.includes(avatar2?.tenue) ? avatar2.tenue : choisir(alea, DEFAUTS3.tenue),
+      coiffure: COIFFURES.some((c) => c.cle === avatar2?.coiffure) ? avatar2.coiffure : choisir(alea, DEFAUTS3.coiffure),
+      cheveux: /^#[0-9a-f]{6}$/i.test(avatar2?.cheveux || "") ? avatar2.cheveux : choisir(alea, DEFAUTS3.cheveux),
+      peau: /^#[0-9a-f]{6}$/i.test(avatar2?.peau || "") ? avatar2.peau : choisir(alea, DEFAUTS3.peau)
+    };
+  }
+  let texCheveux = null;
+  const cacheCheveux = /* @__PURE__ */ new Map();
+  function matiereCheveux(couleur) {
+    if (!cacheCheveux.has(couleur)) {
+      texCheveux ?? (texCheveux = Object.assign(new THREE.CanvasTexture(toileCheveux()), { wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping }));
+      texCheveux.repeat?.set(3, 1);
+      cacheCheveux.set(couleur, new THREE.MeshStandardMaterial({
+        color: couleur,
+        map: texCheveux,
+        roughness: 0.42,
+        metalness: 0.05,
+        side: THREE.DoubleSide
+      }));
+    }
+    return cacheCheveux.get(couleur);
+  }
+  const cacheCapes = /* @__PURE__ */ new Map();
+  function matiereCape(tenue) {
+    if (!cacheCapes.has(tenue)) {
+      const toile2 = toileCape(tenue);
+      cacheCapes.set(tenue, toile2 ? new THREE.MeshStandardMaterial({
+        map: Object.assign(new THREE.CanvasTexture(toile2), { colorSpace: THREE.SRGBColorSpace }),
+        roughness: 0.9,
+        side: THREE.DoubleSide
+      }) : null);
+    }
+    return cacheCapes.get(tenue);
+  }
+  function personnage(cle, avatar2 = {}) {
+    const alea = graine(cle);
+    const a = avatarComplet(cle, avatar2);
+    const peau = matDe(a.peau);
+    const habit = matieresTenue(a.tenue);
+    const cheveux = matiereCheveux(a.cheveux);
+    const racine = new THREE.Group();
+    const bassin = new THREE.Group();
+    racine.add(bassin);
+    const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
+    torse.position.y = 1;
+    bassin.add(torse);
+    const tete = new THREE.Group();
+    tete.position.y = 2;
+    bassin.add(tete);
+    const crane = new THREE.Mesh(GEO.tete, peau);
+    crane.position.y = 0.62;
+    tete.add(crane);
+    tete.add(construireCoiffure(THREE, a.coiffure, cheveux));
+    const cape = matiereCape(a.tenue);
+    if (cape) {
+      const m = new THREE.Mesh(GEO.cape, cape);
+      m.position.set(0, 0.75, 0.56);
+      m.rotation.x = 0.06;
+      bassin.add(m);
+    }
+    const membre = (x, y, geo, mat) => {
+      const epaule = new THREE.Group();
+      epaule.position.set(x, y, 0);
+      const bloc = new THREE.Mesh(geo, mat);
+      bloc.position.y = -0.9;
+      const coude = new THREE.Group();
+      coude.position.y = -1.85;
+      const bout = new THREE.Group();
+      coude.add(bout);
+      epaule.add(bloc, coude);
+      return { epaule, coude, bout };
+    };
+    const brasG = membre(-1.5, 1.9, GEO_TENUE.gauche, habit.chemise);
+    const brasD = membre(1.5, 1.9, GEO_TENUE.droit, habit.chemise);
+    const jambeG = membre(-0.5, 0.1, GEO_TENUE.gauche, habit.pantalon);
+    const jambeD = membre(0.5, 0.1, GEO_TENUE.droit, habit.pantalon);
+    for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
+    ombrer(racine);
+    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null };
+    p.poser = (pose) => {
+      p.pose = pose;
+      for (const m of [brasG, brasD, jambeG, jambeD]) {
+        m.epaule.rotation.set(0, 0, 0);
+        m.coude.rotation.set(0, 0, 0);
+        m.epaule.rotation.order = "XYZ";
+      }
+      tete.rotation.set(0, 0, 0);
+      if (pose === "debout") {
+        bassin.position.y = 1.9;
+        return;
+      }
+      bassin.position.y = 0;
+      if (pose === "tailleur") {
+        jambeG.epaule.rotation.order = jambeD.epaule.rotation.order = "YXZ";
+        jambeG.epaule.rotation.set(Math.PI / 2, -0.55, 0);
+        jambeD.epaule.rotation.set(Math.PI / 2 - 0.12, 0.55, 0);
+      } else {
+        jambeG.epaule.rotation.x = Math.PI / 2;
+        jambeD.epaule.rotation.x = Math.PI / 2;
+      }
+      brasG.epaule.rotation.set(0.32, 0, -0.05);
+      brasD.epaule.rotation.set(0.32, 0, 0.05);
+    };
+    p.tenir = (kind) => {
+      if ((p.outil?.userData.kind || null) === (kind || null)) return;
+      if (p.outil) {
+        brasD.bout.remove(p.outil);
+        p.outil = null;
+      }
+      if (!kind) return;
+      const g = new THREE.Group();
+      g.userData.kind = kind;
+      const corps = kind === "crayon" ? "#d9a24a" : kind === "craie" ? "#f1eee4" : "#1c1c1f";
+      const long = kind === "craie" ? 0.5 : 1.15;
+      const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, long, 10), matDe(corps, { roughness: 0.5 }));
+      const pointe = new THREE.Mesh(
+        new THREE.ConeGeometry(0.07, 0.22, 10),
+        matDe(
+          kind === "crayon" ? "#e8c89a" : kind === "craie" ? "#f1eee4" : "#b8963a",
+          { metalness: kind === "crayon" || kind === "craie" ? 0 : 0.6, roughness: 0.4 }
+        )
+      );
+      pointe.position.y = -(long / 2 + 0.11);
+      pointe.rotation.x = Math.PI;
+      g.add(tige, pointe);
+      g.rotation.set(0.9, 0, 0.3);
+      g.position.set(0, 0.05, -0.35);
+      ombrer(g);
+      brasD.bout.add(g);
+      p.outil = g;
+    };
+    return p;
+  }
+  const chargeur = new THREE.TextureLoader();
+  const textures = /* @__PURE__ */ new Map();
+  function textureObjet(kind) {
+    if (textures.has(kind)) return textures.get(kind);
+    const x = { tex: null, ratio: 1, attente: [] };
+    textures.set(kind, x);
+    chargeur.load(imageDetouree(kind), (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      x.tex = t;
+      x.ratio = t.image.height / Math.max(1, t.image.width);
+      for (const f of x.attente.splice(0)) f(x);
+    }, void 0, () => {
+    });
+    return x;
+  }
+  function poserObjet(groupe, kind, { x, z, r }) {
+    const info = textureObjet(kind);
+    const jeton = groupe.userData.jeton;
+    const monter = ({ tex, ratio }) => {
+      if (groupe.userData.jeton !== jeton) return;
+      const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: 0.65 });
+      const m = new THREE.Mesh(GEO.plan, mat);
+      const l = (LARGEUR[kind] || 0.4) * 1.35;
+      m.scale.set(l, l * ratio, 1);
+      m.rotation.set(-Math.PI / 2, 0, r);
+      m.position.set(x, 0.012 + groupe.children.length * 4e-3, z);
+      m.receiveShadow = true;
+      m.castShadow = true;
+      m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.35 });
+      groupe.add(m);
+    };
+    if (info.tex) monter(info);
+    else info.attente.push(monter);
+  }
+  function garnir(groupe, liste = []) {
+    groupe.userData.jeton = (groupe.userData.jeton || 0) + 1;
+    for (const enfant of [...groupe.children]) {
+      groupe.remove(enfant);
+      enfant.material?.dispose?.();
+      enfant.customDepthMaterial?.dispose?.();
+    }
+    const enMain = liste.find((o) => o.m && OUTILS_MAIN.includes(o.k));
+    const rangs = /* @__PURE__ */ new Map();
+    for (const o of liste) {
+      if (o === enMain) continue;
+      const kind = o.k === "cahier" && enMain ? "cahier-ouvert" : o.k;
+      const place = POSE.find((p) => p.kinds.includes(kind)) || { x: -0.4, z: -0.2, r: 0, dx: 0.3, dz: 0 };
+      const n = rangs.get(place) || 0;
+      rangs.set(place, n + 1);
+      if (n > 3) continue;
+      poserObjet(groupe, kind, { x: place.x + place.dx * n, z: place.z + place.dz * n, r: place.r + n * 0.08 });
+    }
+    return enMain?.k || null;
+  }
+  const decor = new THREE.Group();
+  scene.add(decor);
+  const ardoiseMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.92 });
+  const ardoiseVide = matDe("#22332c", { roughness: 0.95 });
+  let ardoise = null;
+  let texture = null, toileSuivie = null;
+  function suivreToile() {
+    const t = toile();
+    if (t !== toileSuivie) {
+      texture?.dispose();
+      texture = null;
+      toileSuivie = t;
+      if (t) {
+        texture = new THREE.CanvasTexture(t);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        ardoiseMat.map = texture;
+        ardoiseMat.needsUpdate = true;
+      }
+    }
+    if (ardoise) ardoise.material = texture ? ardoiseMat : ardoiseVide;
+    if (texture) texture.needsUpdate = true;
+  }
+  const LT = 9.6, HT = LT * 9 / 16;
+  let objetsProf = null;
+  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true }) {
+    const profondeur = avant - fond + 4;
+    const sol = new THREE.Mesh(
+      new THREE.PlaneGeometry(largeur + 2, profondeur),
+      new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: 0.78 })
+    );
+    sol.rotation.x = -Math.PI / 2;
+    sol.position.set(0, 0, (fond + avant) / 2);
+    sol.receiveShadow = true;
+    decor.add(sol);
+    const matMur = new THREE.MeshStandardMaterial({ map: papier, roughness: 0.95 });
+    const matLambris = new THREE.MeshStandardMaterial({ map: TEX.lambris, roughness: 0.7 });
+    const mur = (l, x, z, ry) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(l, 13), matMur);
+      m.position.set(x, 6.5, z);
+      m.rotation.y = ry;
+      m.receiveShadow = true;
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(l, 1.8), matLambris);
+      b.position.set(x, 0.9, z);
+      b.rotation.y = ry;
+      b.translateZ(0.02);
+      const moulure = new THREE.Mesh(new THREE.BoxGeometry(l, 0.12, 0.08), matDe("#3a2a1e"));
+      moulure.position.set(x, 1.82, z);
+      moulure.rotation.y = ry;
+      moulure.translateZ(0.04);
+      decor.add(m, b, moulure);
+    };
+    mur(largeur + 2, 0, fond, 0);
+    mur(profondeur, -largeur / 2, (fond + avant) / 2, Math.PI / 2);
+    mur(profondeur, largeur / 2, (fond + avant) / 2, -Math.PI / 2);
+    for (let z = fond + 5; z < avant - 1; z += 7) {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.6), new THREE.MeshBasicMaterial({ color: "#d6e2e8" }));
+      f.position.set(-largeur / 2 + 0.1, 5.6, z);
+      f.rotation.y = Math.PI / 2;
+      const cadre = new THREE.Mesh(boiteRonde(4.4, 5, 0.12, 0.04), matDe("#3a2d22"));
+      cadre.position.set(-largeur / 2 + 0.02, 5.6, z);
+      cadre.rotation.y = Math.PI / 2;
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.6, 0.1), matDe("#3a2d22"));
+      v.position.set(-largeur / 2 + 0.14, 5.6, z);
+      const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 4), matDe("#3a2d22"));
+      h.position.set(-largeur / 2 + 0.14, 5.6, z);
+      decor.add(cadre, f, v, h);
+    }
+    soleil.position.set(-largeur / 2 - 6, 16, (fond + avant) / 2 + 3);
+    soleil.target.position.set(0, 0, (fond + avant) / 2 - 2);
+    const demi = Math.max(largeur, profondeur) / 2 + 4;
+    Object.assign(soleil.shadow.camera, { left: -demi, right: demi, top: demi, bottom: -demi, near: 1, far: 80 });
+    soleil.shadow.camera.updateProjectionMatrix();
+    if (!avecHorloge) return;
+    const horloge = new THREE.Group();
+    const cadran = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 32), matDe("#f3efe4"));
+    cadran.rotation.x = Math.PI / 2;
+    const tour = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.06, 8, 32), matDe("#3a2d22"));
+    const grande = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.4, 0.02), matDe("#141416"));
+    grande.position.set(0, 0.15, 0.06);
+    const petite = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.02), matDe("#141416"));
+    petite.rotation.z = -1.1;
+    petite.position.set(0.12, 0.05, 0.06);
+    horloge.add(cadran, tour, grande, petite);
+    horloge.position.set(0, 8.7, fond + 0.1);
+    decor.add(horloge);
+  }
+  function tableauAuMur(fond) {
+    const cadre = new THREE.Mesh(boiteRonde(LT + 0.5, HT + 0.5, 0.2, 0.06), matBois);
+    cadre.position.set(0, 4.9, fond + 0.15);
+    cadre.castShadow = true;
+    ardoise = new THREE.Mesh(new THREE.PlaneGeometry(LT, HT), texture ? ardoiseMat : ardoiseVide);
+    ardoise.position.set(0, 4.9, fond + 0.28);
+    ardoise.userData.tableau = true;
+    const rebord = new THREE.Mesh(boiteRonde(LT + 0.3, 0.14, 0.4, 0.05), matBois);
+    rebord.position.set(0, 4.9 - HT / 2 - 0.25, fond + 0.4);
+    const craie = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 8), matDe("#f3f0e6"));
+    craie.rotation.z = Math.PI / 2;
+    craie.position.set(-2.8, rebord.position.y + 0.12, fond + 0.45);
+    const brosse = new THREE.Mesh(boiteRonde(0.8, 0.22, 0.32, 0.05), matDe("#5b3f2a"));
+    brosse.position.set(3, rebord.position.y + 0.16, fond + 0.45);
+    decor.add(cadre, ardoise, rebord, craie, brosse);
+  }
+  let dispo = { cle: "", sieges: [], reunion: false };
+  function pupitre(x, z) {
+    const g = new THREE.Group();
+    const plateau = new THREE.Mesh(boiteRonde(2.6, 0.16, 1.5, 0.05), matBois);
+    plateau.position.set(0, 2.15, -1.15);
+    g.add(plateau);
+    for (const [dx, dz] of [[-1.15, -1.75], [1.15, -1.75], [-1.15, -0.55], [1.15, -0.55]]) {
+      const pied = new THREE.Mesh(GEO.pied, matMetal);
+      pied.scale.y = 2.1;
+      pied.position.set(dx, 1.05, dz);
+      g.add(pied);
+    }
+    const assise = new THREE.Mesh(boiteRonde(1.5, 0.14, 1.3, 0.05), matBois);
+    assise.position.set(0, 0.95, 0.35);
+    g.add(assise);
+    for (const [dx, dz] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.9], [0.6, 0.9]]) {
+      const pied = new THREE.Mesh(GEO.pied, matMetal);
+      pied.scale.y = 0.95;
+      pied.position.set(dx, 0.47, dz);
+      g.add(pied);
+    }
+    g.position.set(x, 0, z);
+    ombrer(g);
+    decor.add(g);
+    const objets = new THREE.Group();
+    objets.position.set(x, 2.24, z - 1.05);
+    decor.add(objets);
+    return objets;
+  }
+  function chaise(x, z, angle) {
+    const g = new THREE.Group();
+    const assise = new THREE.Mesh(boiteRonde(1.5, 0.14, 1.4, 0.06), matBois);
+    assise.position.y = 0.95;
+    const dossier = new THREE.Mesh(boiteRonde(1.5, 1.3, 0.14, 0.06), matBois);
+    dossier.position.set(0, 1.9, 0.68);
+    dossier.rotation.x = -0.08;
+    g.add(assise, dossier);
+    for (const [dx, dz] of [[-0.6, -0.55], [0.6, -0.55], [-0.6, 0.6], [0.6, 0.6]]) {
+      const pied = new THREE.Mesh(GEO.pied, matBois);
+      pied.scale.y = 0.95;
+      pied.position.set(dx, 0.47, dz);
+      g.add(pied);
+    }
+    g.position.set(x, 0, z);
+    g.rotation.y = angle;
+    ombrer(g);
+    decor.add(g);
+  }
+  const colonnesPour = (n) => n <= 16 ? 4 : n <= 25 ? 5 : 6;
+  function construireClasse(n) {
+    const cols = colonnesPour(n);
+    const rangs = Math.max(2, Math.ceil(n / cols));
+    const pasX = 3.6, pasZ = 3.3, fond = -10;
+    const largeur = Math.max(19, cols * pasX + 5);
+    const dernier2 = -4.6 + (rangs - 1) * pasZ;
+    piece({ largeur, fond, avant: dernier2 + 14 });
+    tableauAuMur(fond);
+    const estrade = new THREE.Mesh(
+      boiteRonde(Math.min(largeur - 3, 15), 0.4, 3.2, 0.06),
+      new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: 0.8 })
+    );
+    estrade.position.set(0, 0.2, fond + 1.7);
+    estrade.receiveShadow = true;
+    decor.add(estrade);
+    const bp = new THREE.Group();
+    const plateauProf = new THREE.Mesh(boiteRonde(4, 0.2, 1.8, 0.05), matBois);
+    plateauProf.position.y = 2.6;
+    const caisson = new THREE.Mesh(boiteRonde(3.8, 2.2, 0.15, 0.03), matBois);
+    caisson.position.set(0, 1.5, 0.8);
+    bp.add(plateauProf, caisson);
+    bp.position.set(-4.6, 0.4, fond + 2.4);
+    bp.rotation.y = 0.12;
+    ombrer(bp);
+    decor.add(bp);
+    objetsProf = new THREE.Group();
+    objetsProf.position.set(-4.6, 3.12, fond + 2.4);
+    objetsProf.rotation.y = Math.PI + 0.12;
+    decor.add(objetsProf);
+    const sieges = [];
+    for (let r = 0; r < rangs; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = (c - (cols - 1) / 2) * pasX, z = -4.6 + r * pasZ;
+        sieges.push({ x, z: z + 0.35, angle: 0, objets: pupitre(x, z) });
+      }
+    }
+    sieges.sort((a, b) => a.z - b.z || Math.abs(a.x) - Math.abs(b.x));
+    return { sieges, rangs, cols, dernier: dernier2, fond, prof: { x: 6.4, z: fond + 1.9 } };
+  }
+  function construirePortrait() {
+    const sol = new THREE.Mesh(new THREE.CircleGeometry(3.2, 48), new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: 0.8 }));
+    sol.rotation.x = -Math.PI / 2;
+    sol.receiveShadow = true;
+    const fond = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), new THREE.MeshStandardMaterial({ color: "#2a2d31", roughness: 1 }));
+    fond.position.set(0, 6, -6);
+    decor.add(sol, fond);
+    soleil.position.set(-5, 10, 8);
+    soleil.target.position.set(0, 1.5, 0);
+    Object.assign(soleil.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+    soleil.shadow.camera.updateProjectionMatrix();
+    return { sieges: [{ x: 0, z: 0, angle: Math.PI, objets: new THREE.Group() }], fond: -6 };
+  }
+  function construireMaison() {
+    const fond = -8, largeur = 17;
+    piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false });
+    const fenetre2 = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: "#dbe6ec" }));
+    fenetre2.position.set(0, 6.1, fond + 0.13);
+    const cadreF = new THREE.Mesh(boiteRonde(5.7, 4.5, 0.14, 0.04), matDe("#3a2d22"));
+    cadreF.position.set(0, 6.1, fond + 0.02);
+    const croisee = new THREE.Group();
+    croisee.add(
+      new THREE.Mesh(new THREE.BoxGeometry(0.12, 4, 0.1), matDe("#3a2d22")),
+      new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.1), matDe("#3a2d22"))
+    );
+    croisee.position.set(0, 6.1, fond + 0.18);
+    const rebordF = new THREE.Mesh(boiteRonde(6, 0.16, 0.6, 0.04), matBois);
+    rebordF.position.set(0, 4, fond + 0.3);
+    decor.add(cadreF, fenetre2, croisee, rebordF);
+    const bureau = new THREE.Group();
+    const plateau = new THREE.Mesh(boiteRonde(5.2, 0.2, 2.4, 0.05), matBois);
+    plateau.position.y = 2.15;
+    bureau.add(plateau);
+    for (const x of [-2.1, 2.1]) {
+      const caisson = new THREE.Mesh(boiteRonde(0.9, 2.05, 2.2, 0.04), matBois);
+      caisson.position.set(x, 1.03, 0);
+      bureau.add(caisson);
+      for (const y of [0.5, 1.2, 1.8]) {
+        const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), matDe("#b8963a", { metalness: 0.7, roughness: 0.35 }));
+        poignee.position.set(x, y, 1.12);
+        bureau.add(poignee);
+      }
+    }
+    bureau.position.set(0, 0, fond + 1.35);
+    ombrer(bureau);
+    decor.add(bureau);
+    const lampe = new THREE.Group();
+    const laiton = matDe("#9c7a3c", { metalness: 0.75, roughness: 0.3 });
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.1, 24), laiton);
+    const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 10), laiton);
+    bras.position.set(0, 0.75, 0);
+    bras.rotation.z = 0.25;
+    const abat = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 24, 1, true), matDe("#2f5a3c", { side: THREE.DoubleSide, roughness: 0.5 }));
+    abat.position.set(0.2, 1.5, 0.15);
+    abat.rotation.set(0.4, 0, -0.6);
+    const ampoule = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: "#fff1cf" }));
+    ampoule.position.set(0.28, 1.36, 0.22);
+    lampe.add(socle, bras, abat, ampoule);
+    lampe.position.set(-1.9, 2.3, fond + 0.9);
+    ombrer(lampe);
+    const lueur = new THREE.PointLight("#ffd9a0", 9, 9, 2);
+    lueur.position.set(-1.6, 3.5, fond + 1.3);
+    decor.add(lampe, lueur);
+    chaise(0, fond + 3.15, 0);
+    const biblio = new THREE.Group();
+    const montant = (x) => {
+      const m = new THREE.Mesh(boiteRonde(0.16, 7, 1.6, 0.03), matBois);
+      m.position.set(x, 3.5, 0);
+      return m;
+    };
+    biblio.add(montant(-1.7), montant(1.7));
+    const teintes = ["#6b1f24", "#1f2f55", "#2c3b2a", "#8a6a2a", "#3a2a4a", "#5a3a22", "#2b2b30", "#7a5a3a"];
+    for (const y of [0.3, 1.9, 3.5, 5.1, 6.9]) {
+      const e = new THREE.Mesh(boiteRonde(3.5, 0.14, 1.6, 0.03), matBois);
+      e.position.set(0, y, 0);
+      biblio.add(e);
+      if (y > 6) continue;
+      let x = -1.5;
+      while (x < 1.4) {
+        const l = 0.14 + Math.random() * 0.12, h = 1.05 + Math.random() * 0.35;
+        const livre = new THREE.Mesh(new THREE.BoxGeometry(l, h, 1.1), matDe(teintes[Math.floor(Math.random() * teintes.length)], { roughness: 0.7 }));
+        livre.position.set(x + l / 2, y + 0.07 + h / 2, 0.1);
+        if (Math.random() > 0.88) {
+          livre.rotation.z = 0.25;
+          livre.position.y -= 0.05;
+        }
+        biblio.add(livre);
+        x += l + 0.02;
+      }
+    }
+    biblio.position.set(6.2, 0, fond + 0.95);
+    ombrer(biblio);
+    decor.add(biblio);
+    const lit = new THREE.Group();
+    const cadreLit = new THREE.Mesh(boiteRonde(3.4, 0.9, 6.4, 0.06), matBois);
+    cadreLit.position.y = 0.65;
+    const matelas = new THREE.Mesh(boiteRonde(3.2, 0.5, 6.2, 0.2), matDe("#e9e4d8", { roughness: 0.95 }));
+    matelas.position.y = 1.3;
+    const couverture = new THREE.Mesh(boiteRonde(3.36, 0.3, 4.2, 0.12), matDe("#4d5f7a", { roughness: 0.95 }));
+    couverture.position.set(0, 1.5, 0.95);
+    const oreiller = new THREE.Mesh(boiteRonde(2.4, 0.4, 1.1, 0.2), matDe("#f2efe6", { roughness: 0.95 }));
+    oreiller.position.set(0, 1.72, -2.3);
+    const tete = new THREE.Mesh(boiteRonde(3.4, 2.4, 0.2, 0.06), matBois);
+    tete.position.set(0, 1.6, -3.2);
+    lit.add(cadreLit, matelas, couverture, oreiller, tete);
+    lit.position.set(-largeur / 2 + 2.2, 0, fond + 4.3);
+    ombrer(lit);
+    decor.add(lit);
+    const tapis = new THREE.Mesh(new THREE.PlaneGeometry(7, 5), new THREE.MeshStandardMaterial({
+      map: texturePeinte(256, 192, (g, l, h) => {
+        g.fillStyle = "#6e2a26";
+        g.fillRect(0, 0, l, h);
+        g.strokeStyle = "#d8b98a";
+        g.lineWidth = 6;
+        g.strokeRect(12, 12, l - 24, h - 24);
+        g.strokeStyle = "rgba(216,185,138,.6)";
+        g.lineWidth = 2;
+        g.strokeRect(24, 24, l - 48, h - 48);
+        g.fillStyle = "rgba(216,185,138,.45)";
+        for (let i = 0; i < 5; i++) {
+          g.beginPath();
+          g.ellipse(l / 2, h / 2, 60 - i * 11, 36 - i * 7, 0, 0, 7);
+          g.fill();
+        }
+      }),
+      roughness: 1
+    }));
+    tapis.rotation.x = -Math.PI / 2;
+    tapis.position.set(0, 0.02, fond + 3.3);
+    tapis.receiveShadow = true;
+    decor.add(tapis);
+    const carte = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.8), new THREE.MeshStandardMaterial({
+      map: texturePeinte(320, 240, (g, l, h) => {
+        g.fillStyle = "#e8dcc0";
+        g.fillRect(0, 0, l, h);
+        for (const [r, c] of [[100, "#8a6a3a"], [66, "#5f7a4a"], [34, "#8a3a2a"]]) {
+          g.strokeStyle = c;
+          g.lineWidth = 4;
+          g.beginPath();
+          g.arc(l / 2, h / 2 + 6, r, 0, 7);
+          g.stroke();
+        }
+        g.fillStyle = "#3a2a1a";
+        g.font = "bold 18px Georgia";
+        g.fillText("PARADIS", 12, 24);
+      }),
+      roughness: 0.9
+    }));
+    carte.position.set(-4.3, 6, fond + 0.05);
+    const punaise = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), matDe("#a82a2a"));
+    punaise.position.set(-4.3, 6.8, fond + 0.1);
+    decor.add(carte, punaise);
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.35, 0.9, 20), matDe("#8a4a2a"));
+    pot.position.set(3.3, 0.45, fond + 1);
+    decor.add(pot);
+    for (let i = 0; i < 9; i++) {
+      const feuille = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), matDe(i % 2 ? "#3f6b3a" : "#4f7d45"));
+      feuille.scale.set(0.5, 1.4, 0.2);
+      const a = i / 9 * Math.PI * 2;
+      feuille.position.set(3.3 + Math.cos(a) * 0.3, 1.35 + i % 3 * 0.2, fond + 1 + Math.sin(a) * 0.3);
+      feuille.rotation.set(Math.sin(a) * 0.5, a, Math.cos(a) * 0.5);
+      decor.add(feuille);
+    }
+    const objets = new THREE.Group();
+    objets.position.set(0, 2.27, fond + 1.75);
+    decor.add(objets);
+    return { sieges: [{ x: 0, z: fond + 3, angle: 0, objets }], fond };
+  }
+  function construireReunion(total) {
+    const R = Math.max(2.8, total * 2.5 / (2 * Math.PI));
+    const fond = -R - 7;
+    piece({ largeur: Math.max(20, 2 * R + 12), fond, avant: R + 9 });
+    tableauAuMur(fond);
+    const table2 = new THREE.Group();
+    const plateau = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.18, 96), matTable);
+    plateau.position.y = 2.15;
+    const chant = new THREE.Mesh(new THREE.TorusGeometry(R, 0.09, 8, 96), matTable);
+    chant.rotation.x = Math.PI / 2;
+    chant.position.y = 2.15;
+    const fut = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 2.05, 24), matTable);
+    fut.position.y = 1.05;
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.5, 0.16, 32), matTable);
+    socle.position.y = 0.08;
+    table2.add(plateau, chant, fut, socle);
+    ombrer(table2);
+    decor.add(table2);
+    const verre = new THREE.MeshPhysicalMaterial({ color: "#e6eef2", roughness: 0.05, transmission: 0.9, thickness: 0.2, transparent: true, opacity: 0.55 });
+    const carafe = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 0.8, 20), verre);
+    carafe.position.set(0.25, 2.64, -0.15);
+    decor.add(carafe);
+    const sieges = [];
+    for (let i = 0; i < total; i++) {
+      const a = Math.PI / 2 + i * 2 * Math.PI / total;
+      const d = R + 1.15;
+      const x = Math.cos(a) * d, z = Math.sin(a) * d;
+      const angle = Math.PI / 2 - a;
+      if (i !== 0) chaise(x, z, angle);
+      const objets = new THREE.Group();
+      objets.position.set(Math.cos(a) * (R - 0.85), 2.25, Math.sin(a) * (R - 0.85));
+      objets.rotation.y = angle;
+      decor.add(objets);
+      sieges.push({ x, z, angle, objets, i });
+    }
+    const tete = sieges[Math.floor(total / 2)];
+    const autres = sieges.filter((s) => s.i !== 0 && s !== tete).sort((a, b) => a.z - b.z);
+    return { sieges: autres, tete, R, fond };
+  }
+  const gens = /* @__PURE__ */ new Map();
+  let prof = null;
+  let etat2 = { mode: "classe", eleves: [], prof: { present: false } };
+  let ecritJusqua = 0;
+  function etiquette(texte, classe = "") {
+    const e = document.createElement("button");
+    e.type = "button";
+    e.className = `classe3d__nom ${classe}`.trim();
+    e.textContent = texte;
+    etiquettes.appendChild(e);
+    return e;
+  }
+  function asseoir(x, siege) {
+    const { p } = x;
+    if (dispo.portrait) {
+      p.poser("debout");
+      p.racine.position.set(0, 0.05, 0);
+      p.racine.rotation.y = Math.PI;
+      p.racine.scale.setScalar(0.72);
+      x.siege = siege;
+      x.sig = null;
+      x.arrive = 0;
+      return;
+    }
+    const pose = dispo.reunion ? "assis" : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "assis"]);
+    p.poser(pose);
+    p.racine.position.set(siege.x, 1.31 + (pose === "tailleur" ? 0.05 : 0), siege.z);
+    p.racine.rotation.y = siege.angle;
+    p.racine.scale.setScalar(0.72);
+    x.siege = siege;
+    x.sig = null;
+  }
+  function reconstruire() {
+    const reunion = etat2.mode === "reunion";
+    const n = etat2.eleves.length;
+    const total = Math.max(6, n + (etat2.prof.present ? 1 : 0) + 1);
+    const cols = colonnesPour(n);
+    const maison = etat2.mode === "maison";
+    const portrait = etat2.mode === "portrait";
+    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
+    if (cle === dispo.cle) return;
+    for (const o of [...decor.children]) {
+      decor.remove(o);
+      o.traverse((m) => {
+        if (m.isMesh && !PARTAGEES.has(m.geometry)) m.geometry.dispose();
+      });
+    }
+    ardoise = null;
+    objetsProf = null;
+    dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() } : maison ? { cle, reunion: false, maison: true, ...construireMaison() } : reunion ? { cle, reunion: true, ...construireReunion(total) } : { cle, reunion: false, ...construireClasse(n) };
+    const libres = [...dispo.sieges];
+    for (const x of gens.values()) asseoir(x, libres.shift() || dispo.sieges[0]);
+    if (prof) placerProf();
+    cadrer();
+  }
+  function placerProf() {
+    const p = prof.p;
+    if (dispo.reunion) {
+      p.poser("assis");
+      p.racine.position.set(dispo.tete.x, 1.31, dispo.tete.z);
+      p.racine.rotation.y = dispo.tete.angle;
+      p.racine.scale.setScalar(0.72);
+    } else {
+      p.poser("debout");
+      p.racine.rotation.y = Math.PI;
+      p.racine.position.set(dispo.prof.x, 0.4, dispo.prof.z);
+      p.racine.scale.setScalar(0.85);
+    }
+    prof.sig = null;
+  }
+  function majGens() {
+    const ids = new Set(etat2.eleves.map((x) => String(x.id)));
+    for (const [id, x] of [...gens]) {
+      if (ids.has(id)) continue;
+      scene.remove(x.p.racine);
+      x.etiquette.remove();
+      garnir(x.siege.objets, []);
+      gens.delete(id);
+    }
+    const prises = new Set([...gens.values()].map((x) => x.siege));
+    for (const e of etat2.eleves) {
+      const id = String(e.id);
+      let x = gens.get(id);
+      if (!x) {
+        const siege = dispo.sieges.find((s) => !prises.has(s));
+        if (!siege) continue;
+        prises.add(siege);
+        const p = personnage(id, e.avatar);
+        scene.add(p.racine);
+        x = {
+          p,
+          personne: e,
+          etiquette: etiquette(e.nom),
+          sig: null,
+          arrive: performance.now(),
+          avSig: JSON.stringify(e.avatar || {})
+        };
+        x.etiquette.onclick = () => surPersonne?.(x.etiquette, x.personne.brut);
+        p.racine.traverse((o) => {
+          o.userData.personne = id;
+        });
+        gens.set(id, x);
+        asseoir(x, siege);
+      }
+      const avSig = JSON.stringify(e.avatar || {});
+      if (avSig !== x.avSig) {
+        scene.remove(x.p.racine);
+        x.p = personnage(id, e.avatar);
+        x.p.racine.traverse((o) => {
+          o.userData.personne = id;
+        });
+        scene.add(x.p.racine);
+        x.avSig = avSig;
+        asseoir(x, x.siege);
+      }
+      x.personne = e;
+      x.etiquette.textContent = e.nom;
+      x.etiquette.classList.toggle("classe3d__nom--main", Boolean(e.main));
+      const sig = JSON.stringify(e.bureau || []);
+      if (sig !== x.sig) {
+        x.sig = sig;
+        x.p.tenir(garnir(x.siege.objets, e.bureau || []));
+      }
+    }
+  }
+  function majProf() {
+    const p = etat2.prof;
+    if (!p.present) {
+      if (prof) {
+        scene.remove(prof.p.racine);
+        prof.etiquette.remove();
+        prof = null;
+      }
+      if (objetsProf) garnir(objetsProf, []);
+      if (dispo.tete) garnir(dispo.tete.objets, []);
+      return;
+    }
+    const avSig = JSON.stringify(p.avatar || {});
+    if (prof && prof.avSig !== avSig) {
+      scene.remove(prof.p.racine);
+      prof.etiquette.remove();
+      prof = null;
+    }
+    if (!prof) {
+      const q = personnage(`prof:${p.nom}`, p.avatar || { tenue: "gris-bleu" });
+      scene.add(q.racine);
+      prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null, avSig };
+      placerProf();
+    }
+    prof.etiquette.textContent = p.nom;
+    const sig = JSON.stringify(p.bureau || []);
+    if (sig !== prof.sig) {
+      prof.sig = sig;
+      const cible = dispo.reunion ? dispo.tete.objets : objetsProf;
+      const tenu = garnir(cible, p.bureau || []);
+      prof.p.tenir(dispo.reunion ? tenu : tenu === "craie" ? "craie" : null);
+    }
+  }
+  function cadrer() {
+    const l = hote.clientWidth || 1, h = hote.clientHeight || 1;
+    renderer.setSize(l, h, false);
+    camera.aspect = l / h;
+    const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
+    if (dispo.portrait) {
+      camera.fov = 30;
+      const t = 2 * Math.tan(camera.fov / 2 * Math.PI / 180);
+      const d = Math.max(4.5 / t, 3.6 / (t * camera.aspect));
+      camera.position.set(0, 2.4, d);
+      regard.set(0, 1.95, 0);
+    } else if (dispo.maison) {
+      camera.fov = 48 - k * 18;
+      camera.position.set(3.6 - k * 1.6, 7.4 - k * 0.6, dispo.fond + 12 + k * 2.5);
+      regard.set(-0.3, 3.1, dispo.fond + 1.2);
+    } else if (dispo.reunion) {
+      const R = dispo.R;
+      camera.fov = 58 - k * 20;
+      camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
+      regard.set(0, 2.9 + k * 0.6, -R * 0.55);
+    } else {
+      const plus = Math.max(0, (dispo.rangs || 3) - 3);
+      camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
+      camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
+      regard.set(0, 3.2 + k * 0.5, -7);
+    }
+    camera.lookAt(regard);
+    camera.updateProjectionMatrix();
+  }
+  const observateur = new ResizeObserver(() => cadrer());
+  observateur.observe(hote);
+  const rayon = new THREE.Raycaster();
+  const pointeur = new THREE.Vector2();
+  function viser(e) {
+    const r = canvas.getBoundingClientRect();
+    pointeur.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    rayon.setFromCamera(pointeur, camera);
+    return rayon.intersectObjects(scene.children, true)[0]?.object || null;
+  }
+  let survol = null;
+  canvas.addEventListener("pointermove", (e) => {
+    const o = viser(e);
+    const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
+    canvas.style.cursor = cible ? "pointer" : "";
+    if (cible !== survol) {
+      for (const [id, x] of gens) x.etiquette.classList.toggle("classe3d__nom--survol", id === cible);
+      survol = cible;
+    }
+  });
+  let tourPortrait = 0, glisse = null;
+  const fige = hote.dataset.fige === "1";
+  canvas.addEventListener("pointerdown", (e) => {
+    if (!dispo.portrait) return;
+    glisse = { x: e.clientX, depart: tourPortrait };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (glisse) tourPortrait = glisse.depart + (e.clientX - glisse.x) / 80;
+  });
+  canvas.addEventListener("pointerup", () => {
+    glisse = null;
+  });
+  canvas.addEventListener("click", (e) => {
+    const o = viser(e);
+    if (o?.userData.tableau) surTableau?.();
+    else if (o?.userData.personne) {
+      const x = gens.get(o.userData.personne);
+      if (x) surPersonne?.(x.etiquette, x.personne.brut);
+    }
+  });
+  const vecteur = new THREE.Vector3();
+  let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true;
+  let leger = null;
+  const io = new IntersectionObserver(([x]) => {
+    visible = x.isIntersecting;
+  });
+  io.observe(hote);
+  function qualite() {
+    const petit = hote.clientWidth < 720 || document.body.classList.contains("est-flottant");
+    if (petit === leger) return;
+    leger = petit;
+    renderer.setPixelRatio(leger ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.shadowMap.enabled = !leger;
+    scene.traverse((m) => {
+      if (m.material) m.material.needsUpdate = true;
+    });
+    cadrer();
+  }
+  function placerEtiquette(el2, objet, hauteur) {
+    vecteur.setFromMatrixPosition(objet.matrixWorld);
+    vecteur.y += hauteur;
+    vecteur.project(camera);
+    el2.hidden = vecteur.z > 1;
+    el2.style.transform = `translate(-50%, -100%) translate(${(vecteur.x * 0.5 + 0.5) * hote.clientWidth}px, ${(-vecteur.y * 0.5 + 0.5) * hote.clientHeight}px)`;
+  }
+  function image(t) {
+    if (!vivant) return;
+    anime = requestAnimationFrame(image);
+    if (!visible || document.hidden || t - dernier < (leger ? 50 : 33)) return;
+    dernier = t;
+    const s = t / 1e3;
+    if (t - dernierTableau > (leger ? 500 : 300)) {
+      suivreToile();
+      dernierTableau = t;
+      qualite();
+    }
+    if (dispo.portrait) {
+      for (const x of gens.values()) {
+        x.p.racine.rotation.y = Math.PI + tourPortrait + (glisse || fige ? 0 : Math.sin(s * 0.6) * 0.7);
+        x.p.torse.scale.y = 1 + Math.sin(s * 1.6) * 0.01;
+      }
+      renderer.render(scene, camera);
+      return;
+    }
+    for (const x of gens.values()) {
+      const p = x.p;
+      const k = s + p.phase;
+      p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
+      if (x.arrive) {
+        const a = Math.min(1, (performance.now() - x.arrive) / 700);
+        p.bassin.position.y = (1 - a) * (1 - a) * 0.8;
+        if (a >= 1) x.arrive = 0;
+      }
+      if (x.personne.main) {
+        p.brasD.epaule.rotation.x += (2.95 - p.brasD.epaule.rotation.x) * 0.15;
+        p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
+      } else if (p.brasD.epaule.rotation.x > 2) {
+        p.poser(p.pose);
+      } else if (p.outil) {
+        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 7) * 0.03;
+        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.1) * 0.05;
+      }
+      p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
+      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && !x.personne.main ? 0.28 : 0);
+    }
+    if (prof) {
+      const p = prof.p;
+      if (!dispo.reunion) {
+        const ecrit = Date.now() < ecritJusqua;
+        const cibleY = ecrit ? 0.1 : Math.PI - 0.35 + Math.sin(s * 0.4) * 0.25;
+        p.racine.rotation.y += (cibleY - p.racine.rotation.y) * 0.08;
+        const bras = ecrit ? 2.3 + Math.sin(s * 6) * 0.12 : Math.sin(s * 0.9) * 0.08;
+        p.brasD.epaule.rotation.x += (bras - p.brasD.epaule.rotation.x) * 0.12;
+        p.racine.position.x += ((ecrit ? 4.2 : dispo.prof.x) - p.racine.position.x) * 0.03;
+      } else {
+        p.tete.rotation.y = Math.sin(s * 0.3) * 0.5;
+      }
+      p.torse.scale.y = 1 + Math.sin(s * 1.4) * 0.012;
+    }
+    renderer.render(scene, camera);
+    if (prof) placerEtiquette(prof.etiquette, prof.p.tete, 1.3 * prof.p.racine.scale.x);
+    for (const x of gens.values()) placerEtiquette(x.etiquette, x.p.tete, 1.3 * 0.72);
+  }
+  reconstruire();
+  qualite();
+  anime = requestAnimationFrame(image);
+  return {
+    /**
+     * Qui est là, et ce que chacun a devant lui.
+     * @param {object} o
+     * @param {"classe"|"reunion"} o.mode
+     * @param {Array} o.eleves  [{ id, nom, brut, bureau: [{ k, m }], main }]
+     * @param {object} o.prof   { present, nom, bureau }
+     */
+    maj({ mode: mode2 = "classe", eleves = [], prof: p = { present: false } } = {}) {
+      etat2 = { mode: mode2, eleves, prof: p };
+      reconstruire();
+      majGens();
+      majProf();
+    },
+    /** Le professeur écrit : on le voit se tourner vers le tableau. */
+    ecrit() {
+      ecritJusqua = Date.now() + 2500;
+    },
+    /** Replacer le rendu ailleurs — dans la console, en petite fenêtre. */
+    deplacer(nouvelHote) {
+      if (hote === nouvelHote) return;
+      nouvelHote.append(canvas, etiquettes);
+      observateur.disconnect();
+      observateur.observe(nouvelHote);
+      io.disconnect();
+      io.observe(nouvelHote);
+      hote = nouvelHote;
+      leger = null;
+      qualite();
+      cadrer();
+    },
+    detruire() {
+      vivant = false;
+      cancelAnimationFrame(anime);
+      observateur.disconnect();
+      io.disconnect();
+      texture?.dispose();
+      for (const x of textures.values()) x.tex?.dispose();
+      renderer.dispose();
+      canvas.remove();
+      etiquettes.remove();
+    }
+  };
+}
+var THREE_LOCAL, THREE_CDN, promesseThree, choisir, OUTILS_MAIN, POSE, LARGEUR;
+var init_classe_3d = __esm({
+  "src/features/classe-3d.js"() {
+    init_affaires();
+    init_tenues();
+    init_coiffures();
+    THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
+    THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
+    promesseThree = null;
+    choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste.length];
+    OUTILS_MAIN = ["crayon", "plume", "stylo-plume", "craie"];
+    POSE = [
+      { kinds: ["cahier", "carnet", "feuille", "cahier-ouvert"], x: -0.15, z: 0.12, r: 0.06, dx: 0.5, dz: -0.05 },
+      { kinds: ["crayon", "plume", "stylo-plume"], x: 0.8, z: 0.12, r: -0.55, dx: 0.06, dz: -0.14 },
+      { kinds: ["gomme", "buvard"], x: 0.85, z: -0.32, r: 0.3, dx: -0.3, dz: 0 },
+      { kinds: ["regle", "equerre", "rapporteur", "compas"], x: 0.05, z: -0.45, r: 0.04, dx: 0.35, dz: 0.05 },
+      { kinds: ["regle-a-calcul", "boulier"], x: -0.85, z: -0.3, r: -0.1, dx: 0, dz: 0.3 },
+      { kinds: ["dossier", "chemise", "pochette", "registre"], x: -0.85, z: 0.2, r: 0.12, dx: 0.12, dz: -0.1 },
+      { kinds: ["feuilles"], x: 0.3, z: -0.25, r: -0.08, dx: 0.1, dz: 0.05 },
+      { kinds: ["encrier", "encre", "craie", "cachet"], x: 1, z: 0.32, r: 0, dx: -0.22, dz: 0 }
+    ];
+    LARGEUR = {
+      cahier: 0.56,
+      "cahier-ouvert": 0.95,
+      carnet: 0.4,
+      feuille: 0.46,
+      feuilles: 0.52,
+      dossier: 0.58,
+      chemise: 0.58,
+      pochette: 0.52,
+      crayon: 0.62,
+      plume: 0.62,
+      "stylo-plume": 0.58,
+      gomme: 0.26,
+      regle: 0.82,
+      equerre: 0.48,
+      compas: 0.28,
+      rapporteur: 0.52,
+      "regle-a-calcul": 0.84,
+      boulier: 0.42,
+      encrier: 0.26,
+      encre: 0.18,
+      craie: 0.2,
+      buvard: 0.56,
+      registre: 0.58,
+      cachet: 0.2
+    };
+  }
+});
+
+// src/features/apparence.js
+var apparence_exports = {};
+__export(apparence_exports, {
+  monAvatar: () => monAvatar,
+  ouvrirApparence: () => ouvrirApparence
+});
+async function ouvrirApparence() {
+  let avatar2 = monAvatar();
+  let apercu = null;
+  const scene = el("div.apparence__apercu");
+  const choix = el("div.apparence__choix");
+  function peindreApercu() {
+    apercu?.maj({ mode: "portrait", eleves: [{ id: `apercu:${etat.utilisateur?.id || ""}`, nom: "", avatar: avatar2 }] });
+  }
+  function groupe(titre, contenu) {
+    return el("section.apparence__groupe", el("h3.apparence__titre", titre), contenu);
+  }
+  function peindreChoix() {
+    const tenue = (nom) => {
+      const f = ficheTenue(nom) || {};
+      const teintes = [f.veste || f.pull || f.chemise, f.gilet || f.chemise, f.pantalon].filter(Boolean);
+      return el(
+        "button.apparence__tenue",
+        {
+          type: "button",
+          "aria-pressed": String(avatar2.tenue === nom),
+          title: libelleTenue(nom),
+          onclick: () => {
+            avatar2.tenue = nom;
+            maj();
+          }
+        },
+        el("span.apparence__nuancier", teintes.map((c) => el("span", { style: { background: c } }))),
+        el("span", libelleTenue(nom))
+      );
+    };
+    const costumes = NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume");
+    const uniformes = NOMS_TENUES.filter((n) => ficheTenue(n)?.famille === "uniforme");
+    const pastille = (liste, cle) => el("div.apparence__pastilles", liste.map((c) => el("button.apparence__pastille", {
+      type: "button",
+      title: c.libelle,
+      "aria-label": c.libelle,
+      "aria-pressed": String(avatar2[cle] === c.cle),
+      style: { background: c.cle },
+      onclick: () => {
+        avatar2[cle] = c.cle;
+        maj();
+      }
+    })));
+    render(
+      choix,
+      groupe("Tenue", el(
+        "div",
+        el("p.apparence__sous-titre", "Costumes"),
+        el("div.apparence__tenues", costumes.map(tenue)),
+        el("p.apparence__sous-titre", "Uniformes"),
+        el("div.apparence__tenues", uniformes.map(tenue))
+      )),
+      groupe("Coupe", el("div.apparence__coupes", COIFFURES.map((c) => el("button.apparence__coupe", {
+        type: "button",
+        "aria-pressed": String(avatar2.coiffure === c.cle),
+        onclick: () => {
+          avatar2.coiffure = c.cle;
+          maj();
+        }
+      }, c.libelle)))),
+      groupe("Cheveux", pastille(COULEURS_CHEVEUX, "cheveux")),
+      groupe("Teint", pastille(TEINTS, "peau"))
+    );
+  }
+  function maj() {
+    peindreChoix();
+    peindreApercu();
+  }
+  const enregistre = await ouvrirModale({
+    titre: "Mon personnage",
+    large: true,
+    corps: () => {
+      peindreChoix();
+      setTimeout(async () => {
+        if (!webglDisponible()) {
+          render(scene, el("p.petit.faible", "Aper\xE7u 3D indisponible sur cet appareil."));
+          return;
+        }
+        try {
+          apercu = await creerClasse3D({ hote: scene });
+          peindreApercu();
+        } catch {
+          render(scene, el("p.petit.faible", "Aper\xE7u 3D indisponible."));
+        }
+      }, 30);
+      return el(
+        "div.apparence",
+        el(
+          "div.apparence__gauche",
+          scene,
+          el("p.apparence__aide", icone("main", 12), " Glissez pour le faire tourner.")
+        ),
+        choix
+      );
+    },
+    surFermeture: () => apercu?.detruire(),
+    actions: [
+      { libelle: "Au hasard", action: () => {
+        avatar2 = {
+          tenue: auHasard(NOMS_TENUES),
+          coiffure: auHasard(COIFFURES).cle,
+          cheveux: auHasard(COULEURS_CHEVEUX).cle,
+          peau: auHasard(TEINTS).cle
+        };
+        maj();
+        return false;
+      } },
+      { libelle: "Annuler", valeur: false },
+      { libelle: "Enregistrer", variante: "primaire", action: async () => {
+        await majPreference("avatar", avatar2);
+        emettre("avatar:change", avatar2);
+        succes("Personnage enregistr\xE9", "Les autres le verront ainsi en s\xE9ance.");
+        return true;
+      } }
+    ]
+  });
+  return enregistre;
+}
+var monAvatar, auHasard;
+var init_apparence = __esm({
+  "src/features/apparence.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_bus();
+    init_session();
+    init_modal();
+    init_toast();
+    init_tenues();
+    init_coiffures();
+    init_classe_3d();
+    monAvatar = () => ({ ...etat.profil?.preferences?.avatar || {} });
+    auHasard = (liste) => liste[Math.floor(Math.random() * liste.length)];
+  }
+});
+
 // src/ui/chassis.js
 function sceau() {
   const mots = String(config.academyName || "Classe Parall\xE8le").split(/[\s·—-]+/).filter(Boolean);
@@ -12726,6 +15132,11 @@ function peindreRail() {
     estAdmin() ? lienRail("/administration", "administration", "Comptes et journaux", "bouclier") : null,
     el(
       "div.rail__pied",
+      etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: async () => {
+        fermer();
+        const { ouvrirApparence: ouvrirApparence2 } = await Promise.resolve().then(() => (init_apparence(), apparence_exports));
+        ouvrirApparence2();
+      } }, icone("eleves", 16), el("span", "Mon personnage")) : null,
       lienRail("/profil", "profil", "Profil", "profil"),
       lienRail("/reglages", "reglages", "R\xE9glages", "reglages"),
       el(
@@ -13155,1396 +15566,6 @@ var init_auth = __esm({
       ["classe", "Une classe, un code", "Le professeur donne un code, les \xE9l\xE8ves entrent et rejoignent la session."],
       ["robot", "Roblox reste le jeu", "Toute la logique scolaire vit ici : le serveur RP ne s'alourdit pas."]
     ];
-  }
-});
-
-// src/features/tenues.js
-function teinte(hex, k) {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (c) => Math.max(0, Math.min(255, Math.round(c * k)));
-  return `rgb(${f(n >> 16)}, ${f(n >> 8 & 255)}, ${f(n & 255)})`;
-}
-function tissu(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12 } = {}) {
-  const d = g.createLinearGradient(0, y, 0, y + h);
-  d.addColorStop(0, teinte(couleur, 1.08));
-  d.addColorStop(1, teinte(couleur, 1 - ombreBas));
-  g.fillStyle = d;
-  g.fillRect(x, y, l, h);
-  for (let i = 0; i < l * h / 7; i++) {
-    g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "0,0,0"},${Math.random() * 0.05})`;
-    g.fillRect(x + Math.random() * l, y + Math.random() * h, 1, 1);
-  }
-  if (rayure) {
-    g.fillStyle = `rgba(255,255,255,${rayure})`;
-    for (let i = x + 3; i < x + l; i += 6) g.fillRect(i, y, 1, h);
-  }
-}
-function trait(g, points, couleur, largeur = 1) {
-  g.strokeStyle = couleur;
-  g.lineWidth = largeur;
-  g.beginPath();
-  g.moveTo(...points[0]);
-  for (const p of points.slice(1)) g.lineTo(...p);
-  g.stroke();
-}
-function forme(g, points, couleur) {
-  g.fillStyle = couleur;
-  g.beginPath();
-  g.moveTo(...points[0]);
-  for (const p of points.slice(1)) g.lineTo(...p);
-  g.closePath();
-  g.fill();
-}
-function bouton(g, x, y, couleur) {
-  g.fillStyle = teinte(couleur, 0.55);
-  g.beginPath();
-  g.arc(x, y, 3, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = "rgba(255,255,255,.18)";
-  g.beginPath();
-  g.arc(x - 1, y - 1, 1.2, 0, Math.PI * 2);
-  g.fill();
-}
-function dessinerChemise(g, t) {
-  const T2 = FACES.torse;
-  for (const k of ["R", "L", "B", "U", "D"]) tissu(g, T2[k], t.veste, { rayure: t.rayure });
-  tissu(g, T2.F, t.veste, { rayure: t.rayure });
-  const [bx, by, bl, bh] = T2.B;
-  trait(g, [[bx + bl / 2, by], [bx + bl / 2, by + bh]], "rgba(0,0,0,.35)", 1.5);
-  g.fillStyle = "rgba(0,0,0,.12)";
-  g.fillRect(bx, by, bl, 10);
-  trait(g, [[bx + bl / 2, by + bh - 22], [bx + bl / 2, by + bh]], "rgba(0,0,0,.5)", 2);
-  for (const k of ["R", "L"]) {
-    const [x2, y2, l, h] = T2[k];
-    trait(g, [[x2 + l / 2, y2], [x2 + l / 2, y2 + h]], "rgba(0,0,0,.25)", 1);
-  }
-  const [dx, dy, dl, dh] = T2.D;
-  g.fillStyle = "#141414";
-  g.fillRect(dx, dy + dh / 2 - 4, dl, 8);
-  const [x, y] = T2.F;
-  const c = x + 64;
-  const creux = t.ouverte ? 118 : t.gilet ? 92 : 70;
-  if (t.gilet) {
-    forme(g, [[c - 34, y], [c + 34, y], [c + 30, y + 128], [c - 30, y + 128]], t.gilet);
-    tissu(g, [c - 30, y + 20, 60, 108], t.gilet, { ombreBas: 0.2 });
-    for (const yy of [60, 78, 96, 114]) bouton(g, c, y + yy, t.gilet);
-  }
-  forme(g, [[c - 22, y], [c + 22, y], [c, y + (t.gilet ? 56 : creux)]], t.chemise);
-  forme(g, [[c - 22, y], [c - 3, y + 4], [c - 12, y + 18]], teinte(t.chemise, 0.9));
-  forme(g, [[c + 22, y], [c + 3, y + 4], [c + 12, y + 18]], teinte(t.chemise, 0.9));
-  if (t.cravate) {
-    const w = t.largeurCravate || 8;
-    forme(g, [[c - w / 2 + 1, y + 5], [c + w / 2 - 1, y + 5], [c + w / 2 - 2, y + 12], [c - w / 2 + 2, y + 12]], teinte(t.cravate, 0.85));
-    forme(g, [[c - w / 2 + 2, y + 12], [c + w / 2 - 2, y + 12], [c + w / 2 + 1, y + 50], [c, y + 58], [c - w / 2 - 1, y + 50]], t.cravate);
-    trait(g, [[c, y + 14], [c, y + 55]], "rgba(0,0,0,.15)", 1);
-  }
-  const pan = t.ouverte ? 30 : 0;
-  forme(g, [[x, y], [c - 22, y], [c - 2 - pan, y + creux], [c - 2 - pan, y + 128], [x, y + 128]], t.veste);
-  forme(g, [[x + 128, y], [c + 22, y], [c + 2 + pan, y + creux], [c + 2 + pan, y + 128], [x + 128, y + 128]], t.veste);
-  tissu(g, [x, y + creux, c - 2 - pan - x, 128 - creux], t.veste, { rayure: t.rayure });
-  tissu(g, [c + 2 + pan, y + creux, x + 128 - c - 2 - pan, 128 - creux], t.veste, { rayure: t.rayure });
-  const revers = teinte(t.veste, t.ouverte ? 0.8 : 1.25);
-  forme(g, [[c - 22, y], [c - 32, y + 14], [c - 14, y + 30], [c - 2 - pan, y + creux]], revers);
-  forme(g, [[c + 22, y], [c + 32, y + 14], [c + 14, y + 30], [c + 2 + pan, y + creux]], revers);
-  trait(g, [[c - 22, y], [c - 2 - pan, y + creux], [c - 2 - pan, y + 128]], "rgba(0,0,0,.45)", 1.5);
-  trait(g, [[c + 22, y], [c + 2 + pan, y + creux], [c + 2 + pan, y + 128]], "rgba(0,0,0,.45)", 1.5);
-  if (!t.ouverte) {
-    const cols = t.croise ? [c - 10, c + 10] : [c + 5];
-    for (const bx2 of cols) for (const yy of t.croise ? [82, 102] : [84, 104]) bouton(g, bx2, y + yy, t.veste);
-  }
-  trait(g, [[x + 86, y + 40], [x + 104, y + 38]], teinte(t.veste, 0.55), 2);
-  g.fillStyle = "#f2f1ec";
-  g.fillRect(x + 90, y + 34, 9, 4);
-  trait(g, [[x + 10, y + 100], [x + 34, y + 100]], teinte(t.veste, 0.55), 2);
-  trait(g, [[x + 94, y + 100], [x + 118, y + 100]], teinte(t.veste, 0.55), 2);
-  for (const cote of ["droit", "gauche"]) {
-    const B = FACES[cote];
-    for (const k of ["U", "D", "L", "B", "R", "F"]) tissu(g, B[k], t.veste, { rayure: t.rayure });
-    for (const k of ["L", "B", "R", "F"]) {
-      const [mx, my, ml, mh] = B[k];
-      g.fillStyle = "rgba(0,0,0,.18)";
-      g.fillRect(mx, my, ml, 6);
-      g.fillStyle = t.poignets || teinte(t.veste, 0.7);
-      g.fillRect(mx, my + mh - 9, ml, 9);
-      trait(g, [[mx, my + mh - 16], [mx + ml, my + mh - 16]], "rgba(0,0,0,.35)", 1);
-      if (k === "F") for (const yy of [mh - 24, mh - 30]) bouton(g, mx + ml - 12, my + yy, t.veste);
-    }
-    const [hx, hy, hl, hh] = B.D;
-    g.fillStyle = "#e8c9a6";
-    g.fillRect(hx, hy, hl, hh);
-  }
-}
-function dessinerPantalon(g, t) {
-  const T2 = FACES.torse;
-  for (const k of Object.keys(T2)) tissu(g, T2[k], t.pantalon);
-  for (const cote of ["droit", "gauche"]) {
-    const J = FACES[cote];
-    for (const k of ["U", "L", "B", "R", "F"]) tissu(g, J[k], t.pantalon, { ombreBas: 0.18 });
-    for (const k of ["L", "B", "R", "F"]) {
-      const [x2, y2, l2, h2] = J[k];
-      if (k === "F" || k === "B") trait(g, [[x2 + l2 / 2, y2 + 4], [x2 + l2 / 2, y2 + h2 - 22]], "rgba(255,255,255,.12)", 1.5);
-      g.fillStyle = "rgba(0,0,0,.25)";
-      g.fillRect(x2, y2 + h2 - 24, l2, 3);
-      const d = g.createLinearGradient(0, y2 + h2 - 20, 0, y2 + h2);
-      d.addColorStop(0, teinte(t.chaussures, 1.15));
-      d.addColorStop(1, teinte(t.chaussures, 0.8));
-      g.fillStyle = d;
-      g.fillRect(x2, y2 + h2 - 20, l2, 20);
-      g.fillStyle = "rgba(0,0,0,.55)";
-      g.fillRect(x2, y2 + h2 - 4, l2, 4);
-      if (k === "F") {
-        g.fillStyle = "rgba(255,255,255,.15)";
-        g.fillRect(x2 + 8, y2 + h2 - 17, l2 - 16, 2);
-      }
-    }
-    const [x, y, l, h] = J.D;
-    g.fillStyle = "#0b0b0b";
-    g.fillRect(x, y, l, h);
-  }
-}
-function toilesTenue(nom) {
-  if (cache.has(nom)) return cache.get(nom);
-  const t = TENUES[nom] || TENUES["croise-noir"];
-  const toile = (dessin) => {
-    const c = document.createElement("canvas");
-    c.width = GABARIT.l;
-    c.height = GABARIT.h;
-    dessin(c.getContext("2d"), t);
-    return c;
-  };
-  const x = { chemise: toile(dessinerChemise), pantalon: toile(dessinerPantalon) };
-  cache.set(nom, x);
-  return x;
-}
-var GABARIT, FACES, TENUES_IMAGES, TENUES, NOMS_TENUES, cache;
-var init_tenues = __esm({
-  "src/features/tenues.js"() {
-    GABARIT = { l: 585, h: 559 };
-    FACES = {
-      torse: {
-        F: [231, 74, 128, 128],
-        R: [165, 74, 64, 128],
-        L: [361, 74, 64, 128],
-        B: [427, 74, 128, 128],
-        U: [231, 8, 128, 64],
-        D: [231, 204, 128, 64]
-      },
-      // Le bras droit (la jambe droite) : le bloc en bas à gauche.
-      droit: {
-        U: [217, 289, 64, 64],
-        D: [217, 485, 64, 64],
-        L: [19, 355, 64, 128],
-        B: [85, 355, 64, 128],
-        R: [151, 355, 64, 128],
-        F: [217, 355, 64, 128]
-      },
-      // Le bras gauche (la jambe gauche) : le bloc en bas à droite.
-      gauche: {
-        U: [308, 289, 64, 64],
-        D: [308, 485, 64, 64],
-        F: [308, 355, 64, 128],
-        L: [374, 355, 64, 128],
-        B: [440, 355, 64, 128],
-        R: [506, 355, 64, 128]
-      }
-    };
-    TENUES_IMAGES = {};
-    TENUES = {
-      "croise-noir": {
-        libelle: "Costume noir crois\xE9",
-        veste: "#1d1d21",
-        chemise: "#f2f1ec",
-        cravate: "#8e1b22",
-        largeurCravate: 9,
-        croise: true,
-        rayure: 0.05,
-        poignets: "#f2f1ec",
-        pantalon: "#1b1b1f",
-        chaussures: "#111112"
-      },
-      bordeaux: {
-        libelle: "Veste bordeaux et gilet",
-        veste: "#4b1d22",
-        gilet: "#161619",
-        chemise: "#f2efe8",
-        cravate: "#cdbb95",
-        largeurCravate: 8,
-        rayure: 0.08,
-        pantalon: "#2a2a2f",
-        chaussures: "#d9d0bb"
-      },
-      "noir-fin": {
-        libelle: "Costume noir, cravate fine",
-        veste: "#17171b",
-        chemise: "#f4f4f2",
-        cravate: "#0d0d0f",
-        largeurCravate: 5,
-        pantalon: "#17171b",
-        chaussures: "#0c0c0d",
-        poignets: "#f4f4f2"
-      },
-      "gris-bleu": {
-        libelle: "Veste grise sur gilet bleu",
-        veste: "#b8bbbe",
-        gilet: "#2f4a7a",
-        chemise: "#e7ecf2",
-        cravate: null,
-        ouverte: true,
-        pantalon: "#d7d8da",
-        chaussures: "#3a3a3c",
-        poignets: "#2f4a7a"
-      }
-    };
-    NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
-    cache = /* @__PURE__ */ new Map();
-  }
-});
-
-// src/features/classe-3d.js
-function chargerThree() {
-  promesseThree ?? (promesseThree = import(
-    /* @vite-ignore */
-    THREE_LOCAL
-  ).catch(() => import(
-    /* @vite-ignore */
-    THREE_CDN
-  )));
-  return promesseThree;
-}
-function webglDisponible() {
-  try {
-    const c = document.createElement("canvas");
-    return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-function graine(texte) {
-  let h = 2166136261;
-  for (const c of String(texte)) {
-    h ^= c.charCodeAt(0);
-    h = Math.imul(h, 16777619);
-  }
-  return () => {
-    h ^= h << 13;
-    h ^= h >>> 17;
-    h ^= h << 5;
-    return (h >>> 0) % 1e4 / 1e4;
-  };
-}
-async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null }) {
-  const THREE = await chargerThree();
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  const canvas = renderer.domElement;
-  canvas.className = "classe3d__toile";
-  const etiquettes = document.createElement("div");
-  etiquettes.className = "classe3d__etiquettes";
-  hote.append(canvas, etiquettes);
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#171a1d");
-  const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 120);
-  const regard = new THREE.Vector3(0, 3.2, -7);
-  scene.add(new THREE.HemisphereLight("#fff4e4", "#3a2c22", 1.1));
-  const soleil = new THREE.DirectionalLight("#ffe9cc", 2.4);
-  soleil.castShadow = true;
-  soleil.shadow.mapSize.set(2048, 2048);
-  soleil.shadow.bias = -3e-4;
-  soleil.shadow.normalBias = 0.02;
-  scene.add(soleil, soleil.target);
-  const plafonnier = new THREE.PointLight("#ffe7c7", 18, 30, 2);
-  plafonnier.position.set(0, 9.5, -2);
-  scene.add(plafonnier);
-  const cacheMat = /* @__PURE__ */ new Map();
-  const matDe = (c, extra = {}) => {
-    const cle = c + JSON.stringify(extra);
-    if (!cacheMat.has(cle)) cacheMat.set(cle, new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, metalness: 0, ...extra }));
-    return cacheMat.get(cle);
-  };
-  function texturePeinte(l, h, peindre, repete = [1, 1]) {
-    const c = document.createElement("canvas");
-    c.width = l;
-    c.height = h;
-    peindre(c.getContext("2d"), l, h);
-    const t = new THREE.CanvasTexture(c);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(...repete);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 4;
-    return t;
-  }
-  const veines = (g, l, h, teinte2, clarte) => {
-    g.fillStyle = `hsl(${teinte2}, 38%, ${clarte}%)`;
-    g.fillRect(0, 0, l, h);
-    for (let i = 0; i < 180; i++) {
-      const y = Math.random() * h;
-      const a = Math.random() * 0.12;
-      g.strokeStyle = Math.random() > 0.5 ? `rgba(30,15,5,${a})` : `rgba(255,225,190,${a * 0.7})`;
-      g.lineWidth = 0.5 + Math.random() * 2.2;
-      g.beginPath();
-      g.moveTo(0, y);
-      for (let x = 0; x <= l; x += 32) g.lineTo(x, y + Math.sin(x / 90 + i) * 3 + (Math.random() - 0.5) * 1.5);
-      g.stroke();
-    }
-    for (let k = 0; k < 3; k++) {
-      const x = Math.random() * l, y = Math.random() * h;
-      const d = g.createRadialGradient(x, y, 1, x, y, 14);
-      d.addColorStop(0, "rgba(40,20,8,.45)");
-      d.addColorStop(1, "rgba(40,20,8,0)");
-      g.fillStyle = d;
-      g.beginPath();
-      g.ellipse(x, y, 22, 7, 0, 0, 7);
-      g.fill();
-    }
-  };
-  const TEX = {
-    plancher: texturePeinte(1024, 1024, (g, l, h) => {
-      const lames = 8;
-      for (let i = 0; i < lames; i++) {
-        const y0 = i * h / lames;
-        const c = document.createElement("canvas");
-        c.width = l;
-        c.height = h / lames;
-        veines(c.getContext("2d"), l, h / lames, 26 + i * 7 % 8, 30 + i * 37 % 9);
-        const decal = i * 389 % l;
-        g.drawImage(c, decal, y0);
-        g.drawImage(c, decal - l, y0);
-        g.fillStyle = "rgba(0,0,0,.35)";
-        g.fillRect(0, y0, l, 2);
-        g.fillRect(i * 211 % l, y0, 2, h / lames);
-      }
-    }, [5, 5]),
-    pupitre: texturePeinte(512, 256, (g, l, h) => veines(g, l, h, 28, 34)),
-    table: texturePeinte(1024, 1024, (g, l, h) => veines(g, l, h, 24, 27)),
-    mur: texturePeinte(512, 512, (g, l, h) => {
-      g.fillStyle = "#bdb5a8";
-      g.fillRect(0, 0, l, h);
-      for (let i = 0; i < 9e3; i++) {
-        g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "60,50,40"},${Math.random() * 0.05})`;
-        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
-      }
-    }, [6, 3]),
-    papierPeint: texturePeinte(512, 512, (g, l, h) => {
-      g.fillStyle = "#c9c3ad";
-      g.fillRect(0, 0, l, h);
-      for (let x = 0; x < l; x += 64) {
-        g.fillStyle = "rgba(92,112,86,.22)";
-        g.fillRect(x, 0, 22, h);
-      }
-      g.fillStyle = "rgba(92,112,86,.28)";
-      for (let y = 16; y < h; y += 64) for (let x = 43; x < l; x += 64) {
-        g.beginPath();
-        g.ellipse(x, y, 3, 6, 0, 0, 7);
-        g.fill();
-      }
-      for (let i = 0; i < 6e3; i++) {
-        g.fillStyle = `rgba(${Math.random() > 0.5 ? "255,255,255" : "60,50,40"},${Math.random() * 0.04})`;
-        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
-      }
-    }, [5, 2]),
-    lambris: texturePeinte(512, 128, (g, l, h) => {
-      veines(g, l, h, 25, 26);
-      g.fillStyle = "rgba(0,0,0,.28)";
-      for (let x = 0; x < l; x += 64) g.fillRect(x, 0, 2, h);
-      g.fillRect(0, 0, l, 5);
-    }, [10, 1])
-  };
-  const matBois = new THREE.MeshStandardMaterial({ map: TEX.pupitre, roughness: 0.62 });
-  const matTable = new THREE.MeshStandardMaterial({ map: TEX.table, roughness: 0.5 });
-  const matMetal = matDe("#2d3033", { metalness: 0.6, roughness: 0.45 });
-  function boiteRonde(l, h, p, r = 0.12) {
-    const forme2 = new THREE.Shape();
-    const x = -l / 2 + r, y = -h / 2 + r, L2 = l - 2 * r, H = h - 2 * r;
-    forme2.moveTo(x, y);
-    forme2.lineTo(x + L2, y);
-    forme2.quadraticCurveTo(x + L2 + r, y, x + L2 + r, y + r);
-    forme2.lineTo(x + L2 + r, y + H);
-    forme2.quadraticCurveTo(x + L2 + r, y + H + r, x + L2, y + H + r);
-    forme2.lineTo(x, y + H + r);
-    forme2.quadraticCurveTo(x - r, y + H + r, x - r, y + H);
-    forme2.lineTo(x - r, y + r);
-    forme2.quadraticCurveTo(x - r, y, x, y);
-    const g = new THREE.ExtrudeGeometry(forme2, {
-      depth: Math.max(0.01, p - 2 * r),
-      bevelEnabled: true,
-      bevelThickness: r,
-      bevelSize: 0,
-      bevelSegments: 3,
-      curveSegments: 6
-    });
-    g.translate(0, 0, -(p - 2 * r) / 2);
-    g.computeVertexNormals();
-    return g;
-  }
-  const profilTete = [];
-  {
-    const R = 0.62, H = 1.2, r = 0.2;
-    profilTete.push(new THREE.Vector2(0, -H / 2));
-    for (let i = 0; i <= 6; i++) {
-      const a = -Math.PI / 2 + i / 6 * (Math.PI / 2);
-      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, -H / 2 + r + Math.sin(a) * r));
-    }
-    for (let i = 0; i <= 6; i++) {
-      const a = i / 6 * (Math.PI / 2);
-      profilTete.push(new THREE.Vector2(R - r + Math.cos(a) * r, H / 2 - r + Math.sin(a) * r));
-    }
-    profilTete.push(new THREE.Vector2(0, H / 2));
-  }
-  const GEO = {
-    tete: new THREE.LatheGeometry(profilTete, 28),
-    bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
-    main: new THREE.SphereGeometry(0.3, 14, 10),
-    cuisse: new THREE.CapsuleGeometry(0.4, 0.55, 6, 12),
-    tibia: new THREE.CapsuleGeometry(0.38, 0.55, 6, 12),
-    chaussure: boiteRonde(0.72, 0.36, 1, 0.14),
-    cou: new THREE.CylinderGeometry(0.3, 0.34, 0.25, 14),
-    col: new THREE.CylinderGeometry(0.46, 0.5, 0.22, 20, 1, true),
-    oeil: new THREE.SphereGeometry(0.075, 10, 8),
-    sourire: new THREE.TorusGeometry(0.2, 0.035, 6, 16, Math.PI),
-    cheveuxCourts: new THREE.SphereGeometry(0.7, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.64),
-    cheveuxLongs: new THREE.SphereGeometry(1, 20, 14),
-    chignon: new THREE.SphereGeometry(0.32, 14, 10),
-    plan: new THREE.PlaneGeometry(1, 1),
-    pied: new THREE.CylinderGeometry(0.06, 0.06, 1, 8)
-  };
-  const PARTAGEES = new Set(Object.values(GEO));
-  const ombrer = (o) => o.traverse((m) => {
-    if (m.isMesh) {
-      m.castShadow = true;
-      m.receiveShadow = true;
-    }
-  });
-  function blocHabille(l, h, p, faces) {
-    const g = new THREE.BoxGeometry(l, h, p);
-    const uv = g.attributes.uv;
-    ["R", "L", "U", "D", "B", "F"].forEach((cle, f) => {
-      const [x0, y0, lf, hf] = faces[cle];
-      for (let i = f * 4; i < f * 4 + 4; i++) {
-        const u = uv.getX(i), v = uv.getY(i);
-        uv.setXY(i, (x0 + u * lf) / GABARIT.l, 1 - (y0 + (1 - v) * hf) / GABARIT.h);
-      }
-    });
-    uv.needsUpdate = true;
-    return g;
-  }
-  const GEO_TENUE = {
-    torse: blocHabille(2, 2, 1, FACES.torse),
-    droit: blocHabille(1, 2, 1, FACES.droit),
-    gauche: blocHabille(1, 2, 1, FACES.gauche)
-  };
-  for (const g of Object.values(GEO_TENUE)) PARTAGEES.add(g);
-  const cacheTenues = /* @__PURE__ */ new Map();
-  function matieresTenue(nom) {
-    if (cacheTenues.has(nom)) return cacheTenues.get(nom);
-    const fichiers2 = TENUES_IMAGES[nom];
-    const toiles = fichiers2 ? null : toilesTenue(nom);
-    const texture2 = (c) => {
-      const t = typeof c === "string" ? new THREE.TextureLoader().load(c) : new THREE.CanvasTexture(c);
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      return t;
-    };
-    const m = {
-      chemise: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.chemise || toiles.chemise), roughness: 0.82 }),
-      pantalon: new THREE.MeshStandardMaterial({ map: texture2(fichiers2?.pantalon || toiles.pantalon), roughness: 0.85 })
-    };
-    cacheTenues.set(nom, m);
-    return m;
-  }
-  function personnage(cle, tenue = null) {
-    const alea = graine(cle);
-    const peau = matDe(choisir(alea, PEAUX));
-    const habit = matieresTenue(tenue || choisir(alea, NOMS_TENUES));
-    const cheveux = matDe(choisir(alea, CHEVEUX), { roughness: 0.7 });
-    const coupe = choisir(alea, ["courts", "courts", "longs", "chignon", "courts"]);
-    const racine = new THREE.Group();
-    const bassin = new THREE.Group();
-    racine.add(bassin);
-    const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
-    torse.position.y = 1;
-    bassin.add(torse);
-    const tete = new THREE.Group();
-    tete.position.y = 2;
-    bassin.add(tete);
-    const crane = new THREE.Mesh(GEO.tete, peau);
-    crane.position.y = 0.62;
-    tete.add(crane);
-    const calotte = new THREE.Mesh(GEO.cheveuxCourts, cheveux);
-    calotte.position.y = 0.74;
-    calotte.rotation.x = 0.28;
-    calotte.scale.set(1.04, 1, 1.04);
-    tete.add(calotte);
-    if (coupe === "longs") {
-      const longs = new THREE.Mesh(GEO.cheveuxLongs, cheveux);
-      longs.scale.set(0.5, 0.58, 0.24);
-      longs.position.set(0, 0.36, 0.44);
-      tete.add(longs);
-    } else if (coupe === "chignon") {
-      const c = new THREE.Mesh(GEO.chignon, cheveux);
-      c.position.set(0, 1.05, 0.55);
-      tete.add(c);
-    }
-    const membre = (x, y, geo, mat) => {
-      const epaule = new THREE.Group();
-      epaule.position.set(x, y, 0);
-      const bloc = new THREE.Mesh(geo, mat);
-      bloc.position.y = -0.9;
-      const coude = new THREE.Group();
-      coude.position.y = -1.85;
-      const bout = new THREE.Group();
-      coude.add(bout);
-      epaule.add(bloc, coude);
-      return { epaule, coude, bout };
-    };
-    const brasG = membre(-1.5, 1.9, GEO_TENUE.gauche, habit.chemise);
-    const brasD = membre(1.5, 1.9, GEO_TENUE.droit, habit.chemise);
-    const jambeG = membre(-0.5, 0.1, GEO_TENUE.gauche, habit.pantalon);
-    const jambeD = membre(0.5, 0.1, GEO_TENUE.droit, habit.pantalon);
-    for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
-    ombrer(racine);
-    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null };
-    p.poser = (pose) => {
-      p.pose = pose;
-      for (const m of [brasG, brasD, jambeG, jambeD]) {
-        m.epaule.rotation.set(0, 0, 0);
-        m.coude.rotation.set(0, 0, 0);
-        m.epaule.rotation.order = "XYZ";
-      }
-      tete.rotation.set(0, 0, 0);
-      if (pose === "debout") {
-        bassin.position.y = 1.9;
-        return;
-      }
-      bassin.position.y = 0;
-      if (pose === "tailleur") {
-        jambeG.epaule.rotation.order = jambeD.epaule.rotation.order = "YXZ";
-        jambeG.epaule.rotation.set(Math.PI / 2, -0.55, 0);
-        jambeD.epaule.rotation.set(Math.PI / 2 - 0.12, 0.55, 0);
-      } else {
-        jambeG.epaule.rotation.x = Math.PI / 2;
-        jambeD.epaule.rotation.x = Math.PI / 2;
-      }
-      brasG.epaule.rotation.set(0.32, 0, -0.05);
-      brasD.epaule.rotation.set(0.32, 0, 0.05);
-    };
-    p.tenir = (kind) => {
-      if ((p.outil?.userData.kind || null) === (kind || null)) return;
-      if (p.outil) {
-        brasD.bout.remove(p.outil);
-        p.outil = null;
-      }
-      if (!kind) return;
-      const g = new THREE.Group();
-      g.userData.kind = kind;
-      const corps = kind === "crayon" ? "#d9a24a" : kind === "craie" ? "#f1eee4" : "#1c1c1f";
-      const long = kind === "craie" ? 0.5 : 1.15;
-      const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, long, 10), matDe(corps, { roughness: 0.5 }));
-      const pointe = new THREE.Mesh(
-        new THREE.ConeGeometry(0.07, 0.22, 10),
-        matDe(
-          kind === "crayon" ? "#e8c89a" : kind === "craie" ? "#f1eee4" : "#b8963a",
-          { metalness: kind === "crayon" || kind === "craie" ? 0 : 0.6, roughness: 0.4 }
-        )
-      );
-      pointe.position.y = -(long / 2 + 0.11);
-      pointe.rotation.x = Math.PI;
-      g.add(tige, pointe);
-      g.rotation.set(0.9, 0, 0.3);
-      g.position.set(0, 0.05, -0.35);
-      ombrer(g);
-      brasD.bout.add(g);
-      p.outil = g;
-    };
-    return p;
-  }
-  const chargeur = new THREE.TextureLoader();
-  const textures = /* @__PURE__ */ new Map();
-  function textureObjet(kind) {
-    if (textures.has(kind)) return textures.get(kind);
-    const x = { tex: null, ratio: 1, attente: [] };
-    textures.set(kind, x);
-    chargeur.load(imageDetouree(kind), (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      x.tex = t;
-      x.ratio = t.image.height / Math.max(1, t.image.width);
-      for (const f of x.attente.splice(0)) f(x);
-    }, void 0, () => {
-    });
-    return x;
-  }
-  function poserObjet(groupe, kind, { x, z, r }) {
-    const info = textureObjet(kind);
-    const jeton = groupe.userData.jeton;
-    const monter = ({ tex, ratio }) => {
-      if (groupe.userData.jeton !== jeton) return;
-      const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: 0.65 });
-      const m = new THREE.Mesh(GEO.plan, mat);
-      const l = (LARGEUR[kind] || 0.4) * 1.35;
-      m.scale.set(l, l * ratio, 1);
-      m.rotation.set(-Math.PI / 2, 0, r);
-      m.position.set(x, 0.012 + groupe.children.length * 4e-3, z);
-      m.receiveShadow = true;
-      m.castShadow = true;
-      m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.35 });
-      groupe.add(m);
-    };
-    if (info.tex) monter(info);
-    else info.attente.push(monter);
-  }
-  function garnir(groupe, liste = []) {
-    groupe.userData.jeton = (groupe.userData.jeton || 0) + 1;
-    for (const enfant of [...groupe.children]) {
-      groupe.remove(enfant);
-      enfant.material?.dispose?.();
-      enfant.customDepthMaterial?.dispose?.();
-    }
-    const enMain = liste.find((o) => o.m && OUTILS_MAIN.includes(o.k));
-    const rangs = /* @__PURE__ */ new Map();
-    for (const o of liste) {
-      if (o === enMain) continue;
-      const kind = o.k === "cahier" && enMain ? "cahier-ouvert" : o.k;
-      const place = POSE.find((p) => p.kinds.includes(kind)) || { x: -0.4, z: -0.2, r: 0, dx: 0.3, dz: 0 };
-      const n = rangs.get(place) || 0;
-      rangs.set(place, n + 1);
-      if (n > 3) continue;
-      poserObjet(groupe, kind, { x: place.x + place.dx * n, z: place.z + place.dz * n, r: place.r + n * 0.08 });
-    }
-    return enMain?.k || null;
-  }
-  const decor = new THREE.Group();
-  scene.add(decor);
-  const ardoiseMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.92 });
-  const ardoiseVide = matDe("#22332c", { roughness: 0.95 });
-  let ardoise = null;
-  let texture = null, toileSuivie = null;
-  function suivreToile() {
-    const t = toile();
-    if (t !== toileSuivie) {
-      texture?.dispose();
-      texture = null;
-      toileSuivie = t;
-      if (t) {
-        texture = new THREE.CanvasTexture(t);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = 8;
-        ardoiseMat.map = texture;
-        ardoiseMat.needsUpdate = true;
-      }
-    }
-    if (ardoise) ardoise.material = texture ? ardoiseMat : ardoiseVide;
-    if (texture) texture.needsUpdate = true;
-  }
-  const LT = 9.6, HT = LT * 9 / 16;
-  let objetsProf = null;
-  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true }) {
-    const profondeur = avant - fond + 4;
-    const sol = new THREE.Mesh(
-      new THREE.PlaneGeometry(largeur + 2, profondeur),
-      new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: 0.78 })
-    );
-    sol.rotation.x = -Math.PI / 2;
-    sol.position.set(0, 0, (fond + avant) / 2);
-    sol.receiveShadow = true;
-    decor.add(sol);
-    const matMur = new THREE.MeshStandardMaterial({ map: papier, roughness: 0.95 });
-    const matLambris = new THREE.MeshStandardMaterial({ map: TEX.lambris, roughness: 0.7 });
-    const mur = (l, x, z, ry) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(l, 13), matMur);
-      m.position.set(x, 6.5, z);
-      m.rotation.y = ry;
-      m.receiveShadow = true;
-      const b = new THREE.Mesh(new THREE.PlaneGeometry(l, 1.8), matLambris);
-      b.position.set(x, 0.9, z);
-      b.rotation.y = ry;
-      b.translateZ(0.02);
-      const moulure = new THREE.Mesh(new THREE.BoxGeometry(l, 0.12, 0.08), matDe("#3a2a1e"));
-      moulure.position.set(x, 1.82, z);
-      moulure.rotation.y = ry;
-      moulure.translateZ(0.04);
-      decor.add(m, b, moulure);
-    };
-    mur(largeur + 2, 0, fond, 0);
-    mur(profondeur, -largeur / 2, (fond + avant) / 2, Math.PI / 2);
-    mur(profondeur, largeur / 2, (fond + avant) / 2, -Math.PI / 2);
-    for (let z = fond + 5; z < avant - 1; z += 7) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.6), new THREE.MeshBasicMaterial({ color: "#d6e2e8" }));
-      f.position.set(-largeur / 2 + 0.1, 5.6, z);
-      f.rotation.y = Math.PI / 2;
-      const cadre = new THREE.Mesh(boiteRonde(4.4, 5, 0.12, 0.04), matDe("#3a2d22"));
-      cadre.position.set(-largeur / 2 + 0.02, 5.6, z);
-      cadre.rotation.y = Math.PI / 2;
-      const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.6, 0.1), matDe("#3a2d22"));
-      v.position.set(-largeur / 2 + 0.14, 5.6, z);
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 4), matDe("#3a2d22"));
-      h.position.set(-largeur / 2 + 0.14, 5.6, z);
-      decor.add(cadre, f, v, h);
-    }
-    soleil.position.set(-largeur / 2 - 6, 16, (fond + avant) / 2 + 3);
-    soleil.target.position.set(0, 0, (fond + avant) / 2 - 2);
-    const demi = Math.max(largeur, profondeur) / 2 + 4;
-    Object.assign(soleil.shadow.camera, { left: -demi, right: demi, top: demi, bottom: -demi, near: 1, far: 80 });
-    soleil.shadow.camera.updateProjectionMatrix();
-    if (!avecHorloge) return;
-    const horloge = new THREE.Group();
-    const cadran = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 32), matDe("#f3efe4"));
-    cadran.rotation.x = Math.PI / 2;
-    const tour = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.06, 8, 32), matDe("#3a2d22"));
-    const grande = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.4, 0.02), matDe("#141416"));
-    grande.position.set(0, 0.15, 0.06);
-    const petite = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.02), matDe("#141416"));
-    petite.rotation.z = -1.1;
-    petite.position.set(0.12, 0.05, 0.06);
-    horloge.add(cadran, tour, grande, petite);
-    horloge.position.set(0, 8.7, fond + 0.1);
-    decor.add(horloge);
-  }
-  function tableauAuMur(fond) {
-    const cadre = new THREE.Mesh(boiteRonde(LT + 0.5, HT + 0.5, 0.2, 0.06), matBois);
-    cadre.position.set(0, 4.9, fond + 0.15);
-    cadre.castShadow = true;
-    ardoise = new THREE.Mesh(new THREE.PlaneGeometry(LT, HT), texture ? ardoiseMat : ardoiseVide);
-    ardoise.position.set(0, 4.9, fond + 0.28);
-    ardoise.userData.tableau = true;
-    const rebord = new THREE.Mesh(boiteRonde(LT + 0.3, 0.14, 0.4, 0.05), matBois);
-    rebord.position.set(0, 4.9 - HT / 2 - 0.25, fond + 0.4);
-    const craie = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.45, 8), matDe("#f3f0e6"));
-    craie.rotation.z = Math.PI / 2;
-    craie.position.set(-2.8, rebord.position.y + 0.12, fond + 0.45);
-    const brosse = new THREE.Mesh(boiteRonde(0.8, 0.22, 0.32, 0.05), matDe("#5b3f2a"));
-    brosse.position.set(3, rebord.position.y + 0.16, fond + 0.45);
-    decor.add(cadre, ardoise, rebord, craie, brosse);
-  }
-  let dispo = { cle: "", sieges: [], reunion: false };
-  function pupitre(x, z) {
-    const g = new THREE.Group();
-    const plateau = new THREE.Mesh(boiteRonde(2.6, 0.16, 1.5, 0.05), matBois);
-    plateau.position.set(0, 2.15, -1.15);
-    g.add(plateau);
-    for (const [dx, dz] of [[-1.15, -1.75], [1.15, -1.75], [-1.15, -0.55], [1.15, -0.55]]) {
-      const pied = new THREE.Mesh(GEO.pied, matMetal);
-      pied.scale.y = 2.1;
-      pied.position.set(dx, 1.05, dz);
-      g.add(pied);
-    }
-    const assise = new THREE.Mesh(boiteRonde(1.5, 0.14, 1.3, 0.05), matBois);
-    assise.position.set(0, 0.95, 0.35);
-    g.add(assise);
-    for (const [dx, dz] of [[-0.6, -0.2], [0.6, -0.2], [-0.6, 0.9], [0.6, 0.9]]) {
-      const pied = new THREE.Mesh(GEO.pied, matMetal);
-      pied.scale.y = 0.95;
-      pied.position.set(dx, 0.47, dz);
-      g.add(pied);
-    }
-    g.position.set(x, 0, z);
-    ombrer(g);
-    decor.add(g);
-    const objets = new THREE.Group();
-    objets.position.set(x, 2.24, z - 1.05);
-    decor.add(objets);
-    return objets;
-  }
-  function chaise(x, z, angle) {
-    const g = new THREE.Group();
-    const assise = new THREE.Mesh(boiteRonde(1.5, 0.14, 1.4, 0.06), matBois);
-    assise.position.y = 0.95;
-    const dossier = new THREE.Mesh(boiteRonde(1.5, 1.3, 0.14, 0.06), matBois);
-    dossier.position.set(0, 1.9, 0.68);
-    dossier.rotation.x = -0.08;
-    g.add(assise, dossier);
-    for (const [dx, dz] of [[-0.6, -0.55], [0.6, -0.55], [-0.6, 0.6], [0.6, 0.6]]) {
-      const pied = new THREE.Mesh(GEO.pied, matBois);
-      pied.scale.y = 0.95;
-      pied.position.set(dx, 0.47, dz);
-      g.add(pied);
-    }
-    g.position.set(x, 0, z);
-    g.rotation.y = angle;
-    ombrer(g);
-    decor.add(g);
-  }
-  const colonnesPour = (n) => n <= 16 ? 4 : n <= 25 ? 5 : 6;
-  function construireClasse(n) {
-    const cols = colonnesPour(n);
-    const rangs = Math.max(2, Math.ceil(n / cols));
-    const pasX = 3.6, pasZ = 3.3, fond = -10;
-    const largeur = Math.max(19, cols * pasX + 5);
-    const dernier2 = -4.6 + (rangs - 1) * pasZ;
-    piece({ largeur, fond, avant: dernier2 + 14 });
-    tableauAuMur(fond);
-    const estrade = new THREE.Mesh(
-      boiteRonde(Math.min(largeur - 3, 15), 0.4, 3.2, 0.06),
-      new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: 0.8 })
-    );
-    estrade.position.set(0, 0.2, fond + 1.7);
-    estrade.receiveShadow = true;
-    decor.add(estrade);
-    const bp = new THREE.Group();
-    const plateauProf = new THREE.Mesh(boiteRonde(4, 0.2, 1.8, 0.05), matBois);
-    plateauProf.position.y = 2.6;
-    const caisson = new THREE.Mesh(boiteRonde(3.8, 2.2, 0.15, 0.03), matBois);
-    caisson.position.set(0, 1.5, 0.8);
-    bp.add(plateauProf, caisson);
-    bp.position.set(-4.6, 0.4, fond + 2.4);
-    bp.rotation.y = 0.12;
-    ombrer(bp);
-    decor.add(bp);
-    objetsProf = new THREE.Group();
-    objetsProf.position.set(-4.6, 3.12, fond + 2.4);
-    objetsProf.rotation.y = Math.PI + 0.12;
-    decor.add(objetsProf);
-    const sieges = [];
-    for (let r = 0; r < rangs; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = (c - (cols - 1) / 2) * pasX, z = -4.6 + r * pasZ;
-        sieges.push({ x, z: z + 0.35, angle: 0, objets: pupitre(x, z) });
-      }
-    }
-    sieges.sort((a, b) => a.z - b.z || Math.abs(a.x) - Math.abs(b.x));
-    return { sieges, rangs, cols, dernier: dernier2, fond, prof: { x: 6.4, z: fond + 1.9 } };
-  }
-  function construireMaison() {
-    const fond = -8, largeur = 17;
-    piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false });
-    const fenetre2 = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: "#dbe6ec" }));
-    fenetre2.position.set(0, 6.1, fond + 0.13);
-    const cadreF = new THREE.Mesh(boiteRonde(5.7, 4.5, 0.14, 0.04), matDe("#3a2d22"));
-    cadreF.position.set(0, 6.1, fond + 0.02);
-    const croisee = new THREE.Group();
-    croisee.add(
-      new THREE.Mesh(new THREE.BoxGeometry(0.12, 4, 0.1), matDe("#3a2d22")),
-      new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.1), matDe("#3a2d22"))
-    );
-    croisee.position.set(0, 6.1, fond + 0.18);
-    const rebordF = new THREE.Mesh(boiteRonde(6, 0.16, 0.6, 0.04), matBois);
-    rebordF.position.set(0, 4, fond + 0.3);
-    decor.add(cadreF, fenetre2, croisee, rebordF);
-    const bureau = new THREE.Group();
-    const plateau = new THREE.Mesh(boiteRonde(5.2, 0.2, 2.4, 0.05), matBois);
-    plateau.position.y = 2.15;
-    bureau.add(plateau);
-    for (const x of [-2.1, 2.1]) {
-      const caisson = new THREE.Mesh(boiteRonde(0.9, 2.05, 2.2, 0.04), matBois);
-      caisson.position.set(x, 1.03, 0);
-      bureau.add(caisson);
-      for (const y of [0.5, 1.2, 1.8]) {
-        const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.05), matDe("#b8963a", { metalness: 0.7, roughness: 0.35 }));
-        poignee.position.set(x, y, 1.12);
-        bureau.add(poignee);
-      }
-    }
-    bureau.position.set(0, 0, fond + 1.35);
-    ombrer(bureau);
-    decor.add(bureau);
-    const lampe = new THREE.Group();
-    const laiton = matDe("#9c7a3c", { metalness: 0.75, roughness: 0.3 });
-    const socle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.1, 24), laiton);
-    const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 10), laiton);
-    bras.position.set(0, 0.75, 0);
-    bras.rotation.z = 0.25;
-    const abat = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 24, 1, true), matDe("#2f5a3c", { side: THREE.DoubleSide, roughness: 0.5 }));
-    abat.position.set(0.2, 1.5, 0.15);
-    abat.rotation.set(0.4, 0, -0.6);
-    const ampoule = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: "#fff1cf" }));
-    ampoule.position.set(0.28, 1.36, 0.22);
-    lampe.add(socle, bras, abat, ampoule);
-    lampe.position.set(-1.9, 2.3, fond + 0.9);
-    ombrer(lampe);
-    const lueur = new THREE.PointLight("#ffd9a0", 9, 9, 2);
-    lueur.position.set(-1.6, 3.5, fond + 1.3);
-    decor.add(lampe, lueur);
-    chaise(0, fond + 3.15, 0);
-    const biblio = new THREE.Group();
-    const montant = (x) => {
-      const m = new THREE.Mesh(boiteRonde(0.16, 7, 1.6, 0.03), matBois);
-      m.position.set(x, 3.5, 0);
-      return m;
-    };
-    biblio.add(montant(-1.7), montant(1.7));
-    const teintes = ["#6b1f24", "#1f2f55", "#2c3b2a", "#8a6a2a", "#3a2a4a", "#5a3a22", "#2b2b30", "#7a5a3a"];
-    for (const y of [0.3, 1.9, 3.5, 5.1, 6.9]) {
-      const e = new THREE.Mesh(boiteRonde(3.5, 0.14, 1.6, 0.03), matBois);
-      e.position.set(0, y, 0);
-      biblio.add(e);
-      if (y > 6) continue;
-      let x = -1.5;
-      while (x < 1.4) {
-        const l = 0.14 + Math.random() * 0.12, h = 1.05 + Math.random() * 0.35;
-        const livre = new THREE.Mesh(new THREE.BoxGeometry(l, h, 1.1), matDe(teintes[Math.floor(Math.random() * teintes.length)], { roughness: 0.7 }));
-        livre.position.set(x + l / 2, y + 0.07 + h / 2, 0.1);
-        if (Math.random() > 0.88) {
-          livre.rotation.z = 0.25;
-          livre.position.y -= 0.05;
-        }
-        biblio.add(livre);
-        x += l + 0.02;
-      }
-    }
-    biblio.position.set(6.2, 0, fond + 0.95);
-    ombrer(biblio);
-    decor.add(biblio);
-    const lit = new THREE.Group();
-    const cadreLit = new THREE.Mesh(boiteRonde(3.4, 0.9, 6.4, 0.06), matBois);
-    cadreLit.position.y = 0.65;
-    const matelas = new THREE.Mesh(boiteRonde(3.2, 0.5, 6.2, 0.2), matDe("#e9e4d8", { roughness: 0.95 }));
-    matelas.position.y = 1.3;
-    const couverture = new THREE.Mesh(boiteRonde(3.36, 0.3, 4.2, 0.12), matDe("#4d5f7a", { roughness: 0.95 }));
-    couverture.position.set(0, 1.5, 0.95);
-    const oreiller = new THREE.Mesh(boiteRonde(2.4, 0.4, 1.1, 0.2), matDe("#f2efe6", { roughness: 0.95 }));
-    oreiller.position.set(0, 1.72, -2.3);
-    const tete = new THREE.Mesh(boiteRonde(3.4, 2.4, 0.2, 0.06), matBois);
-    tete.position.set(0, 1.6, -3.2);
-    lit.add(cadreLit, matelas, couverture, oreiller, tete);
-    lit.position.set(-largeur / 2 + 2.2, 0, fond + 4.3);
-    ombrer(lit);
-    decor.add(lit);
-    const tapis = new THREE.Mesh(new THREE.PlaneGeometry(7, 5), new THREE.MeshStandardMaterial({
-      map: texturePeinte(256, 192, (g, l, h) => {
-        g.fillStyle = "#6e2a26";
-        g.fillRect(0, 0, l, h);
-        g.strokeStyle = "#d8b98a";
-        g.lineWidth = 6;
-        g.strokeRect(12, 12, l - 24, h - 24);
-        g.strokeStyle = "rgba(216,185,138,.6)";
-        g.lineWidth = 2;
-        g.strokeRect(24, 24, l - 48, h - 48);
-        g.fillStyle = "rgba(216,185,138,.45)";
-        for (let i = 0; i < 5; i++) {
-          g.beginPath();
-          g.ellipse(l / 2, h / 2, 60 - i * 11, 36 - i * 7, 0, 0, 7);
-          g.fill();
-        }
-      }),
-      roughness: 1
-    }));
-    tapis.rotation.x = -Math.PI / 2;
-    tapis.position.set(0, 0.02, fond + 3.3);
-    tapis.receiveShadow = true;
-    decor.add(tapis);
-    const carte = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.8), new THREE.MeshStandardMaterial({
-      map: texturePeinte(320, 240, (g, l, h) => {
-        g.fillStyle = "#e8dcc0";
-        g.fillRect(0, 0, l, h);
-        for (const [r, c] of [[100, "#8a6a3a"], [66, "#5f7a4a"], [34, "#8a3a2a"]]) {
-          g.strokeStyle = c;
-          g.lineWidth = 4;
-          g.beginPath();
-          g.arc(l / 2, h / 2 + 6, r, 0, 7);
-          g.stroke();
-        }
-        g.fillStyle = "#3a2a1a";
-        g.font = "bold 18px Georgia";
-        g.fillText("PARADIS", 12, 24);
-      }),
-      roughness: 0.9
-    }));
-    carte.position.set(-4.3, 6, fond + 0.05);
-    const punaise = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), matDe("#a82a2a"));
-    punaise.position.set(-4.3, 6.8, fond + 0.1);
-    decor.add(carte, punaise);
-    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.35, 0.9, 20), matDe("#8a4a2a"));
-    pot.position.set(3.3, 0.45, fond + 1);
-    decor.add(pot);
-    for (let i = 0; i < 9; i++) {
-      const feuille = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), matDe(i % 2 ? "#3f6b3a" : "#4f7d45"));
-      feuille.scale.set(0.5, 1.4, 0.2);
-      const a = i / 9 * Math.PI * 2;
-      feuille.position.set(3.3 + Math.cos(a) * 0.3, 1.35 + i % 3 * 0.2, fond + 1 + Math.sin(a) * 0.3);
-      feuille.rotation.set(Math.sin(a) * 0.5, a, Math.cos(a) * 0.5);
-      decor.add(feuille);
-    }
-    const objets = new THREE.Group();
-    objets.position.set(0, 2.27, fond + 1.75);
-    decor.add(objets);
-    return { sieges: [{ x: 0, z: fond + 3, angle: 0, objets }], fond };
-  }
-  function construireReunion(total) {
-    const R = Math.max(2.8, total * 2.5 / (2 * Math.PI));
-    const fond = -R - 7;
-    piece({ largeur: Math.max(20, 2 * R + 12), fond, avant: R + 9 });
-    tableauAuMur(fond);
-    const table2 = new THREE.Group();
-    const plateau = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.18, 96), matTable);
-    plateau.position.y = 2.15;
-    const chant = new THREE.Mesh(new THREE.TorusGeometry(R, 0.09, 8, 96), matTable);
-    chant.rotation.x = Math.PI / 2;
-    chant.position.y = 2.15;
-    const fut = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 2.05, 24), matTable);
-    fut.position.y = 1.05;
-    const socle = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.5, 0.16, 32), matTable);
-    socle.position.y = 0.08;
-    table2.add(plateau, chant, fut, socle);
-    ombrer(table2);
-    decor.add(table2);
-    const verre = new THREE.MeshPhysicalMaterial({ color: "#e6eef2", roughness: 0.05, transmission: 0.9, thickness: 0.2, transparent: true, opacity: 0.55 });
-    const carafe = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 0.8, 20), verre);
-    carafe.position.set(0.25, 2.64, -0.15);
-    decor.add(carafe);
-    const sieges = [];
-    for (let i = 0; i < total; i++) {
-      const a = Math.PI / 2 + i * 2 * Math.PI / total;
-      const d = R + 1.15;
-      const x = Math.cos(a) * d, z = Math.sin(a) * d;
-      const angle = Math.PI / 2 - a;
-      if (i !== 0) chaise(x, z, angle);
-      const objets = new THREE.Group();
-      objets.position.set(Math.cos(a) * (R - 0.85), 2.25, Math.sin(a) * (R - 0.85));
-      objets.rotation.y = angle;
-      decor.add(objets);
-      sieges.push({ x, z, angle, objets, i });
-    }
-    const tete = sieges[Math.floor(total / 2)];
-    const autres = sieges.filter((s) => s.i !== 0 && s !== tete).sort((a, b) => a.z - b.z);
-    return { sieges: autres, tete, R, fond };
-  }
-  const gens = /* @__PURE__ */ new Map();
-  let prof = null;
-  let etat2 = { mode: "classe", eleves: [], prof: { present: false } };
-  let ecritJusqua = 0;
-  function etiquette(texte, classe = "") {
-    const e = document.createElement("button");
-    e.type = "button";
-    e.className = `classe3d__nom ${classe}`.trim();
-    e.textContent = texte;
-    etiquettes.appendChild(e);
-    return e;
-  }
-  function asseoir(x, siege) {
-    const { p } = x;
-    const pose = dispo.reunion ? "assis" : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "assis"]);
-    p.poser(pose);
-    p.racine.position.set(siege.x, 1.31 + (pose === "tailleur" ? 0.05 : 0), siege.z);
-    p.racine.rotation.y = siege.angle;
-    p.racine.scale.setScalar(0.72);
-    x.siege = siege;
-    x.sig = null;
-  }
-  function reconstruire() {
-    const reunion = etat2.mode === "reunion";
-    const n = etat2.eleves.length;
-    const total = Math.max(6, n + (etat2.prof.present ? 1 : 0) + 1);
-    const cols = colonnesPour(n);
-    const maison = etat2.mode === "maison";
-    const cle = maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
-    if (cle === dispo.cle) return;
-    for (const o of [...decor.children]) {
-      decor.remove(o);
-      o.traverse((m) => {
-        if (m.isMesh && !PARTAGEES.has(m.geometry)) m.geometry.dispose();
-      });
-    }
-    ardoise = null;
-    objetsProf = null;
-    dispo = maison ? { cle, reunion: false, maison: true, ...construireMaison() } : reunion ? { cle, reunion: true, ...construireReunion(total) } : { cle, reunion: false, ...construireClasse(n) };
-    const libres = [...dispo.sieges];
-    for (const x of gens.values()) asseoir(x, libres.shift() || dispo.sieges[0]);
-    if (prof) placerProf();
-    cadrer();
-  }
-  function placerProf() {
-    const p = prof.p;
-    if (dispo.reunion) {
-      p.poser("assis");
-      p.racine.position.set(dispo.tete.x, 1.31, dispo.tete.z);
-      p.racine.rotation.y = dispo.tete.angle;
-      p.racine.scale.setScalar(0.72);
-    } else {
-      p.poser("debout");
-      p.racine.rotation.y = Math.PI;
-      p.racine.position.set(dispo.prof.x, 0.4, dispo.prof.z);
-      p.racine.scale.setScalar(0.85);
-    }
-    prof.sig = null;
-  }
-  function majGens() {
-    const ids = new Set(etat2.eleves.map((x) => String(x.id)));
-    for (const [id, x] of [...gens]) {
-      if (ids.has(id)) continue;
-      scene.remove(x.p.racine);
-      x.etiquette.remove();
-      garnir(x.siege.objets, []);
-      gens.delete(id);
-    }
-    const prises = new Set([...gens.values()].map((x) => x.siege));
-    for (const e of etat2.eleves) {
-      const id = String(e.id);
-      let x = gens.get(id);
-      if (!x) {
-        const siege = dispo.sieges.find((s) => !prises.has(s));
-        if (!siege) continue;
-        prises.add(siege);
-        const p = personnage(id);
-        scene.add(p.racine);
-        x = { p, personne: e, etiquette: etiquette(e.nom), sig: null, arrive: performance.now() };
-        x.etiquette.onclick = () => surPersonne?.(x.etiquette, x.personne.brut);
-        p.racine.traverse((o) => {
-          o.userData.personne = id;
-        });
-        gens.set(id, x);
-        asseoir(x, siege);
-      }
-      x.personne = e;
-      x.etiquette.textContent = e.nom;
-      x.etiquette.classList.toggle("classe3d__nom--main", Boolean(e.main));
-      const sig = JSON.stringify(e.bureau || []);
-      if (sig !== x.sig) {
-        x.sig = sig;
-        x.p.tenir(garnir(x.siege.objets, e.bureau || []));
-      }
-    }
-  }
-  function majProf() {
-    const p = etat2.prof;
-    if (!p.present) {
-      if (prof) {
-        scene.remove(prof.p.racine);
-        prof.etiquette.remove();
-        prof = null;
-      }
-      if (objetsProf) garnir(objetsProf, []);
-      if (dispo.tete) garnir(dispo.tete.objets, []);
-      return;
-    }
-    if (!prof) {
-      const q = personnage(`prof:${p.nom}`, "gris-bleu");
-      scene.add(q.racine);
-      prof = { p: q, etiquette: etiquette(p.nom, "classe3d__nom--prof"), sig: null };
-      placerProf();
-    }
-    prof.etiquette.textContent = p.nom;
-    const sig = JSON.stringify(p.bureau || []);
-    if (sig !== prof.sig) {
-      prof.sig = sig;
-      const cible = dispo.reunion ? dispo.tete.objets : objetsProf;
-      const tenu = garnir(cible, p.bureau || []);
-      prof.p.tenir(dispo.reunion ? tenu : tenu === "craie" ? "craie" : null);
-    }
-  }
-  function cadrer() {
-    const l = hote.clientWidth || 1, h = hote.clientHeight || 1;
-    renderer.setSize(l, h, false);
-    camera.aspect = l / h;
-    const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
-    if (dispo.maison) {
-      camera.fov = 48 - k * 18;
-      camera.position.set(3.6 - k * 1.6, 7.4 - k * 0.6, dispo.fond + 12 + k * 2.5);
-      regard.set(-0.3, 3.1, dispo.fond + 1.2);
-    } else if (dispo.reunion) {
-      const R = dispo.R;
-      camera.fov = 58 - k * 20;
-      camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
-      regard.set(0, 2.9 + k * 0.6, -R * 0.55);
-    } else {
-      const plus = Math.max(0, (dispo.rangs || 3) - 3);
-      camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
-      camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
-      regard.set(0, 3.2 + k * 0.5, -7);
-    }
-    camera.lookAt(regard);
-    camera.updateProjectionMatrix();
-  }
-  const observateur = new ResizeObserver(() => cadrer());
-  observateur.observe(hote);
-  const rayon = new THREE.Raycaster();
-  const pointeur = new THREE.Vector2();
-  function viser(e) {
-    const r = canvas.getBoundingClientRect();
-    pointeur.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    rayon.setFromCamera(pointeur, camera);
-    return rayon.intersectObjects(scene.children, true)[0]?.object || null;
-  }
-  let survol = null;
-  canvas.addEventListener("pointermove", (e) => {
-    const o = viser(e);
-    const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
-    canvas.style.cursor = cible ? "pointer" : "";
-    if (cible !== survol) {
-      for (const [id, x] of gens) x.etiquette.classList.toggle("classe3d__nom--survol", id === cible);
-      survol = cible;
-    }
-  });
-  canvas.addEventListener("click", (e) => {
-    const o = viser(e);
-    if (o?.userData.tableau) surTableau?.();
-    else if (o?.userData.personne) {
-      const x = gens.get(o.userData.personne);
-      if (x) surPersonne?.(x.etiquette, x.personne.brut);
-    }
-  });
-  const vecteur = new THREE.Vector3();
-  let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true;
-  let leger = null;
-  const io = new IntersectionObserver(([x]) => {
-    visible = x.isIntersecting;
-  });
-  io.observe(hote);
-  function qualite() {
-    const petit = hote.clientWidth < 720 || document.body.classList.contains("est-flottant");
-    if (petit === leger) return;
-    leger = petit;
-    renderer.setPixelRatio(leger ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.shadowMap.enabled = !leger;
-    scene.traverse((m) => {
-      if (m.material) m.material.needsUpdate = true;
-    });
-    cadrer();
-  }
-  function placerEtiquette(el2, objet, hauteur) {
-    vecteur.setFromMatrixPosition(objet.matrixWorld);
-    vecteur.y += hauteur;
-    vecteur.project(camera);
-    el2.hidden = vecteur.z > 1;
-    el2.style.transform = `translate(-50%, -100%) translate(${(vecteur.x * 0.5 + 0.5) * hote.clientWidth}px, ${(-vecteur.y * 0.5 + 0.5) * hote.clientHeight}px)`;
-  }
-  function image(t) {
-    if (!vivant) return;
-    anime = requestAnimationFrame(image);
-    if (!visible || document.hidden || t - dernier < (leger ? 50 : 33)) return;
-    dernier = t;
-    const s = t / 1e3;
-    if (t - dernierTableau > (leger ? 500 : 300)) {
-      suivreToile();
-      dernierTableau = t;
-      qualite();
-    }
-    for (const x of gens.values()) {
-      const p = x.p;
-      const k = s + p.phase;
-      p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
-      if (x.arrive) {
-        const a = Math.min(1, (performance.now() - x.arrive) / 700);
-        p.bassin.position.y = (1 - a) * (1 - a) * 0.8;
-        if (a >= 1) x.arrive = 0;
-      }
-      if (x.personne.main) {
-        p.brasD.epaule.rotation.x += (2.95 - p.brasD.epaule.rotation.x) * 0.15;
-        p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
-      } else if (p.brasD.epaule.rotation.x > 2) {
-        p.poser(p.pose);
-      } else if (p.outil) {
-        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 7) * 0.03;
-        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.1) * 0.05;
-      }
-      p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
-      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && !x.personne.main ? 0.28 : 0);
-    }
-    if (prof) {
-      const p = prof.p;
-      if (!dispo.reunion) {
-        const ecrit = Date.now() < ecritJusqua;
-        const cibleY = ecrit ? 0.1 : Math.PI - 0.35 + Math.sin(s * 0.4) * 0.25;
-        p.racine.rotation.y += (cibleY - p.racine.rotation.y) * 0.08;
-        const bras = ecrit ? 2.3 + Math.sin(s * 6) * 0.12 : Math.sin(s * 0.9) * 0.08;
-        p.brasD.epaule.rotation.x += (bras - p.brasD.epaule.rotation.x) * 0.12;
-        p.racine.position.x += ((ecrit ? 4.2 : dispo.prof.x) - p.racine.position.x) * 0.03;
-      } else {
-        p.tete.rotation.y = Math.sin(s * 0.3) * 0.5;
-      }
-      p.torse.scale.y = 1 + Math.sin(s * 1.4) * 0.012;
-    }
-    renderer.render(scene, camera);
-    if (prof) placerEtiquette(prof.etiquette, prof.p.tete, 1.3 * prof.p.racine.scale.x);
-    for (const x of gens.values()) placerEtiquette(x.etiquette, x.p.tete, 1.3 * 0.72);
-  }
-  reconstruire();
-  qualite();
-  anime = requestAnimationFrame(image);
-  return {
-    /**
-     * Qui est là, et ce que chacun a devant lui.
-     * @param {object} o
-     * @param {"classe"|"reunion"} o.mode
-     * @param {Array} o.eleves  [{ id, nom, brut, bureau: [{ k, m }], main }]
-     * @param {object} o.prof   { present, nom, bureau }
-     */
-    maj({ mode: mode2 = "classe", eleves = [], prof: p = { present: false } } = {}) {
-      etat2 = { mode: mode2, eleves, prof: p };
-      reconstruire();
-      majGens();
-      majProf();
-    },
-    /** Le professeur écrit : on le voit se tourner vers le tableau. */
-    ecrit() {
-      ecritJusqua = Date.now() + 2500;
-    },
-    /** Replacer le rendu ailleurs — dans la console, en petite fenêtre. */
-    deplacer(nouvelHote) {
-      if (hote === nouvelHote) return;
-      nouvelHote.append(canvas, etiquettes);
-      observateur.disconnect();
-      observateur.observe(nouvelHote);
-      io.disconnect();
-      io.observe(nouvelHote);
-      hote = nouvelHote;
-      leger = null;
-      qualite();
-      cadrer();
-    },
-    detruire() {
-      vivant = false;
-      cancelAnimationFrame(anime);
-      observateur.disconnect();
-      io.disconnect();
-      texture?.dispose();
-      for (const x of textures.values()) x.tex?.dispose();
-      renderer.dispose();
-      canvas.remove();
-      etiquettes.remove();
-    }
-  };
-}
-var THREE_LOCAL, THREE_CDN, promesseThree, choisir, PEAUX, CHEVEUX, OUTILS_MAIN, POSE, LARGEUR;
-var init_classe_3d = __esm({
-  "src/features/classe-3d.js"() {
-    init_affaires();
-    init_tenues();
-    THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
-    THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
-    promesseThree = null;
-    choisir = (alea, liste) => liste[Math.floor(alea() * liste.length) % liste.length];
-    PEAUX = ["#f2cfae", "#e6b48c", "#c98d62", "#a06a47", "#6f4731", "#f5cd30"];
-    CHEVEUX = ["#17120f", "#2e2018", "#5a3a22", "#8a5a2b", "#c9a15a", "#7a2c1a", "#3b3b3b"];
-    OUTILS_MAIN = ["crayon", "plume", "stylo-plume", "craie"];
-    POSE = [
-      { kinds: ["cahier", "carnet", "feuille", "cahier-ouvert"], x: -0.15, z: 0.12, r: 0.06, dx: 0.5, dz: -0.05 },
-      { kinds: ["crayon", "plume", "stylo-plume"], x: 0.8, z: 0.12, r: -0.55, dx: 0.06, dz: -0.14 },
-      { kinds: ["gomme", "buvard"], x: 0.85, z: -0.32, r: 0.3, dx: -0.3, dz: 0 },
-      { kinds: ["regle", "equerre", "rapporteur", "compas"], x: 0.05, z: -0.45, r: 0.04, dx: 0.35, dz: 0.05 },
-      { kinds: ["regle-a-calcul", "boulier"], x: -0.85, z: -0.3, r: -0.1, dx: 0, dz: 0.3 },
-      { kinds: ["dossier", "chemise", "pochette", "registre"], x: -0.85, z: 0.2, r: 0.12, dx: 0.12, dz: -0.1 },
-      { kinds: ["feuilles"], x: 0.3, z: -0.25, r: -0.08, dx: 0.1, dz: 0.05 },
-      { kinds: ["encrier", "encre", "craie", "cachet"], x: 1, z: 0.32, r: 0, dx: -0.22, dz: 0 }
-    ];
-    LARGEUR = {
-      cahier: 0.56,
-      "cahier-ouvert": 0.95,
-      carnet: 0.4,
-      feuille: 0.46,
-      feuilles: 0.52,
-      dossier: 0.58,
-      chemise: 0.58,
-      pochette: 0.52,
-      crayon: 0.62,
-      plume: 0.62,
-      "stylo-plume": 0.58,
-      gomme: 0.26,
-      regle: 0.82,
-      equerre: 0.48,
-      compas: 0.28,
-      rapporteur: 0.52,
-      "regle-a-calcul": 0.84,
-      boulier: 0.42,
-      encrier: 0.26,
-      encre: 0.18,
-      craie: 0.2,
-      buvard: 0.56,
-      registre: 0.58,
-      cachet: 0.2
-    };
   }
 });
 
@@ -15083,6 +16104,7 @@ function creerScene({
     peindreRail2();
   }
   let classe3d = null;
+  let lacherAvatar = null;
   function maj3d() {
     if (!classe3d) return;
     if (avant) {
@@ -15093,6 +16115,7 @@ function creerScene({
           id: String(etat.utilisateur?.id || "moi"),
           nom: "",
           brut: null,
+          avatar: monAvatar(),
           bureau: [
             ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
             ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ({ k: o.kind, ...tenu?.id === o.id ? { m: 1 } : {} }))
@@ -15112,13 +16135,15 @@ function creerScene({
         id: String(p.user_id),
         nom: (nomDe(p) || "Participant").split(/\s+/)[0],
         brut: p,
+        avatar: p.avatar || null,
         bureau: Array.isArray(p.bureau) ? p.bureau : [],
         main: levees.has(String(p.user_id))
       })),
       prof: {
         present: Boolean(estrade?.present),
         nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
-        bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : []
+        bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : [],
+        avatar: responsable?.avatar || null
       }
     });
   }
@@ -15132,6 +16157,15 @@ function creerScene({
       classe3d = c;
       noeud.classList.add("scene--3d");
       maj3d();
+      if (avant) {
+        vue3d.appendChild(el(
+          "button.classe3d__habiller",
+          { type: "button", onclick: () => ouvrirApparence() },
+          icone("profil", 14),
+          "Mon personnage"
+        ));
+      }
+      lacherAvatar = ecouter("avatar:change", maj3d);
     }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste \xE0 plat", err));
   }
   return {
@@ -15151,6 +16185,7 @@ function creerScene({
     },
     a3d: () => Boolean(classe3d),
     detruire: () => {
+      lacherAvatar?.();
       classe3d?.detruire();
       classe3d = null;
     },
@@ -15189,6 +16224,8 @@ var init_scene_bureau = __esm({
     init_portee();
     init_lexique();
     init_classe_3d();
+    init_apparence();
+    init_bus();
     LARGEUR2 = {
       cahier: 0.17,
       carnet: 0.12,
@@ -16953,6 +17990,7 @@ async function vueAccueil() {
       rendre();
       for (const l of lachers) l?.();
       editeur?.detruire?.();
+      decor.detruire?.();
       modePleineVue(false);
     }
   };
@@ -24411,7 +25449,8 @@ async function vueSalle({ params }) {
       scene,
       statut: "present",
       horodatage: Date.now(),
-      bureau: resumeBureau()
+      bureau: resumeBureau(),
+      avatar: monAvatar()
     });
   }, 250);
   function resumeBureau() {
@@ -24628,7 +25667,8 @@ async function vueSalle({ params }) {
           scene,
           statut: "present",
           horodatage: Date.now(),
-          bureau: resumeBureau()
+          bureau: resumeBureau(),
+          avatar: monAvatar()
         },
         surMaj: (liste) => {
           const uniques = /* @__PURE__ */ new Map();
@@ -25006,6 +26046,7 @@ async function vueSalle({ params }) {
   if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
   else await peindreScene();
   const petit = () => ["compact", "mini"].includes(etat.taille);
+  const lacherAvatar = ecouter("avatar:change", () => majPresence());
   var lacherTaille = observer("taille", async () => {
     if (petit()) {
       if (!consoleSalle.ouvert()) consoleSalle.demarrer();
@@ -25049,6 +26090,7 @@ async function vueSalle({ params }) {
       modeImmersif(false);
       definirStatut(null);
       lacherTaille?.();
+      lacherAvatar();
       bureau.laisserTout();
       clearInterval(tictac);
       canalSession?.fermer();
@@ -25083,6 +26125,8 @@ var init_salle = __esm({
     init_store();
     init_scene_bureau();
     init_pret_a_ecrire();
+    init_apparence();
+    init_bus();
     init_note_rapide();
     init_dossiers();
     init_fenetre_flottante();
@@ -27533,7 +28577,9 @@ __export(reglages_exports, {
   default: () => vueReglages
 });
 async function vueReglages({ requete: requete2 }) {
+  const onglets2 = () => ONGLETS2.filter((o) => !o.visible || o.visible());
   let actif = requete2?.onglet || "affichage";
+  if (!onglets2().some((o) => o.cle === actif)) actif = "affichage";
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
   const noeud = el(
@@ -27543,7 +28589,7 @@ async function vueReglages({ requete: requete2 }) {
     contenu
   );
   function peindreBarre() {
-    render(barre, ONGLETS2.map((o) => el("button.onglet", {
+    render(barre, onglets2().map((o) => el("button.onglet", {
       role: "tab",
       "aria-selected": String(o.cle === actif),
       onclick: () => {
@@ -27559,8 +28605,8 @@ async function vueReglages({ requete: requete2 }) {
       roblox: sectionRoblox,
       raccourcis: sectionRaccourcis,
       lexique: sectionLexique,
-      connexion: sectionConnexion,
-      donnees: sectionDonnees
+      donnees: sectionDonnees,
+      ...onglets2().some((o) => o.cle === "connexion") ? { connexion: sectionConnexion } : {}
     };
     render(contenu, (rendus[actif] || sectionAffichage)());
   }
@@ -27793,8 +28839,11 @@ async function vueReglages({ requete: requete2 }) {
             "label.champ",
             el("span.champ__label", "Cl\xE9 publique (anon / publishable)"),
             champCle = el("input.saisie", {
-              value: config.supabaseAnonKey || "",
-              placeholder: "eyJ\u2026 ou sb_publishable_\u2026",
+              // La clé enregistrée n'est jamais réaffichée : on en saisit une
+              // nouvelle, ou l'on laisse vide pour garder l'actuelle.
+              value: "",
+              placeholder: config.supabaseAnonKey ? "Cl\xE9 enregistr\xE9e \u2014 laisser vide pour la garder" : "eyJ\u2026 ou sb_publishable_\u2026",
+              autocomplete: "off",
               spellcheck: "false",
               type: "password"
             }),
@@ -27805,7 +28854,7 @@ async function vueReglages({ requete: requete2 }) {
             el("button.btn.btn--primaire", {
               onclick: async () => {
                 const url = champUrl.value.trim();
-                const cle = champCle.value.trim();
+                const cle = champCle.value.trim() || config.supabaseAnonKey || "";
                 if (url && !/^https:\/\/.+/.test(url)) {
                   erreur("URL invalide", "Elle doit commencer par https://");
                   return;
@@ -27928,6 +28977,7 @@ var init_reglages = __esm({
     init_fragments();
     init_config();
     init_data();
+    init_permissions();
     init_interface();
     init_lexique();
     init_modal();
@@ -27939,7 +28989,9 @@ var init_reglages = __esm({
       { cle: "roblox", libelle: "Cohabitation Roblox" },
       { cle: "raccourcis", libelle: "Raccourcis" },
       { cle: "lexique", libelle: "Vocabulaire RP" },
-      { cle: "connexion", libelle: "Connexion" },
+      // La connexion au serveur ne regarde que l'administration — ou le poste
+      // qu'on est en train d'installer (mode démonstration, rien de configuré).
+      { cle: "connexion", libelle: "Connexion", visible: () => estAdmin() || pilote.mode !== "supabase" },
       { cle: "donnees", libelle: "Donn\xE9es locales" }
     ];
     LIBELLES_ACTIONS = {
