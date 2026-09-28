@@ -8,6 +8,7 @@ import { etat } from "../core/store.js";
 import { entete } from "../ui/fragments.js";
 import { config, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
+import { estAdmin } from "../core/permissions.js";
 import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
 import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
@@ -20,7 +21,9 @@ const ONGLETS = [
   { cle: "roblox", libelle: "Cohabitation Roblox" },
   { cle: "raccourcis", libelle: "Raccourcis" },
   { cle: "lexique", libelle: "Vocabulaire RP" },
-  { cle: "connexion", libelle: "Connexion" },
+  // La connexion au serveur ne regarde que l'administration — ou le poste
+  // qu'on est en train d'installer (mode démonstration, rien de configuré).
+  { cle: "connexion", libelle: "Connexion", visible: () => estAdmin() || pilote.mode !== "supabase" },
   { cle: "donnees", libelle: "Données locales" }
 ];
 
@@ -41,7 +44,9 @@ const LIBELLES_ACTIONS = {
 };
 
 export default async function vueReglages({ requete }) {
+  const onglets = () => ONGLETS.filter((o) => !o.visible || o.visible());
   let actif = requete?.onglet || "affichage";
+  if (!onglets().some((o) => o.cle === actif)) actif = "affichage";
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
 
@@ -51,7 +56,7 @@ export default async function vueReglages({ requete }) {
   );
 
   function peindreBarre() {
-    render(barre, ONGLETS.map((o) => el("button.onglet", {
+    render(barre, onglets().map((o) => el("button.onglet", {
       role: "tab", "aria-selected": String(o.cle === actif),
       onclick: () => { actif = o.cle; peindreBarre(); peindre(); }
     }, o.libelle)));
@@ -60,7 +65,8 @@ export default async function vueReglages({ requete }) {
   function peindre() {
     const rendus = {
       affichage: sectionAffichage, roblox: sectionRoblox, raccourcis: sectionRaccourcis,
-      lexique: sectionLexique, connexion: sectionConnexion, donnees: sectionDonnees
+      lexique: sectionLexique, donnees: sectionDonnees,
+      ...(onglets().some((o) => o.cle === "connexion") ? { connexion: sectionConnexion } : {})
     };
     render(contenu, (rendus[actif] || sectionAffichage)());
   }
@@ -246,7 +252,10 @@ export default async function vueReglages({ requete }) {
           el("label.champ",
             el("span.champ__label", "Clé publique (anon / publishable)"),
             champCle = el("input.saisie", {
-              value: config.supabaseAnonKey || "", placeholder: "eyJ… ou sb_publishable_…",
+              // La clé enregistrée n'est jamais réaffichée : on en saisit une
+              // nouvelle, ou l'on laisse vide pour garder l'actuelle.
+              value: "", placeholder: config.supabaseAnonKey ? "Clé enregistrée — laisser vide pour la garder" : "eyJ… ou sb_publishable_…",
+              autocomplete: "off",
               spellcheck: "false", type: "password"
             }),
             el("span.champ__aide", "Disponible dans Supabase › Project Settings › API.")
@@ -255,7 +264,7 @@ export default async function vueReglages({ requete }) {
             el("button.btn.btn--primaire", {
               onclick: async () => {
                 const url = champUrl.value.trim();
-                const cle = champCle.value.trim();
+                const cle = champCle.value.trim() || config.supabaseAnonKey || "";
                 if (url && !/^https:\/\/.+/.test(url)) {
                   erreur("URL invalide", "Elle doit commencer par https://");
                   return;
