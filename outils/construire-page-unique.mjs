@@ -75,6 +75,15 @@ function embarquerObjets() {
       carte["sans-fond:" + fichier.replace(/\.svg$/, "")] = "data:image/svg+xml," + encodeURIComponent(svg);
     }
   } catch { /* pas de dessins sans fond */ }
+  // Les gabarits des tenues fournies en images (vestes, pantalons).
+  try {
+    const tenues = resolve(RACINE, "assets", "tenues");
+    for (const fichier of readdirSync(tenues)) {
+      if (!fichier.endsWith(".png")) continue;
+      carte["tenue:" + fichier.replace(/\.png$/, "")] =
+        "data:image/png;base64," + readFileSync(resolve(tenues, fichier)).toString("base64");
+    }
+  } catch { /* pas de tenues en images */ }
   return carte;
 }
 

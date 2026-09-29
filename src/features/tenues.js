@@ -12,7 +12,8 @@
  * résolution : le drap et son modelé, les revers crantés, les poches à
  * rabat, la cravate et son nœud, les plis des manches, les coutures. Et des
  * uniformes d'école militaire — veste courte, harnais de cuir, bottes —, avec
- * des insignes dessinés pour ce jeu.
+ * des insignes dessinés pour ce jeu. Les vestes des régiments viennent de
+ * gabarits du jeu (assets/tenues/), l'insigne cousu par-dessus.
  * ------------------------------------------------------------------------- */
 
 export const GABARIT = { l: 585, h: 559 };
@@ -32,9 +33,44 @@ export const FACES = {
             F: [308, 355, 64, 128], L: [374, 355, 64, 128], B: [440, 355, 64, 128], R: [506, 355, 64, 128] }
 };
 
-/* Des tenues fournies en images : { nom: { libelle, chemise: "assets/tenues/x-chemise.png", pantalon: "…" } }.
-   Les images d'aperçu portant un filigrane ne vont pas ici : il se verrait. */
-export const TENUES_IMAGES = {};
+/* Des tenues fournies en images, au gabarit du jeu : la veste courte et le
+   pantalon à harnais des régiments. Même vêtement pour tous (comme dans la
+   série) ; ce qui les distingue, c'est l'insigne cousu sur la poche de
+   poitrine, les deux épaules et le dos — et la cape.
+   images : les deux gabarits ; veste, chemise, pantalon : les teintes du
+   nuancier ; insigne : le blason ; cape : sa couleur, s'il y en a une.
+   Une image d'aperçu portant un filigrane ne va pas ici : il se verrait. */
+const REGIMENT = { chemise: "assets/tenues/veste-brune.png", pantalon: "assets/tenues/pantalon-harnais.png" };
+export const TENUES_IMAGES = {
+  exploration: {
+    libelle: "Bataillon d'exploration", famille: "uniforme", images: REGIMENT, insigne: "exploration",
+    veste: "#b8743f", chemise: "#e6dfb0", pantalon: "#efece6", cape: "#2d4a33"
+  },
+  garnison: {
+    libelle: "Garnison", famille: "uniforme", images: REGIMENT, insigne: "garnison",
+    veste: "#b8743f", chemise: "#e6dfb0", pantalon: "#efece6"
+  },
+  brigade: {
+    libelle: "Brigade spéciale", famille: "uniforme", images: REGIMENT, insigne: "brigade",
+    veste: "#b8743f", chemise: "#e6dfb0", pantalon: "#efece6"
+  },
+  cadet: {
+    libelle: "Brigade d'entraînement", famille: "uniforme", images: REGIMENT, insigne: "entrainement",
+    veste: "#b8743f", chemise: "#e6dfb0", pantalon: "#efece6"
+  },
+  gouvernement: {
+    libelle: "Gouvernement", famille: "uniforme", insigne: "gouvernement",
+    images: { chemise: "assets/tenues/veste-verte.png", pantalon: "assets/tenues/pantalon-harnais.png" },
+    veste: "#1d3a2a", chemise: "#e6dfb0", pantalon: "#efece6"
+  }
+};
+/* Où l'insigne est cousu, sur ces gabarits : [x, y, taille]. */
+const INSIGNES_VESTE = [
+  [338, 116, 0.6],          // la poche de poitrine, côté cœur
+  [183, 388, 0.95],         // l'épaule droite, à l'extérieur
+  [406, 388, 0.95],         // l'épaule gauche, à l'extérieur
+  [491, 112, 1.3]           // le dos
+];
 
 /* --- Les tenues dessinées ---------------------------------------------------
    famille : « costume » (civil) ou « uniforme » (école militaire). */
@@ -116,31 +152,11 @@ export const TENUES = {
     libelle: "Tenue de repos", famille: "uniforme",
     veste: null, chemise: "#ece6d8", bretelles: "#3b2618",
     pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
-  },
-  cadet: {
-    libelle: "Cadet (entraînement)", famille: "uniforme",
-    militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "entrainement",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
-  },
-  exploration: {
-    libelle: "Éclaireur", famille: "uniforme",
-    militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "exploration",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618", cape: "#2f5a3c"
-  },
-  garnison: {
-    libelle: "Garnison", famille: "uniforme",
-    militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "garnison",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
-  },
-  brigade: {
-    libelle: "Brigade", famille: "uniforme",
-    militaire: true, veste: "#7a5a3a", chemise: "#efeadf", insigne: "brigade",
-    pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
   }
 };
 export const NOMS_TENUES = [...Object.keys(TENUES_IMAGES), ...Object.keys(TENUES)];
 export const libelleTenue = (nom) => TENUES_IMAGES[nom]?.libelle || TENUES[nom]?.libelle || nom;
-export const ficheTenue = (nom) => TENUES[nom] || null;
+export const ficheTenue = (nom) => TENUES_IMAGES[nom] || TENUES[nom] || null;
 
 /* ===========================================================================
    Le pinceau
@@ -245,75 +261,180 @@ function ecu(g, cx, cy, l, h) {
   g.closePath();
 }
 export function dessinerInsigne(g, type, cx, cy, s = 1) {
-  const l = 26 * s, h = 30 * s;
-  const fonds = { entrainement: "#5d1f24", exploration: "#1f2c4a", garnison: "#5a5d62", brigade: "#223a2a", ecole: "#1d2a4a" };
+  if (type === "ecole") return dessinerEcusson(g, cx, cy, s);
+  // Les blasons des régiments : l'écu d'acier, partagé en quatre par une
+  // croix, et le symbole du corps par-dessus. Dessinés dans une boîte de
+  // 100 × 120, ramenée à la taille voulue.
+  const k = (26 * s) / 100;
   g.save();
-  // Le fond de l'écu, sa bordure dorée.
+  g.translate(cx - 50 * k, cy - 60 * k);
+  g.scale(k, k);
+  blasonEcu(g);
+  if (type === "exploration") symboleAiles(g);
+  else if (type === "garnison") symboleRoses(g);
+  else if (type === "brigade") symboleCheval(g);
+  else if (type === "entrainement") symboleEpees(g);
+  else if (type === "gouvernement") symboleCouronne(g);
+  g.restore();
+}
+
+/* --- L'écu d'acier ------------------------------------------------------ */
+function contourEcu(g, m = 0) {
+  g.beginPath();
+  g.moveTo(4 + m, 4 + m); g.lineTo(96 - m, 4 + m); g.lineTo(96 - m, 84 - m * 0.4);
+  g.lineTo(50, 116 - m * 1.2); g.lineTo(4 + m, 84 - m * 0.4); g.closePath();
+}
+function blasonEcu(g) {
+  // Le cadre : un acier clair, poli, qui prend la lumière en haut.
+  contourEcu(g);
+  const acier = g.createLinearGradient(0, 4, 100, 116);
+  acier.addColorStop(0, "#f2f3f4"); acier.addColorStop(0.45, "#bfc2c6"); acier.addColorStop(1, "#8a8e93");
+  g.fillStyle = acier; g.fill();
+  g.lineWidth = 2.6; g.strokeStyle = "#2b2c2f"; g.stroke();
+  // Les quatre quartiers, plus sombres, en creux.
+  const quartier = (points) => {
+    g.beginPath(); g.moveTo(...points[0]); for (const p of points.slice(1)) g.lineTo(...p); g.closePath();
+    const d = g.createLinearGradient(0, points[0][1], 0, points[2][1]);
+    d.addColorStop(0, "#a9adb2"); d.addColorStop(1, "#7a7f85");
+    g.fillStyle = d; g.fill();
+    g.lineWidth = 1.4; g.strokeStyle = "#3a3c40"; g.stroke();
+    // l'arête éclairée du creux
+    g.beginPath(); g.moveTo(...points[points.length - 1]); g.lineTo(...points[0]); g.lineTo(...points[1]);
+    g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.35)"; g.stroke();
+  };
+  quartier([[13, 13], [45, 13], [45, 44], [13, 44]]);
+  quartier([[55, 13], [87, 13], [87, 44], [55, 44]]);
+  quartier([[13, 53], [45, 53], [45, 100], [13, 80]]);
+  quartier([[55, 53], [87, 53], [87, 80], [55, 100]]);
+}
+
+/* --- Les symboles, dessinés pour ce jeu --------------------------------- */
+// Deux ailes qui s'élèvent et se croisent au pied de l'écu : la gauche bleue,
+// la droite blanche, chacune de six plumes arrondies.
+function symboleAiles(g) {
+  const aile = (sens, clair, fonce) => {
+    for (let i = 5; i >= 0; i--) {
+      const t = i / 5;
+      const x = 50 + sens * (8 + t * 26), y = 100 - t * 76;
+      g.save();
+      g.translate(x, y);
+      g.rotate(sens * (-0.95 + t * 0.35));
+      const d = g.createLinearGradient(-18, 0, 18, 0);
+      d.addColorStop(0, clair); d.addColorStop(1, fonce);
+      g.beginPath(); g.ellipse(0, 0, 19 - t * 4, 5.2, 0, 0, Math.PI * 2);
+      g.fillStyle = d; g.fill();
+      g.lineWidth = 1; g.strokeStyle = "rgba(20,25,45,.55)"; g.stroke();
+      g.restore();
+    }
+    // la penne qui porte l'aile
+    g.beginPath(); g.moveTo(50 - sens * 10, 112); g.quadraticCurveTo(50 + sens * 22, 70, 50 + sens * 34, 20);
+    g.lineWidth = 2.2; g.strokeStyle = fonce; g.stroke();
+  };
+  aile(-1, "#6f8fe0", "#1f3c8f");
+  aile(1, "#ffffff", "#b9c0cc");
+}
+// Deux roses rouges côte à côte, leurs tiges croisées vers le bas.
+function symboleRoses(g) {
+  g.lineCap = "round";
+  for (const [x0, x1] of [[34, 64], [66, 36]]) {
+    g.beginPath(); g.moveTo(x0, 44); g.quadraticCurveTo(50, 70, x1, 104);
+    g.lineWidth = 2.6; g.strokeStyle = "#2f3a2c"; g.stroke();
+    // une feuille et une épine
+    g.beginPath(); g.ellipse((x0 + x1) / 2 + (x1 > x0 ? -4 : 4), 80, 6, 3, x1 > x0 ? 0.7 : -0.7, 0, Math.PI * 2);
+    g.fillStyle = "#3e5a36"; g.fill();
+  }
+  const rose = (x, y, r) => {
+    const d = g.createRadialGradient(x - r * 0.3, y - r * 0.3, 1, x, y, r);
+    d.addColorStop(0, "#c2414a"); d.addColorStop(1, "#5e1016");
+    for (let i = 0; i < 5; i++) {
+      const a = i * Math.PI * 2 / 5 - Math.PI / 2;
+      g.beginPath(); g.arc(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, r * 0.58, 0, Math.PI * 2);
+      g.fillStyle = d; g.fill();
+      g.lineWidth = 0.9; g.strokeStyle = "rgba(40,5,8,.6)"; g.stroke();
+    }
+    // le cœur en spirale
+    g.beginPath();
+    for (let t = 0; t < 12; t += 0.2) g.lineTo(x + Math.cos(t) * t * r * 0.045, y + Math.sin(t) * t * r * 0.045);
+    g.lineWidth = 1.1; g.strokeStyle = "rgba(40,5,8,.75)"; g.stroke();
+  };
+  rose(33, 36, 14);
+  rose(67, 36, 14);
+}
+// Une tête de cheval verte, de profil, crinière d'argent, une corne en lame.
+function symboleCheval(g) {
+  // la crinière, derrière
+  g.beginPath();
+  g.moveTo(62, 12); g.quadraticCurveTo(92, 22, 94, 54); g.quadraticCurveTo(96, 84, 82, 104);
+  g.lineTo(74, 98); g.quadraticCurveTo(86, 70, 78, 40); g.closePath();
+  const argent = g.createLinearGradient(60, 10, 96, 104);
+  argent.addColorStop(0, "#ffffff"); argent.addColorStop(1, "#aeb3b9");
+  g.fillStyle = argent; g.fill(); g.lineWidth = 1.2; g.strokeStyle = "#3a3c40"; g.stroke();
+  // la corne-lame
+  g.beginPath(); g.moveTo(38, 30); g.lineTo(18, 4); g.lineTo(44, 25); g.closePath();
+  g.fillStyle = "#e9ebee"; g.fill(); g.strokeStyle = "#3a3c40"; g.lineWidth = 1; g.stroke();
+  // la tête
+  g.beginPath();
+  g.moveTo(60, 14); g.lineTo(66, 6); g.lineTo(67, 20);
+  g.quadraticCurveTo(80, 36, 78, 60); g.quadraticCurveTo(76, 84, 64, 102);
+  g.lineTo(50, 100); g.quadraticCurveTo(54, 84, 46, 74);
+  g.quadraticCurveTo(34, 70, 22, 66); g.quadraticCurveTo(12, 62, 14, 52);
+  g.quadraticCurveTo(18, 42, 30, 34); g.quadraticCurveTo(44, 22, 60, 14); g.closePath();
+  const vert = g.createLinearGradient(20, 20, 80, 100);
+  vert.addColorStop(0, "#3f9a68"); vert.addColorStop(1, "#15452c");
+  g.fillStyle = vert; g.fill(); g.lineWidth = 1.4; g.strokeStyle = "#0d2a1b"; g.stroke();
+  // l'œil, le naseau
+  g.fillStyle = "#0b1f14";
+  g.beginPath(); g.ellipse(46, 40, 3, 2, -0.4, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(19, 56, 1.8, 1.3, 0, 0, Math.PI * 2); g.fill();
+}
+// Deux épées croisées, lames d'acier, poignées de cuir.
+function symboleEpees(g) {
+  for (const sens of [-1, 1]) {
+    g.save();
+    g.translate(50, 60); g.rotate(sens * 0.62);
+    const lame = g.createLinearGradient(-4, 0, 4, 0);
+    lame.addColorStop(0, "#ffffff"); lame.addColorStop(1, "#b8bcc2");
+    g.beginPath(); g.moveTo(-3.4, 40); g.lineTo(-3.4, -52); g.lineTo(0, -60); g.lineTo(3.4, -52); g.lineTo(3.4, 40); g.closePath();
+    g.fillStyle = lame; g.fill(); g.lineWidth = 1; g.strokeStyle = "#3a3c40"; g.stroke();
+    g.fillStyle = "#4a2e1c";
+    g.fillRect(-11, 40, 22, 5);           // la garde
+    g.fillRect(-3.4, 45, 6.8, 14);        // la poignée
+    g.restore();
+  }
+}
+// La couronne d'or au-dessus des trois enceintes : le pouvoir des Murs.
+function symboleCouronne(g) {
+  const or = g.createLinearGradient(0, 10, 0, 100);
+  or.addColorStop(0, "#f6dc7a"); or.addColorStop(1, "#a9801f");
+  g.strokeStyle = or; g.lineWidth = 3.6;
+  for (const r of [27, 19, 11]) { g.beginPath(); g.arc(50, 72, r, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = or; g.beginPath(); g.arc(50, 72, 3.5, 0, Math.PI * 2); g.fill();
+  g.beginPath();
+  g.moveTo(32, 38); g.lineTo(30, 18); g.lineTo(40, 28); g.lineTo(50, 12); g.lineTo(60, 28); g.lineTo(70, 18); g.lineTo(68, 38);
+  g.closePath(); g.fill();
+  g.lineWidth = 1.2; g.strokeStyle = "#5b4410"; g.stroke();
+  for (const [x, y] of [[30, 17], [50, 11], [70, 17]]) { g.beginPath(); g.arc(x, y, 2.6, 0, Math.PI * 2); g.fill(); }
+}
+
+/* --- L'écusson du collège (le blazer) ----------------------------------- */
+function dessinerEcusson(g, cx, cy, s) {
+  const l = 26 * s, h = 30 * s;
+  g.save();
   ecu(g, cx, cy, l, h);
   const d = g.createLinearGradient(0, cy - h / 2, 0, cy + h / 2);
-  d.addColorStop(0, teinte(fonds[type] || "#333333", 1.25)); d.addColorStop(1, fonds[type] || "#333333");
+  d.addColorStop(0, teinte("#1d2a4a", 1.25)); d.addColorStop(1, "#1d2a4a");
   g.fillStyle = d; g.fill();
   g.lineWidth = 1.6 * s; g.strokeStyle = "#c9a24a"; g.stroke();
   g.clip();
-  const or = "#d9b45a", argent = "#e3e6ea";
-  if (type === "entrainement") {
-    // Deux lames croisées dans une couronne de laurier.
-    for (const sens of [-1, 1]) {
-      g.save(); g.translate(cx, cy + 1 * s); g.rotate(sens * .7);
-      g.fillStyle = argent; g.fillRect(-1.2 * s, -12 * s, 2.4 * s, 18 * s);
-      g.fillStyle = or; g.fillRect(-4 * s, 5 * s, 8 * s, 1.8 * s); g.fillRect(-1 * s, 6.5 * s, 2 * s, 4 * s);
-      g.restore();
-    }
-    g.strokeStyle = "#7fa36b"; g.lineWidth = 1.2 * s;
-    for (const sens of [-1, 1]) {
-      g.beginPath(); g.arc(cx, cy + 2 * s, 9 * s, Math.PI / 2 + sens * .3, Math.PI / 2 + sens * 1.6, sens < 0); g.stroke();
-    }
-  } else if (type === "exploration") {
-    // Une aile seule, qui s'élève, et une étoile.
-    g.fillStyle = argent;
-    for (let i = 0; i < 5; i++) {
-      g.save(); g.translate(cx - 6 * s, cy + 6 * s); g.rotate(-1.25 + i * .22);
-      g.beginPath(); g.ellipse(0, -8 * s, 2.4 * s, 9 * s - i * s, 0, 0, Math.PI * 2); g.fill();
-      g.restore();
-    }
-    g.fillStyle = or;
-    g.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const a = -Math.PI / 2 + i * Math.PI / 5, r = (i % 2 ? 2 : 4.6) * s;
-      g.lineTo(cx + 6 * s + Math.cos(a) * r, cy - 6 * s + Math.sin(a) * r);
-    }
-    g.closePath(); g.fill();
-  } else if (type === "garnison") {
-    // Un rempart crénelé et, au-dessus, une rose.
-    g.fillStyle = "#3e4146";
-    g.fillRect(cx - l / 2, cy + 5 * s, l, 12 * s);
-    for (let x = cx - l / 2; x < cx + l / 2; x += 6 * s) g.fillRect(x, cy + 2 * s, 3.5 * s, 4 * s);
-    g.strokeStyle = "#5f8a4a"; g.lineWidth = 1.3 * s;
-    g.beginPath(); g.moveTo(cx, cy + 3 * s); g.lineTo(cx, cy - 3 * s); g.stroke();
-    g.fillStyle = "#b8303a";
-    for (let i = 0; i < 5; i++) {
-      const a = i * Math.PI * 2 / 5;
-      g.beginPath(); g.arc(cx + Math.cos(a) * 3 * s, cy - 7 * s + Math.sin(a) * 3 * s, 3 * s, 0, Math.PI * 2); g.fill();
-    }
-    g.fillStyle = "#e0606a"; g.beginPath(); g.arc(cx, cy - 7 * s, 2 * s, 0, Math.PI * 2); g.fill();
-  } else if (type === "brigade") {
-    // Une épée droite sous une couronne.
-    g.fillStyle = argent; g.fillRect(cx - 1.1 * s, cy - 4 * s, 2.2 * s, 16 * s);
-    g.fillStyle = or; g.fillRect(cx - 5 * s, cy - 4.5 * s, 10 * s, 1.8 * s);
-    g.beginPath();
-    g.moveTo(cx - 7 * s, cy - 7 * s); g.lineTo(cx - 7 * s, cy - 12 * s); g.lineTo(cx - 3.5 * s, cy - 9 * s);
-    g.lineTo(cx, cy - 13 * s); g.lineTo(cx + 3.5 * s, cy - 9 * s); g.lineTo(cx + 7 * s, cy - 12 * s); g.lineTo(cx + 7 * s, cy - 7 * s);
-    g.closePath(); g.fill();
-  } else if (type === "ecole") {
-    // Un livre ouvert sous une plume : l'écusson d'un collège.
-    g.fillStyle = "#efe6d0";
-    g.beginPath(); g.moveTo(cx, cy + 6 * s); g.quadraticCurveTo(cx - 5 * s, cy + 3 * s, cx - 10 * s, cy + 5 * s);
-    g.lineTo(cx - 10 * s, cy - 2 * s); g.quadraticCurveTo(cx - 5 * s, cy - 4 * s, cx, cy - 1 * s); g.closePath(); g.fill();
-    g.beginPath(); g.moveTo(cx, cy + 6 * s); g.quadraticCurveTo(cx + 5 * s, cy + 3 * s, cx + 10 * s, cy + 5 * s);
-    g.lineTo(cx + 10 * s, cy - 2 * s); g.quadraticCurveTo(cx + 5 * s, cy - 4 * s, cx, cy - 1 * s); g.closePath(); g.fill();
-    g.strokeStyle = or; g.lineWidth = 1.2 * s;
-    g.beginPath(); g.moveTo(cx - 3 * s, cy - 3 * s); g.quadraticCurveTo(cx + 2 * s, cy - 9 * s, cx + 6 * s, cy - 12 * s); g.stroke();
-  }
+  const or = "#d9b45a";
+  // Un livre ouvert sous une plume.
+  g.fillStyle = "#efe6d0";
+  g.beginPath(); g.moveTo(cx, cy + 6 * s); g.quadraticCurveTo(cx - 5 * s, cy + 3 * s, cx - 10 * s, cy + 5 * s);
+  g.lineTo(cx - 10 * s, cy - 2 * s); g.quadraticCurveTo(cx - 5 * s, cy - 4 * s, cx, cy - 1 * s); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(cx, cy + 6 * s); g.quadraticCurveTo(cx + 5 * s, cy + 3 * s, cx + 10 * s, cy + 5 * s);
+  g.lineTo(cx + 10 * s, cy - 2 * s); g.quadraticCurveTo(cx + 5 * s, cy - 4 * s, cx, cy - 1 * s); g.closePath(); g.fill();
+  g.strokeStyle = or; g.lineWidth = 1.2 * s;
+  g.beginPath(); g.moveTo(cx - 3 * s, cy - 3 * s); g.quadraticCurveTo(cx + 2 * s, cy - 9 * s, cx + 6 * s, cy - 12 * s); g.stroke();
   g.restore();
 }
 
@@ -357,8 +478,7 @@ function dessinerHaut(g, t) {
   const [dx, dy, dl, dh] = T.D;
   g.fillStyle = t.harnais || "#141414"; g.fillRect(dx, dy + dh / 2 - 5, dl, 10);
 
-  if (t.militaire) dessinerUniformeTorse(g, t);
-  else dessinerCostumeTorse(g, t, c);
+  dessinerCostumeTorse(g, t, c);
 
   /* --- Le modelé : ombres en V sous les bras, ombre du col, lumière sur la
          poitrine ; les omoplates dans le dos ------------------------------ */
@@ -427,7 +547,6 @@ function dessinerHaut(g, t) {
         trait(g, [[x, y + 82], [x + l, y + 82]], "rgba(0,0,0,.25)", 1);
         g.clearRect(x, y + 83, l, h - 83);                                  // l'avant-bras nu : la peau
       }
-      if (t.militaire && k === exterieur) dessinerInsigne(g, t.insigne, x + l / 2, y + 26, .95);
       if (t.epaulettes && k === exterieur) for (let xx = x + 3; xx < x + l - 2; xx += 3) trait(g, [[xx, y + 1], [xx, y + 10]], t.epaulettes, 1.6);
       if (t.coudieres && k === "B") {
         // Les coudières de daim, cousues au dos de la manche.
@@ -587,80 +706,6 @@ function dessinerCostumeTorse(g, t, c) {
   }
 }
 
-/* --- Le devant d'un uniforme : veste courte ouverte, harnais ------------ */
-function dessinerUniformeTorse(g, t) {
-  const [fx, fy] = FACES.torse.F;
-  const c = fx + 64, bas = fy + 128, courte = fy + 92;   // la veste s'arrête à la taille
-  // La chemise, dessous, rentrée dans le pantalon.
-  drap(g, [c - 30, fy, 60, 128], t.chemise, { bords: false, ombreBas: .1 });
-  forme(g, [[c - 24, fy], [c - 3, fy + 6], [c - 14, fy + 22]], teinte(t.chemise, .92));
-  forme(g, [[c + 24, fy], [c + 3, fy + 6], [c + 14, fy + 22]], teinte(t.chemise, .92));
-  for (let yy = 30; yy < 128; yy += 18) bouton(g, c, fy + yy, "#e8e3d6", 1.5);
-  pli(g, [[c - 14, fy + 96], [c - 10, fy + 124]], .5);
-  pli(g, [[c + 14, fy + 96], [c + 10, fy + 124]], .5);
-  // Le bas du torse : le pantalon, la jupe de cuir qui couvre les hanches
-  // (ouverte devant), la ceinture par-dessus.
-  drap(g, [fx, courte, 128, bas - courte], t.pantalon, { ombreBas: .15 });
-  for (const s of [-1, 1]) {
-    const x0 = s < 0 ? fx : fx + 128;
-    forme(g, [[x0, fy + 108], [x0 - s * 16, fy + 108], [x0 - s * 11, bas], [x0, bas]], teinte(t.jupe, .95));
-    trait(g, [[x0 - s * 16, fy + 108], [x0 - s * 11, bas]], "rgba(0,0,0,.45)", 1.2);
-  }
-  g.fillStyle = t.harnais; g.fillRect(fx, fy + 104, 128, 9);
-  g.fillStyle = "#b7a06a"; g.fillRect(c - 6, fy + 103, 12, 11);
-  g.fillStyle = t.harnais; g.fillRect(c - 3, fy + 106, 6, 5);
-  // La veste courte, ouverte, deux pans et un col rabattu.
-  for (const s of [-1, 1]) {
-    const bord = c + s * 26;
-    const pan = s < 0 ? [[fx, fy], [c - 24, fy], [bord, fy + 30], [bord, courte], [fx, courte]]
-                      : [[fx + 128, fy], [c + 24, fy], [bord, fy + 30], [bord, courte], [fx + 128, courte]];
-    forme(g, pan, t.veste);
-    forme(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30]], teinte(t.veste, 1.18));
-    trait(g, [[c + s * 24, fy], [c + s * 38, fy + 4], [c + s * 34, fy + 20], [bord, fy + 30], [bord, courte]], teinte(t.veste, .55), 1.2);
-    trait(g, [[bord + s * 1.5, fy + 30], [bord + s * 1.5, courte]], "rgba(0,0,0,.3)", 2);
-    // La poche de poitrine à rabat.
-    const px = s < 0 ? fx + 6 : fx + 96;
-    forme(g, [[px, fy + 34], [px + 26, fy + 34], [px + 26, fy + 60], [px, fy + 60]], teinte(t.veste, .92));
-    forme(g, [[px - 1, fy + 32], [px + 27, fy + 32], [px + 27, fy + 40], [px + 13, fy + 43], [px - 1, fy + 40]], teinte(t.veste, 1.12));
-    trait(g, [[px - 1, fy + 40], [px + 13, fy + 43], [px + 27, fy + 40]], "rgba(0,0,0,.4)", 1);
-    bouton(g, px + 13, fy + 38, "#b7a06a", 1.8);
-    couture(g, [[px, fy + 60], [px + 26, fy + 60]]);
-  }
-  // Le bas de la veste, sa ceinture cousue.
-  g.fillStyle = teinte(t.veste, .85); g.fillRect(fx, courte - 6, c - 26 - fx, 6); g.fillRect(c + 26, courte - 6, fx + 128 - c - 26, 6);
-  trait(g, [[fx, courte], [c - 26, courte]], "rgba(0,0,0,.45)", 1.2);
-  trait(g, [[c + 26, courte], [fx + 128, courte]], "rgba(0,0,0,.45)", 1.2);
-  // L'insigne, cousu sur la poche gauche (à droite de l'image), comme sur
-  // les épaules et dans le dos.
-  dessinerInsigne(g, t.insigne, fx + 109, fy + 52, .55);
-  // Le harnais : deux bretelles de cuir, une sangle de poitrine, les boucles.
-  const cuir = (pts, l = 5) => { trait(g, pts, t.harnais, l); trait(g, pts.map(([a, b]) => [a - 1.2, b]), "rgba(255,255,255,.08)", 1); };
-  cuir([[c - 31, fy], [c - 31, fy + 104]]);
-  cuir([[c + 31, fy], [c + 31, fy + 104]]);
-  cuir([[c - 31, fy + 66], [c + 31, fy + 66]], 4);
-  for (const xx of [c - 31, c + 31]) {
-    g.strokeStyle = "#b7a06a"; g.lineWidth = 1.2; g.strokeRect(xx - 4, fy + 62, 8, 8);
-  }
-  // Et dans le dos : l'insigne, les bretelles, la sangle.
-  const [bx, by, bl] = FACES.torse.B;
-  drap(g, [bx, by + 92, bl, 36], t.pantalon, { ombreBas: .15 });
-  drap(g, [bx, by + 108, bl, 20], t.jupe, { ombreBas: .25, bords: false });
-  g.fillStyle = t.harnais; g.fillRect(bx, by + 104, bl, 9);
-  g.fillStyle = teinte(t.veste, .85); g.fillRect(bx, by + 86, bl, 6);
-  trait(g, [[bx, by + 92], [bx + bl, by + 92]], "rgba(0,0,0,.45)", 1.2);
-  dessinerInsigne(g, t.insigne, bx + bl / 2, by + 44, 1.35);
-  cuir([[bx + 26, by], [bx + 26, by + 104]]);
-  cuir([[bx + bl - 26, by], [bx + bl - 26, by + 104]]);
-  // Les côtés : la veste s'arrête aussi à la taille.
-  for (const k of ["R", "L"]) {
-    const [x, y, l] = FACES.torse[k];
-    drap(g, [x, y + 92, l, 36], t.pantalon, { ombreBas: .15 });
-    drap(g, [x, y + 108, l, 20], t.jupe, { ombreBas: .25, bords: false });
-    g.fillStyle = teinte(t.veste, .85); g.fillRect(x, y + 86, l, 6);
-    g.fillStyle = t.harnais; g.fillRect(x, y + 104, l, 9);
-  }
-}
-
 /* ===========================================================================
    Le bas : pantalon, ou culotte d'uniforme et bottes, harnais des cuisses
    ========================================================================= */
@@ -768,6 +813,11 @@ function dessinerBas(g, t) {
 const cache = new Map();
 export function toilesTenue(nom) {
   if (cache.has(nom)) return cache.get(nom);
+  if (TENUES_IMAGES[nom]) {
+    const x = toilesImage(TENUES_IMAGES[nom]);
+    cache.set(nom, x);
+    return x;
+  }
   const t = TENUES[nom] || TENUES["croise-noir"];
   const toile = (dessin) => {
     const c = document.createElement("canvas");
@@ -782,9 +832,46 @@ export function toilesTenue(nom) {
   return x;
 }
 
-/** La cape de l'éclaireur, dessinée : le drap vert et l'insigne dans le dos. */
+/* Une tenue fournie en images : les gabarits, recopiés au double, puis
+   l'insigne cousu à sa place. Les toiles existent tout de suite (vides) ;
+   « pret » dit quand elles sont peintes. */
+function chargerImage(chemin) {
+  const nom = chemin.split("/").pop().replace(/\.png$/, "");
+  const source = globalThis.__OJM_OBJETS__?.["tenue:" + nom] || chemin;
+  return new Promise((ok, ko) => {
+    const img = new Image();
+    img.onload = () => ok(img);
+    img.onerror = () => ko(new Error(`tenue introuvable : ${chemin}`));
+    img.src = source;
+  });
+}
+function toilesImage(t) {
+  const toile = () => {
+    const c = document.createElement("canvas");
+    c.width = GABARIT.l * ECHELLE; c.height = GABARIT.h * ECHELLE;
+    return c;
+  };
+  const chemise = toile(), pantalon = toile();
+  const peindre = async (c, chemin, insignes) => {
+    const img = await chargerImage(chemin);
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(img, 0, 0, c.width, c.height);
+    if (!insignes) return;
+    g.save(); g.scale(ECHELLE, ECHELLE);
+    for (const [x, y, taille] of INSIGNES_VESTE) dessinerInsigne(g, t.insigne, x, y, taille);
+    g.restore();
+  };
+  const pret = Promise.all([
+    peindre(chemise, t.images.chemise, Boolean(t.insigne)),
+    peindre(pantalon, t.images.pantalon, false)
+  ]).catch((err) => console.warn("[tenues]", err.message));
+  return { chemise, pantalon, pret };
+}
+
+/** La cape, dessinée : le drap et l'insigne dans le dos. */
 export function toileCape(nom) {
-  const t = TENUES[nom];
+  const t = ficheTenue(nom);
   if (!t?.cape) return null;
   const c = document.createElement("canvas");
   c.width = 256; c.height = 320;

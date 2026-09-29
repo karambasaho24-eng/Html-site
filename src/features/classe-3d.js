@@ -25,7 +25,7 @@
  * garde sa vue à plat.
  * ------------------------------------------------------------------------- */
 import { imageDetouree } from "./affaires.js";
-import { GABARIT, FACES, NOMS_TENUES, TENUES_IMAGES, ficheTenue, toilesTenue, toileCape } from "./tenues.js";
+import { GABARIT, FACES, NOMS_TENUES, ficheTenue, toilesTenue, toileCape } from "./tenues.js";
 import { COIFFURES, COULEURS_CHEVEUX, TEINTS, construireCoiffure, toileCheveux } from "./coiffures.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
@@ -281,20 +281,21 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const cacheTenues = new Map();
   function matieresTenue(nom) {
     if (cacheTenues.has(nom)) return cacheTenues.get(nom);
-    // Une tenue fournie en images (le vrai vêtement du jeu) prime sur le dessin.
-    const fichiers = TENUES_IMAGES[nom];
-    const toiles = fichiers ? null : toilesTenue(nom);
+    // Une tenue fournie en images (le vrai vêtement du jeu) se peint dès
+    // que ses gabarits sont chargés ; les autres sont dessinées d'emblée.
+    const toiles = toilesTenue(nom);
     const texture = (c) => {
-      const t = typeof c === "string" ? new THREE.TextureLoader().load(c) : new THREE.CanvasTexture(c);
+      const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = 8;
+      toiles.pret?.then(() => { t.needsUpdate = true; });
       return t;
     };
     const m = {
       // Comme dans le jeu : là où le vêtement est transparent (mains,
       // avant-bras nus), c'est la peau du personnage qu'on voit.
-      chemise: new THREE.MeshStandardMaterial({ map: texture(fichiers?.chemise || toiles.chemise), roughness: .82, alphaTest: .5 }),
-      pantalon: new THREE.MeshStandardMaterial({ map: texture(fichiers?.pantalon || toiles.pantalon), roughness: .85, alphaTest: .5 })
+      chemise: new THREE.MeshStandardMaterial({ map: texture(toiles.chemise), roughness: .82, alphaTest: .5 }),
+      pantalon: new THREE.MeshStandardMaterial({ map: texture(toiles.pantalon), roughness: .85, alphaTest: .5 })
     };
     cacheTenues.set(nom, m);
     return m;

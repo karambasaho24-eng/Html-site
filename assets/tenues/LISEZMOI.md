@@ -12,9 +12,16 @@ Pour ajouter une tenue du jeu :
 2. Les déclarer dans `src/features/tenues.js`, objet `TENUES_IMAGES` :
 
    ```js
-   export const TENUES_IMAGES = {
-     cadet: { chemise: "assets/tenues/cadet-chemise.png", pantalon: "assets/tenues/cadet-pantalon.png" }
-   };
+   cadet: {
+     libelle: "Brigade d'entraînement", famille: "uniforme",
+     images: { chemise: "assets/tenues/veste-brune.png", pantalon: "assets/tenues/pantalon-harnais.png" },
+     insigne: "entrainement",            // cousu sur la poche, les épaules et le dos
+     veste: "#b8743f", chemise: "#e6dfb0", pantalon: "#efece6"   // le nuancier
+   }
    ```
+
+Les vestes des régiments (`veste-brune.png`, `veste-verte.png`) et le pantalon
+à harnais (`pantalon-harnais.png`) sont ceux fournis pour le serveur ; les
+blasons sont dessinés dans `tenues.js`, pas pris à la série.
 
 Sans image, les tenues dessinées dans `tenues.js` s'appliquent.
