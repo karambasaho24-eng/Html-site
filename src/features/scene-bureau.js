@@ -595,7 +595,7 @@ export function creerScene({
         eleves: [{
           id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: monAvatar(), moi: true,
           bureau: [
-            ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+            ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier", ...(c.cover ? { c: c.cover } : {}) })),
             ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
               .map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
           ].slice(0, 12)
@@ -612,7 +612,7 @@ export function creerScene({
     const fixe = plan?.() || {};
     const tenu = bureau.enMain();
     const monBureau = [
-      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier", ...(c.cover ? { c: c.cover } : {}) })),
       ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
         .map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
     ].slice(0, 14);

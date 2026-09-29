@@ -27,6 +27,7 @@
 import { imageDetouree } from "./affaires.js";
 import { GABARIT, FACES, NOMS_TENUES, ficheTenue, toilesTenue, toileCape } from "./tenues.js";
 import { COIFFURES, COULEURS_CHEVEUX, TEINTS, construireCoiffure, toileCheveux } from "./coiffures.js";
+import { creerAtelier } from "./objets-3d.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
 const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
@@ -232,6 +233,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     profilTete.push(new THREE.Vector2(0, H / 2));
   }
+  const atelier = creerAtelier(THREE);     // les affaires, en volume
   const GEO = {
     tete: new THREE.LatheGeometry(profilTete, 28),
     bras: new THREE.CapsuleGeometry(0.34, 0.6, 6, 12),
@@ -478,7 +480,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }, undefined, () => {});
     return x;
   }
-  function poserObjet(groupe, kind, { x, z, r }) {
+  function poserObjet(groupe, kind, { x, z, r, couverture = null }) {
+    // En volume, si l'on sait le modeler ; sinon, sa photographie posée à plat.
+    const vrai = atelier.modele(kind, { couverture });
+    if (vrai) {
+      vrai.position.set(x, 0.004, z);
+      vrai.rotation.y = r;
+      groupe.add(vrai);
+      return;
+    }
     const info = textureObjet(kind);
     const jeton = groupe.userData.jeton;
     const monter = ({ tex, ratio }) => {
@@ -503,6 +513,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /** Tout ce qu'une personne a devant elle. `liste` : [{ k, m }] (m : en main). */
   function garnir(groupe, liste = []) {
     groupe.userData.jeton = (groupe.userData.jeton || 0) + 1;
+    groupe.userData.table = true;
     for (const enfant of [...groupe.children]) {
       groupe.remove(enfant);
       enfant.material?.dispose?.();
@@ -518,7 +529,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const n = rangs.get(place) || 0;
       rangs.set(place, n + 1);
       if (n > 3) continue;
-      poserObjet(groupe, kind, { x: place.x + place.dx * n, z: place.z + place.dz * n, r: place.r + n * 0.08 });
+      poserObjet(groupe, kind, { x: place.x + place.dx * n, z: place.z + place.dz * n, r: place.r + n * 0.08, couverture: o.c || null });
     }
     return enMain?.k || null;
   }
@@ -583,6 +594,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /** L'objet dans la main : sa photographie, comme sur la table. */
   function objetEnMain(kind, x) {
     const g = new THREE.Group();
+    const vrai = atelier.modele(kind);
+    if (vrai) {
+      // Tenu dans la main, à plat contre la paume.
+      vrai.scale.setScalar(1 / (x.p.racine.scale.x || 1));
+      vrai.rotation.x = Math.PI / 2;
+      vrai.position.set(0, -0.2, 0.1);
+      g.add(vrai);
+      return g;
+    }
     const info = textureObjet(kind);
     const echelle = 1 / (x.p.racine.scale.x || 1);
     const monter = ({ tex, ratio }) => {
@@ -1858,9 +1878,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     } else if (dispo.maison) {
       // Chez soi : on se voit de trois quarts dos, assis à son bureau.
       // Fenêtre très large : on recule et on resserre, sans déformer la pièce.
-      camera.fov = 48 - k * 18;
-      camera.position.set(3.6 - k * 1.6, 7.4 - k * 0.6, dispo.fond + 12 + k * 2.5);
-      regard.set(-0.3, 3.1, dispo.fond + 1.2);
+      camera.fov = 46 - k * 16;
+      camera.position.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
+      regard.set(-0.2, 2.7, dispo.fond + 1.4);
     } else if (dispo.reunion) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
@@ -1909,8 +1929,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     // Fenêtre haute et étroite (flottante, au-dessus du jeu) : on recule et
     // on monte, pour se voir en entier à sa table, et le tableau au fond.
     const recul = Math.max(0, Math.min(1.2, 1.25 - camera.aspect)) * 4.2;
-    posCible.set(o.x + 0.9, 6.3 + recul * 0.55, o.z + 5.6 + recul);
-    regardCible.set(o.x * 0.5, 2.8 - recul * 0.12, o.z - 8);
+    // Plus près de sa table, un peu plus au-dessus : on voit ses affaires, et
+    // le tableau au fond.
+    // Par-dessus l'épaule droite : la tête ne cache plus la table.
+    posCible.set(o.x + 2.3, 6.1 + recul * 0.55, o.z + 2.2 + recul);
+    regardCible.set(o.x * 0.8 - 0.3, 2.0 - recul * 0.12, o.z - 3.4);
   }
   // La fenêtre qui montre la vue : la page, ou la fenêtre flottante posée
   // au-dessus du jeu. On suit SA taille et SON horloge : la page d'origine,
@@ -1990,7 +2013,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     // Un cahier posé sur la table de quelqu'un : on peut le lui demander, le vérifier.
     if (o?.userData.objet && /cahier|carnet|livre/.test(o.userData.objet)) {
-      const [, x] = [...gens.entries()].find(([, g]) => g.siege?.objets === o.parent) || [];
+      // L'objet est un assemblage : on remonte jusqu'à la table qui le porte.
+      let porteur = o.parent;
+      while (porteur && !porteur.userData?.table) porteur = porteur.parent;
+      const [, x] = [...gens.entries()].find(([, g]) => g.siege?.objets === porteur) || [];
       if (x && !x.personne.moi && surCahier) { surCahier(x.etiquette, x.personne.brut); return; }
       // Le mien : je le prends, il vient dans l'interface pour que j'écrive.
       if (x?.personne.moi && surMonCahier) { surMonCahier(); return; }

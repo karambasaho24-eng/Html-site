@@ -2559,7 +2559,7 @@ export default async function vueSalle({ params }) {
   function resumeBureau() {
     const tenu = bureau.enMain();
     return [
-      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier", ...(c.cover ? { c: c.cover } : {}) })),
       ...bureau.surLeBureau().map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
     ].slice(0, 14);
   }
