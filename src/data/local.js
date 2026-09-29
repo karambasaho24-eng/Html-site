@@ -947,6 +947,23 @@ export async function creerPiloteLocal() {
         return { user: session.user, session };
       },
 
+      async changerMotDePasse(nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === sessionCourante()?.user?.id);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+      async remettreMotDePasse(cible, nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === cible);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+
       async lienMagique() {
         throw new ErreurDonnees("Le lien par courriel nécessite un projet Supabase.", "LOCAL");
       },

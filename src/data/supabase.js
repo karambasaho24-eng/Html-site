@@ -143,6 +143,18 @@ export async function creerPiloteSupabase(config) {
         if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
         return data;
       },
+      async changerMotDePasse(nouveau) {
+        const { error } = await sb.auth.updateUser({ password: nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
+      },
+      /* Plus de courriel pour se dépanner seul : l'administration donne un
+         nouveau mot de passe au joueur qui a oublié le sien. */
+      async remettreMotDePasse(cible, nouveau) {
+        const { error } = await sb.rpc("admin_mot_de_passe", { cible, nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
+      },
       async lienMagique(email) {
         const { error } = await sb.auth.signInWithOtp({
           email, options: { emailRedirectTo: location.origin + location.pathname }

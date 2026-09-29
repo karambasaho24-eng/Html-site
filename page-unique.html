@@ -5262,6 +5262,18 @@ async function creerPiloteSupabase(config2) {
         if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
         return data;
       },
+      async changerMotDePasse(nouveau) {
+        const { error } = await sb.auth.updateUser({ password: nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
+      },
+      /* Plus de courriel pour se dépanner seul : l'administration donne un
+         nouveau mot de passe au joueur qui a oublié le sien. */
+      async remettreMotDePasse(cible, nouveau) {
+        const { error } = await sb.rpc("admin_mot_de_passe", { cible, nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
+      },
       async lienMagique(email) {
         const { error } = await sb.auth.signInWithOtp({
           email,
@@ -6347,6 +6359,22 @@ async function creerPiloteLocal() {
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
         definirSession(session);
         return { user: session.user, session };
+      },
+      async changerMotDePasse(nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === sessionCourante()?.user?.id);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+      async remettreMotDePasse(cible, nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === cible);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
       },
       async lienMagique() {
         throw new ErreurDonnees("Le lien par courriel n\xE9cessite un projet Supabase.", "LOCAL");
@@ -7700,6 +7728,8 @@ var init_data = __esm({
       connecter: (d) => pilote.auth.connecter(d),
       lienMagique: (e) => pilote.auth.lienMagique(e),
       reinitialiser: (e) => pilote.auth.reinitialiser(e),
+      changerMotDePasse: (m) => pilote.auth.changerMotDePasse(m),
+      remettreMotDePasse: (id, m) => pilote.auth.remettreMotDePasse(id, m),
       deconnecter: () => pilote.auth.deconnecter(),
       surChangement: (cb) => pilote.auth.surChangement(cb)
     };
@@ -29013,6 +29043,12 @@ var administration_exports = {};
 __export(administration_exports, {
   default: () => vueAdministration
 });
+function motDePasseAuHasard() {
+  const mots = ["Rempart", "Plume", "Encrier", "Bougie", "Pupitre", "Muraille", "Craie", "Horloge", "Lanterne", "Cadet"];
+  const n = new Uint32Array(3);
+  crypto.getRandomValues(n);
+  return `${mots[n[0] % mots.length]}-${mots[n[1] % mots.length]}-${1e3 + n[2] % 9e3}`;
+}
 async function vueAdministration() {
   if (!estModerateur()) {
     return {
@@ -29119,6 +29155,7 @@ async function vueAdministration() {
   function menuCompte(ancre, profil) {
     menu(ancre, [
       { titre: profil.display_name },
+      { libelle: "Nouveau mot de passe\u2026", action: () => nouveauMotDePasse(profil) },
       { titre: "R\xF4le global" },
       ...Object.entries(LIBELLES_ROLES).map(([cle, libelle]) => ({
         libelle: libelle + (profil.role_key === cle ? "  \u2713" : ""),
@@ -29139,6 +29176,32 @@ async function vueAdministration() {
         }
       }))
     ]);
+  }
+  async function nouveauMotDePasse(profil) {
+    const sortie = await formulaire({
+      titre: `Nouveau mot de passe \u2014 ${profil.display_name}`,
+      note: "Transmettez-le au joueur en jeu ; il pourra le changer depuis son profil.",
+      champs: [{
+        cle: "mdp",
+        label: "Mot de passe",
+        type: "text",
+        valeur: motDePasseAuHasard(),
+        requis: true,
+        aide: "Huit caract\xE8res minimum."
+      }],
+      libelle: "Appliquer"
+    });
+    if (!sortie) return;
+    if (sortie.mdp.length < 8) {
+      erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
+      return;
+    }
+    try {
+      await auth.remettreMotDePasse(profil.id, sortie.mdp);
+      succes("Mot de passe chang\xE9", `${profil.display_name} peut entrer avec \xAB ${sortie.mdp} \xBB.`);
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
+    }
   }
   async function sectionPapiers() {
     let recents = [];
@@ -29574,6 +29637,7 @@ async function vueProfil() {
           el(
             "div.panneau__corps.pile",
             el("span.petit.faible", `Pseudo RP : ${etat.profil?.display_name || "\u2014"}`),
+            el("button.btn", { onclick: changerMotDePasse }, icone("cadenas", 15), "Changer mon mot de passe"),
             el("button.btn", { onclick: () => aller("/reglages") }, icone("reglages", 15), "R\xE9glages"),
             el("button.btn.btn--danger", {
               onclick: async () => {
@@ -29610,6 +29674,31 @@ async function vueProfil() {
       aller("/profil");
     } catch (err) {
       erreur("Mise \xE0 jour impossible", messageErreur(err));
+    }
+  }
+  async function changerMotDePasse() {
+    const sortie = await formulaire({
+      titre: "Changer mon mot de passe",
+      champs: [
+        { cle: "mdp", label: "Nouveau mot de passe", type: "password", requis: true, aide: "Huit caract\xE8res minimum." },
+        { cle: "mdp2", label: "Encore une fois", type: "password", requis: true }
+      ],
+      libelle: "Changer"
+    });
+    if (!sortie) return;
+    if (sortie.mdp.length < 8) {
+      erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
+      return;
+    }
+    if (sortie.mdp !== sortie.mdp2) {
+      erreur("Les mots de passe diff\xE8rent", "Tapez deux fois le m\xEAme.");
+      return;
+    }
+    try {
+      await auth.changerMotDePasse(sortie.mdp);
+      succes("Mot de passe chang\xE9");
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
     }
   }
   async function changerAvatar(fichier2) {

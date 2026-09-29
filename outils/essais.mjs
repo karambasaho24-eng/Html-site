@@ -809,6 +809,33 @@ try {
     verifier(`la page ${route} s'affiche`, titre > 0);
   }
   verifier("aucune image manquante", manquantes.size === 0, [...manquantes].join(", "));
+
+  /* =======================================================================
+     13. Le compte : pseudo et mot de passe, sans courriel
+     ===================================================================== */
+  journal.push("\n13. Le compte");
+  await cadet.goto(`${RACINE}#/profil`);
+  await cadet.waitForTimeout(1000);
+  await cadet.click('button:has-text("Changer mon mot de passe")');
+  await cadet.waitForTimeout(400);
+  const champsMdp = cadet.locator('.modale input[type="password"]');
+  await champsMdp.nth(0).fill("nouveau-secret");
+  await champsMdp.nth(1).fill("nouveau-secret");
+  await cadet.click('.modale button:has-text("Changer")');
+  await cadet.waitForTimeout(600);
+  await cadet.click('button:has-text("Se déconnecter")');
+  await cadet.waitForTimeout(900);
+  await cadet.fill('input[name="pseudo"]', "cadet");
+  await cadet.fill('input[name="mdp"]', "motdepasse1");
+  await cadet.click('button[type="submit"]:has-text("Entrer")');
+  await cadet.waitForTimeout(900);
+  verifier("l'ancien mot de passe ne marche plus", await cadet.locator('input[name="pseudo"]').count() === 1);
+  await cadet.fill('input[name="mdp"]', "nouveau-secret");
+  await cadet.click('button[type="submit"]:has-text("Entrer")');
+  await cadet.waitForTimeout(1500);
+  verifier("on rentre avec son pseudo (majuscules indifferentes) et le nouveau mot de passe",
+    await cadet.locator('input[name="pseudo"]').count() === 0);
+
   verifier("aucune erreur de script", erreursPage.length === 0, erreursPage.slice(0, 3).join(" | "));
 
 } catch (err) {

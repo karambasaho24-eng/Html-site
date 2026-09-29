@@ -1219,6 +1219,8 @@ export const auth = {
   connecter: (d) => pilote.auth.connecter(d),
   lienMagique: (e) => pilote.auth.lienMagique(e),
   reinitialiser: (e) => pilote.auth.reinitialiser(e),
+  changerMotDePasse: (m) => pilote.auth.changerMotDePasse(m),
+  remettreMotDePasse: (id, m) => pilote.auth.remettreMotDePasse(id, m),
   deconnecter: () => pilote.auth.deconnecter(),
   surChangement: (cb) => pilote.auth.surChangement(cb)
 };
