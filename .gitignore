@@ -8,3 +8,6 @@ classe-parallele-netlify.zip
 
 # Le jeton de publication reste sur la machine : le depot est public.
 jeton-netlify.txt
+
+# Le lien local vers le projet Netlify (cree par netlify-cli).
+.netlify/
