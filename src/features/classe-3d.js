@@ -520,6 +520,134 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     return enMain?.k || null;
   }
+  const enMainDe = (liste = []) => liste.find((o) => o.m && OUTILS_MAIN.includes(o.k))?.k || null;
+
+  /* --- Les gestes : on voit l'autre prendre ses affaires --------------------
+     Quand ce qu'il a devant lui change, l'objet n'apparaît pas d'un coup :
+     il se penche vers son sac, l'attrape — on le voit dans sa main —, le
+     monte et le pose sur la table. Pour ranger, l'inverse. Une chose à la
+     fois, dans l'ordre ; au-delà de quatre, c'est un grand rangement, et on
+     ne mime pas tout. */
+  const DUREE_GESTE = 1800;
+  // [épaule en avant, épaule en dehors, penché, tête baissée]
+  const POSES_GESTE = {
+    repos:    [0.32, 0.05, 0, 0],
+    sac:      [-0.3, 0.62, -0.22, 0.42],    // le sac par terre, à droite de la chaise
+    sacTable: [0.92, 0.42, 0, 0.32],        // le sac ouvert sur la table
+    haut:     [1.32, 0.12, 0, 0.12],
+    table:    [1.02, 0.08, 0, 0.3]
+  };
+  const CLES_SORTIR = [[0, "repos"], [0.3, "sac"], [0.4, "sac"], [0.72, "haut"], [0.86, "table"], [1, "repos"]];
+  const CLES_RANGER = [[0, "repos"], [0.14, "table"], [0.26, "haut"], [0.55, "sac"], [0.65, "sac"], [1, "repos"]];
+
+  function difference(avant, apres) {
+    const compte = (l) => { const m = new Map(); for (const o of l) m.set(o.k, (m.get(o.k) || 0) + 1); return m; };
+    const a = compte(avant), b = compte(apres);
+    const sortis = [], ranges = [];
+    for (const [k, n] of b) for (let i = a.get(k) || 0; i < n; i++) sortis.push(k);
+    for (const [k, n] of a) for (let i = b.get(k) || 0; i < n; i++) ranges.push(k);
+    return { sortis, ranges };
+  }
+
+  /** Mettre en file les gestes qui mènent de `avant` à `apres`. Faux : rien à mimer. */
+  function preparerGestes(x, avant, apres) {
+    const { sortis, ranges } = difference(avant, apres);
+    const n = sortis.length + ranges.length;
+    x.gestes = x.gestes || [];
+    const occupe = Boolean(x.geste || x.gestes.length);
+    if (!n) {
+      if (!occupe) return false;
+      // Rien de plus à montrer : la dernière étape aboutira à ce nouvel état.
+      (x.gestes[x.gestes.length - 1] || x.geste).fin = apres;
+      return true;
+    }
+    if (n > 4) return false;
+    let courant = avant.slice();
+    for (const k of ranges) {
+      const i = courant.findIndex((o) => o.k === k);
+      const sans = courant.filter((_, j) => j !== i);
+      x.gestes.push({ type: "ranger", k, debut: courant, fin: sans });
+      courant = sans;
+    }
+    for (const k of sortis) {
+      const avec = [...courant, apres.find((o) => o.k === k) || { k }];
+      x.gestes.push({ type: "sortir", k, debut: courant, fin: avec });
+      courant = avec;
+    }
+    x.gestes[x.gestes.length - 1].fin = apres;
+    return true;
+  }
+
+  /** L'objet dans la main : sa photographie, comme sur la table. */
+  function objetEnMain(kind, x) {
+    const g = new THREE.Group();
+    const info = textureObjet(kind);
+    const echelle = 1 / (x.p.racine.scale.x || 1);
+    const monter = ({ tex, ratio }) => {
+      const m = new THREE.Mesh(GEO.plan, new THREE.MeshStandardMaterial({
+        map: tex, transparent: true, alphaTest: 0.35, roughness: .65, side: THREE.DoubleSide
+      }));
+      const l = (LARGEUR[kind] || 0.4) * 1.35 * echelle;
+      m.scale.set(l, l * ratio, 1);
+      m.position.set(0, -l * ratio * 0.35, 0.12);
+      m.castShadow = true;
+      g.add(m);
+    };
+    if (info.tex) monter(info); else info.attente.push(monter);
+    return g;
+  }
+  function lacher(x, g) {
+    if (!g.main) return;
+    x.p.brasD.bout.remove(g.main);
+    g.main.traverse((m) => m.material?.dispose?.());
+    g.main = null;
+  }
+  function poseGeste(p, cles, t, cible) {
+    let i = 0;
+    while (i < cles.length - 2 && t > cles[i + 1][0]) i++;
+    const [t0, a] = cles[i], [t1, b] = cles[i + 1];
+    let u = Math.max(0, Math.min(1, (t - t0) / Math.max(0.001, t1 - t0)));
+    u = u * u * (3 - 2 * u);
+    const A = POSES_GESTE[a === "sac" ? cible : a], B = POSES_GESTE[b === "sac" ? cible : b];
+    const v = (j) => A[j] + (B[j] - A[j]) * u;
+    p.brasD.epaule.rotation.x = v(0);
+    p.brasD.epaule.rotation.z = v(1);
+    p.bassin.rotation.z = v(2);
+    p.tete.rotation.x = v(3);
+  }
+  /** Un pas du geste en cours. Vrai tant qu'il occupe le bras droit. */
+  function animerGeste(x, maintenant) {
+    if (!x.geste) {
+      if (!x.gestes?.length || !x.siege || x.trajet) return false;
+      x.geste = x.gestes.shift();
+      x.geste.t0 = maintenant;
+      x.geste.cible = x.sacOuvert ? "sacTable" : "sac";
+      x.p.tenir(null);
+    }
+    const g = x.geste;
+    const t = Math.min(1, (maintenant - g.t0) / DUREE_GESTE);
+    poseGeste(x.p, g.type === "sortir" ? CLES_SORTIR : CLES_RANGER, t, g.cible);
+    if (g.type === "sortir") {
+      if (t >= 0.33 && !g.main && !g.pris) { g.pris = true; g.main = objetEnMain(g.k, x); x.p.brasD.bout.add(g.main); }
+      if (t >= 0.86 && !g.pose) { g.pose = true; lacher(x, g); garnir(x.siege.objets, g.fin); }
+    } else {
+      if (t >= 0.14 && !g.pris) { g.pris = true; g.main = objetEnMain(g.k, x); x.p.brasD.bout.add(g.main); garnir(x.siege.objets, g.fin); }
+      if (t >= 0.6 && !g.pose) { g.pose = true; lacher(x, g); }
+    }
+    if (t >= 1) {
+      x.geste = null;
+      x.p.bassin.rotation.z = 0;
+      x.p.poser(x.p.pose);
+      if (!x.gestes.length) { garnir(x.siege.objets, g.fin); x.p.tenir(enMainDe(g.fin)); }
+    }
+    return true;
+  }
+  /** Couper court : on change de place, ou trop de choses ont bougé d'un coup. */
+  function interrompreGeste(x) {
+    if (x.geste) { lacher(x, x.geste); x.p.bassin.rotation.z = 0; x.p.poser(x.p.pose); }
+    x.geste = null;
+    x.gestes = [];
+  }
 
 
   /* --- Le sac : un cartable de cuir, posé par terre à côté de la chaise -----
@@ -1425,7 +1553,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const sig = JSON.stringify(e.bureau || []);
       if (sig !== x.sig) {
         x.sig = sig;
-        x.p.tenir(garnir(x.siege.objets, e.bureau || []));
+        const liste = (e.bureau || []).map((o) => ({ ...o }));
+        // On voit la chose passer du sac à la table (ou l'inverse), s'il était déjà là.
+        if (!x.vise || !preparerGestes(x, x.vise, liste)) {
+          interrompreGeste(x);
+          x.p.tenir(garnir(x.siege.objets, liste));
+        }
+        x.vise = liste;
       }
     }
     cadrer();
@@ -1434,6 +1568,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /* Changer de place : on se lève, on passe derrière les rangs, on
      s'assoit. Les affaires suivent. */
   function marcher(x, siege) {
+    interrompreGeste(x);
     if (x.siege) garnir(x.siege.objets, []);
     x.p.tenir(null);
     const de = x.p.racine.position.clone();
@@ -1471,6 +1606,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       asseoir(x, t.siege);
       x.arrive = maintenant;
       x.sig = JSON.stringify(x.personne.bureau || []);
+      x.vise = (x.personne.bureau || []).map((o) => ({ ...o }));
       p.tenir(garnir(t.siege.objets, x.personne.bureau || []));
     }
     return true;
@@ -1779,6 +1915,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         p.bassin.position.y = (1 - a) * (1 - a) * 0.8;
         if (a >= 1) x.arrive = 0;
       }
+      // Il prend ou range quelque chose : le bras droit est à ce geste-là.
+      if (animerGeste(x, maintenant)) { animerSac(x, maintenant); continue; }
       if (x.personne.main) {
         p.brasD.epaule.rotation.x += (2.95 - p.brasD.epaule.rotation.x) * 0.15;
         p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
