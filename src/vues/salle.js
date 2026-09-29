@@ -197,7 +197,8 @@ export default async function vueSalle({ params }) {
     surPersonne: (ancre, p) => menuPersonne(ancre, p),
     surEstrade: (present) => basculerEstrade(present),
     mode: () => session.mode || "cours",
-    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id)))
+    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id))),
+    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null
   });
   decor.surChangementEtat((etatDecor) => {
     const voulue = etatDecor === "bureau" && fenetre === "compact" ? "compact" : etatDecor;

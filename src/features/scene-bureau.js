@@ -81,7 +81,10 @@ export function creerScene({
   // La mise en scène : « cours » (des rangées) ou « reunion » (une table ronde).
   mode = () => "cours",
   // Qui a la main levée, en ce moment.
-  mains = () => new Set()
+  mains = () => new Set(),
+  // Le tableau vivant, même quand il n'est pas à l'écran (cahier ouvert,
+  // petite fenêtre) : la classe en 3D continue de le montrer.
+  toile = null
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -583,7 +586,7 @@ export function creerScene({
   if (webglDisponible()) {
     creerClasse3D({
       hote: vue3d,
-      toile: () => noeud.querySelector(".scene__ecran canvas.tableau__toile"),
+      toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
       surPersonne: (ancre, p) => surPersonne?.(ancre, p)
     }).then((c) => {

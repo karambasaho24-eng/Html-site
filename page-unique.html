@@ -15864,7 +15864,10 @@ function creerScene({
   // La mise en scène : « cours » (des rangées) ou « reunion » (une table ronde).
   mode: mode2 = () => "cours",
   // Qui a la main levée, en ce moment.
-  mains: mains2 = () => /* @__PURE__ */ new Set()
+  mains: mains2 = () => /* @__PURE__ */ new Set(),
+  // Le tableau vivant, même quand il n'est pas à l'écran (cahier ouvert,
+  // petite fenêtre) : la classe en 3D continue de le montrer.
+  toile = null
 }) {
   let etatScene = "bureau";
   let sacOuvert = false;
@@ -16406,7 +16409,7 @@ function creerScene({
   if (webglDisponible()) {
     creerClasse3D({
       hote: vue3d,
-      toile: () => noeud.querySelector(".scene__ecran canvas.tableau__toile"),
+      toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
       surPersonne: (ancre, p) => surPersonne?.(ancre, p)
     }).then((c) => {
@@ -23373,7 +23376,8 @@ async function vueSalle({ params }) {
     surPersonne: (ancre, p) => menuPersonne(ancre, p),
     surEstrade: (present) => basculerEstrade(present),
     mode: () => session.mode || "cours",
-    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id)))
+    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id))),
+    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null
   });
   decor.surChangementEtat((etatDecor) => {
     const voulue = etatDecor === "bureau" && fenetre2 === "compact" ? "compact" : etatDecor;
