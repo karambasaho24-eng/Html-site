@@ -4561,6 +4561,31 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .mes-cahiers__teinte[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
 .mes-cahiers__formulaire .btn { align-self: flex-start; }
 
+/* --- Console : soi, assis à son bureau, au-dessus de l'interface ------------- */
+.console__haut { display: flex; align-items: center; gap: 8px; padding: 6px 10px 4px; min-height: 34px; }
+.console__haut > :first-child { flex: 1; min-width: 0; }
+.console__haut > .console__entete { padding: 0; }
+.console__lieu { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--texte-doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console__anim {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border: 0; border-radius: 999px; font: inherit; font-size: 11.5px; color: var(--texte-doux); cursor: pointer;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.console__anim:hover { color: var(--texte); background: var(--surface-2); }
+.console__anim-voyant { width: 8px; height: 8px; border-radius: 50%; background: var(--texte-faible); }
+.console__anim[aria-checked="true"] .console__anim-voyant { background: var(--vert); box-shadow: 0 0 6px var(--vert); }
+.console__scene { display: none; position: relative; }
+.console[data-scene="1"] .console__scene {
+  display: block; flex: 1 1 auto; min-height: 120px; margin: 0 10px 6px;
+  border-radius: 14px; overflow: hidden; background: #1d1f22;
+  box-shadow: 0 0 0 1px var(--ligne);
+}
+/* Un panneau ouvert (le cahier, le tableau…) : la scène se fait petite, en haut. */
+.console[data-scene="1"]:not([data-ouvert=""]) .console__scene { flex: 0 0 32%; min-height: 110px; }
+.console[data-scene="1"][data-ouvert=""] .console__panneau { flex: 0 0 auto; }
+.console__scene .classe3d__refermer { bottom: 8px; }
+.chassis[data-taille="mini"] .console[data-scene="1"] .console__scene { min-height: 90px; }
+
 /* ---- responsive.css ---- */
 /* ===========================================================================
    Adaptation : PC d'abord (cohabitation Roblox), puis tablette, puis mobile
@@ -7863,6 +7888,7 @@ var etat, observateurs;
 var init_store = __esm({
   "src/core/store.js"() {
     init_bus();
+    init_stockage();
     etat = {
       // Session utilisateur
       utilisateur: null,
@@ -7890,6 +7916,15 @@ var init_store = __esm({
       modeExamen: false,
       suitProfesseur: false,
       flottant: false,
+      // Les animations (la salle en 3D, soi assis à son bureau). Éteintes : les
+      // tableaux et l'interface, rien d'autre.
+      animations: (() => {
+        try {
+          return stockageLocal.getItem("ojm.animations") !== "false";
+        } catch {
+          return true;
+        }
+      })(),
       // La console d'à-côté, demandée à la main. Dans la fenêtre flottante elle
       // s'impose d'elle-même.
       console: false,
@@ -12618,6 +12653,14 @@ function appliquerTheme(theme, persister = true) {
   local.ecrire("ojm.theme", valide);
   if (persister && etat.profil) majPreference("theme", valide);
 }
+function definirAnimations(actives) {
+  const v = Boolean(actives);
+  try {
+    stockageLocal.setItem("ojm.animations", String(v));
+  } catch {
+  }
+  definir({ animations: v });
+}
 function basculerTheme() {
   appliquerTheme(etat.theme === "nuit" ? "jour" : "nuit");
 }
@@ -12692,6 +12735,7 @@ var init_interface = __esm({
     init_store();
     init_bus();
     init_util();
+    init_stockage();
     init_session();
     DENSITES = [
       { cle: "grand", libelle: "Grand", aide: "Plein \xE9cran, confort maximal" },
@@ -14134,7 +14178,7 @@ function graine(texte) {
     return (h >>> 0) % 1e4 / 1e4;
   };
 }
-async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null }) {
+async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null, surMonCahier = null }) {
   const THREE = await chargerThree();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -14889,7 +14933,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     Object.assign(soleil.shadow.camera, { left: -demi, right: demi, top: demi, bottom: -demi, near: 1, far: 80 });
     soleil.shadow.camera.updateProjectionMatrix();
     if (!avecHorloge) return;
-    const horloge = new THREE.Group();
+    const horloge2 = new THREE.Group();
     const cadran = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 32), matDe("#f3efe4"));
     cadran.rotation.x = Math.PI / 2;
     const tour = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.06, 8, 32), matDe("#3a2d22"));
@@ -14898,9 +14942,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const petite = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.02), matDe("#141416"));
     petite.rotation.z = -1.1;
     petite.position.set(0.12, 0.05, 0.06);
-    horloge.add(cadran, tour, grande, petite);
-    horloge.position.set(0, 8.7, fond + 0.1);
-    decor.add(horloge);
+    horloge2.add(cadran, tour, grande, petite);
+    horloge2.position.set(0, 8.7, fond + 0.1);
+    decor.add(horloge2);
   }
   function tableauAuMur(fond) {
     const cadre = new THREE.Mesh(boiteRonde(LT + 0.5, HT + 0.5, 0.2, 0.06), matBois);
@@ -15529,11 +15573,21 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
   let suivre = false, cameraPosee = false, derniereCam = 0;
   function viserDerriere(o) {
-    posCible.set(o.x + 0.9, 6.3, o.z + 5.6);
-    regardCible.set(o.x * 0.5, 2.8, o.z - 8);
+    const recul = Math.max(0, Math.min(1.2, 1.25 - camera.aspect)) * 4.2;
+    posCible.set(o.x + 0.9, 6.3 + recul * 0.55, o.z + 5.6 + recul);
+    regardCible.set(o.x * 0.5, 2.8 - recul * 0.12, o.z - 8);
   }
-  const observateur = new ResizeObserver(() => cadrer());
-  observateur.observe(hote);
+  const fenetreDe = () => hote.ownerDocument?.defaultView || window;
+  let observateur = null, fenetreObservee = null;
+  function observerTaille() {
+    const f = fenetreDe();
+    if (f === fenetreObservee && observateur) return;
+    observateur?.disconnect();
+    fenetreObservee = f;
+    observateur = new (f.ResizeObserver || ResizeObserver)(() => cadrer());
+    observateur.observe(hote);
+  }
+  observerTaille();
   const rayon = new THREE.Raycaster();
   const pointeur = new THREE.Vector2();
   function viser(e) {
@@ -15562,7 +15616,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       const sg = dispo.sieges[place];
       anneau.position.set(sg.x, 0.03, sg.z);
     }
-    const cahier = surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "") || sacMoi && o?.userData.contenu ? "cahier" : null;
+    const cahier = (surCahier || surMonCahier) && /cahier|carnet|livre/.test(o?.userData.objet || "") || sacMoi && o?.userData.contenu ? "cahier" : null;
     const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
     canvas.style.cursor = cible || libre || cahier ? "pointer" : place != null ? "not-allowed" : "";
     if (cible !== survol) {
@@ -15603,6 +15657,10 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         surCahier(x.etiquette, x.personne.brut);
         return;
       }
+      if (x?.personne.moi && surMonCahier) {
+        surMonCahier();
+        return;
+      }
     }
     if (o?.userData.tableau) surTableau?.();
     else if (o?.userData.personne) {
@@ -15612,16 +15670,24 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   });
   const vecteur = new THREE.Vector3();
   let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true, verifie = 0;
-  let leger = null;
-  const io = new IntersectionObserver(([x]) => {
-    visible = x.isIntersecting;
-  });
-  io.observe(hote);
+  let leger = null, horloge = null, dernierAppel = 0;
+  function demanderImage() {
+    horloge = fenetreDe();
+    anime = horloge.requestAnimationFrame(image);
+  }
+  const veille = setInterval(() => {
+    if (!vivant) return;
+    if (fenetreDe() !== horloge || performance.now() - dernierAppel > 1500) {
+      horloge?.cancelAnimationFrame?.(anime);
+      observerTaille();
+      demanderImage();
+    }
+  }, 700);
   function qualite() {
-    const petit = hote.clientWidth < 720 || document.body.classList.contains("est-flottant");
+    const petit = hote.clientWidth < 720 || Boolean(hote.ownerDocument?.body?.classList.contains("est-flottant"));
     if (petit === leger) return;
     leger = petit;
-    renderer.setPixelRatio(leger ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(leger ? 1 : Math.min(fenetreDe().devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = !leger;
     scene.traverse((m) => {
       if (m.material) m.material.needsUpdate = true;
@@ -15635,15 +15701,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     el2.hidden = vecteur.z > 1;
     el2.style.transform = `translate(-50%, -100%) translate(${(vecteur.x * 0.5 + 0.5) * hote.clientWidth}px, ${(-vecteur.y * 0.5 + 0.5) * hote.clientHeight}px)`;
   }
-  function image(t) {
+  function image() {
     if (!vivant) return;
-    anime = requestAnimationFrame(image);
-    if (!visible && t - verifie > 400) {
+    demanderImage();
+    const t = performance.now();
+    dernierAppel = t;
+    if (t - verifie > 400) {
       verifie = t;
       const r = hote.getBoundingClientRect();
-      visible = hote.isConnected && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
+      visible = hote.isConnected && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < fenetreDe().innerHeight;
     }
-    if (!visible || !hote.isConnected || document.hidden || t - dernier < (leger ? 50 : 33)) return;
+    if (!visible || !hote.isConnected || hote.ownerDocument?.hidden || t - dernier < (leger ? 50 : 33)) return;
     dernier = t;
     const s = t / 1e3;
     if (t - dernierTableau > (leger ? 500 : 300)) {
@@ -15724,7 +15792,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   }
   reconstruire();
   qualite();
-  anime = requestAnimationFrame(image);
+  demanderImage();
   const api = {
     /**
      * Qui est là, et ce que chacun a devant lui.
@@ -15780,25 +15848,24 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     deplacer(nouvelHote) {
       if (hote === nouvelHote) return;
       nouvelHote.append(canvas, etiquettes, boutonSac);
-      observateur.disconnect();
-      observateur.observe(nouvelHote);
-      io.disconnect();
-      io.observe(nouvelHote);
       hote = nouvelHote;
+      fenetreObservee = null;
+      observerTaille();
+      verifie = 0;
       leger = null;
       qualite();
       cadrer();
     },
     detruire() {
       vivant = false;
-      cancelAnimationFrame(anime);
+      clearInterval(veille);
+      horloge?.cancelAnimationFrame?.(anime);
       for (const x of gens.values()) {
         retirer(x.p.racine);
         if (x.sac) retirer(x.sac);
       }
       if (prof) retirer(prof.p.racine);
-      observateur.disconnect();
-      io.disconnect();
+      observateur?.disconnect();
       texture?.dispose();
       for (const x of textures.values()) x.tex?.dispose();
       renderer.dispose();
@@ -16539,6 +16606,8 @@ function creerScene({
   surPlace = null,
   // On clique le cahier posé sur la table de quelqu'un.
   surCahierDe = null,
+  // Je clique MON cahier, en 3D : il vient dans l'interface, pour écrire.
+  surMonCahier = null,
   // J'ouvre ou je referme mon sac (les autres le voient).
   surSac = null
 }) {
@@ -17136,33 +17205,50 @@ function creerScene({
     });
   }
   let detruite = false;
-  if (webglDisponible()) {
-    creerClasse3D({
+  let cible3d = null;
+  let montage = null;
+  const peut3d = () => webglDisponible() && etat.animations !== false;
+  function monter3d() {
+    if (!peut3d() || classe3d || montage || detruite) return;
+    montage = creerClasse3D({
       hote: vue3d,
       toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
       surPersonne: (ancre, p) => surPersonne?.(ancre, p),
       surPlace: avant ? null : (i, qui) => surPlace?.(i, qui),
-      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p)
+      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p),
+      surMonCahier: () => {
+        if (surMonCahier) {
+          surMonCahier();
+          return;
+        }
+        const c = bureau.cahiersSurLeBureau()[0];
+        if (c) surCahier?.(c);
+      }
     }).then((c) => {
-      if (detruite) {
+      montage = null;
+      if (detruite || !peut3d()) {
         c.detruire();
         return;
       }
       classe3d = c;
       noeud.classList.add("scene--3d");
+      if (cible3d) c.deplacer(cible3d);
       maj3d();
-      if (avant) {
-        vue3d.appendChild(el(
-          "button.classe3d__habiller",
-          { type: "button", onclick: () => ouvrirApparence() },
-          icone("profil", 14),
-          "Mon personnage"
-        ));
-      }
+      lacherAvatar?.();
       lacherAvatar = ecouter("avatar:change", maj3d);
-    }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste \xE0 plat", err));
+    }).catch((err) => {
+      montage = null;
+      console.warn("[scene] vue 3D indisponible, on reste \xE0 plat", err);
+    });
   }
+  function demonter3d() {
+    classe3d?.detruire();
+    classe3d = null;
+    noeud.classList.remove("scene--3d");
+  }
+  monter3d();
+  const lacherAnimations = observer("animations", (v) => v ? monter3d() : demonter3d());
   return {
     noeud,
     ecranTableau,
@@ -17172,11 +17258,9 @@ function creerScene({
     signalerEcriture: () => classe3d?.ecrit(),
     /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
     classeDans: (conteneur2) => {
-      if (classe3d) {
-        classe3d.deplacer(conteneur2 || vue3d);
-        return true;
-      }
-      return false;
+      cible3d = conteneur2 || null;
+      if (classe3d) classe3d.deplacer(conteneur2 || vue3d);
+      return peut3d();
     },
     a3d: () => Boolean(classe3d),
     /** Qui est où, qui écrit : on redonne l'état à la classe en 3D. */
@@ -17184,6 +17268,7 @@ function creerScene({
     detruire: () => {
       detruite = true;
       lacherAvatar?.();
+      lacherAnimations();
       classe3d?.detruire();
       classe3d = null;
     },
@@ -17980,13 +18065,14 @@ function creerEditeurCahier(options) {
         noeud.style.left = `${x * 100}%`;
         noeud.style.top = `${y * 100}%`;
       };
+      const fen = noeud.ownerDocument?.defaultView || window;
       const surRelache = () => {
-        window.removeEventListener("pointermove", surMouvement);
-        window.removeEventListener("pointerup", surRelache);
+        fen.removeEventListener("pointermove", surMouvement);
+        fen.removeEventListener("pointerup", surRelache);
         if (bouge) enregistrer({ x: mot.x, y: mot.y });
       };
-      window.addEventListener("pointermove", surMouvement);
-      window.addEventListener("pointerup", surRelache);
+      fen.addEventListener("pointermove", surMouvement);
+      fen.addEventListener("pointerup", surRelache);
     });
   }
   async function collerPenseBete(couleur = "jaune") {
@@ -18435,18 +18521,42 @@ var init_dossiers = __esm({
 });
 
 // src/features/console.js
-function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null }) {
+function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null, scene = null }) {
   const zone = el("div.console__panneau");
   const barre = el("nav.console__barre", { "aria-label": "Gestes" });
+  const zoneScene = el("div.console__scene");
   let ouvert = null;
   let jeton = 0;
+  const interrupteur = scene ? el("button.console__anim", {
+    type: "button",
+    role: "switch",
+    onclick: () => definirAnimations(etat.animations === false)
+  }) : null;
   const noeud = el(
     "div.console",
-    { dataset: { ouvert: "" } },
-    enTete,
+    { dataset: { ouvert: "", scene: "" } },
+    scene ? el("div.console__haut", enTete || el("span.console__haut-vide"), interrupteur) : enTete,
+    scene ? zoneScene : null,
     zone,
     avecBarre ? barre : null
   );
+  function peindreScene() {
+    if (!scene) return;
+    const allumees = etat.animations !== false;
+    interrupteur.setAttribute("aria-checked", String(allumees));
+    render(interrupteur, el("span.console__anim-voyant"), allumees ? "Animation" : "Animation coup\xE9e");
+    interrupteur.title = allumees ? "Couper l'animation : seulement les tableaux et l'interface" : "Voir mon personnage \xE0 son bureau";
+    const montee = allumees && scene(zoneScene);
+    noeud.dataset.scene = montee ? "1" : "";
+  }
+  const lacherAnimations = scene ? observer("animations", () => {
+    if (!noeud.isConnected || !noeud.getClientRects().length) return;
+    peindreScene();
+    if (etat.animations === false && !ouvert) {
+      const d = typeof defaut === "function" ? defaut() : defaut;
+      if (d) ouvrir(d);
+    }
+  }) : null;
   async function ouvrir(cle, { basculer = false } = {}) {
     const p = panneaux.find((x) => x.cle === cle);
     if (!p) return;
@@ -18508,8 +18618,13 @@ function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = 
     peindreBarre,
     demarrer: () => {
       peindreBarre();
-      if (etat.taille !== "mini" && defaut) ouvrir(defaut);
-    }
+      peindreScene();
+      const d = typeof defaut === "function" ? defaut() : defaut;
+      if (etat.taille !== "mini" && d) ouvrir(d);
+    },
+    /** La scène animée est-elle montrée ? */
+    avecScene: () => noeud.dataset.scene === "1",
+    detruire: () => lacherAnimations?.()
   };
   return api;
 }
@@ -18735,6 +18850,7 @@ var init_console = __esm({
     init_dom();
     init_icons();
     init_store();
+    init_interface();
     init_toast();
     init_affaires();
     init_portee();
@@ -18939,7 +19055,9 @@ async function vueAccueil() {
     avant: mur,
     surCahier: (c) => ouvrirCahier(c),
     surDossier: (d) => ouvrirDossier(d, { moiId: moi }),
-    surNote: () => noteDePartout()
+    surNote: () => noteDePartout(),
+    // Mon cahier, cliqué sur le bureau en 3D : il s'ouvre pour écrire.
+    surMonCahier: () => petit() ? console_.ouvrir("cahier") : ouvrirLeCahier()
   });
   decor.surChangementEtat((e) => {
     if (e !== "cahier") fermerLivre();
@@ -18948,7 +19066,9 @@ async function vueAccueil() {
   const console_ = creerConsole({
     avecBarre: false,
     enTete,
-    defaut: "bureau",
+    // Animation allumée : on se voit assis à son bureau ; éteinte : le bureau, à plat.
+    defaut: () => console_.avecScene() ? null : "bureau",
+    scene: (hote) => decor.classeDans(hote),
     panneaux: [
       { cle: "bureau", mot: "Bureau", rendre: panneauBureau(bureau, {
         surCahier: (c) => {
@@ -19154,7 +19274,9 @@ async function vueAccueil() {
   const lachers = [
     observer("demandeBureau", servirDemande),
     observer("taille", () => {
-      if (petit() && !console_.ouvert()) console_.demarrer();
+      if (petit()) {
+        if (!console_.ouvert()) console_.demarrer();
+      } else decor.classeDans(null);
     }),
     observer("notifications", peindreMur),
     ecouter("papiers:change", charger2),
@@ -19181,6 +19303,7 @@ async function vueAccueil() {
     titre: "Chez moi",
     nettoyer: () => {
       rendre();
+      console_.detruire();
       for (const l of lachers) l?.();
       editeur?.detruire?.();
       decor.detruire?.();
@@ -24365,6 +24488,8 @@ async function vueSalle({ params }) {
     surPlace: (i, qui) => choisirPlace(i, qui),
     // Le professeur clique le cahier ouvert sur une table : il le vérifie.
     surCahierDe: (ancre, p) => staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p),
+    // Mon cahier, cliqué sur ma table : il vient à l'écran, prêt à écrire.
+    surMonCahier: () => petit() ? consoleSalle.ouvrir("cahier") : appliquerFenetre("cahier"),
     surSac: () => majPresence()
   });
   let placerQui = null;
@@ -24417,7 +24542,12 @@ async function vueSalle({ params }) {
     }));
   }
   const consoleSalle = creerConsole({
-    defaut: staff ? "bureau" : "cahier",
+    // Animation allumée : on se voit assis à sa place, rien d'ouvert par-dessus ;
+    // éteinte : le tableau.
+    defaut: () => consoleSalle.avecScene() ? null : "tableau",
+    // En tête de la console : soi, assis à sa table, dans la salle en 3D.
+    scene: (hote) => decor.classeDans(hote),
+    enTete: el("span.console__lieu", el("span.mur__voyant"), session.title || classe.name),
     panneaux: [
       { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
         surCahier: (c) => {
@@ -24433,21 +24563,6 @@ async function vueSalle({ params }) {
       } },
       { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
       { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
-      {
-        cle: "classe",
-        get mot() {
-          return ["reunion", "entretien"].includes(session.mode) ? "Table" : "Classe";
-        },
-        figure: () => icone("eleves", 22),
-        rendre: (zone) => {
-          zone.classList.add("console__corps--plein");
-          const hote = el("div.console__classe3d");
-          zone.appendChild(hote);
-          if (!decor.classeDans(hote)) {
-            render(zone, el("p.console__vide", "La vue en 3D n'est pas disponible sur cet appareil."));
-          }
-        }
-      },
       { cle: "tableau", mot: "Tableau", figure: () => icone("tableau", 22), rendre: (zone) => montrerDansConsole(zone, "tableau") },
       { cle: "plus", mot: "Plus", figure: () => icone("points", 20), geste: () => menuPlusConsole() }
     ]
@@ -27377,7 +27492,14 @@ async function vueSalle({ params }) {
     majPresence();
     decor.majClasse();
   }
-  document.addEventListener("input", surFrappe, true);
+  let docFrappe = null;
+  function ecouterFrappe() {
+    docFrappe?.removeEventListener("input", surFrappe, true);
+    docFrappe = docHote();
+    docFrappe.addEventListener("input", surFrappe, true);
+  }
+  ecouterFrappe();
+  const lacherFlottant = observer("flottant", ecouterFrappe);
   var lacherTaille = observer("taille", async () => {
     if (petit()) {
       if (!consoleSalle.ouvert()) consoleSalle.demarrer();
@@ -27422,7 +27544,8 @@ async function vueSalle({ params }) {
       definirStatut(null);
       lacherTaille?.();
       lacherAvatar();
-      document.removeEventListener("input", surFrappe, true);
+      docFrappe?.removeEventListener("input", surFrappe, true);
+      lacherFlottant();
       clearTimeout(finEcriture);
       bureau.laisserTout();
       clearInterval(tictac);
@@ -27456,6 +27579,7 @@ var init_salle = __esm({
     init_barre_actions();
     init_console();
     init_store();
+    init_hote();
     init_scene_bureau();
     init_pret_a_ecrire();
     init_apparence();
@@ -30032,6 +30156,35 @@ async function vueReglages({ requete: requete2 }) {
             "p.petit.faible",
             { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
             "Le cahier conserve son parchemin dans les deux th\xE8mes."
+          )
+        )
+      ),
+      el(
+        "div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Animations")),
+        el(
+          "div.panneau__corps",
+          el(
+            "div.groupe-btn",
+            el("button.btn", {
+              "aria-pressed": String(etat.animations !== false),
+              onclick: () => {
+                definirAnimations(true);
+                peindre();
+              }
+            }, "Allum\xE9es"),
+            el("button.btn", {
+              "aria-pressed": String(etat.animations === false),
+              onclick: () => {
+                definirAnimations(false);
+                peindre();
+              }
+            }, "Coup\xE9es")
+          ),
+          el(
+            "p.petit.faible",
+            { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
+            "Allum\xE9es : vous vous voyez assis \xE0 votre bureau, m\xEAme en fen\xEAtre flottante. Coup\xE9es : seulement les tableaux et l'interface. L'interrupteur est aussi en haut de la fen\xEAtre flottante."
           )
         )
       )

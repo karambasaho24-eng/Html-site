@@ -12,7 +12,8 @@
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { etat } from "../core/store.js";
+import { etat, observer } from "../core/store.js";
+import { definirAnimations } from "../core/interface.js";
 import { toast } from "../ui/toast.js";
 import { fiche, nomObjet, imageDetouree } from "./affaires.js";
 import { OUTILS_REQUIS } from "./portee.js";
@@ -25,16 +26,44 @@ import { diagnostic, pretAEcrire } from "./pret-a-ecrire.js";
 /**
  * @param {object} o
  * @param {Array}  o.panneaux  [{ cle, mot, image?, figure?, rendre(zone, api), pastille?() }]
- * @param {string} [o.defaut]  panneau ouvert d'emblée en taille « compact »
+ * @param {string|Function} [o.defaut]  panneau ouvert d'emblée en taille « compact »
  * @param {boolean} [o.avecBarre] la console porte-t-elle sa propre barre
+ * @param {Function} [o.scene]  (hote) → bool : pose la scène animée (soi, assis
+ *   à son bureau) en tête de la console ; faux si elle n'est pas disponible.
  */
-export function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null }) {
+export function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null, scene = null }) {
   const zone = el("div.console__panneau");
   const barre = el("nav.console__barre", { "aria-label": "Gestes" });
+  const zoneScene = el("div.console__scene");
   let ouvert = null;
   let jeton = 0;
-  const noeud = el("div.console", { dataset: { ouvert: "" } },
-    enTete, zone, avecBarre ? barre : null);
+  // L'interrupteur des animations, toujours sous la main : allumées, on se
+  // voit assis à son bureau ; éteintes, les tableaux et l'interface, rien d'autre.
+  const interrupteur = scene ? el("button.console__anim", {
+    type: "button", role: "switch",
+    onclick: () => definirAnimations(etat.animations === false)
+  }) : null;
+  const noeud = el("div.console", { dataset: { ouvert: "", scene: "" } },
+    scene ? el("div.console__haut", enTete || el("span.console__haut-vide"), interrupteur) : enTete,
+    scene ? zoneScene : null,
+    zone, avecBarre ? barre : null);
+
+  function peindreScene() {
+    if (!scene) return;
+    const allumees = etat.animations !== false;
+    interrupteur.setAttribute("aria-checked", String(allumees));
+    render(interrupteur, el("span.console__anim-voyant"), allumees ? "Animation" : "Animation coupée");
+    interrupteur.title = allumees ? "Couper l'animation : seulement les tableaux et l'interface" : "Voir mon personnage à son bureau";
+    const montee = allumees && scene(zoneScene);
+    noeud.dataset.scene = montee ? "1" : "";
+  }
+  const lacherAnimations = scene ? observer("animations", () => {
+    // Console cachée (grande fenêtre) : la scène reste à sa place.
+    if (!noeud.isConnected || !noeud.getClientRects().length) return;
+    peindreScene();
+    // Éteintes, plus rien à regarder : on ouvre ce qui sert.
+    if (etat.animations === false && !ouvert) { const d = typeof defaut === "function" ? defaut() : defaut; if (d) ouvrir(d); }
+  }) : null;
 
   async function ouvrir(cle, { basculer = false } = {}) {
     const p = panneaux.find((x) => x.cle === cle);
@@ -82,7 +111,15 @@ export function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, en
     ouvert: () => ouvert,
     rafraichir: () => (ouvert ? ouvrir(ouvert) : null),
     peindreBarre,
-    demarrer: () => { peindreBarre(); if (etat.taille !== "mini" && defaut) ouvrir(defaut); }
+    demarrer: () => {
+      peindreBarre();
+      peindreScene();
+      const d = typeof defaut === "function" ? defaut() : defaut;
+      if (etat.taille !== "mini" && d) ouvrir(d);
+    },
+    /** La scène animée est-elle montrée ? */
+    avecScene: () => noeud.dataset.scene === "1",
+    detruire: () => lacherAnimations?.()
   };
   return api;
 }

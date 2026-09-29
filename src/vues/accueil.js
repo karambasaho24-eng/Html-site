@@ -55,7 +55,9 @@ export default async function vueAccueil() {
     avant: mur,
     surCahier: (c) => ouvrirCahier(c),
     surDossier: (d) => ouvrirDossier(d, { moiId: moi }),
-    surNote: () => noteDePartout()
+    surNote: () => noteDePartout(),
+    // Mon cahier, cliqué sur le bureau en 3D : il s'ouvre pour écrire.
+    surMonCahier: () => (petit() ? console_.ouvrir("cahier") : ouvrirLeCahier())
   });
   decor.surChangementEtat((e) => { if (e !== "cahier") fermerLivre(); });
 
@@ -64,7 +66,9 @@ export default async function vueAccueil() {
   const console_ = creerConsole({
     avecBarre: false,
     enTete,
-    defaut: "bureau",
+    // Animation allumée : on se voit assis à son bureau ; éteinte : le bureau, à plat.
+    defaut: () => (console_.avecScene() ? null : "bureau"),
+    scene: (hote) => decor.classeDans(hote),
     panneaux: [
       { cle: "bureau", mot: "Bureau", rendre: panneauBureau(bureau, {
         surCahier: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); },
@@ -249,7 +253,10 @@ export default async function vueAccueil() {
 
   const lachers = [
     observer("demandeBureau", servirDemande),
-    observer("taille", () => { if (petit() && !console_.ouvert()) console_.demarrer(); }),
+    observer("taille", () => {
+      if (petit()) { if (!console_.ouvert()) console_.demarrer(); }
+      else decor.classeDans(null);
+    }),
     observer("notifications", peindreMur),
     ecouter("papiers:change", charger),
     ecouter("cahiers:change", async () => { await bureau.charger(); decor.peindre(); console_.rafraichir(); })
@@ -274,6 +281,7 @@ export default async function vueAccueil() {
     titre: "Chez moi",
     nettoyer: () => {
       rendre();
+      console_.detruire();
       for (const l of lachers) l?.();
       editeur?.detruire?.();
       decor.detruire?.();

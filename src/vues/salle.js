@@ -32,6 +32,7 @@ import {
   creerConsole, panneauBureau, panneauSac, panneauNote, panneauDocumentsConsole, panneauPersonnes, bandeauEcriture
 } from "../features/console.js";
 import { observer } from "../core/store.js";
+import { docHote } from "../core/hote.js";
 import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
 import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
 import { monAvatar } from "../features/apparence.js";
@@ -208,6 +209,8 @@ export default async function vueSalle({ params }) {
     surPlace: (i, qui) => choisirPlace(i, qui),
     // Le professeur clique le cahier ouvert sur une table : il le vérifie.
     surCahierDe: (ancre, p) => (staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p)),
+    // Mon cahier, cliqué sur ma table : il vient à l'écran, prêt à écrire.
+    surMonCahier: () => (petit() ? consoleSalle.ouvrir("cahier") : appliquerFenetre("cahier")),
     surSac: () => majPresence()
   });
 
@@ -260,7 +263,12 @@ export default async function vueSalle({ params }) {
     }));
   }
   const consoleSalle = creerConsole({
-    defaut: staff ? "bureau" : "cahier",
+    // Animation allumée : on se voit assis à sa place, rien d'ouvert par-dessus ;
+    // éteinte : le tableau.
+    defaut: () => (consoleSalle.avecScene() ? null : "tableau"),
+    // En tête de la console : soi, assis à sa table, dans la salle en 3D.
+    scene: (hote) => decor.classeDans(hote),
+    enTete: el("span.console__lieu", el("span.mur__voyant"), session.title || classe.name),
     panneaux: [
       { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
         surCahier: (c) => { cahierOuvertId = c.id; consoleSalle.ouvrir("cahier"); },
@@ -273,17 +281,6 @@ export default async function vueSalle({ params }) {
       } },
       { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
       { cle: "documents", mot: "Documents", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
-      { cle: "classe", get mot() { return ["reunion", "entretien"].includes(session.mode) ? "Table" : "Classe"; },
-        figure: () => icone("eleves", 22), rendre: (zone) => {
-          // La même salle en 3D, dans le panneau : qui est là, ce qu'il a
-          // sorti, le tableau. Allégée pour laisser la carte graphique au jeu.
-          zone.classList.add("console__corps--plein");
-          const hote = el("div.console__classe3d");
-          zone.appendChild(hote);
-          if (!decor.classeDans(hote)) {
-            render(zone, el("p.console__vide", "La vue en 3D n'est pas disponible sur cet appareil."));
-          }
-        } },
       { cle: "tableau", mot: "Tableau", figure: () => icone("tableau", 22), rendre: (zone) => montrerDansConsole(zone, "tableau") },
       { cle: "plus", mot: "Plus", figure: () => icone("points", 20), geste: () => menuPlusConsole() }
     ]
@@ -3125,7 +3122,15 @@ export default async function vueSalle({ params }) {
     majPresence();
     decor.majClasse();
   }
-  document.addEventListener("input", surFrappe, true);
+  // On écoute là où l'on tape : la page, ou la fenêtre flottante.
+  let docFrappe = null;
+  function ecouterFrappe() {
+    docFrappe?.removeEventListener("input", surFrappe, true);
+    docFrappe = docHote();
+    docFrappe.addEventListener("input", surFrappe, true);
+  }
+  ecouterFrappe();
+  const lacherFlottant = observer("flottant", ecouterFrappe);
   var lacherTaille = observer("taille", async () => {
     if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
     else { consoleSalle.fermer(); decor.classeDans(null); await appliquerFenetre(fenetre); }
@@ -3174,7 +3179,8 @@ export default async function vueSalle({ params }) {
       definirStatut(null);
       lacherTaille?.();
       lacherAvatar();
-      document.removeEventListener("input", surFrappe, true);
+      docFrappe?.removeEventListener("input", surFrappe, true);
+      lacherFlottant();
       clearTimeout(finEcriture);
       // On sort de la salle : ce qui n'a pas été rangé y reste.
       bureau.laisserTout();

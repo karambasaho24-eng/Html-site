@@ -653,13 +653,15 @@ export function creerEditeurCahier(options) {
         noeud.style.left = `${x * 100}%`;
         noeud.style.top = `${y * 100}%`;
       };
+      // La fenêtre du cahier : en fenêtre flottante, ce n'est pas `window`.
+      const fen = noeud.ownerDocument?.defaultView || window;
       const surRelache = () => {
-        window.removeEventListener("pointermove", surMouvement);
-        window.removeEventListener("pointerup", surRelache);
+        fen.removeEventListener("pointermove", surMouvement);
+        fen.removeEventListener("pointerup", surRelache);
         if (bouge) enregistrer({ x: mot.x, y: mot.y });
       };
-      window.addEventListener("pointermove", surMouvement);
-      window.addEventListener("pointerup", surRelache);
+      fen.addEventListener("pointermove", surMouvement);
+      fen.addEventListener("pointerup", surRelache);
     });
   }
 

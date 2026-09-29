@@ -14,13 +14,13 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { local } from "../core/util.js";
-import { etat } from "../core/store.js";
+import { etat, observer } from "../core/store.js";
 import { toast } from "../ui/toast.js";
 import { fiche, nomObjet, imageDetouree } from "./affaires.js";
 import { OUTILS_REQUIS } from "./portee.js";
 import { L } from "../core/lexique.js";
 import { creerClasse3D, webglDisponible } from "./classe-3d.js";
-import { monAvatar, ouvrirApparence } from "./apparence.js";
+import { monAvatar } from "./apparence.js";
 import { ecouter } from "../core/bus.js";
 
 /* --- L'échelle des choses --------------------------------------------------
@@ -91,6 +91,8 @@ export function creerScene({
   surPlace = null,
   // On clique le cahier posé sur la table de quelqu'un.
   surCahierDe = null,
+  // Je clique MON cahier, en 3D : il vient dans l'interface, pour écrire.
+  surMonCahier = null,
   // J'ouvre ou je referme mon sac (les autres le voient).
   surSac = null
 }) {
@@ -648,40 +650,61 @@ export function creerScene({
     });
   }
   let detruite = false;
-  if (webglDisponible()) {
-    creerClasse3D({
+  // Où montrer la classe en 3D : à sa place dans la scène, ou dans la console
+  // (petite fenêtre). Demandé avant qu'elle soit prête, on l'y posera.
+  let cible3d = null;
+  let montage = null;
+  const peut3d = () => webglDisponible() && etat.animations !== false;
+  function monter3d() {
+    if (!peut3d() || classe3d || montage || detruite) return;
+    montage = creerClasse3D({
       hote: vue3d,
       toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
       surPersonne: (ancre, p) => surPersonne?.(ancre, p),
       surPlace: avant ? null : (i, qui) => surPlace?.(i, qui),
-      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p)
+      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p),
+      surMonCahier: () => {
+        if (surMonCahier) { surMonCahier(); return; }
+        const c = bureau.cahiersSurLeBureau()[0];
+        if (c) surCahier?.(c);
+      }
     }).then((c) => {
       // La scène a été fermée pendant qu'on préparait la 3D : on la défait
       // aussitôt, sinon elle tournerait pour rien, hors de la page.
-      if (detruite) { c.detruire(); return; }
+      montage = null;
+      if (detruite || !peut3d()) { c.detruire(); return; }
       classe3d = c;
       noeud.classList.add("scene--3d");
+      if (cible3d) c.deplacer(cible3d);
       maj3d();
-      // Chez soi, on s'habille : le bouton est posé sur la vue.
-      if (avant) {
-        vue3d.appendChild(el("button.classe3d__habiller", { type: "button", onclick: () => ouvrirApparence() },
-          icone("profil", 14), "Mon personnage"));
-      }
+      lacherAvatar?.();
       lacherAvatar = ecouter("avatar:change", maj3d);
-    }).catch((err) => console.warn("[scene] vue 3D indisponible, on reste à plat", err));
+    }).catch((err) => { montage = null; console.warn("[scene] vue 3D indisponible, on reste à plat", err); });
   }
+  /** Animations éteintes : plus de 3D, la scène redevient plate. */
+  function demonter3d() {
+    classe3d?.detruire();
+    classe3d = null;
+    noeud.classList.remove("scene--3d");
+  }
+  monter3d();
+  const lacherAnimations = observer("animations", (v) => (v ? monter3d() : demonter3d()));
 
   return {
     noeud, ecranTableau, livre, grand,
     /** Le professeur écrit au tableau : on le voit se tourner. */
     signalerEcriture: () => classe3d?.ecrit(),
     /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
-    classeDans: (conteneur) => { if (classe3d) { classe3d.deplacer(conteneur || vue3d); return true; } return false; },
+    classeDans: (conteneur) => {
+      cible3d = conteneur || null;
+      if (classe3d) classe3d.deplacer(conteneur || vue3d);
+      return peut3d();
+    },
     a3d: () => Boolean(classe3d),
     /** Qui est où, qui écrit : on redonne l'état à la classe en 3D. */
     majClasse: () => maj3d(),
-    detruire: () => { detruite = true; lacherAvatar?.(); classe3d?.detruire(); classe3d = null; },
+    detruire: () => { detruite = true; lacherAvatar?.(); lacherAnimations(); classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,
     surChangementEtat: (fn) => { surChangementEtat = fn; },

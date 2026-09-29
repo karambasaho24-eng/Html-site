@@ -752,6 +752,19 @@ try {
   verifier("en petite fenetre, la salle devient une console",
     await cadet.locator(".salle > .console").isVisible() && !(await cadet.locator(".salle > .scene").isVisible()));
   await cadet.screenshot({ path: `${CAPT}/petit-1-salle-bureau.png` });
+  // Animation allumée : on se voit assis à sa place, en 3D, en tête de la console.
+  verifier("en petite fenetre, on se voit assis a son bureau (3D en tete de console)",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas.classe3d__toile').count() === 1);
+  await cadet.click(".salle > .console .console__anim");
+  await cadet.waitForTimeout(800);
+  verifier("animation coupee : plus de 3D, le tableau et l'interface",
+    await cadet.locator(".salle canvas.classe3d__toile").count() === 0
+    && await cadet.locator('.salle > .console .console__contenu[data-panneau="tableau"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/petit-1b-animation-coupee.png` });
+  await cadet.click(".salle > .console .console__anim");
+  await cadet.waitForTimeout(1500);
+  verifier("animation rallumee : on se revoit a sa place",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas.classe3d__toile').count() === 1);
   await cadet.click('.console__barre [aria-label="Sac"]');
   await cadet.waitForTimeout(700);
   verifier("le sac s'ouvre dans la console", await cadet.locator('.console__contenu[data-panneau="sac"]').count() === 1);
@@ -759,6 +772,8 @@ try {
   await cadet.click('.console__barre [aria-label="Cahier"]');
   await cadet.waitForTimeout(1200);
   verifier("le cahier s'ouvre dans la console", await cadet.locator('.console .parchemin').count() >= 1);
+  verifier("et la scene reste au-dessus : on se voit a son bureau pendant qu'on ecrit",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas').isVisible());
   await cadet.screenshot({ path: `${CAPT}/petit-3-salle-cahier.png` });
   await cadet.setViewportSize({ width: 380, height: 300 });
   await cadet.waitForTimeout(900);

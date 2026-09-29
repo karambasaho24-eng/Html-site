@@ -8,7 +8,7 @@ import { etat } from "../core/store.js";
 import { entete } from "../ui/fragments.js";
 import { config, configIntegree, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
-import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
+import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison, definirAnimations } from "../core/interface.js";
 import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
 import { succes, erreur, toast } from "../ui/toast.js";
@@ -88,6 +88,24 @@ export default async function vueReglages({ requete }) {
           ),
           el("p.petit.faible", { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
             "Le cahier conserve son parchemin dans les deux thèmes.")
+        )
+      ),
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Animations")),
+        el("div.panneau__corps",
+          el("div.groupe-btn",
+            el("button.btn", {
+              "aria-pressed": String(etat.animations !== false),
+              onclick: () => { definirAnimations(true); peindre(); }
+            }, "Allumées"),
+            el("button.btn", {
+              "aria-pressed": String(etat.animations === false),
+              onclick: () => { definirAnimations(false); peindre(); }
+            }, "Coupées")
+          ),
+          el("p.petit.faible", { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
+            "Allumées : vous vous voyez assis à votre bureau, même en fenêtre flottante. "
+            + "Coupées : seulement les tableaux et l'interface. L'interrupteur est aussi en haut de la fenêtre flottante.")
         )
       )
     );

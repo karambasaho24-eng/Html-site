@@ -678,3 +678,28 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .mes-cahiers__teinte { width: 24px; height: 24px; border-radius: 6px; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
 .mes-cahiers__teinte[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
 .mes-cahiers__formulaire .btn { align-self: flex-start; }
+
+/* --- Console : soi, assis à son bureau, au-dessus de l'interface ------------- */
+.console__haut { display: flex; align-items: center; gap: 8px; padding: 6px 10px 4px; min-height: 34px; }
+.console__haut > :first-child { flex: 1; min-width: 0; }
+.console__haut > .console__entete { padding: 0; }
+.console__lieu { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--texte-doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console__anim {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border: 0; border-radius: 999px; font: inherit; font-size: 11.5px; color: var(--texte-doux); cursor: pointer;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.console__anim:hover { color: var(--texte); background: var(--surface-2); }
+.console__anim-voyant { width: 8px; height: 8px; border-radius: 50%; background: var(--texte-faible); }
+.console__anim[aria-checked="true"] .console__anim-voyant { background: var(--vert); box-shadow: 0 0 6px var(--vert); }
+.console__scene { display: none; position: relative; }
+.console[data-scene="1"] .console__scene {
+  display: block; flex: 1 1 auto; min-height: 120px; margin: 0 10px 6px;
+  border-radius: 14px; overflow: hidden; background: #1d1f22;
+  box-shadow: 0 0 0 1px var(--ligne);
+}
+/* Un panneau ouvert (le cahier, le tableau…) : la scène se fait petite, en haut. */
+.console[data-scene="1"]:not([data-ouvert=""]) .console__scene { flex: 0 0 32%; min-height: 110px; }
+.console[data-scene="1"][data-ouvert=""] .console__panneau { flex: 0 0 auto; }
+.console__scene .classe3d__refermer { bottom: 8px; }
+.chassis[data-taille="mini"] .console[data-scene="1"] .console__scene { min-height: 90px; }

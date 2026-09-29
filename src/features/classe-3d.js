@@ -78,7 +78,7 @@ const LARGEUR = {
   craie: .2, buvard: .56, registre: .58, cachet: .2
 };
 
-export async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null }) {
+export async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null, surMonCahier = null }) {
   const THREE = await chargerThree();
 
   /* --- Le rendu ------------------------------------------------------------ */
@@ -1511,11 +1511,26 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
   let suivre = false, cameraPosee = false, derniereCam = 0;
   function viserDerriere(o) {
-    posCible.set(o.x + 0.9, 6.3, o.z + 5.6);
-    regardCible.set(o.x * 0.5, 2.8, o.z - 8);
+    // Fenêtre haute et étroite (flottante, au-dessus du jeu) : on recule et
+    // on monte, pour se voir en entier à sa table, et le tableau au fond.
+    const recul = Math.max(0, Math.min(1.2, 1.25 - camera.aspect)) * 4.2;
+    posCible.set(o.x + 0.9, 6.3 + recul * 0.55, o.z + 5.6 + recul);
+    regardCible.set(o.x * 0.5, 2.8 - recul * 0.12, o.z - 8);
   }
-  const observateur = new ResizeObserver(() => cadrer());
-  observateur.observe(hote);
+  // La fenêtre qui montre la vue : la page, ou la fenêtre flottante posée
+  // au-dessus du jeu. On suit SA taille et SON horloge : la page d'origine,
+  // cachée derrière Roblox, ne donne plus d'images.
+  const fenetreDe = () => hote.ownerDocument?.defaultView || window;
+  let observateur = null, fenetreObservee = null;
+  function observerTaille() {
+    const f = fenetreDe();
+    if (f === fenetreObservee && observateur) return;
+    observateur?.disconnect();
+    fenetreObservee = f;
+    observateur = new (f.ResizeObserver || ResizeObserver)(() => cadrer());
+    observateur.observe(hote);
+  }
+  observerTaille();
 
   /* --- Les gestes : cliquer le tableau, montrer quelqu'un ------------------ */
   const rayon = new THREE.Raycaster();
@@ -1544,7 +1559,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const sg = dispo.sieges[place];
       anneau.position.set(sg.x, 0.03, sg.z);
     }
-    const cahier = (surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "")) || (sacMoi && o?.userData.contenu) ? "cahier" : null;
+    const cahier = ((surCahier || surMonCahier) && /cahier|carnet|livre/.test(o?.userData.objet || "")) || (sacMoi && o?.userData.contenu) ? "cahier" : null;
     const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
     canvas.style.cursor = cible || libre || cahier ? "pointer" : place != null ? "not-allowed" : "";
     if (cible !== survol) {
@@ -1582,6 +1597,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     if (o?.userData.objet && /cahier|carnet|livre/.test(o.userData.objet)) {
       const [, x] = [...gens.entries()].find(([, g]) => g.siege?.objets === o.parent) || [];
       if (x && !x.personne.moi && surCahier) { surCahier(x.etiquette, x.personne.brut); return; }
+      // Le mien : je le prends, il vient dans l'interface pour que j'écrive.
+      if (x?.personne.moi && surMonCahier) { surMonCahier(); return; }
     }
     if (o?.userData.tableau) surTableau?.();
     else if (o?.userData.personne) {
@@ -1593,16 +1610,29 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /* --- La boucle : moins d'images en petit, aucune quand on ne voit rien --- */
   const vecteur = new THREE.Vector3();
   let dernier = 0, dernierTableau = 0, anime = 0, vivant = true, visible = true, verifie = 0;
-  let leger = null;
-  const io = new IntersectionObserver(([x]) => { visible = x.isIntersecting; });
-  io.observe(hote);
+  let leger = null, horloge = null, dernierAppel = 0;
+  /** L'image suivante, demandée à la fenêtre qui montre la vue. */
+  function demanderImage() {
+    horloge = fenetreDe();
+    anime = horloge.requestAnimationFrame(image);
+  }
+  // La vue a changé de fenêtre (on passe en flottant, on en revient) : la
+  // boucle, accrochée à l'ancienne, peut s'être arrêtée. On la relance.
+  const veille = setInterval(() => {
+    if (!vivant) return;
+    if (fenetreDe() !== horloge || performance.now() - dernierAppel > 1500) {
+      horloge?.cancelAnimationFrame?.(anime);
+      observerTaille();
+      demanderImage();
+    }
+  }, 700);
 
   /** Au-dessus du jeu, on laisse la carte graphique à Roblox. */
   function qualite() {
-    const petit = hote.clientWidth < 720 || document.body.classList.contains("est-flottant");
+    const petit = hote.clientWidth < 720 || Boolean(hote.ownerDocument?.body?.classList.contains("est-flottant"));
     if (petit === leger) return;
     leger = petit;
-    renderer.setPixelRatio(leger ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(leger ? 1 : Math.min(fenetreDe().devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = !leger;
     scene.traverse((m) => { if (m.material) m.material.needsUpdate = true; });
     cadrer();
@@ -1616,17 +1646,20 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     el.style.transform = `translate(-50%, -100%) translate(${(vecteur.x * 0.5 + 0.5) * hote.clientWidth}px, ${(-vecteur.y * 0.5 + 0.5) * hote.clientHeight}px)`;
   }
 
-  function image(t) {
+  function image() {
     if (!vivant) return;
-    anime = requestAnimationFrame(image);
-    // L'observateur ne prévient pas toujours quand la vue, montée hors de la
-    // page, y entre ensuite : on vérifie soi-même, de temps en temps.
-    if (!visible && t - verifie > 400) {
+    demanderImage();
+    // Une seule horloge, quelle que soit la fenêtre : celle de la page.
+    const t = performance.now();
+    dernierAppel = t;
+    // Visible ? On regarde soi-même, de temps en temps : dans une fenêtre
+    // flottante, les observateurs de la page ne voient rien.
+    if (t - verifie > 400) {
       verifie = t;
       const r = hote.getBoundingClientRect();
-      visible = hote.isConnected && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
+      visible = hote.isConnected && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < fenetreDe().innerHeight;
     }
-    if (!visible || !hote.isConnected || document.hidden || t - dernier < (leger ? 50 : 33)) return;
+    if (!visible || !hote.isConnected || hote.ownerDocument?.hidden || t - dernier < (leger ? 50 : 33)) return;
     dernier = t;
     const s = t / 1000;
     if (t - dernierTableau > (leger ? 500 : 300)) { suivreToile(); dernierTableau = t; qualite(); }
@@ -1715,7 +1748,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   reconstruire();
   qualite();
-  anime = requestAnimationFrame(image);
+  demanderImage();
 
   const api = {
     /**
@@ -1767,20 +1800,21 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     deplacer(nouvelHote) {
       if (hote === nouvelHote) return;
       nouvelHote.append(canvas, etiquettes, boutonSac);
-      observateur.disconnect(); observateur.observe(nouvelHote);
-      io.disconnect(); io.observe(nouvelHote);
       hote = nouvelHote;
+      fenetreObservee = null;
+      observerTaille();
+      verifie = 0;
       leger = null;
       qualite();
       cadrer();
     },
     detruire() {
       vivant = false;
-      cancelAnimationFrame(anime);
+      clearInterval(veille);
+      horloge?.cancelAnimationFrame?.(anime);
       for (const x of gens.values()) { retirer(x.p.racine); if (x.sac) retirer(x.sac); }
       if (prof) retirer(prof.p.racine);
-      observateur.disconnect();
-      io.disconnect();
+      observateur?.disconnect();
       texture?.dispose();
       for (const x of textures.values()) x.tex?.dispose();
       renderer.dispose();
