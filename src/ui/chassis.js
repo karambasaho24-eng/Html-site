@@ -24,14 +24,6 @@ import { pilote } from "../data/index.js";
 
 let refs = {};
 
-/** Monogramme dérivé du nom affiché : « Classe Parallèle » → « CP ». */
-function sceau() {
-  const mots = String(config.academyName || "Classe Parallèle")
-    .split(/[\s·—-]+/).filter(Boolean);
-  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
-  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
-}
-
 export function construireChassis(hote) {
   // Plus de rail ni de tableau de bord : une ligne de contexte en haut (où je
   // suis), la vue, et la barre des gestes en bas. Le reste de l'application
@@ -39,7 +31,7 @@ export function construireChassis(hote) {
   const chassis = el("div.chassis.chassis--monde", { dataset: { taille: "grand" } },
     el("header.contexte",
       el("button.contexte__sceau", { type: "button", title: "Chez moi", "aria-label": "Chez moi",
-        onclick: () => aller("/") }, sceau()),
+        onclick: () => aller("/") }, icone("accueil", 16)),
       refs.fil = el("div.contexte__lieu"),
       refs.statut = el("div.contexte__statut"),
       refs.outils = el("div.contexte__outils")

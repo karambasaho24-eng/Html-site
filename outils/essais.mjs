@@ -64,8 +64,11 @@ async function creerCompte(page, nom, email) {
   await page.click('button[type="submit"]:has-text("Créer mon compte")');
   await page.waitForTimeout(1600);
   // La fenêtre « habillez votre personnage » s'ouvre à la première visite.
-  const bienvenue = await page.waitForSelector(".voile", { timeout: 6000 }).then(() => true).catch(() => false);
+  const bienvenue = await page.waitForSelector(".apparence", { timeout: 6000 }).then(() => true).catch(() => false);
   verifier("tout juste inscrit, on commence par habiller son personnage", bienvenue);
+  await page.keyboard.press("Escape");
+  const cahiersDabord = await page.waitForSelector(".mes-cahiers", { timeout: 6000 }).then(() => true).catch(() => false);
+  verifier("puis on choisit ses cahiers", cahiersDabord);
   for (let i = 0; i < 3 && await page.locator(".voile").count(); i++) {
     await page.keyboard.press("Escape"); await page.waitForTimeout(500);
   }
@@ -776,6 +779,21 @@ try {
   await cadet.waitForTimeout(1800);
   verifier("chez moi, on arrive devant son bureau", await cadet.locator(".chez-moi .scene").isVisible());
   verifier("la barre des gestes est la", await cadet.locator(".actions .actions__geste").count() === 6);
+  verifier("plus de sigle « CP » : une maison pour rentrer chez soi",
+    (await cadet.locator(".contexte__sceau").innerText()).trim() === "" && await cadet.locator(".contexte__sceau svg").count() === 1);
+  const avantCahiers = await depot(cadet, "return (await d.cahiers.mesCahiers(etat.utilisateur.id)).length");
+  await cadet.click('.mur__raccourcis button:has-text("Mes cahiers")');
+  await cadet.waitForSelector(".mes-cahiers", { timeout: 5000 });
+  await cadet.fill('.mes-cahiers input[name="titre-cahier"]', "Stratégie");
+  await cadet.click('.mes-cahiers .mes-cahiers__teinte[title="Bordeaux"] >> nth=-1');
+  await cadet.click('.mes-cahiers button:has-text("Le prendre")');
+  await cadet.waitForTimeout(700);
+  await cadet.screenshot({ path: `${CAPT}/mes-cahiers.png` });
+  verifier("« Mes cahiers » : on en prend un neuf, couverture choisie",
+    await cadet.locator('.mes-cahiers__cahier:has-text("Stratégie")').count() === 1
+    && await depot(cadet, "return (await d.cahiers.mesCahiers(etat.utilisateur.id)).length") === avantCahiers + 1);
+  await cadet.keyboard.press("Escape");
+  await cadet.waitForTimeout(500);
   await cadet.click('.actions__geste[data-geste="sac"]');
   await cadet.waitForTimeout(700);
   verifier("le geste Sac ouvre le sac de la chambre", await cadet.locator('.chez-moi .scene[data-etat="sac"]').count() === 1);

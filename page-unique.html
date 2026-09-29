@@ -293,13 +293,28 @@ kbd {
   display: grid; place-content: center; justify-items: center; gap: var(--e-4);
   background: var(--encre-900);
 }
-.boot__mark {
-  font-family: var(--f-titre); font-size: 2.6rem; font-weight: 700;
-  letter-spacing: .22em; color: var(--laiton);
-  border: 2px solid var(--ligne-laiton);
-  padding: var(--e-3) var(--e-5) var(--e-3) calc(var(--e-5) + .22em);
-  border-radius: var(--r-sm);
-  animation: pulsation 2.2s ease-in-out infinite;
+/* Une bougie qui s'allume, le temps que tout arrive. */
+.boot__bougie {
+  position: relative; width: 14px; height: 46px; margin-top: 34px;
+  border-radius: 3px 3px 2px 2px;
+  background: linear-gradient(90deg, #cfc4ae, #f3ecdd 45%, #d4c9b3);
+}
+.boot__bougie::before {
+  content: ""; position: absolute; left: 50%; top: -6px; width: 2px; height: 7px;
+  background: #2b2520; transform: translateX(-50%);
+}
+.boot__flamme {
+  position: absolute; left: 50%; bottom: calc(100% + 3px); width: 12px; height: 24px; margin-left: -6px;
+  border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
+  background: radial-gradient(ellipse at 50% 76%, #fff7dc 0 22%, #ffc85c 46%, rgba(255,128,32,0) 74%);
+  box-shadow: 0 0 26px 10px rgba(255,170,60,.22);
+  transform-origin: 50% 100%;
+  animation: flamme 1.7s ease-in-out infinite;
+}
+@keyframes flamme {
+  0%, 100% { transform: scale(1, 1) rotate(-1deg); }
+  30% { transform: scale(.93, 1.07) rotate(2deg); }
+  60% { transform: scale(1.04, .95) rotate(-2deg); }
 }
 .boot__label { color: var(--texte-faible); font-size: var(--t-sm); letter-spacing: .08em; text-transform: uppercase; }
 @keyframes pulsation { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
@@ -3898,10 +3913,10 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   flex: 0 0 auto;
   width: 28px; height: 28px; border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 700; letter-spacing: .02em;
-  color: #15130f; background: var(--accent);
+  color: var(--texte-doux); background: transparent;
   border: 0; cursor: pointer;
 }
+.contexte__sceau:hover { color: var(--texte); background: var(--surface-2); }
 .contexte__lieu { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
 .contexte__nom {
   font-size: 14px; font-weight: 600;
@@ -4517,6 +4532,34 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .acces__onglets button[aria-selected="true"] { background: var(--surface-2); color: var(--texte); font-weight: 600; }
 .acces__formulaire { display: grid; gap: 4px; }
 .acces__aide { margin: 12px 0 0; font-size: 12.5px; color: var(--texte-faible); text-align: center; }
+
+/* --- Chez moi : les deux raccourcis du mur ---------------------------------- */
+.mur__raccourcis { display: flex; gap: 6px; }
+
+/* --- Mes cahiers -------------------------------------------------------------- */
+.mes-cahiers { display: flex; flex-direction: column; gap: 18px; }
+.mes-cahiers__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.mes-cahiers__cahier { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); }
+.mes-cahiers__infos { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mes-cahiers__infos b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mes-cahiers__couv {
+  position: relative; flex: 0 0 auto; width: 54px; height: 72px; border-radius: 3px 7px 7px 3px;
+  box-shadow: inset 5px 0 0 rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.28);
+  display: grid; place-items: center;
+}
+.mes-cahiers__couv--grand { width: 120px; height: 160px; }
+.mes-cahiers__etiquette {
+  max-width: 78%; padding: 3px 5px; border-radius: 2px; background: #efe6d2; color: #2b241b;
+  font: 600 9px/1.2 var(--f-titre, serif); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mes-cahiers__couv--grand .mes-cahiers__etiquette { font-size: 12px; padding: 5px 8px; }
+.mes-cahiers__neuf { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.mes-cahiers__formulaire { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 220px; }
+.mes-cahiers__supports { display: flex; flex-wrap: wrap; gap: 6px; }
+.mes-cahiers__nuancier { display: flex; gap: 6px; flex-wrap: wrap; }
+.mes-cahiers__teinte { width: 24px; height: 24px; border-radius: 6px; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
+.mes-cahiers__teinte[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
+.mes-cahiers__formulaire .btn { align-self: flex-start; }
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -14629,7 +14672,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     ombrer(sac);
     return sac;
   }
-  const COUVERTURES3 = {
+  const COUVERTURES4 = {
     parchment: ["#e8dcc4", "#c7b28a"],
     cuir: ["#5a4030", "#2c1f16"],
     ardoise: ["#44606c", "#22303a"],
@@ -14641,7 +14684,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   function matieresCahier(chose) {
     const cle = `${chose.cover || "parchment"}|${chose.titre || ""}|${chose.kind}`;
     if (cacheCouv.has(cle)) return cacheCouv.get(cle);
-    const [c1, c2] = COUVERTURES3[chose.cover] || COUVERTURES3[chose.kind === "carnet" ? "cuir" : "oxblood"];
+    const [c1, c2] = COUVERTURES4[chose.cover] || COUVERTURES4[chose.kind === "carnet" ? "cuir" : "oxblood"];
     const couv = texturePeinte(256, 340, (g, l, h) => {
       const d = g.createLinearGradient(0, 0, l, h);
       d.addColorStop(0, c1);
@@ -15972,11 +16015,6 @@ var init_apparence = __esm({
 });
 
 // src/ui/chassis.js
-function sceau() {
-  const mots = String(config.academyName || "Classe Parall\xE8le").split(/[\s·—-]+/).filter(Boolean);
-  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
-  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
-}
 function construireChassis(hote) {
   const chassis = el(
     "div.chassis.chassis--monde",
@@ -15988,7 +16026,7 @@ function construireChassis(hote) {
         title: "Chez moi",
         "aria-label": "Chez moi",
         onclick: () => aller("/")
-      }, sceau()),
+      }, icone("accueil", 16)),
       refs.fil = el("div.contexte__lieu"),
       refs.statut = el("div.contexte__statut"),
       refs.outils = el("div.contexte__outils")
@@ -18708,6 +18746,172 @@ var init_console = __esm({
   }
 });
 
+// src/features/mes-cahiers.js
+var mes_cahiers_exports = {};
+__export(mes_cahiers_exports, {
+  COUVERTURES: () => COUVERTURES,
+  ouvrirMesCahiers: () => ouvrirMesCahiers
+});
+async function ouvrirMesCahiers({ bienvenue = false } = {}) {
+  const moi = etat.utilisateur?.id;
+  if (!moi) return false;
+  let liste = await cahiers.mesCahiers(moi).catch(() => []);
+  const neuf = { support: "cahier", cover: "cuir", titre: "" };
+  let change = false;
+  const zone = el("div.mes-cahiers");
+  const nuancier = (courante, choisir2) => el(
+    "div.mes-cahiers__nuancier",
+    COUVERTURES.map((c) => el("button.mes-cahiers__teinte", {
+      type: "button",
+      title: c.libelle,
+      "aria-label": c.libelle,
+      "aria-pressed": String(courante === c.cle),
+      style: { background: c.fond },
+      onclick: () => choisir2(c.cle)
+    }))
+  );
+  function peindre() {
+    render(
+      zone,
+      liste.length ? el(
+        "section.mes-cahiers__groupe",
+        el("h3.apparence__titre", "Ceux que j'ai"),
+        el("div.mes-cahiers__liste", liste.map((c) => el(
+          "div.mes-cahiers__cahier",
+          el(
+            "span.mes-cahiers__couv",
+            { style: { background: fondDe(c.cover) } },
+            el("span.mes-cahiers__etiquette", c.title)
+          ),
+          el(
+            "div.mes-cahiers__infos",
+            el("b", c.title),
+            el("span.petit.faible", SUPPORTS.find((s) => s.cle === (c.support || "cahier"))?.libelle || "Cahier"),
+            nuancier(c.cover, async (cle) => {
+              try {
+                await cahiers.majorer(c.id, { cover: cle });
+                c.cover = cle;
+                change = true;
+                peindre();
+              } catch (err) {
+                erreur("Impossible", messageErreur(err));
+              }
+            })
+          )
+        )))
+      ) : null,
+      el(
+        "section.mes-cahiers__groupe.mes-cahiers__groupe--neuf",
+        el("h3.apparence__titre", liste.length ? "En prendre un neuf" : "Votre premier cahier"),
+        el(
+          "div.mes-cahiers__neuf",
+          el(
+            "span.mes-cahiers__couv.mes-cahiers__couv--grand",
+            { style: { background: fondDe(neuf.cover) } },
+            el("span.mes-cahiers__etiquette", neuf.titre || "Cahier")
+          ),
+          el(
+            "div.mes-cahiers__formulaire",
+            el("div.mes-cahiers__supports", SUPPORTS.map((s) => el("button.apparence__coupe", {
+              type: "button",
+              "aria-pressed": String(neuf.support === s.cle),
+              title: s.aide,
+              onclick: () => {
+                neuf.support = s.cle;
+                peindre();
+              }
+            }, s.libelle))),
+            el("input.saisie", {
+              name: "titre-cahier",
+              maxlength: 40,
+              value: neuf.titre,
+              placeholder: "Titre \u2014 \xAB Droit p\xE9nal \xBB, \xAB Strat\xE9gie \xBB\u2026",
+              oninput: (e) => {
+                neuf.titre = e.target.value;
+                zone.querySelector(".mes-cahiers__couv--grand .mes-cahiers__etiquette").textContent = neuf.titre || "Cahier";
+              }
+            }),
+            nuancier(neuf.cover, (cle) => {
+              neuf.cover = cle;
+              peindre();
+            }),
+            el("button.btn.btn--primaire", { type: "button", onclick: prendre }, icone("plus", 14), "Le prendre")
+          )
+        )
+      )
+    );
+  }
+  async function prendre() {
+    const support = neuf.support;
+    const titre = neuf.titre.trim() || SUPPORTS.find((s) => s.cle === support).libelle;
+    try {
+      const c = await cahiers.creer({
+        owner_id: moi,
+        kind: "personal",
+        class_id: null,
+        title: titre,
+        subtitle: null,
+        cover: neuf.cover,
+        color: "olive",
+        icon: "book",
+        collaborative: false,
+        support,
+        max_pages: CAPACITE_SUPPORT[support] || 10
+      });
+      await pages.creer(c.id, { title: support === "feuille" ? "Feuille" : "Page 1", created_by: moi }).catch(() => {
+      });
+      liste = [c, ...liste];
+      neuf.titre = "";
+      change = true;
+      succes(`${titre} : pos\xE9 sur votre bureau`, "Mettez-le dans votre sac pour l'emporter en classe.");
+      peindre();
+    } catch (err) {
+      erreur("Impossible", messageErreur(err));
+    }
+  }
+  peindre();
+  await ouvrirModale({
+    titre: bienvenue ? "Et vos cahiers ?" : "Mes cahiers",
+    large: true,
+    corps: () => el(
+      "div",
+      bienvenue ? el("p.petit.faible", "Choisissez-en un ou deux pour commencer. Vous en reprendrez quand vous voudrez, depuis \xAB Mes cahiers \xBB.") : null,
+      zone
+    ),
+    actions: [{ libelle: bienvenue ? "C'est bon" : "Fermer", variante: "primaire", valeur: true }]
+  });
+  if (change) emettre("cahiers:change");
+  return change;
+}
+var COUVERTURES, fondDe, SUPPORTS;
+var init_mes_cahiers = __esm({
+  "src/features/mes-cahiers.js"() {
+    init_dom();
+    init_icons();
+    init_store();
+    init_bus();
+    init_data();
+    init_modal();
+    init_toast();
+    init_editeur_cahier();
+    COUVERTURES = [
+      { cle: "cuir", libelle: "Cuir", fond: "linear-gradient(160deg, #4a3527, #2c1f16)" },
+      { cle: "parchment", libelle: "Parchemin", fond: "linear-gradient(160deg, #e8dcc4, #cbb994)" },
+      { cle: "ardoise", libelle: "Ardoise", fond: "linear-gradient(160deg, #3d525c, #22303a)" },
+      { cle: "olive", libelle: "Olive", fond: "linear-gradient(160deg, #6f7d4d, #3f4a2b)" },
+      { cle: "oxblood", libelle: "Bordeaux", fond: "linear-gradient(160deg, #7c3a3a, #4a2020)" },
+      { cle: "encre", libelle: "Encre", fond: "linear-gradient(160deg, #2a323a, #14181d)" }
+    ];
+    fondDe = (cle) => (COUVERTURES.find((c) => c.cle === cle) || COUVERTURES[1]).fond;
+    SUPPORTS = [
+      { cle: "cahier", libelle: "Cahier", aide: "10 pages" },
+      { cle: "carnet", libelle: "Carnet", aide: "20 pages, de poche" },
+      { cle: "dossier", libelle: "Dossier", aide: "30 pages class\xE9es" },
+      { cle: "feuille", libelle: "Feuille", aide: "Une page, \xE0 donner" }
+    ];
+  }
+});
+
 // src/vues/accueil.js
 var accueil_exports = {};
 __export(accueil_exports, {
@@ -18907,6 +19111,11 @@ async function vueAccueil() {
         ),
         el(
           "div.mur__pied",
+          el(
+            "div.mur__raccourcis",
+            el("button.btn.btn--petit", { type: "button", onclick: () => personnage() }, icone("eleves", 14), "Mon personnage"),
+            el("button.btn.btn--petit", { type: "button", onclick: () => mesCahiers() }, icone("cahiers", 14), "Mes cahiers")
+          ),
           espaces.length ? el("div.mur__espaces", espaces.slice(0, 4).map((c) => el("a.mur__espace", { href: `#/classe/${c.id}` }, c.name))) : null,
           rejoindre()
         )
@@ -18927,6 +19136,14 @@ async function vueAccueil() {
       ) : el("span.console__calme", aLire.length ? `${aLire.length} papier${aLire.length > 1 ? "s" : ""} \xE0 lire` : "Chez moi \u2014 rien ne vous attend")
     );
   }
+  async function personnage(options) {
+    const { ouvrirApparence: ouvrirApparence2 } = await Promise.resolve().then(() => (init_apparence(), apparence_exports));
+    return ouvrirApparence2(options);
+  }
+  async function mesCahiers(options) {
+    const { ouvrirMesCahiers: ouvrirMesCahiers2 } = await Promise.resolve().then(() => (init_mes_cahiers(), mes_cahiers_exports));
+    return ouvrirMesCahiers2(options);
+  }
   function servirDemande() {
     const d = etat.demandeBureau;
     if (!d) return;
@@ -18940,7 +19157,12 @@ async function vueAccueil() {
       if (petit() && !console_.ouvert()) console_.demarrer();
     }),
     observer("notifications", peindreMur),
-    ecouter("papiers:change", charger2)
+    ecouter("papiers:change", charger2),
+    ecouter("cahiers:change", async () => {
+      await bureau.charger();
+      decor.peindre();
+      console_.rafraichir();
+    })
   ];
   modePleineVue(true);
   decor.peindre();
@@ -18949,7 +19171,10 @@ async function vueAccueil() {
   setTimeout(servirDemande, 0);
   if (local.lire("ojm.bienvenue", false)) {
     local.ecrire("ojm.bienvenue", false);
-    setTimeout(() => Promise.resolve().then(() => (init_apparence(), apparence_exports)).then((m) => m.ouvrirApparence({ bienvenue: true })), 500);
+    setTimeout(async () => {
+      await personnage({ bienvenue: true });
+      await mesCahiers({ bienvenue: true });
+    }, 500);
   }
   return {
     noeud,
@@ -19049,7 +19274,7 @@ function vignetteCahier(cahier, options = {}) {
     { href: `#/cahier/${cahier.id}` },
     el("span.dos-cahier__vignette", {
       dataset: { support },
-      style: { background: COUVERTURES[cahier.cover] || COUVERTURES.parchment }
+      style: { background: COUVERTURES2[cahier.cover] || COUVERTURES2.parchment }
     }),
     el(
       "span.dos-cahier__infos",
@@ -19167,7 +19392,7 @@ function entete(surtitre, titre, sous = null, actions2 = null) {
     actions2 ? el("div.page__actions", actions2) : null
   );
 }
-var COUVERTURES, NOMS_SUPPORT3;
+var COUVERTURES2, NOMS_SUPPORT3;
 var init_fragments = __esm({
   "src/ui/fragments.js"() {
     init_dom();
@@ -19175,7 +19400,7 @@ var init_fragments = __esm({
     init_lexique();
     init_util();
     init_permissions();
-    COUVERTURES = {
+    COUVERTURES2 = {
       parchment: "linear-gradient(160deg, #e8dcc4, #cbb994)",
       cuir: "linear-gradient(160deg, #4a3527, #2c1f16)",
       ardoise: "linear-gradient(160deg, #3d525c, #22303a)",
@@ -19276,7 +19501,7 @@ async function vueCahiers() {
           label: "Quel support ?",
           type: "choix",
           valeur: "cahier",
-          options: SUPPORTS.map((s) => ({ valeur: s.cle, libelle: s.libelle, aide: s.aide }))
+          options: SUPPORTS2.map((s) => ({ valeur: s.cle, libelle: s.libelle, aide: s.aide }))
         },
         { cle: "title", label: "Titre", valeur: "", placeholder: "Cahier de droit p\xE9nal", requis: true },
         { cle: "subtitle", label: "Sous-titre (facultatif)", valeur: "", placeholder: "Promotion 2026" },
@@ -19285,7 +19510,7 @@ async function vueCahiers() {
           label: "Couverture",
           type: "select",
           valeur: "parchment",
-          options: COUVERTURES2.map((c) => ({ valeur: c.cle, libelle: c.libelle }))
+          options: COUVERTURES3.map((c) => ({ valeur: c.cle, libelle: c.libelle }))
         }
       ],
       libelle: "Cr\xE9er"
@@ -19367,7 +19592,7 @@ async function vueCahiers() {
           label: "Couverture",
           type: "select",
           valeur: cahier.cover,
-          options: COUVERTURES2.map((c) => ({ valeur: c.cle, libelle: c.libelle }))
+          options: COUVERTURES3.map((c) => ({ valeur: c.cle, libelle: c.libelle }))
         }
       ]
     });
@@ -19386,7 +19611,7 @@ async function vueCahiers() {
   await peindre();
   return { noeud, titre: `Mes ${L("cahiers")}` };
 }
-var SUPPORTS, COUVERTURES2;
+var SUPPORTS2, COUVERTURES3;
 var init_cahiers = __esm({
   "src/vues/cahiers.js"() {
     init_dom();
@@ -19402,13 +19627,13 @@ var init_cahiers = __esm({
     init_tendre_cahier();
     init_data();
     init_toast();
-    SUPPORTS = [
+    SUPPORTS2 = [
       { cle: "feuille", libelle: "Feuille", aide: "Une page, \xE0 donner" },
       { cle: "cahier", libelle: "Cahier", aide: "10 pages" },
       { cle: "carnet", libelle: "Carnet", aide: "20 pages, de poche" },
       { cle: "dossier", libelle: "Dossier", aide: "30 pages class\xE9es" }
     ];
-    COUVERTURES2 = [
+    COUVERTURES3 = [
       { cle: "parchment", libelle: "Parchemin" },
       { cle: "cuir", libelle: "Cuir" },
       { cle: "ardoise", libelle: "Ardoise" },

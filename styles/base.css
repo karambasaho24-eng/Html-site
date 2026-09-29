@@ -95,13 +95,28 @@ kbd {
   display: grid; place-content: center; justify-items: center; gap: var(--e-4);
   background: var(--encre-900);
 }
-.boot__mark {
-  font-family: var(--f-titre); font-size: 2.6rem; font-weight: 700;
-  letter-spacing: .22em; color: var(--laiton);
-  border: 2px solid var(--ligne-laiton);
-  padding: var(--e-3) var(--e-5) var(--e-3) calc(var(--e-5) + .22em);
-  border-radius: var(--r-sm);
-  animation: pulsation 2.2s ease-in-out infinite;
+/* Une bougie qui s'allume, le temps que tout arrive. */
+.boot__bougie {
+  position: relative; width: 14px; height: 46px; margin-top: 34px;
+  border-radius: 3px 3px 2px 2px;
+  background: linear-gradient(90deg, #cfc4ae, #f3ecdd 45%, #d4c9b3);
+}
+.boot__bougie::before {
+  content: ""; position: absolute; left: 50%; top: -6px; width: 2px; height: 7px;
+  background: #2b2520; transform: translateX(-50%);
+}
+.boot__flamme {
+  position: absolute; left: 50%; bottom: calc(100% + 3px); width: 12px; height: 24px; margin-left: -6px;
+  border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
+  background: radial-gradient(ellipse at 50% 76%, #fff7dc 0 22%, #ffc85c 46%, rgba(255,128,32,0) 74%);
+  box-shadow: 0 0 26px 10px rgba(255,170,60,.22);
+  transform-origin: 50% 100%;
+  animation: flamme 1.7s ease-in-out infinite;
+}
+@keyframes flamme {
+  0%, 100% { transform: scale(1, 1) rotate(-1deg); }
+  30% { transform: scale(.93, 1.07) rotate(2deg); }
+  60% { transform: scale(1.04, .95) rotate(-2deg); }
 }
 .boot__label { color: var(--texte-faible); font-size: var(--t-sm); letter-spacing: .08em; text-transform: uppercase; }
 @keyframes pulsation { 0%,100% { opacity: .55 } 50% { opacity: 1 } }

@@ -208,6 +208,9 @@ export default async function vueAccueil() {
           el("span.mur__date", dateLongue(Date.now())),
           el("h1.mur__titre", prenom ? `${salut()}, ${prenom}` : salut())),
         el("div.mur__pied",
+          el("div.mur__raccourcis",
+            el("button.btn.btn--petit", { type: "button", onclick: () => personnage() }, icone("eleves", 14), "Mon personnage"),
+            el("button.btn.btn--petit", { type: "button", onclick: () => mesCahiers() }, icone("cahiers", 14), "Mes cahiers")),
           espaces.length ? el("div.mur__espaces", espaces.slice(0, 4).map((c) =>
             el("a.mur__espace", { href: `#/classe/${c.id}` }, c.name))) : null,
           rejoindre())),
@@ -225,6 +228,16 @@ export default async function vueAccueil() {
         : el("span.console__calme", aLire.length ? `${aLire.length} papier${aLire.length > 1 ? "s" : ""} à lire` : "Chez moi — rien ne vous attend"));
   }
 
+  /* --- S'habiller, choisir ses cahiers ------------------------------------ */
+  async function personnage(options) {
+    const { ouvrirApparence } = await import("../features/apparence.js");
+    return ouvrirApparence(options);
+  }
+  async function mesCahiers(options) {
+    const { ouvrirMesCahiers } = await import("../features/mes-cahiers.js");
+    return ouvrirMesCahiers(options);
+  }
+
   /* --- Les demandes venues d'ailleurs (« Sac » depuis une autre page) ----- */
   function servirDemande() {
     const d = etat.demandeBureau;
@@ -238,7 +251,8 @@ export default async function vueAccueil() {
     observer("demandeBureau", servirDemande),
     observer("taille", () => { if (petit() && !console_.ouvert()) console_.demarrer(); }),
     observer("notifications", peindreMur),
-    ecouter("papiers:change", charger)
+    ecouter("papiers:change", charger),
+    ecouter("cahiers:change", async () => { await bureau.charger(); decor.peindre(); console_.rafraichir(); })
   ];
 
   modePleineVue(true);
@@ -246,10 +260,13 @@ export default async function vueAccueil() {
   await charger();
   if (petit()) console_.demarrer();
   setTimeout(servirDemande, 0);
-  // Tout juste inscrit : on commence par s'habiller.
+  // Tout juste inscrit : on s'habille, puis on prend ses cahiers.
   if (local.lire("ojm.bienvenue", false)) {
     local.ecrire("ojm.bienvenue", false);
-    setTimeout(() => import("../features/apparence.js").then((m) => m.ouvrirApparence({ bienvenue: true })), 500);
+    setTimeout(async () => {
+      await personnage({ bienvenue: true });
+      await mesCahiers({ bienvenue: true });
+    }, 500);
   }
 
   return {

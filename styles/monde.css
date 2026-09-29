@@ -31,10 +31,10 @@
   flex: 0 0 auto;
   width: 28px; height: 28px; border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 700; letter-spacing: .02em;
-  color: #15130f; background: var(--accent);
+  color: var(--texte-doux); background: transparent;
   border: 0; cursor: pointer;
 }
+.contexte__sceau:hover { color: var(--texte); background: var(--surface-2); }
 .contexte__lieu { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
 .contexte__nom {
   font-size: 14px; font-weight: 600;
@@ -650,3 +650,31 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .acces__onglets button[aria-selected="true"] { background: var(--surface-2); color: var(--texte); font-weight: 600; }
 .acces__formulaire { display: grid; gap: 4px; }
 .acces__aide { margin: 12px 0 0; font-size: 12.5px; color: var(--texte-faible); text-align: center; }
+
+/* --- Chez moi : les deux raccourcis du mur ---------------------------------- */
+.mur__raccourcis { display: flex; gap: 6px; }
+
+/* --- Mes cahiers -------------------------------------------------------------- */
+.mes-cahiers { display: flex; flex-direction: column; gap: 18px; }
+.mes-cahiers__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.mes-cahiers__cahier { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); }
+.mes-cahiers__infos { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mes-cahiers__infos b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mes-cahiers__couv {
+  position: relative; flex: 0 0 auto; width: 54px; height: 72px; border-radius: 3px 7px 7px 3px;
+  box-shadow: inset 5px 0 0 rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.28);
+  display: grid; place-items: center;
+}
+.mes-cahiers__couv--grand { width: 120px; height: 160px; }
+.mes-cahiers__etiquette {
+  max-width: 78%; padding: 3px 5px; border-radius: 2px; background: #efe6d2; color: #2b241b;
+  font: 600 9px/1.2 var(--f-titre, serif); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mes-cahiers__couv--grand .mes-cahiers__etiquette { font-size: 12px; padding: 5px 8px; }
+.mes-cahiers__neuf { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.mes-cahiers__formulaire { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 220px; }
+.mes-cahiers__supports { display: flex; flex-wrap: wrap; gap: 6px; }
+.mes-cahiers__nuancier { display: flex; gap: 6px; flex-wrap: wrap; }
+.mes-cahiers__teinte { width: 24px; height: 24px; border-radius: 6px; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
+.mes-cahiers__teinte[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
+.mes-cahiers__formulaire .btn { align-self: flex-start; }
