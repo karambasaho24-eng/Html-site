@@ -90,7 +90,9 @@ export function creerScene({
   // On clique une place dans la salle en 3D : (numéro, qui l'occupe).
   surPlace = null,
   // On clique le cahier posé sur la table de quelqu'un.
-  surCahierDe = null
+  surCahierDe = null,
+  // J'ouvre ou je referme mon sac (les autres le voient).
+  surSac = null
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -398,6 +400,34 @@ export function creerScene({
   /* ======================================================================
      Le sac, par terre à côté du bureau
      ==================================================================== */
+  /* Le sac en 3D : ce qu'il contient, tel qu'on le voit dedans. */
+  function contenuSac3d() {
+    return [
+      ...bureau.cahiersDansMonSac().map((c) => ({ genre: "cahier", chose: c, kind: c.support || "cahier", titre: c.title, cover: c.cover })),
+      ...bureau.dansMonSac().map((o) => ({ genre: "objet", chose: o, kind: o.kind, titre: nomObjet(o) }))
+    ];
+  }
+  function ouvrirSac3d() {
+    if (!classe3d || !bureau.sacsPortes()[0]) return false;
+    sacOuvert = true;
+    classe3d.ouvrirSac({
+      contenu: contenuSac3d(),
+      surSortir: async (c) => {
+        await sortirDuSac(c.genre, c.chose, null);
+        // Le temps de la voir monter hors du sac.
+        setTimeout(() => classe3d?.majSac(contenuSac3d()), 400);
+      },
+      surFermer: () => {
+        sacOuvert = false;
+        if (etatScene === "sac") definirEtat("bureau"); else peindre();
+        surSac?.(false);
+      }
+    });
+    peindre();
+    surSac?.(true);
+    return true;
+  }
+
   function peindreSac() {
     const sac = bureau.sacsPortes()[0];
     zoneSac.classList.toggle("scene__sac-zone--ouvert", sacOuvert);
@@ -428,7 +458,9 @@ export function creerScene({
     const ordre = [...poches.keys()].sort((a, b) => (a === String(sac.id) ? -1 : b === String(sac.id) ? 1 : 0));
 
     render(zoneSac,
-      sacOuvert ? el("div.sac__contenu", { role: "list", "aria-label": "Dans mon sac" },
+      // En 3D, on fouille le vrai sac ; la liste reste là pour le clavier et
+      // les lecteurs d'écran, sans se voir.
+      sacOuvert ? el("div.sac__contenu", { role: "list", "aria-label": "Dans mon sac", class: classe3d ? "sac__contenu--3d" : "" },
         contenu.length
           ? ordre.map((cle) => el("div.sac__poche",
               el("span.sac__poche-nom", nomPoche(cle)),
@@ -439,7 +471,10 @@ export function creerScene({
                   type: "button", role: "listitem",
                   title: `Sortir ${nom}`, "aria-label": `Sortir ${nom}`,
                   style: { "--a": `${biais(chose.id) / 2}deg`, "--i": String(i) },
-                  onclick: (e) => sortirDuSac(genre, chose, e.currentTarget)
+                  onclick: async (e) => {
+                    await sortirDuSac(genre, chose, e.currentTarget);
+                    classe3d?.majSac(contenuSac3d());
+                  }
                 },
                   el("img", { src: imageDetouree(kind), alt: "", draggable: false }),
                   el("span.sac__nom", nom));
@@ -450,7 +485,11 @@ export function creerScene({
         class: !sacOuvert && !bureau.surLeBureau().length && !bureau.cahiersSurLeBureau().length ? "scene__sac--appel" : "",
         title: sacOuvert ? "Refermer le sac" : "Ouvrir le sac",
         "aria-expanded": String(sacOuvert),
-        onclick: () => { sacOuvert = !sacOuvert; if (etatScene === "sac" && !sacOuvert) definirEtat("bureau"); else peindre(); }
+        onclick: () => {
+          // En 3D, on prend le vrai sac, à côté de sa chaise.
+          if (classe3d) { if (sacOuvert) classe3d.fermerSac(); else ouvrirSac3d(); return; }
+          sacOuvert = !sacOuvert; if (etatScene === "sac" && !sacOuvert) definirEtat("bureau"); else peindre();
+        }
       },
         el("img.scene__sac-image", { src: imageDetouree(sacOuvert ? ouvertImage : sac.kind), alt: "", draggable: false }),
         el("span.scene__sac-mot", sacOuvert ? "Refermer le sac" : "Ouvrir le sac"))
@@ -521,7 +560,7 @@ export function creerScene({
      ==================================================================== */
   function definirEtat(nouvel) {
     etatScene = nouvel;
-    if (nouvel === "sac") sacOuvert = true;
+    if (nouvel === "sac" && !sacOuvert && !ouvrirSac3d()) sacOuvert = true;
     noeud.dataset.etat = nouvel;
     peindre();
     surChangementEtat?.(nouvel);
@@ -552,7 +591,7 @@ export function creerScene({
       classe3d.maj({
         mode: "maison",
         eleves: [{
-          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: monAvatar(),
+          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: monAvatar(), moi: true,
           bureau: [
             ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
             ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
@@ -596,7 +635,8 @@ export function creerScene({
             // Sa place : celle du plan du professeur, sinon celle qu'il a choisie.
             place: placee ?? (Number.isInteger(p.place) ? p.place : null),
             depuis: placee != null ? 0 : p.placeDepuis || Date.now(),
-            ecrit: Boolean(p.ecrit)
+            ecrit: Boolean(p.ecrit),
+            sacOuvert: Boolean(p.sacOuvert)
           };
         }),
       prof: {
@@ -645,7 +685,8 @@ export function creerScene({
     peindre, definirEtat,
     etat: () => etatScene,
     surChangementEtat: (fn) => { surChangementEtat = fn; },
-    ouvrirSac: () => { sacOuvert = true; peindre(); },
+    ouvrirSac: () => { if (sacOuvert) return; if (!ouvrirSac3d()) { sacOuvert = true; peindre(); } },
+    sacOuvert: () => sacOuvert,
     majEstrade(nouvelle) { estrade = nouvelle || {}; peindreEstrade(); maj3d(); },
     majLegende(texte) { legendeTableau.textContent = texte || ""; },
     signaler(message) { toast(message, { type: "attn" }); }

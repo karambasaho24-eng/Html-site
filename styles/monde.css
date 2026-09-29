@@ -628,3 +628,13 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .apparence__rigueur b { color: var(--texte); font-weight: 600; }
 /* Soi-même, dans la salle en 3D */
 .classe3d__nom--moi { background: var(--accent); color: #1b1712; font-weight: 600; }
+/* Le sac ouvert, en 3D : de quoi le refermer */
+.classe3d__refermer {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 3;
+  padding: 8px 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(20, 17, 14, .78); color: #f3ead8; font: 500 13px/1 var(--f-texte, Inter, sans-serif);
+  backdrop-filter: blur(6px); box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.classe3d__refermer:hover { background: rgba(35, 29, 23, .9); }
+.classe3d__refermer[hidden] { display: none; }
+.sac__contenu--3d { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

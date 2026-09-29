@@ -687,15 +687,18 @@ try {
   verifier("le sac s'ouvre et montre ce qu'il contient", await cadet.locator(".sac__chose").count() >= 2);
   await cadet.screenshot({ path: `${CAPT}/scene-2-sac-ouvert.png` });
 
-  await cadet.click('.sac__chose[aria-label="Sortir Geographie"]');
+  // En 3D, on fouille le sac à la souris ; la liste, invisible, sert au
+  // clavier : on l'active comme le ferait la touche Entrée.
+  const sortir = (sel) => cadet.locator(sel).first().evaluate((b) => b.click());
+  await sortir('.sac__chose[aria-label="Sortir Geographie"]');
   await cadet.waitForTimeout(900);
-  await cadet.click('.sac__chose[aria-label^="Sortir Crayon"]');
+  await sortir('.sac__chose[aria-label^="Sortir Crayon"]');
   await cadet.waitForTimeout(900);
-  await cadet.click('.sac__chose[aria-label^="Sortir Gomme"]').catch(() => {});
+  await sortir('.sac__chose[aria-label^="Sortir Gomme"]').catch(() => {});
   await cadet.waitForTimeout(900);
-  await cadet.click('.sac__chose[aria-label^="Sortir Règle"]').catch(() => {});
+  await sortir('.sac__chose[aria-label^="Sortir Règle"]').catch(() => {});
   await cadet.waitForTimeout(900);
-  await cadet.click('.sac__chose[aria-label^="Sortir Feuilles"]').catch(() => {});
+  await sortir('.sac__chose[aria-label^="Sortir Feuilles"]').catch(() => {});
   await cadet.waitForTimeout(900);
   verifier("sortis du sac, le cahier et le crayon sont sur le bureau",
     await cadet.locator('.pose[data-genre="cahier"]').count() === 1

@@ -520,6 +520,259 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return enMain?.k || null;
   }
 
+
+  /* --- Le sac : un cartable de cuir, posé par terre à côté de la chaise -----
+     On le prend, on le pose sur la table, le rabat s'ouvre ; on se penche
+     dessus et l'on voit ce qu'il y a dedans : les cahiers debout au fond,
+     la trousse et le reste devant. Un clic, et la chose sort. */
+  const TEX_CUIR = texturePeinte(512, 512, (g, l, h) => {
+    // Un cuir tanné : brun profond, grain serré, patine plus claire aux usures.
+    g.fillStyle = "#5a3018"; g.fillRect(0, 0, l, h);
+    for (let i = 0; i < 14000; i++) {
+      g.fillStyle = `rgba(${Math.random() > .5 ? "255,205,150" : "18,6,2"},${Math.random() * .08})`;
+      g.fillRect(Math.random() * l, Math.random() * h, 1.6, 1.6);
+    }
+    for (let k = 0; k < 7; k++) {
+      const x = Math.random() * l, y = Math.random() * h;
+      const d = g.createRadialGradient(x, y, 2, x, y, 90 + Math.random() * 80);
+      d.addColorStop(0, "rgba(180,110,60,.22)"); d.addColorStop(1, "rgba(180,110,60,0)");
+      g.fillStyle = d; g.fillRect(0, 0, l, h);
+    }
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * l, y = Math.random() * h;
+      g.strokeStyle = `rgba(25,8,2,${.1 + Math.random() * .18})`; g.lineWidth = .6;
+      g.beginPath(); g.moveTo(x, y);
+      g.bezierCurveTo(x + 18, y + 6, x + 36, y - 5, x + 50 + Math.random() * 50, y + Math.random() * 8); g.stroke();
+    }
+  });
+  const matCuir = new THREE.MeshStandardMaterial({ map: TEX_CUIR, roughness: .38, metalness: .06 });
+  const matCuirFonce = new THREE.MeshStandardMaterial({ map: TEX_CUIR, color: "#7a6456", roughness: .45 });
+  const matPassepoil = matDe("#3a1d0e", { roughness: .5 });
+  const matDoublure = matDe("#2e2119", { roughness: .95, side: THREE.DoubleSide });
+  const matLaiton = matDe("#c9a24e", { metalness: .85, roughness: .28 });
+  const SAC = { L: 1.5, H: 0.78, P: 0.55, e: 0.045 };
+
+  // Un rectangle aux coins arrondis, dans le plan (x, y).
+  function rectRond(l, p, r, trou = false) {
+    const f = trou ? new THREE.Path() : new THREE.Shape();
+    const x = -l / 2, y = -p / 2;
+    f.moveTo(x + r, y);
+    f.lineTo(x + l - r, y); f.quadraticCurveTo(x + l, y, x + l, y + r);
+    f.lineTo(x + l, y + p - r); f.quadraticCurveTo(x + l, y + p, x + l - r, y + p);
+    f.lineTo(x + r, y + p); f.quadraticCurveTo(x, y + p, x, y + p - r);
+    f.lineTo(x, y + r); f.quadraticCurveTo(x, y, x + r, y);
+    return f;
+  }
+  // Une paroi en anneau (le tour du sac), extrudée vers le haut.
+  function paroiRonde(l, p, r, e, h, mat) {
+    const f = rectRond(l, p, r);
+    f.holes.push(rectRond(l - 2 * e, p - 2 * e, Math.max(0.02, r - e), true));
+    const geo = new THREE.ExtrudeGeometry(f, { depth: h, bevelEnabled: false, curveSegments: 10 });
+    geo.rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(geo, mat);
+    m.userData.jetable = true;
+    return m;
+  }
+  function plaque(l, p, r, h, mat) {
+    const geo = new THREE.ExtrudeGeometry(rectRond(l, p, r), { depth: h, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 2, curveSegments: 10 });
+    geo.rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(geo, mat);
+    m.userData.jetable = true;
+    return m;
+  }
+
+  function modeleSac() {
+    const { L, H, P, e } = SAC;
+    const sac = new THREE.Group();
+    // Le corps : un tour de cuir aux angles arrondis, son fond, sa doublure,
+    // un passepoil sombre au bord.
+    sac.add(paroiRonde(L, P, 0.16, e, H, matCuir));
+    const fond = plaque(L, P, 0.16, e, matCuir);
+    sac.add(fond);
+    const doublure = paroiRonde(L - 2 * e - 0.006, P - 2 * e - 0.006, 0.12, 0.012, H - 0.03, matDoublure);
+    doublure.position.y = 0.02;
+    sac.add(doublure);
+    const bord = paroiRonde(L + 0.012, P + 0.012, 0.165, e + 0.012, 0.035, matPassepoil);
+    bord.position.y = H - 0.035;
+    sac.add(bord);
+    // Le soufflet qui sépare le fond (les cahiers) du devant (le reste).
+    const soufflet = plaque(L - 2 * e - 0.04, 0.02, 0.01, H * 0.72, matCuirFonce);
+    soufflet.position.set(0, 0.04, 0.04);
+    sac.add(soufflet);
+    // La poignée, sur le dessus, côté dos.
+    const poignee = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.038, 10, 20, Math.PI), matCuirFonce);
+    poignee.position.set(0, H + 0.01, -P / 2 + 0.08);
+    poignee.userData.jetable = true;
+    sac.add(poignee);
+    // Le rabat, articulé au dos : il couvre le dessus et retombe devant,
+    // arrondi au bas, avec ses deux courroies et leurs boucles de laiton.
+    const rabat = new THREE.Group();
+    rabat.position.set(0, H + 0.02, -P / 2);
+    const dessus = plaque(L + 0.05, P + 0.04, 0.16, 0.03, matCuir);
+    dessus.position.set(0, 0, P / 2 + 0.01);
+    rabat.add(dessus);
+    const devant = plaque(L + 0.05, H * 0.62, 0.2, 0.03, matCuir);
+    devant.geometry.rotateX(Math.PI / 2);
+    devant.position.set(0, -H * 0.31 + 0.03, P + 0.03);
+    rabat.add(devant);
+    for (const sx of [-0.42, 0.42]) {
+      const courroie = plaque(0.13, H * 0.52, 0.03, 0.018, matCuirFonce);
+      courroie.geometry.rotateX(Math.PI / 2);
+      courroie.position.set(sx, -H * 0.36, P + 0.06);
+      const boucle = plaque(0.18, 0.13, 0.03, 0.025, matLaiton);
+      boucle.geometry.rotateX(Math.PI / 2);
+      boucle.position.set(sx, -H * 0.5, P + 0.075);
+      rabat.add(courroie, boucle);
+    }
+    sac.add(rabat);
+    const contenu = new THREE.Group();          // ce qu'on voit dedans (le sien seulement)
+    sac.add(contenu);
+    sac.userData = { rabat, contenu };
+    ombrer(sac);
+    return sac;
+  }
+
+  // La couverture d'un cahier, peinte : sa teinte, l'étiquette, son titre.
+  const COUVERTURES = {
+    parchment: ["#e8dcc4", "#c7b28a"], cuir: ["#5a4030", "#2c1f16"], ardoise: ["#44606c", "#22303a"],
+    olive: ["#76844f", "#3f4a2b"], oxblood: ["#843e3e", "#4a2020"], encre: ["#323c46", "#14181d"]
+  };
+  const cacheCouv = new Map();
+  function matieresCahier(chose) {
+    const cle = `${chose.cover || "parchment"}|${chose.titre || ""}|${chose.kind}`;
+    if (cacheCouv.has(cle)) return cacheCouv.get(cle);
+    const [c1, c2] = COUVERTURES[chose.cover] || COUVERTURES[chose.kind === "carnet" ? "cuir" : "oxblood"];
+    const couv = texturePeinte(256, 340, (g, l, h) => {
+      const d = g.createLinearGradient(0, 0, l, h);
+      d.addColorStop(0, c1); d.addColorStop(1, c2);
+      g.fillStyle = d; g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 2600; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "0,0,0"},${Math.random() * .06})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 1.5, 1.5);
+      }
+      g.fillStyle = "rgba(0,0,0,.25)"; g.fillRect(0, 0, 18, h);            // le dos
+      g.fillStyle = "#efe6cf"; g.fillRect(52, 70, 170, 92);                 // l'étiquette
+      g.strokeStyle = "rgba(60,40,20,.55)"; g.lineWidth = 2; g.strokeRect(58, 76, 158, 80);
+      g.fillStyle = "#2a1d12"; g.font = "600 24px Georgia, serif"; g.textAlign = "center";
+      const mots = String(chose.titre || "Cahier").split(/\s+/);
+      const lignes = [];
+      for (const m of mots) {
+        const der = lignes[lignes.length - 1];
+        if (der && g.measureText(`${der} ${m}`).width < 146) lignes[lignes.length - 1] = `${der} ${m}`;
+        else lignes.push(m);
+      }
+      lignes.slice(0, 2).forEach((t, i) => g.fillText(t, 137, 112 + i * 28 - (lignes.length > 1 ? 12 : 0), 150));
+    });
+    couv.wrapS = couv.wrapT = THREE.ClampToEdgeWrapping; couv.repeat.set(1, 1);
+    const tranche = matDe(c2, { roughness: .8 });
+    const pages = matDe("#efe8d6", { roughness: .95 });
+    const face = new THREE.MeshStandardMaterial({ map: couv, roughness: .75 });
+    // +x, -x, +y, -y, +z (la couverture, vers nous), -z
+    const m = [pages, tranche, pages, tranche, face, tranche];
+    cacheCouv.set(cle, m);
+    return m;
+  }
+
+  /* Remplir le sac ouvert : les cahiers debout au fond, penchés vers nous ;
+     le reste dans la poche de devant. Chaque chose se reconnaît au clic. */
+  function remplirSac(sac, liste) {
+    const { contenu } = sac.userData;
+    const jeton = contenu.userData.jeton = (contenu.userData.jeton || 0) + 1;
+    for (const c of [...contenu.children]) {
+      contenu.remove(c);
+      if (c.userData.jetable) c.geometry.dispose();
+    }
+    const { L, H, e } = SAC;
+    // Au fond, debout : les cahiers et tout ce qui est plat (feuilles, buvard,
+    // règle, trousse…). Devant, dans la poche : ce qui est fin (plume, crayon,
+    // encrier). Un peu plus grands que nature, pour qu'on les reconnaisse.
+    const PLATS = /feuille|buvard|gomme|regle|dossier|pochette|trousse|rapporteur|equerre|boulier|carnet|cahier|livre/;
+    const fond = liste.filter((c) => c.genre === "cahier" || PLATS.test(c.kind)).slice(0, 9);
+    const devant = liste.filter((c) => !fond.includes(c)).slice(0, 6);
+    const planche = (c, { x, y, z, rx, rz, haut, largeMax }) => {
+      const info = textureObjet(c.kind);
+      const poser = ({ tex, ratio }) => {
+        if (contenu.userData.jeton !== jeton) return;        // le sac a changé entre-temps
+        const mat = new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.35, roughness: .65, side: THREE.DoubleSide });
+        const m = new THREE.Mesh(GEO.plan, mat);
+        const large = Math.min(largeMax, haut / ratio);
+        m.scale.set(large, large * ratio, 1);
+        m.position.set(x, y, z);
+        m.rotation.set(rx, 0, rz);
+        m.userData = { contenu: c };
+        contenu.add(m);
+      };
+      if (info.tex) poser(info); else info.attente.push(poser);
+    };
+    const pasF = (L - 0.3) / Math.max(1, fond.length);
+    fond.forEach((c, i) => {
+      const x = -((fond.length - 1) * pasF) / 2 + i * pasF;
+      const rz = (i % 3 - 1) * 0.04;
+      if (c.genre === "cahier") {
+        const haut = c.kind === "carnet" ? 0.8 : 1.02, large = Math.min(pasF * 1.6, c.kind === "carnet" ? 0.5 : 0.68);
+        const livre = new THREE.Mesh(new THREE.BoxGeometry(large, haut, 0.06), matieresCahier(c));
+        livre.position.set(x, e + haut / 2 + 0.04, -0.13 + (i % 2) * 0.012);
+        livre.rotation.set(-0.18, (i % 2 ? 1 : -1) * 0.04, rz);
+        livre.userData = { contenu: c, jetable: true };
+        livre.castShadow = true;
+        contenu.add(livre);
+      } else {
+        planche(c, { x, y: H - 0.02, z: -0.12 + (i % 2) * 0.02, rx: -0.2, rz, haut: 0.62, largeMax: Math.min(0.78, pasF * 1.7) });
+      }
+    });
+    const pasD = (L - 0.5) / Math.max(1, devant.length);
+    devant.forEach((c, i) => {
+      planche(c, {
+        x: -((devant.length - 1) * pasD) / 2 + i * pasD, y: H + 0.02 + (i % 2) * 0.05, z: 0.15,
+        rx: -0.34, rz: (i % 2 ? 1 : -1) * 0.1, haut: 0.62, largeMax: Math.min(0.5, pasD * 1.4)
+      });
+    });
+  }
+
+  /* Où est le sac : par terre, à droite de la chaise ; ou sur la table. */
+  function posesSac(siege) {
+    const a = siege.angle || 0;
+    const tourne = (dx, dz) => [siege.x + dx * Math.cos(a) + dz * Math.sin(a), siege.z - dx * Math.sin(a) + dz * Math.cos(a)];
+    const [xs, zs] = tourne(1.25, 0.35);
+    const [xt, zt] = tourne(0.62, -1.05);
+    return {
+      sol: { x: xs, y: 0, z: zs, r: a - 1.35 },
+      table: { x: xt, y: 2.24, z: zt, r: a }
+    };
+  }
+
+  /* Un pas de l'animation du sac : on le prend, on le pose, il s'ouvre. */
+  function animerSac(x, maintenant) {
+    const sac = x.sac;
+    if (!sac || !x.siege) return;
+    const dt = Math.min(80, maintenant - (x.sacDernier || maintenant));
+    x.sacDernier = maintenant;
+    const cible = x.sacOuvert ? 1 : 0;
+    const avant = x.sacP || 0;
+    x.sacP = cible > avant ? Math.min(1, avant + dt / 1300) : Math.max(0, avant - dt / 900);
+    const t = x.sacP;
+    const { sol, table } = posesSac(x.siege);
+    // 0 → 0,3 : il se penche et attrape le sac ; 0,3 → 0,75 : il le monte
+    // sur la table ; 0,75 → 1 : le rabat s'ouvre.
+    const monte = Math.max(0, Math.min(1, (t - 0.3) / 0.45));
+    const m = monte * monte * (3 - 2 * monte);
+    sac.position.set(sol.x + (table.x - sol.x) * m, sol.y + (table.y - sol.y) * m + Math.sin(Math.PI * m) * 0.9, sol.z + (table.z - sol.z) * m);
+    sac.rotation.y = sol.r + (table.r - sol.r) * m;
+    const ouvre = Math.max(0, Math.min(1, (t - 0.75) / 0.25));
+    sac.userData.rabat.rotation.x = -2.95 * ouvre * ouvre * (3 - 2 * ouvre);
+    sac.userData.contenu.visible = ouvre > 0.3;
+    // Le geste : le bras qui descend chercher le sac, la tête qui suit.
+    const geste = t > 0 && t < 0.8 ? Math.sin(Math.PI * Math.min(1, t / 0.8)) : 0;
+    if (geste > 0) {
+      x.p.brasD.epaule.rotation.x = 0.55 * geste;
+      x.p.brasD.epaule.rotation.z = -0.55 * geste;
+      x.p.tete.rotation.x = 0.35 * geste;
+      x.p.tete.rotation.y = -0.4 * geste;
+    }
+    // Sac ouvert : on regarde dedans.
+    if (ouvre > 0.5 && !x.p.outil) x.p.tete.rotation.x = Math.max(x.p.tete.rotation.x, 0.3);
+  }
+
   /* --- La salle : murs, sol, tableau. Refaite quand elle change de taille -- */
   const decor = new THREE.Group();
   scene.add(decor);
@@ -933,6 +1186,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const gens = new Map();              // id → { p, siege, etiquette, personne, sig }
   let prof = null;
   let etat = { mode: "classe", eleves: [], prof: { present: false } };
+  let sacMoi = null;                   // mon sac ouvert : { contenu, surSortir, surFermer }
   let ecritJusqua = 0;
 
   function etiquette(texte, classe = "") {
@@ -1024,6 +1278,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     for (const [id, x] of [...gens]) {
       if (ids.has(id)) continue;
       retirer(x.p.racine);
+      if (x.sac) retirer(x.sac);
       x.etiquette.remove();
       if (x.siege) garnir(x.siege.objets, []);
       gens.delete(id);
@@ -1065,9 +1320,12 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
               arrive: performance.now(), avSig: JSON.stringify(e.avatar || {}), siege: null };
         x.etiquette.onclick = () => { if (!x.personne.moi) surPersonne?.(x.etiquette, x.personne.brut); };
         p.racine.traverse((o) => { o.userData.personne = id; });
+        if (!dispo.portrait) { x.sac = modeleSac(); scene.add(x.sac); }
         gens.set(id, x);
       }
       x.personne = e;
+      // Son sac : ouvert sur la table, ou fermé par terre. Le mien montre ce qu'il contient.
+      x.sacOuvert = e.moi ? Boolean(sacMoi) : Boolean(e.sacOuvert);
       // Il a changé d'apparence : on le rhabille, à la même place.
       const avSig = JSON.stringify(e.avatar || {});
       if (avSig !== x.avSig) {
@@ -1176,6 +1434,24 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     renderer.setSize(l, h, false);
     camera.aspect = l / h;
     const k = Math.min(1, Math.max(0, (camera.aspect - 1.2) / 1.6));
+    // Mon sac est ouvert : on se penche dessus, quel que soit le lieu.
+    const moiSac = [...gens.values()].find((x) => x.personne.moi && x.sacOuvert && x.siege);
+    if (moiSac) {
+      // On se penche au-dessus de l'ouverture, un peu de son côté : l'intérieur
+      // du sac remplit la vue (plus de recul si la fenêtre est étroite).
+      const { table } = posesSac(moiSac.siege);
+      const a = moiSac.siege.angle || 0;
+      camera.fov = 40;
+      const d = Math.max(1.3, 2.5 / Math.max(0.3, camera.aspect));
+      const inc = 0.42;                                     // l'inclinaison, depuis la verticale
+      const dz = Math.sin(inc) * d, dy = Math.cos(inc) * d;
+      posCible.set(table.x + Math.sin(a) * dz, table.y + SAC.H + dy, table.z + Math.cos(a) * dz);
+      regardCible.set(table.x, table.y + SAC.H * 0.45, table.z);
+      suivre = true;
+      cameraPosee = true;
+      camera.updateProjectionMatrix();
+      return;
+    }
     if (dispo.portrait) {
       // Qu'il tienne en entier, de la tête aux pieds, bras compris — même
       // dans un aperçu étroit.
@@ -1223,6 +1499,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     camera.lookAt(regard);
     camera.updateProjectionMatrix();
   }
+  const sortants = new Set();
+  const boutonSac = document.createElement("button");
+  boutonSac.type = "button";
+  boutonSac.className = "classe3d__refermer";
+  boutonSac.textContent = "Refermer le sac";
+  boutonSac.hidden = true;
+  boutonSac.addEventListener("click", () => api.fermerSac());
+  hote.appendChild(boutonSac);
   /* La caméra à la troisième personne : derrière soi, un peu au-dessus. */
   const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
   let suivre = false, cameraPosee = false;
@@ -1260,7 +1544,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const sg = dispo.sieges[place];
       anneau.position.set(sg.x, 0.03, sg.z);
     }
-    const cahier = surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "") ? "cahier" : null;
+    const cahier = (surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "")) || (sacMoi && o?.userData.contenu) ? "cahier" : null;
     const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
     canvas.style.cursor = cible || libre || cahier ? "pointer" : place != null ? "not-allowed" : "";
     if (cible !== survol) {
@@ -1282,6 +1566,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   canvas.addEventListener("pointerup", () => { glisse = null; });
   canvas.addEventListener("click", (e) => {
     const o = viser(e);
+    if (o?.userData.contenu && sacMoi) {
+      o.userData.sort = performance.now();
+      o.userData.y0 = o.position.y;
+      sortants.add(o);
+      sacMoi.surSortir?.(o.userData.contenu);
+      return;
+    }
     if (surPlace && Number.isInteger(o?.userData.siege) && !dispo.portrait && !dispo.maison) {
       surPlace(o.userData.siege, occupant(o.userData.siege));
       anneau.visible = false;
@@ -1355,8 +1646,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const p = x.p;
       if (pas(x, maintenant)) {
         if (x.personne.moi) viserDerriere(p.racine.position);
+        if (x.sac) x.sac.visible = false;
         continue;
       }
+      if (x.sac) x.sac.visible = true;
       const k = s + p.phase;
       p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
       // Qui arrive s'assoit : il descend doucement sur sa chaise.
@@ -1383,6 +1676,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       // tableau, avec un coup d'œil de temps en temps. Qui écrit baisse la tête.
       p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
       p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && x.personne.ecrit && !x.personne.main ? 0.28 : 0);
+      animerSac(x, maintenant);
+    }
+    // Ce qu'on sort du sac monte un instant avant de partir sur la table.
+    for (const m of sortants) {
+      const a = Math.min(1, (maintenant - m.userData.sort) / 380);
+      m.position.y = m.userData.y0 + a * 0.9;
+      m.scale.setScalar(1 - a * 0.3);
+      if (a >= 1) sortants.delete(m);
     }
     // La caméra rejoint doucement sa cible (on change de place, on se lève).
     if (suivre) {
@@ -1413,7 +1714,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   qualite();
   anime = requestAnimationFrame(image);
 
-  return {
+  const api = {
     /**
      * Qui est là, et ce que chacun a devant lui.
      * @param {object} o
@@ -1427,12 +1728,42 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       majGens();
       majProf();
     },
+    /**
+     * Ouvrir mon sac : on le prend, on le pose sur la table, on regarde dedans.
+     * contenu : [{ genre, kind, titre, cover, … }] ; surSortir(chose) au clic ;
+     * surFermer() quand on le referme.
+     */
+    ouvrirSac({ contenu = [], surSortir = null, surFermer = null } = {}) {
+      sacMoi = { contenu, surSortir, surFermer };
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (moi?.sac) { remplirSac(moi.sac, contenu); moi.sacOuvert = true; }
+      boutonSac.hidden = false;
+      cadrer();
+    },
+    /** Ce qu'il y a dedans a changé (on vient d'en sortir quelque chose). */
+    majSac(contenu = []) {
+      if (!sacMoi) return;
+      sacMoi.contenu = contenu;
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (moi?.sac) remplirSac(moi.sac, contenu);
+    },
+    fermerSac() {
+      if (!sacMoi) return;
+      const fin = sacMoi.surFermer;
+      sacMoi = null;
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (moi) moi.sacOuvert = false;
+      boutonSac.hidden = true;
+      cadrer();
+      fin?.();
+    },
+    sacOuvert: () => Boolean(sacMoi),
     /** Le professeur écrit : on le voit se tourner vers le tableau. */
     ecrit() { ecritJusqua = Date.now() + 2500; },
     /** Replacer le rendu ailleurs — dans la console, en petite fenêtre. */
     deplacer(nouvelHote) {
       if (hote === nouvelHote) return;
-      nouvelHote.append(canvas, etiquettes);
+      nouvelHote.append(canvas, etiquettes, boutonSac);
       observateur.disconnect(); observateur.observe(nouvelHote);
       io.disconnect(); io.observe(nouvelHote);
       hote = nouvelHote;
@@ -1443,7 +1774,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     detruire() {
       vivant = false;
       cancelAnimationFrame(anime);
-      for (const x of gens.values()) retirer(x.p.racine);
+      for (const x of gens.values()) { retirer(x.p.racine); if (x.sac) retirer(x.sac); }
       if (prof) retirer(prof.p.racine);
       observateur.disconnect();
       io.disconnect();
@@ -1452,6 +1783,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       renderer.dispose();
       canvas.remove();
       etiquettes.remove();
+      boutonSac.remove();
     }
   };
+  return api;
 }

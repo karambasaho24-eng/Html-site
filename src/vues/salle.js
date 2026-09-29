@@ -207,7 +207,8 @@ export default async function vueSalle({ params }) {
     plan: () => session.plan || {},
     surPlace: (i, qui) => choisirPlace(i, qui),
     // Le professeur clique le cahier ouvert sur une table : il le vérifie.
-    surCahierDe: (ancre, p) => (staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p))
+    surCahierDe: (ancre, p) => (staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p)),
+    surSac: () => majPresence()
   });
 
   /* --- Les places ------------------------------------------------------------ */
@@ -2545,7 +2546,8 @@ export default async function vueSalle({ params }) {
       role: staff ? "teacher" : estObservateur() ? "observer" : "student",
       scene, statut: "present", horodatage: Date.now(),
       bureau: resumeBureau(), avatar: monAvatar(),
-      place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: jEcris
+      place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: jEcris,
+      sacOuvert: Boolean(decor?.sacOuvert?.())
     });
   }, 250);
 
