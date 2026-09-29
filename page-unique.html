@@ -5220,11 +5220,13 @@ async function creerPiloteSupabase(config2) {
         const { data } = await sb.auth.getUser();
         return data.user;
       },
-      async inscrire({ email, motDePasse, nom, role }) {
+      async inscrire({ email, motDePasse, nom }) {
         const { data, error } = await sb.auth.signUp({
           email,
           password: motDePasse,
-          options: { data: { display_name: nom, role_key: role || "student" } }
+          // Le rôle ne se choisit pas à l'inscription : le serveur fait de
+          // tout nouveau compte un élève (voir 0024_role_verrouille.sql).
+          options: { data: { display_name: nom } }
         });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
         if (data?.session) return data;
