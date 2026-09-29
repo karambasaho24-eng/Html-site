@@ -4506,6 +4506,18 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .classe3d__refermer[hidden] { display: none; }
 .sac__contenu--3d { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
+/* --- L'accès : pseudo RP, mot de passe --------------------------------- */
+.acces { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--fond); }
+.acces__colonne { width: min(400px, 100%); display: grid; gap: 10px; }
+.acces__titre { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -.01em; color: var(--texte); text-align: center; }
+.acces__sous-titre { margin: 0 0 14px; text-align: center; color: var(--texte-faible); font-size: 14px; }
+.acces__carte { background: var(--surface-1); border: 1px solid var(--ligne); border-radius: 18px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+.acces__onglets { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 16px; border-radius: 12px; background: var(--surface-0); }
+.acces__onglets button { border: 0; border-radius: 9px; padding: 9px 8px; background: transparent; color: var(--texte-doux); font: inherit; font-size: 14px; cursor: pointer; }
+.acces__onglets button[aria-selected="true"] { background: var(--surface-2); color: var(--texte); font-weight: 600; }
+.acces__formulaire { display: grid; gap: 4px; }
+.acces__aide { margin: 12px 0 0; font-size: 12.5px; color: var(--texte-faible); text-align: center; }
+
 /* ---- responsive.css ---- */
 /* ===========================================================================
    Adaptation : PC d'abord (cohabitation Roblox), puis tablette, puis mobile
@@ -5232,25 +5244,22 @@ async function creerPiloteSupabase(config2) {
         const { data } = await sb.auth.getUser();
         return data.user;
       },
-      async inscrire({ email, motDePasse, nom }) {
-        const { data, error } = await sb.auth.signUp({
-          email,
-          password: motDePasse,
-          // Le rôle ne se choisit pas à l'inscription : le serveur fait de
-          // tout nouveau compte un élève (voir 0024_role_verrouille.sql).
-          options: { data: { display_name: nom } }
-        });
+      /* On s'inscrit avec son pseudo RP et un mot de passe : le serveur crée
+         le compte, déjà confirmé (voir 0028_inscription_pseudo.sql), et l'on
+         entre aussitôt. Le rôle ne se choisit pas : tout nouveau compte est
+         élève. */
+      async inscrire({ pseudo, motDePasse }) {
+        const { data: adresse, error } = await sb.rpc("inscrire_pseudo", { pseudo, mot_de_passe: motDePasse });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
-        if (data?.session) return data;
-        const { data: ouverture } = await sb.auth.signInWithPassword({
-          email,
-          password: motDePasse
-        });
-        return ouverture?.session ? ouverture : data;
+        const { data, error: e2 } = await sb.auth.signInWithPassword({ email: adresse, password: motDePasse });
+        if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
+        return data;
       },
-      async connecter({ email, motDePasse }) {
-        const { data, error } = await sb.auth.signInWithPassword({ email, password: motDePasse });
+      async connecter({ pseudo, motDePasse }) {
+        const { data: adresse, error } = await sb.rpc("courriel_du_pseudo", { pseudo });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
+        const { data, error: e2 } = await sb.auth.signInWithPassword({ email: adresse, password: motDePasse });
+        if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
         return data;
       },
       async lienMagique(email) {
@@ -6297,24 +6306,28 @@ async function creerPiloteLocal() {
       async utilisateur() {
         return sessionCourante()?.user || null;
       },
-      async inscrire({ email, motDePasse, nom, role }) {
+      async inscrire({ pseudo, motDePasse }) {
         const liste = comptes();
-        const normalise = String(email).trim().toLowerCase();
+        const propre = String(pseudo || "").trim().replace(/\s+/g, " ");
+        const normalise = propre.toLowerCase();
+        if (propre.length < 3 || propre.length > 24) {
+          throw new ErreurDonnees("Le pseudo doit faire entre 3 et 24 caract\xE8res.", "22023");
+        }
         if (liste.some((c) => c.email === normalise)) {
-          throw new ErreurDonnees("User already registered", "23505");
+          throw new ErreurDonnees("Ce pseudo est d\xE9j\xE0 pris.", "23505");
         }
         const compte = {
           id: uid(),
           email: normalise,
           empreinte: await empreinte(motDePasse),
-          nom: nom || normalise.split("@")[0]
+          nom: propre
         };
         liste.push(compte);
         sauverComptes(liste);
         await t("profiles").creer({
           id: compte.id,
           display_name: compte.nom,
-          role_key: role || "student",
+          role_key: "student",
           preferences: {},
           avatar_url: null,
           roblox_name: null,
@@ -6324,8 +6337,8 @@ async function creerPiloteLocal() {
         definirSession(session);
         return { user: session.user, session };
       },
-      async connecter({ email, motDePasse }) {
-        const normalise = String(email).trim().toLowerCase();
+      async connecter({ pseudo, motDePasse }) {
+        const normalise = String(pseudo || "").trim().replace(/\s+/g, " ").toLowerCase();
         const compte = comptes().find((c) => c.email === normalise);
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {
@@ -6630,7 +6643,7 @@ var init_data = __esm({
         if (existant) return existant;
         return T("profiles").creer({
           id: utilisateur.id,
-          display_name: utilisateur.email?.split("@")[0] || "Nouvel \xE9l\xE8ve",
+          display_name: utilisateur.user_metadata?.pseudo || utilisateur.user_metadata?.display_name || "Nouvel \xE9l\xE8ve",
           role_key: "student",
           preferences: {}
         });
@@ -9527,8 +9540,8 @@ function messageErreur(err) {
   if (!err) return "Erreur inconnue.";
   const brut = err.message || String(err);
   const table2 = {
-    "Invalid login credentials": "Identifiants incorrects.",
-    "User already registered": "Un compte existe d\xE9j\xE0 avec cette adresse.",
+    "Invalid login credentials": "Pseudo ou mot de passe incorrect.",
+    "User already registered": "Ce pseudo est d\xE9j\xE0 pris.",
     "Email not confirmed": "Adresse non confirm\xE9e : ouvrez le courriel re\xE7u \xE0 la cr\xE9ation du compte.",
     "Permission refus\xE9e": "Vous n'avez pas les droits n\xE9cessaires.",
     "Code de classe introuvable": "Ce code ne correspond \xE0 aucune classe.",
@@ -15779,7 +15792,7 @@ __export(apparence_exports, {
   monAvatar: () => monAvatar,
   ouvrirApparence: () => ouvrirApparence
 });
-async function ouvrirApparence() {
+async function ouvrirApparence({ bienvenue = false } = {}) {
   await rafraichirClasses().catch(() => {
   });
   let avatar2 = monAvatar();
@@ -15861,7 +15874,7 @@ async function ouvrirApparence() {
     peindreApercu();
   }
   const enregistre = await ouvrirModale({
-    titre: "Mon personnage",
+    titre: bienvenue ? `Bienvenue, ${etat.profil?.display_name || ""} \u2014 habillez votre personnage` : "Mon personnage",
     large: true,
     corps: () => {
       peindreChoix();
@@ -16049,7 +16062,7 @@ function peindreRail() {
       el(
         "div.tiroir__qui",
         el("span.tiroir__nom", etat.profil?.display_name || "\u2014"),
-        el("span.tiroir__mail", etat.utilisateur?.email || "")
+        el("span.tiroir__mail", "Pseudo RP")
       ),
       el("button.contexte__bouton", { type: "button", "aria-label": "Fermer", onclick: fermer }, icone("croix", 15))
     ),
@@ -16251,57 +16264,57 @@ var auth_exports = {};
 __export(auth_exports, {
   default: () => vueAuth
 });
-function sceau2() {
-  const mots = String(config.academyName || "Classe Parall\xE8le").split(/[\s\u00b7\u2014-]+/).filter(Boolean);
-  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
-  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
-}
 async function vueAuth() {
   let mode2 = "connexion";
-  const boite = el("div.acces__boite");
+  const boite = el("div.acces__carte");
   const noeud = el(
-    "div.accueil-acces",
+    "div.acces",
     el(
-      "aside.acces__enseigne",
-      el("div.acces__sceau", sceau2()),
-      el(
-        "div",
-        el("p.acces__devise", config.academyMotto || "Ordre \xB7 Justice \xB7 M\xE9rite"),
-        el("h1.acces__titre", config.academyName || config.academyName),
-        el(
-          "p.doux",
-          { style: { maxWidth: "44ch", marginTop: "var(--e-3)" } },
-          "L'environnement scolaire num\xE9rique de votre acad\xE9mie RP. Il fonctionne \xE0 c\xF4t\xE9 de Roblox, jamais \xE0 sa place."
-        )
-      ),
-      el(
-        "div.acces__points",
-        ARGUMENTS.map(([ic, titre, corps]) => el(
-          "div.acces__point",
-          icone(ic, 18),
-          el("div", el("b", titre), el("br"), el("span.petit", corps))
-        ))
-      )
-    ),
-    el("section.acces__formulaire", boite)
+      "div.acces__colonne",
+      el("h1.acces__titre", config.academyName || "Classe Parall\xE8le"),
+      el("p.acces__sous-titre", "Votre \xE9cole, \xE0 c\xF4t\xE9 du jeu."),
+      boite
+    )
   );
-  function peindre() {
-    render(boite, mode2 === "connexion" ? formConnexion() : mode2 === "inscription" ? formInscription() : formLien());
+  function onglets2() {
+    return el(
+      "div.acces__onglets",
+      { role: "tablist" },
+      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "connexion"), onclick: () => basculer("connexion") }, "Se connecter"),
+      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "inscription"), onclick: () => basculer("inscription") }, "Cr\xE9er mon compte")
+    );
   }
-  function basculer(nouveau) {
-    mode2 = nouveau;
-    peindre();
+  function champPseudo(nouveau) {
+    return el(
+      "label.champ",
+      el("span.champ__label", "Pseudo RP"),
+      el("input.saisie", {
+        name: "pseudo",
+        required: true,
+        minlength: 3,
+        maxlength: 24,
+        autocomplete: nouveau ? "username" : "username",
+        autocapitalize: "words",
+        spellcheck: "false",
+        placeholder: "Le nom de votre personnage"
+      }),
+      nouveau ? el(
+        "span.champ__aide",
+        "Votre vrai pseudo RP, celui de votre personnage dans le jeu : c'est sous ce nom que les autres vous verront. 3 \xE0 24 caract\xE8res."
+      ) : null
+    );
   }
   function formConnexion() {
-    let email, motDePasse, bouton2;
-    const formulaire2 = el(
-      "form",
+    let bouton2;
+    const f = el(
+      "form.acces__formulaire",
       {
         onsubmit: async (e) => {
           e.preventDefault();
+          const pseudo = f.elements.pseudo.value.trim();
           bouton2.disabled = true;
           try {
-            await auth.connecter({ email: email.value.trim(), motDePasse: motDePasse.value });
+            await auth.connecter({ pseudo, motDePasse: f.elements.mdp.value });
             await chargerSession();
             const retour = stockageSession.getItem("ojm.retour");
             stockageSession.removeItem("ojm.retour");
@@ -16312,69 +16325,43 @@ async function vueAuth() {
           }
         }
       },
-      el("h2", { style: { marginBottom: "var(--e-2)" } }, "Entrer dans l'acad\xE9mie"),
-      el(
-        "p.doux.petit",
-        { style: { marginBottom: "var(--e-5)" } },
-        "Identifiez-vous pour retrouver vos cahiers et vos classes."
-      ),
-      el(
-        "label.champ",
-        el("span.champ__label", "Adresse de courriel"),
-        email = el("input.saisie", { type: "email", required: true, autocomplete: "email", placeholder: "vous@exemple.fr" })
-      ),
+      champPseudo(false),
       el(
         "label.champ",
         el("span.champ__label", "Mot de passe"),
-        motDePasse = el("input.saisie", { type: "password", required: true, autocomplete: "current-password" })
+        el("input.saisie", { name: "mdp", type: "password", required: true, autocomplete: "current-password" })
       ),
-      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Se connecter"),
-      el(
-        "div.ligne-flex.ligne-flex--entre",
-        { style: { marginTop: "var(--e-4)" } },
-        el(
-          "button.btn.btn--fantome.petit",
-          { type: "button", onclick: () => basculer("inscription") },
-          "Cr\xE9er un compte"
-        ),
-        pilote.mode === "supabase" ? el(
-          "button.btn.btn--fantome.petit",
-          { type: "button", onclick: () => basculer("lien") },
-          "Lien par courriel"
-        ) : null
-      ),
-      noteMode()
+      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Entrer"),
+      el("p.acces__aide", "Mot de passe oubli\xE9 ? Demandez \xE0 l'administration de vous en donner un nouveau.")
     );
-    return formulaire2;
+    return f;
   }
   function formInscription() {
-    let nom, email, motDePasse, bouton2;
-    return el(
-      "form",
+    let bouton2;
+    const f = el(
+      "form.acces__formulaire",
       {
         onsubmit: async (e) => {
           e.preventDefault();
-          if (motDePasse.value.length < 8) {
+          const pseudo = f.elements.pseudo.value.trim().replace(/\s+/g, " ");
+          const mdp = f.elements.mdp.value;
+          if (!PSEUDO.test(pseudo)) {
+            erreur("Pseudo refus\xE9", "3 \xE0 24 caract\xE8res : lettres, chiffres, espaces, et - _ . ' au milieu.");
+            return;
+          }
+          if (mdp.length < 8) {
             erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
+            return;
+          }
+          if (mdp !== f.elements.mdp2.value) {
+            erreur("Les mots de passe diff\xE8rent", "Tapez deux fois le m\xEAme.");
             return;
           }
           bouton2.disabled = true;
           try {
-            const sortie = await auth.inscrire({
-              email: email.value.trim(),
-              motDePasse: motDePasse.value,
-              nom: nom.value.trim(),
-              role: "student"
-            });
-            if (!sortie?.session && pilote.mode === "supabase") {
-              succes(
-                "Compte cr\xE9\xE9",
-                "Ce projet demande encore une confirmation par courriel : ouvrez le message re\xE7u, puis connectez-vous."
-              );
-              basculer("connexion");
-              return;
-            }
+            await auth.inscrire({ pseudo, motDePasse: mdp });
             await chargerSession();
+            local.ecrire("ojm.bienvenue", true);
             aller("/");
           } catch (err) {
             erreur("Inscription impossible", messageErreur(err));
@@ -16382,104 +16369,34 @@ async function vueAuth() {
           }
         }
       },
-      el("h2", { style: { marginBottom: "var(--e-2)" } }, "Cr\xE9er un compte"),
-      el(
-        "p.doux.petit",
-        { style: { marginBottom: "var(--e-5)" } },
-        "Votre nom sera visible des membres des espaces que vous rejoignez."
-      ),
-      el(
-        "label.champ",
-        el("span.champ__label", "Nom affich\xE9"),
-        nom = el("input.saisie", { required: true, placeholder: "Jean Marchand", autocomplete: "name" }),
-        el("span.champ__aide", "Id\xE9alement le nom de votre personnage RP.")
-      ),
-      el(
-        "label.champ",
-        el("span.champ__label", "Adresse de courriel"),
-        email = el("input.saisie", { type: "email", required: true, autocomplete: "email" })
-      ),
+      champPseudo(true),
       el(
         "label.champ",
         el("span.champ__label", "Mot de passe"),
-        motDePasse = el("input.saisie", { type: "password", required: true, minlength: 8, autocomplete: "new-password" }),
+        el("input.saisie", { name: "mdp", type: "password", required: true, minlength: 8, autocomplete: "new-password" }),
         el("span.champ__aide", "Huit caract\xE8res minimum.")
       ),
       el(
-        "p.petit.faible",
-        { style: { marginBottom: "var(--e-4)" } },
-        `Un seul type de compte. Vous serez ${L("professeur")} des ${L("classes")} que vous cr\xE9ez, ${L("eleve")} de celles que vous rejoignez avec un code.`
-      ),
-      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Cr\xE9er mon compte"),
-      el(
-        "div.centre",
-        { style: { marginTop: "var(--e-4)" } },
-        el(
-          "button.btn.btn--fantome.petit",
-          { type: "button", onclick: () => basculer("connexion") },
-          "J'ai d\xE9j\xE0 un compte"
-        )
-      ),
-      noteMode()
-    );
-  }
-  function formLien() {
-    let email, bouton2;
-    return el(
-      "form",
-      {
-        onsubmit: async (e) => {
-          e.preventDefault();
-          bouton2.disabled = true;
-          try {
-            await auth.lienMagique(email.value.trim());
-            succes("Lien envoy\xE9", "Consultez votre bo\xEEte de r\xE9ception.");
-          } catch (err) {
-            erreur("Envoi impossible", messageErreur(err));
-          } finally {
-            bouton2.disabled = false;
-          }
-        }
-      },
-      el("h2", { style: { marginBottom: "var(--e-2)" } }, "Lien de connexion"),
-      el(
-        "p.doux.petit",
-        { style: { marginBottom: "var(--e-5)" } },
-        "Recevez un lien \xE0 usage unique, sans mot de passe."
-      ),
-      el(
         "label.champ",
-        el("span.champ__label", "Adresse de courriel"),
-        email = el("input.saisie", { type: "email", required: true, autocomplete: "email" })
+        el("span.champ__label", "Encore une fois"),
+        el("input.saisie", { name: "mdp2", type: "password", required: true, minlength: 8, autocomplete: "new-password" })
       ),
-      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Recevoir le lien"),
-      el(
-        "div.centre",
-        { style: { marginTop: "var(--e-4)" } },
-        el("button.btn.btn--fantome.petit", { type: "button", onclick: () => basculer("connexion") }, "Retour")
-      )
+      bouton2 = el("button.btn.btn--primaire.btn--grand.btn--bloc", { type: "submit" }, "Cr\xE9er mon compte")
     );
+    return f;
   }
-  function noteMode() {
-    if (pilote.mode !== "local") return null;
-    return el(
-      "div.carte",
-      { style: { marginTop: "var(--e-5)", borderColor: "var(--ligne-laiton)" } },
-      el(
-        "div.ligne-flex",
-        icone("bouclier", 16),
-        el("b.petit", "Mode d\xE9monstration")
-      ),
-      el(
-        "p.petit.doux",
-        { style: { margin: "var(--e-2) 0 0" } },
-        "Aucun projet Supabase n'est configur\xE9 : les comptes et les donn\xE9es restent dans ce navigateur, et la synchronisation ne fonctionne qu'entre les onglets de ce poste. Renseignez config.js pour passer en mode r\xE9el."
-      ),
-      configIntegree ? null : el("button.btn.petit", {
-        style: { marginTop: "var(--e-3)" },
-        onclick: () => aller("/reglages?onglet=connexion")
-      }, "Configurer Supabase")
+  function peindre() {
+    render(
+      boite,
+      onglets2(),
+      mode2 === "connexion" ? formConnexion() : formInscription(),
+      pilote.mode === "local" ? el("p.acces__aide", "Mode d\xE9monstration : les comptes restent dans ce navigateur.") : null
     );
+    boite.querySelector('input[name="pseudo"]')?.focus();
+  }
+  function basculer(nouveau) {
+    mode2 = nouveau;
+    peindre();
   }
   peindre();
   document.body.classList.add("hors-session");
@@ -16489,24 +16406,18 @@ async function vueAuth() {
     nettoyer: () => document.body.classList.remove("hors-session")
   };
 }
-var ARGUMENTS;
+var PSEUDO;
 var init_auth = __esm({
   "src/vues/auth.js"() {
     init_dom();
-    init_icons();
     init_data();
     init_session();
     init_router();
     init_config();
     init_toast();
-    init_lexique();
     init_stockage();
-    ARGUMENTS = [
-      ["cahiers", "Un cahier personnel pour chaque \xE9l\xE8ve", "Pages, dessins, annotations. Il reste priv\xE9, m\xEAme pendant le cours."],
-      ["tableau", "Un tableau partag\xE9 en temps r\xE9el", "Le professeur \xE9crit, la classe voit. Les pages se conservent."],
-      ["classe", "Une classe, un code", "Le professeur donne un code, les \xE9l\xE8ves entrent et rejoignent la session."],
-      ["robot", "Roblox reste le jeu", "Toute la logique scolaire vit ici : le serveur RP ne s'alourdit pas."]
-    ];
+    init_util();
+    PSEUDO = /^[\p{L}\p{N}][\p{L}\p{N} '._-]{1,22}[\p{L}\p{N}]$/u;
   }
 });
 
@@ -19006,6 +18917,10 @@ async function vueAccueil() {
   await charger2();
   if (petit()) console_.demarrer();
   setTimeout(servirDemande, 0);
+  if (local.lire("ojm.bienvenue", false)) {
+    local.ecrire("ojm.bienvenue", false);
+    setTimeout(() => Promise.resolve().then(() => (init_apparence(), apparence_exports)).then((m) => m.ouvrirApparence({ bienvenue: true })), 500);
+  }
   return {
     noeud,
     titre: "Chez moi",
@@ -29658,7 +29573,7 @@ async function vueProfil() {
           el("div.panneau__entete", el("span.panneau__titre", "Compte")),
           el(
             "div.panneau__corps.pile",
-            el("span.petit.faible", etat.utilisateur.email || "\u2014"),
+            el("span.petit.faible", `Pseudo RP : ${etat.profil?.display_name || "\u2014"}`),
             el("button.btn", { onclick: () => aller("/reglages") }, icone("reglages", 15), "R\xE9glages"),
             el("button.btn.btn--danger", {
               onclick: async () => {
@@ -29674,8 +29589,9 @@ async function vueProfil() {
   async function modifier() {
     const sortie = await formulaire({
       titre: "Modifier mon profil",
+      // Le pseudo RP sert à se connecter : il ne se change pas ici.
+      note: `Pseudo RP : ${profil.display_name} \u2014 c'est avec lui que vous vous connectez.`,
       champs: [
-        { cle: "display_name", label: "Nom affich\xE9", valeur: profil.display_name, requis: true },
         {
           cle: "roblox_name",
           label: "Identit\xE9 en jeu",

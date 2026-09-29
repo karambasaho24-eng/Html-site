@@ -907,22 +907,26 @@ export async function creerPiloteLocal() {
       async session() { return sessionCourante(); },
       async utilisateur() { return sessionCourante()?.user || null; },
 
-      async inscrire({ email, motDePasse, nom, role }) {
+      async inscrire({ pseudo, motDePasse }) {
         const liste = comptes();
-        const normalise = String(email).trim().toLowerCase();
+        const propre = String(pseudo || "").trim().replace(/\s+/g, " ");
+        const normalise = propre.toLowerCase();
+        if (propre.length < 3 || propre.length > 24) {
+          throw new ErreurDonnees("Le pseudo doit faire entre 3 et 24 caractères.", "22023");
+        }
         if (liste.some((c) => c.email === normalise)) {
-          throw new ErreurDonnees("User already registered", "23505");
+          throw new ErreurDonnees("Ce pseudo est déjà pris.", "23505");
         }
         const compte = {
           id: uid(), email: normalise,
           empreinte: await empreinte(motDePasse),
-          nom: nom || normalise.split("@")[0]
+          nom: propre
         };
         liste.push(compte);
         sauverComptes(liste);
 
         await t("profiles").creer({
-          id: compte.id, display_name: compte.nom, role_key: role || "student",
+          id: compte.id, display_name: compte.nom, role_key: "student",
           preferences: {}, avatar_url: null, roblox_name: null, bio: null
         });
 
@@ -931,8 +935,8 @@ export async function creerPiloteLocal() {
         return { user: session.user, session };
       },
 
-      async connecter({ email, motDePasse }) {
-        const normalise = String(email).trim().toLowerCase();
+      async connecter({ pseudo, motDePasse }) {
+        const normalise = String(pseudo || "").trim().replace(/\s+/g, " ").toLowerCase();
         const compte = comptes().find((c) => c.email === normalise);
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {

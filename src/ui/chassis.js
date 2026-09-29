@@ -143,7 +143,7 @@ function peindreRail() {
     el("div.tiroir__entete",
       el("div.tiroir__qui",
         el("span.tiroir__nom", etat.profil?.display_name || "—"),
-        el("span.tiroir__mail", etat.utilisateur?.email || "")),
+        el("span.tiroir__mail", "Pseudo RP")),
       el("button.contexte__bouton", { type: "button", "aria-label": "Fermer", onclick: fermer }, icone("croix", 15))),
     el("div.rail__titre", "Mes lieux"),
     lienRail("/", "accueil", "Chez moi", "accueil"),

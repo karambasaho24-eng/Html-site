@@ -22,7 +22,7 @@ export const monAvatar = () => ({ ...(etat.profil?.preferences?.avatar || {}) })
 
 const auHasard = (liste) => liste[Math.floor(Math.random() * liste.length)];
 
-export async function ouvrirApparence() {
+export async function ouvrirApparence({ bienvenue = false } = {}) {
   // Les tenues de rigueur ont pu changer depuis la connexion.
   await rafraichirClasses().catch(() => {});
   let avatar = monAvatar();
@@ -79,7 +79,7 @@ export async function ouvrirApparence() {
   function maj() { peindreChoix(); peindreApercu(); }
 
   const enregistre = await ouvrirModale({
-    titre: "Mon personnage",
+    titre: bienvenue ? `Bienvenue, ${etat.profil?.display_name || ""} — habillez votre personnage` : "Mon personnage",
     large: true,
     corps: () => {
       peindreChoix();

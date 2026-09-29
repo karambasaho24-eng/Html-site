@@ -123,7 +123,7 @@ export default async function vueProfil() {
         el("div.panneau",
           el("div.panneau__entete", el("span.panneau__titre", "Compte")),
           el("div.panneau__corps.pile",
-            el("span.petit.faible", etat.utilisateur.email || "—"),
+            el("span.petit.faible", `Pseudo RP : ${etat.profil?.display_name || "—"}`),
             el("button.btn", { onclick: () => aller("/reglages") }, icone("reglages", 15), "Réglages"),
             el("button.btn.btn--danger", {
               onclick: async () => { await deconnecter(); aller("/connexion"); }
@@ -137,8 +137,9 @@ export default async function vueProfil() {
   async function modifier() {
     const sortie = await formulaire({
       titre: "Modifier mon profil",
+      // Le pseudo RP sert à se connecter : il ne se change pas ici.
+      note: `Pseudo RP : ${profil.display_name} — c'est avec lui que vous vous connectez.`,
       champs: [
-        { cle: "display_name", label: "Nom affiché", valeur: profil.display_name, requis: true },
         { cle: "roblox_name", label: "Identité en jeu", valeur: profil.roblox_name || "",
           aide: "Votre pseudo sur le serveur. Il sert à l'encadrement pour vous "
               + "retrouver en jeu, et n'apparaît jamais à la place de votre personnage." },

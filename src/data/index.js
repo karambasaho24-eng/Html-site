@@ -41,7 +41,7 @@ export const profils = {
     if (existant) return existant;
     return T("profiles").creer({
       id: utilisateur.id,
-      display_name: utilisateur.email?.split("@")[0] || "Nouvel élève",
+      display_name: utilisateur.user_metadata?.pseudo || utilisateur.user_metadata?.display_name || "Nouvel élève",
       role_key: "student", preferences: {}
     });
   }

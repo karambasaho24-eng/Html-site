@@ -57,12 +57,18 @@ async function depot(page, expression) {
 async function creerCompte(page, nom, email) {
   await page.goto(RACINE);
   await page.waitForTimeout(700);
-  await page.click("text=Créer un compte");
-  await page.fill('input[autocomplete="name"]', nom);
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[autocomplete="new-password"]', "motdepasse1");
-  await page.click('button:has-text("Créer mon compte")');
+  await page.click('[role="tab"]:has-text("Créer mon compte")');
+  await page.fill('input[name="pseudo"]', nom);
+  await page.fill('input[name="mdp"]', "motdepasse1");
+  await page.fill('input[name="mdp2"]', "motdepasse1");
+  await page.click('button[type="submit"]:has-text("Créer mon compte")');
   await page.waitForTimeout(1600);
+  // La fenêtre « habillez votre personnage » s'ouvre à la première visite.
+  const bienvenue = await page.waitForSelector(".voile", { timeout: 6000 }).then(() => true).catch(() => false);
+  verifier("tout juste inscrit, on commence par habiller son personnage", bienvenue);
+  for (let i = 0; i < 3 && await page.locator(".voile").count(); i++) {
+    await page.keyboard.press("Escape"); await page.waitForTimeout(500);
+  }
 }
 
 const nav = await chromium.launch({ executablePath: CHROME });

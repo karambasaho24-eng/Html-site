@@ -19,7 +19,7 @@ import { aller } from "../core/router.js";
 import { ecouter } from "../core/bus.js";
 import { L } from "../core/lexique.js";
 import { sessions, papiers, cahiers, classes as depotClasses } from "../data/index.js";
-import { normaliserCode, dateLongue } from "../core/util.js";
+import { normaliserCode, dateLongue, local } from "../core/util.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses, notificationsNonLues } from "../core/session.js";
 import { modePleineVue, panneauNotifications } from "../ui/chassis.js";
@@ -246,6 +246,11 @@ export default async function vueAccueil() {
   await charger();
   if (petit()) console_.demarrer();
   setTimeout(servirDemande, 0);
+  // Tout juste inscrit : on commence par s'habiller.
+  if (local.lire("ojm.bienvenue", false)) {
+    local.ecrire("ojm.bienvenue", false);
+    setTimeout(() => import("../features/apparence.js").then((m) => m.ouvrirApparence({ bienvenue: true })), 500);
+  }
 
   return {
     noeud,
