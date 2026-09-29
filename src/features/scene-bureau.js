@@ -570,7 +570,8 @@ export function creerScene({
           id: String(p.user_id),
           nom: (nomDe(p) || "Participant").split(/\s+/)[0],
           brut: p,
-          avatar: p.avatar || null,
+          // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
+          avatar: classe?.settings?.tenue ? { ...(p.avatar || {}), tenue: classe.settings.tenue } : p.avatar || null,
           bureau: Array.isArray(p.bureau) ? p.bureau : [],
           main: levees.has(String(p.user_id))
         })),

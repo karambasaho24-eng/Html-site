@@ -16436,7 +16436,8 @@ function creerScene({
         id: String(p.user_id),
         nom: (nomDe(p) || "Participant").split(/\s+/)[0],
         brut: p,
-        avatar: p.avatar || null,
+        // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
+        avatar: classe?.settings?.tenue ? { ...p.avatar || {}, tenue: classe.settings.tenue } : p.avatar || null,
         bureau: Array.isArray(p.bureau) ? p.bureau : [],
         main: levees.has(String(p.user_id))
       })),
@@ -21596,6 +21597,7 @@ async function vueClasse({ params, requete: requete2 }) {
           ) : null
         )
       ),
+      panneauTenue(),
       el(
         "div.panneau",
         el("div.panneau__entete", el("span.panneau__titre", "Fin de vie")),
@@ -21653,6 +21655,55 @@ async function vueClasse({ params, requete: requete2 }) {
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("D\xE9marrage impossible", messageErreur(err));
+    }
+  }
+  function panneauTenue() {
+    const actuelle = classe.settings?.tenue || "";
+    const bouton2 = (nom) => {
+      const f = nom ? ficheTenue(nom) || {} : {};
+      const teintes = nom ? [f.veste || f.pull || f.chemise, f.gilet || f.chemise, f.pantalon].filter(Boolean) : [];
+      return el(
+        "button.apparence__tenue",
+        {
+          type: "button",
+          "aria-pressed": String(actuelle === nom),
+          onclick: () => choisirTenue(nom)
+        },
+        nom ? el("span.apparence__nuancier", teintes.map((c) => el("span", { style: { background: c } }))) : icone("profil", 14),
+        el("span", nom ? libelleTenue(nom) : "Libre : chacun la sienne")
+      );
+    };
+    const uniformes = NOMS_TENUES.filter((n) => ficheTenue(n)?.famille === "uniforme");
+    const costumes = NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume");
+    return el(
+      "div.panneau",
+      el(
+        "div.panneau__entete",
+        el("span.panneau__titre", "Tenue de rigueur"),
+        el("span.etiq", actuelle ? libelleTenue(actuelle) : "Libre")
+      ),
+      el(
+        "div.panneau__corps",
+        el("p.petit.doux", "En s\xE9ance, les \xE9l\xE8ves apparaissent dans cette tenue, avec leur coupe et leur teint. Le responsable garde la sienne."),
+        el("div.apparence__tenues", bouton2("")),
+        el("p.apparence__sous-titre", "Uniformes"),
+        el("div.apparence__tenues", uniformes.map(bouton2)),
+        el("p.apparence__sous-titre", "Costumes"),
+        el("div.apparence__tenues", costumes.map(bouton2))
+      )
+    );
+  }
+  async function choisirTenue(nom) {
+    try {
+      const reglages = { ...classe.settings || {} };
+      if (nom) reglages.tenue = nom;
+      else delete reglages.tenue;
+      await classes.majorer(classe.id, { settings: reglages });
+      classe.settings = reglages;
+      succes(nom ? `Tenue de rigueur : ${libelleTenue(nom)}` : "Tenue libre");
+      await peindreContenu();
+    } catch (e) {
+      erreur("Tenue non enregistr\xE9e", messageErreur(e));
     }
   }
   async function choisirUnivers(cle) {
@@ -21783,6 +21834,7 @@ var init_classe = __esm({
     init_bulletin();
     init_objets_trouves();
     init_util();
+    init_tenues();
     ONGLETS = [
       { cle: "apercu", libelle: "Aper\xE7u" },
       { cle: "identite", libelle: "Personnage", rp: true },
