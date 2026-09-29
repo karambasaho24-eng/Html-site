@@ -933,7 +933,178 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const LT = 9.6, HT = LT * 9 / 16;
   let objetsProf = null;              // le plateau du bureau du professeur
 
-  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true }) {
+  /* --- Dehors : ce qu'on voit par les fenêtres ------------------------------
+     Un grand paysage peint, posé loin derrière le mur : le ciel, le Mur à
+     l'horizon, les toits de la ville, des arbres. En se déplaçant, on le voit
+     glisser derrière les carreaux, comme un vrai dehors. La nuit : étoiles,
+     lune, et quelques fenêtres allumées en ville. */
+  const cacheDehors = new Map();
+  // Le paysage : loin, grand, l'horizon à hauteur d'yeux (un peu au-dessus).
+  const HORIZON_DEHORS = 0.42, HAUT_DEHORS = 60, LOIN_DEHORS = 30, Y_HORIZON = 3.2;
+  const Y_DEHORS = Y_HORIZON - HAUT_DEHORS / 2 + HORIZON_DEHORS * HAUT_DEHORS;
+  function dehors(nuit) {
+    if (cacheDehors.has(nuit)) return cacheDehors.get(nuit);
+    const c = document.createElement("canvas");
+    c.width = 2048; c.height = 1024;
+    const g = c.getContext("2d");
+    let graine_ = 7;
+    const hasard = () => ((graine_ = (graine_ * 16807) % 2147483647) / 2147483647);
+    const H = 1024, W = 2048, horizon = H * HORIZON_DEHORS;
+    // Le ciel.
+    const ciel = g.createLinearGradient(0, 0, 0, horizon);
+    ciel.addColorStop(0, nuit ? "#070d19" : "#5d8fc9");
+    ciel.addColorStop(.7, nuit ? "#122039" : "#a9c6e2");
+    ciel.addColorStop(1, nuit ? "#223350" : "#e3ecf1");
+    g.fillStyle = ciel; g.fillRect(0, 0, W, horizon + 4);
+    if (nuit) {
+      for (let i = 0; i < 420; i++) {
+        g.fillStyle = `rgba(230,236,250,${.25 + hasard() * .7})`;
+        const r = hasard() * 1.6 + .3;
+        g.beginPath(); g.arc(hasard() * W, hasard() * horizon * .9, r, 0, Math.PI * 2); g.fill();
+      }
+      const lx = W * .68, ly = H * .16;
+      const halo = g.createRadialGradient(lx, ly, 10, lx, ly, 140);
+      halo.addColorStop(0, "rgba(240,232,205,.35)"); halo.addColorStop(1, "rgba(240,232,205,0)");
+      g.fillStyle = halo; g.fillRect(lx - 140, ly - 140, 280, 280);
+      g.fillStyle = "#efe7cf"; g.beginPath(); g.arc(lx, ly, 34, 0, Math.PI * 2); g.fill();
+    } else {
+      // Des nuages doux, étirés.
+      for (let i = 0; i < 26; i++) {
+        const x = hasard() * W, y = 60 + hasard() * horizon * .55, l = 120 + hasard() * 260;
+        for (let k = 0; k < 7; k++) {
+          const cx = x + (hasard() - .5) * l, cy = y + (hasard() - .5) * 26, r = 30 + hasard() * 50;
+          const d = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+          d.addColorStop(0, "rgba(255,255,255,.55)"); d.addColorStop(1, "rgba(255,255,255,0)");
+          g.fillStyle = d; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+      }
+    }
+    // Les collines, au loin, bleuies par l'air.
+    g.fillStyle = nuit ? "#1b2638" : "#9fb2c2";
+    g.beginPath(); g.moveTo(0, horizon);
+    for (let x = 0; x <= W; x += 32) g.lineTo(x, horizon - 30 - Math.sin(x / 190) * 18 - Math.sin(x / 71) * 7);
+    g.lineTo(W, horizon + 10); g.lineTo(0, horizon + 10); g.fill();
+    // Le Mur : une longue muraille de pierre claire, à l'horizon.
+    const hautMur = horizon - 96, basMur = horizon + 6;
+    const pierre = g.createLinearGradient(0, hautMur, 0, basMur);
+    pierre.addColorStop(0, nuit ? "#3a4252" : "#b9ae97"); pierre.addColorStop(1, nuit ? "#2a303c" : "#8f846f");
+    g.fillStyle = pierre; g.fillRect(0, hautMur, W, basMur - hautMur);
+    g.fillStyle = nuit ? "rgba(0,0,0,.25)" : "rgba(80,70,55,.18)";
+    for (let x = 0; x < W; x += 46) g.fillRect(x, hautMur, 2, basMur - hautMur);
+    for (let y = hautMur + 14; y < basMur; y += 16) g.fillRect(0, y, W, 1.5);
+    g.fillStyle = nuit ? "#454e60" : "#ddd5c4"; g.fillRect(0, hautMur - 6, W, 7);
+    // La ville : des rangs de maisons, plus grandes à mesure qu'elles approchent.
+    const toits = nuit ? ["#1c1f28", "#23252e", "#191c24"] : ["#8e3f28", "#6f3624", "#4f4b4c", "#9b4b30", "#5c3a2c"];
+    const murs = nuit ? ["#262b36", "#2d3240", "#22262f"] : ["#d8c8a6", "#c9b48f", "#bba98a", "#e0d2b4", "#a89478"];
+    const RANGS = 8;
+    for (let rang = 0; rang < RANGS; rang++) {
+      const k = rang / (RANGS - 1);
+      const echelle = 0.28 + k * k * 0.9;
+      const base = horizon + 22 + (H * 0.8 - horizon - 22) * k ** 1.5;
+      for (let x = -40; x < W + 40; ) {
+        const l = (50 + hasard() * 60) * echelle, h = (30 + hasard() * 34) * echelle, pointe = (20 + hasard() * 20) * echelle;
+        g.fillStyle = murs[Math.floor(hasard() * murs.length)];
+        g.fillRect(x, base - h, l, h + 40 * echelle);
+        // Le pignon à l'ombre, les colombages : du relief, pas des cartons.
+        g.fillStyle = nuit ? "rgba(0,0,0,.25)" : "rgba(60,40,20,.22)";
+        g.fillRect(x + l * .62, base - h, l * .38, h + 40 * echelle);
+        if (!nuit && hasard() < .5) {
+          g.strokeStyle = "rgba(70,45,28,.55)"; g.lineWidth = Math.max(1, 2 * echelle);
+          g.strokeRect(x + 2, base - h + 2, l - 4, h * .5);
+          g.beginPath(); g.moveTo(x + l / 2, base - h); g.lineTo(x + l / 2, base - h * .5); g.stroke();
+        }
+        // Les fenêtres : allumées la nuit, sombres le jour.
+        for (let fy = base - h + 10 * echelle; fy < base - 10 * echelle; fy += 22 * echelle) {
+          for (let fx = x + 8 * echelle; fx < x + l - 12 * echelle; fx += 20 * echelle) {
+            if (hasard() < (nuit ? .32 : .6)) {
+              g.fillStyle = nuit ? (hasard() < .6 ? "#f2b85a" : "#caa066") : "rgba(40,45,55,.55)";
+              g.fillRect(fx, fy, 7 * echelle, 10 * echelle);
+            }
+          }
+        }
+        g.fillStyle = toits[Math.floor(hasard() * toits.length)];
+        g.beginPath(); g.moveTo(x - 6 * echelle, base - h); g.lineTo(x + l / 2, base - h - pointe); g.lineTo(x + l + 6 * echelle, base - h); g.fill();
+        g.fillStyle = "rgba(0,0,0,.22)";           // le versant à l'ombre
+        g.beginPath(); g.moveTo(x + l / 2, base - h - pointe); g.lineTo(x + l + 6 * echelle, base - h); g.lineTo(x + l / 2, base - h); g.fill();
+        if (hasard() < .3) {   // une cheminée
+          g.fillStyle = nuit ? "#15171d" : "#6b4a3a";
+          g.fillRect(x + l * .7, base - h - pointe * .8, 8 * echelle, pointe * .6);
+        }
+        x += l + (hasard() * 10 - 2) * echelle;
+      }
+      // Un peu d'air entre les rangs : les plus lointains pâlissent.
+      if (rang < RANGS - 1) {
+        g.fillStyle = nuit ? "rgba(12,18,30,.1)" : "rgba(190,208,224,.08)";
+        g.fillRect(0, horizon + 4, W, base + 56 - horizon);
+      }
+    }
+    // Au premier plan, la cime des arbres de la cour.
+    for (let i = 0; i < 70; i++) {
+      const x = hasard() * W, y = H * .9 + hasard() * H * .1, r = 30 + hasard() * 55;
+      g.fillStyle = nuit ? `rgba(10,16,14,${.8 + hasard() * .2})` : ["#3f5a2f", "#4d6b36", "#35502a", "#577a3d"][Math.floor(hasard() * 4)];
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    cacheDehors.set(nuit, t);
+    return t;
+  }
+  /** Le verre : presque rien, un voile bleuté et deux reflets qui accrochent la lumière. */
+  let texVitre = null;
+  function matVitre() {
+    if (!texVitre) {
+      const c = document.createElement("canvas"); c.width = c.height = 256;
+      const g = c.getContext("2d");
+      g.fillStyle = "rgba(205,225,240,.07)"; g.fillRect(0, 0, 256, 256);
+      for (const [x, l, a] of [[40, 70, .16], [150, 26, .12]]) {
+        g.save(); g.translate(x, 0); g.rotate(0.35);
+        const d = g.createLinearGradient(0, 0, l, 0);
+        d.addColorStop(0, "rgba(255,255,255,0)"); d.addColorStop(.5, `rgba(255,255,255,${a})`); d.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = d; g.fillRect(0, -60, l, 420);
+        g.restore();
+      }
+      texVitre = new THREE.CanvasTexture(c);
+    }
+    return new THREE.MeshBasicMaterial({ map: texVitre, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  }
+  /* Une fenêtre ouverte dans le mur : l'embrasure (l'épaisseur du mur), le
+     dormant, les petits bois, les carreaux. Le groupe regarde vers +z (la
+     pièce) ; le dehors est derrière, vers -z. */
+  function baie(l, h, { appui = true } = {}) {
+    const g = new THREE.Group();
+    const bois = matDe("#3a2d22", { roughness: .6 });
+    const plate = matDe("#e9e2d2", { roughness: .9 });
+    const P = 0.55;                                        // l'épaisseur du mur
+    for (const [x, y, sx, sy] of [[-l / 2 - 0.04, 0, 0.08, h], [l / 2 + 0.04, 0, 0.08, h], [0, h / 2 + 0.04, l + 0.16, 0.08], [0, -h / 2 - 0.04, l + 0.16, 0.08]]) {
+      const e = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, P), plate);
+      e.position.set(x, y, -P / 2);
+      e.receiveShadow = true;
+      g.add(e);
+    }
+    const cadre = 0.13;
+    for (const [x, y, sx, sy] of [[-l / 2 + cadre / 2, 0, cadre, h], [l / 2 - cadre / 2, 0, cadre, h], [0, h / 2 - cadre / 2, l, cadre], [0, -h / 2 + cadre / 2, l, cadre],
+      [0, 0, 0.07, h], [0, h * 0.18, l, 0.07]]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, 0.1), bois);
+      m.position.set(x, y, -0.22);
+      m.castShadow = true;
+      g.add(m);
+    }
+    const verre = new THREE.Mesh(new THREE.PlaneGeometry(l - 0.1, h - 0.1), matVitre());
+    verre.position.z = -0.25;
+    verre.renderOrder = 2;
+    g.add(verre);
+    if (appui) {
+      const tablette = new THREE.Mesh(boiteRonde(l + 0.5, 0.12, 0.42, 0.03), plate);
+      tablette.position.set(0, -h / 2 - 0.06, 0.12);
+      tablette.receiveShadow = true;
+      g.add(tablette);
+    }
+    ombrer(g);
+    return g;
+  }
+
+  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true, fenetresFond = [] }) {
     const profondeur = avant - fond + 4;
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 2, profondeur),
       new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: .78 }));
@@ -944,8 +1115,24 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
     const matMur = new THREE.MeshStandardMaterial({ map: papier, roughness: .95 });
     const matLambris = new THREE.MeshStandardMaterial({ map: TEX.lambris, roughness: .7 });
-    const mur = (l, x, z, ry) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(l, 13), matMur);
+    // Un mur, percé de ses fenêtres. trous : [[x local, y, largeur, hauteur]].
+    const mur = (l, x, z, ry, trous = []) => {
+      let geo;
+      if (trous.length) {
+        const forme = new THREE.Shape();
+        forme.moveTo(-l / 2, -6.5); forme.lineTo(l / 2, -6.5); forme.lineTo(l / 2, 6.5); forme.lineTo(-l / 2, 6.5); forme.lineTo(-l / 2, -6.5);
+        for (const [cx, cy, tl, th] of trous) {
+          const t = new THREE.Path();
+          const y = cy - 6.5;
+          t.moveTo(cx - tl / 2, y - th / 2); t.lineTo(cx - tl / 2, y + th / 2); t.lineTo(cx + tl / 2, y + th / 2); t.lineTo(cx + tl / 2, y - th / 2); t.lineTo(cx - tl / 2, y - th / 2);
+          forme.holes.push(t);
+        }
+        geo = new THREE.ShapeGeometry(forme);
+        // Les coordonnées de texture, comme sur un plan entier.
+        const pos = geo.attributes.position, uv = geo.attributes.uv;
+        for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + l / 2) / l, (pos.getY(i) + 6.5) / 13);
+      } else geo = new THREE.PlaneGeometry(l, 13);
+      const m = new THREE.Mesh(geo, matMur);
       m.position.set(x, 6.5, z); m.rotation.y = ry; m.receiveShadow = true;
       const b = new THREE.Mesh(new THREE.PlaneGeometry(l, 1.8), matLambris);
       b.position.set(x, 0.9, z); b.rotation.y = ry; b.translateZ(0.02);
@@ -953,24 +1140,36 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       moulure.position.set(x, 1.82, z); moulure.rotation.y = ry; moulure.translateZ(0.04);
       decor.add(m, b, moulure);
     };
-    mur(largeur + 2, 0, fond, 0);
-    mur(profondeur, -largeur / 2, (fond + avant) / 2, Math.PI / 2);
-    mur(profondeur, largeur / 2, (fond + avant) / 2, -Math.PI / 2);
-
-    // Les fenêtres, à gauche : le jour y entre.
-    for (let z = fond + 5; z < avant - 1; z += 7) {
-      // Le carreau devant le cadre : c'est lui qui laisse passer le jour.
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.6), new THREE.MeshBasicMaterial({ color: nuitDehors ? "#1a2536" : "#d6e2e8" }));
-      f.position.set(-largeur / 2 + 0.1, 5.6, z);
-      f.rotation.y = Math.PI / 2;
-      const cadre = new THREE.Mesh(boiteRonde(4.4, 5, 0.12, 0.04), matDe("#3a2d22"));
-      cadre.position.set(-largeur / 2 + 0.02, 5.6, z);
-      cadre.rotation.y = Math.PI / 2;
-      const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.6, 0.1), matDe("#3a2d22"));
-      v.position.set(-largeur / 2 + 0.14, 5.6, z);
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 4), matDe("#3a2d22"));
-      h.position.set(-largeur / 2 + 0.14, 5.6, z);
-      decor.add(cadre, f, v, h);
+    // Les fenêtres, à gauche : de vraies ouvertures, et le dehors derrière.
+    const milieu = (fond + avant) / 2;
+    const fenetres = [];
+    for (let z = fond + 5; z < avant - 1; z += 7) fenetres.push(z);
+    mur(largeur + 2, 0, fond, 0, fenetresFond.map((f) => [f.x, f.y, f.l, f.h]));
+    // Mur de gauche, tourné d'un quart : son x local va vers -z.
+    mur(profondeur, -largeur / 2, milieu, Math.PI / 2, fenetres.map((z) => [-(z - milieu), 5.6, 4, 4.6]));
+    mur(profondeur, largeur / 2, milieu, -Math.PI / 2);
+    for (const z of fenetres) {
+      const b = baie(4, 4.6);
+      b.position.set(-largeur / 2, 5.6, z);
+      b.rotation.y = Math.PI / 2;
+      decor.add(b);
+    }
+    for (const f of fenetresFond) {
+      const b = baie(f.l, f.h);
+      b.position.set(f.x, f.y, fond);
+      decor.add(b);
+    }
+    // Le paysage, loin derrière les murs percés.
+    if (fenetres.length) {
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(profondeur + 130, HAUT_DEHORS), new THREE.MeshBasicMaterial({ map: dehors(nuitDehors), toneMapped: false }));
+      d.position.set(-largeur / 2 - LOIN_DEHORS, Y_DEHORS, milieu);
+      d.rotation.y = Math.PI / 2;
+      decor.add(d);
+    }
+    if (fenetresFond.length) {
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 130, HAUT_DEHORS), new THREE.MeshBasicMaterial({ map: dehors(nuitDehors), toneMapped: false }));
+      d.position.set(0, Y_DEHORS, fond - LOIN_DEHORS);
+      decor.add(d);
     }
     soleil.position.set(-largeur / 2 - 6, 16, (fond + avant) / 2 + 3);
     soleil.target.position.set(0, 0, (fond + avant) / 2 - 2);
@@ -1162,7 +1361,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const fond = -8, largeur = 17;
     const h = new Date().getHours();
     nuitDehors = h < 7 || h >= 19;
-    piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false });
+    piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false,
+      fenetresFond: [{ x: 0, y: 6.1, l: 5.2, h: 4 }] });
 
     // La fenêtre au-dessus du bureau : le jour, ou la nuit, à l'heure qu'il est.
     // La nuit, ce sont les bougies qui éclairent.
@@ -1170,28 +1370,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     soleil.intensity = nuit ? 0.35 : 2.4;
     ciel.intensity = nuit ? 0.55 : 1.1;
     plafonnier.intensity = nuit ? 4 : 18;
-    const fenetre = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: nuit ? "#1a2536" : "#dbe6ec" }));
-    fenetre.position.set(0, 6.1, fond + 0.13);
-    if (nuit) {
-      // Une lune et quelques étoiles derrière la vitre.
-      const lune = new THREE.Mesh(new THREE.CircleGeometry(0.32, 24), new THREE.MeshBasicMaterial({ color: "#efe7cf" }));
-      lune.position.set(1.5, 7.2, fond + 0.15);
-      decor.add(lune);
-      for (let i = 0; i < 16; i++) {
-        const etoile = new THREE.Mesh(new THREE.CircleGeometry(0.02 + (i % 3) * 0.012, 5), new THREE.MeshBasicMaterial({ color: "#dfe6f5" }));
-        etoile.position.set(-2.4 + ((i * 37) % 97) / 97 * 4.8, 4.3 + ((i * 53 + 11) % 89) / 89 * 3.5, fond + 0.14);
-        decor.add(etoile);
-      }
-    }
-    const cadreF = new THREE.Mesh(boiteRonde(5.7, 4.5, 0.14, 0.04), matDe("#3a2d22"));
-    cadreF.position.set(0, 6.1, fond + 0.02);
-    const croisee = new THREE.Group();
-    croisee.add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 4, 0.1), matDe("#3a2d22")),
-      new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.12, 0.1), matDe("#3a2d22")));
-    croisee.position.set(0, 6.1, fond + 0.18);
-    const rebordF = new THREE.Mesh(boiteRonde(6, 0.16, 0.6, 0.04), matBois);
-    rebordF.position.set(0, 4.0, fond + 0.3);
-    decor.add(cadreF, fenetre, croisee, rebordF);
+    // (La fenêtre elle-même est percée par piece() : on y voit dehors.)
 
     // Le bureau : un plateau épais, deux caissons, un tiroir.
     const bureau = new THREE.Group();
