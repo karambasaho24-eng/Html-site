@@ -278,7 +278,43 @@ export function construireCoiffure(THREE, style, mat) {
       frange(1.0, 1.3, 5, { centre: 0.32, varier: 0.05, rayon: 0.665 });
       break;
   }
-  return g;
+  return fusionner(THREE, g, mat);
+}
+
+/* Toute la coupe en un seul maillage : une trentaine d'élèves, c'est une
+   trentaine de dessins pour les cheveux au lieu de plusieurs centaines. */
+function fusionner(THREE, g, mat) {
+  g.updateMatrixWorld(true);
+  const pos = [], nor = [], uv = [], index = [];
+  const v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3();
+  let base = 0;
+  g.traverse((m) => {
+    if (!m.isMesh) return;
+    const geo = m.geometry;
+    const P = geo.attributes.position, N = geo.attributes.normal, U = geo.attributes.uv;
+    nm.getNormalMatrix(m.matrixWorld);
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld);
+      pos.push(v.x, v.y, v.z);
+      if (N) { n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor.push(n.x, n.y, n.z); }
+      else nor.push(0, 1, 0);
+      uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
+    }
+    if (geo.index) for (let i = 0; i < geo.index.count; i++) index.push(base + geo.index.getX(i));
+    else for (let i = 0; i < P.count; i++) index.push(base + i);
+    base += P.count;
+    geo.dispose();
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(index);
+  const coupe = new THREE.Mesh(geo, mat);
+  coupe.userData.jetable = true;          // à défaire quand le personnage s'en va
+  const groupe = new THREE.Group();
+  groupe.add(coupe);
+  return groupe;
 }
 
 /** Le fil des cheveux : des stries fines, qui donnent le brillant. */

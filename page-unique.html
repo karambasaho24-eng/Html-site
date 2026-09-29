@@ -13766,7 +13766,42 @@ function construireCoiffure(THREE, style, mat) {
       frange(1, 1.3, 5, { centre: 0.32, varier: 0.05, rayon: 0.665 });
       break;
   }
-  return g;
+  return fusionner(THREE, g, mat);
+}
+function fusionner(THREE, g, mat) {
+  g.updateMatrixWorld(true);
+  const pos = [], nor = [], uv = [], index = [];
+  const v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3();
+  let base = 0;
+  g.traverse((m) => {
+    if (!m.isMesh) return;
+    const geo2 = m.geometry;
+    const P2 = geo2.attributes.position, N = geo2.attributes.normal, U = geo2.attributes.uv;
+    nm.getNormalMatrix(m.matrixWorld);
+    for (let i = 0; i < P2.count; i++) {
+      v.fromBufferAttribute(P2, i).applyMatrix4(m.matrixWorld);
+      pos.push(v.x, v.y, v.z);
+      if (N) {
+        n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize();
+        nor.push(n.x, n.y, n.z);
+      } else nor.push(0, 1, 0);
+      uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
+    }
+    if (geo2.index) for (let i = 0; i < geo2.index.count; i++) index.push(base + geo2.index.getX(i));
+    else for (let i = 0; i < P2.count; i++) index.push(base + i);
+    base += P2.count;
+    geo2.dispose();
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(index);
+  const coupe = new THREE.Mesh(geo, mat);
+  coupe.userData.jetable = true;
+  const groupe = new THREE.Group();
+  groupe.add(coupe);
+  return groupe;
 }
 function toileCheveux() {
   const c = document.createElement("canvas");
@@ -14757,11 +14792,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
     prof.sig = null;
   }
+  function retirer(racine) {
+    scene.remove(racine);
+    racine.traverse((m) => {
+      if (m.isMesh && m.userData.jetable) m.geometry.dispose();
+    });
+  }
   function majGens() {
     const ids = new Set(etat2.eleves.map((x) => String(x.id)));
     for (const [id, x] of [...gens]) {
       if (ids.has(id)) continue;
-      scene.remove(x.p.racine);
+      retirer(x.p.racine);
       x.etiquette.remove();
       garnir(x.siege.objets, []);
       gens.delete(id);
@@ -14793,7 +14834,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       }
       const avSig = JSON.stringify(e.avatar || {});
       if (avSig !== x.avSig) {
-        scene.remove(x.p.racine);
+        retirer(x.p.racine);
         x.p = personnage(id, e.avatar);
         x.p.racine.traverse((o) => {
           o.userData.personne = id;
@@ -14816,7 +14857,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const p = etat2.prof;
     if (!p.present) {
       if (prof) {
-        scene.remove(prof.p.racine);
+        retirer(prof.p.racine);
         prof.etiquette.remove();
         prof = null;
       }
@@ -14826,7 +14867,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
     const avSig = JSON.stringify(p.avatar || {});
     if (prof && prof.avSig !== avSig) {
-      scene.remove(prof.p.racine);
+      retirer(prof.p.racine);
       prof.etiquette.remove();
       prof = null;
     }
@@ -15040,6 +15081,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     detruire() {
       vivant = false;
       cancelAnimationFrame(anime);
+      for (const x of gens.values()) retirer(x.p.racine);
+      if (prof) retirer(prof.p.racine);
       observateur.disconnect();
       io.disconnect();
       texture?.dispose();

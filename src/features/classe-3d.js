@@ -1005,11 +1005,17 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     prof.sig = null;
   }
 
+  /** Retirer un personnage de la scène, et défaire ce qui n'était qu'à lui. */
+  function retirer(racine) {
+    scene.remove(racine);
+    racine.traverse((m) => { if (m.isMesh && m.userData.jetable) m.geometry.dispose(); });
+  }
+
   function majGens() {
     const ids = new Set(etat.eleves.map((x) => String(x.id)));
     for (const [id, x] of [...gens]) {
       if (ids.has(id)) continue;
-      scene.remove(x.p.racine);
+      retirer(x.p.racine);
       x.etiquette.remove();
       garnir(x.siege.objets, []);
       gens.delete(id);
@@ -1034,7 +1040,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       // Il a changé d'apparence : on le rhabille, à la même place.
       const avSig = JSON.stringify(e.avatar || {});
       if (avSig !== x.avSig) {
-        scene.remove(x.p.racine);
+        retirer(x.p.racine);
         x.p = personnage(id, e.avatar);
         x.p.racine.traverse((o) => { o.userData.personne = id; });
         scene.add(x.p.racine);
@@ -1056,13 +1062,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   function majProf() {
     const p = etat.prof;
     if (!p.present) {
-      if (prof) { scene.remove(prof.p.racine); prof.etiquette.remove(); prof = null; }
+      if (prof) { retirer(prof.p.racine); prof.etiquette.remove(); prof = null; }
       if (objetsProf) garnir(objetsProf, []);
       if (dispo.tete) garnir(dispo.tete.objets, []);
       return;
     }
     const avSig = JSON.stringify(p.avatar || {});
-    if (prof && prof.avSig !== avSig) { scene.remove(prof.p.racine); prof.etiquette.remove(); prof = null; }
+    if (prof && prof.avSig !== avSig) { retirer(prof.p.racine); prof.etiquette.remove(); prof = null; }
     if (!prof) {
       const q = personnage(`prof:${p.nom}`, p.avatar || { tenue: "gris-bleu" });
       scene.add(q.racine);
@@ -1289,6 +1295,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     detruire() {
       vivant = false;
       cancelAnimationFrame(anime);
+      for (const x of gens.values()) retirer(x.p.racine);
+      if (prof) retirer(prof.p.racine);
       observateur.disconnect();
       io.disconnect();
       texture?.dispose();
