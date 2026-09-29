@@ -102,7 +102,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   const regard = new THREE.Vector3(0, 3.2, -7);
 
   /* --- La lumière : le jour par les fenêtres, un plafonnier chaud ---------- */
-  scene.add(new THREE.HemisphereLight("#fff4e4", "#3a2c22", 1.1));
+  const ciel = new THREE.HemisphereLight("#fff4e4", "#3a2c22", 1.1);
+  scene.add(ciel);
   const soleil = new THREE.DirectionalLight("#ffe9cc", 2.4);
   soleil.castShadow = true;
   soleil.shadow.mapSize.set(2048, 2048);
@@ -829,7 +830,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     // Les fenêtres, à gauche : le jour y entre.
     for (let z = fond + 5; z < avant - 1; z += 7) {
       // Le carreau devant le cadre : c'est lui qui laisse passer le jour.
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.6), new THREE.MeshBasicMaterial({ color: "#d6e2e8" }));
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(4, 4.6), new THREE.MeshBasicMaterial({ color: nuitDehors ? "#1a2536" : "#d6e2e8" }));
       f.position.set(-largeur / 2 + 0.1, 5.6, z);
       f.rotation.y = Math.PI / 2;
       const cadre = new THREE.Mesh(boiteRonde(4.4, 5, 0.12, 0.04), matDe("#3a2d22"));
@@ -989,15 +990,69 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   }
 
   /* --- Chez soi : une chambre avec son bureau ------------------------------
-     Le bureau contre le mur, sous la fenêtre ; une lampe, une bibliothèque,
+     Le bureau contre le mur, sous la fenêtre ; des bougies, une bibliothèque,
      le lit, un tapis, la carte des Murs épinglée. On y est assis, de dos. */
+  /* Une bougie de cire, sa mèche, sa flamme et son halo, posée dans `groupe`. */
+  let bougies = [];
+  let halo = null;
+  // Chez soi seulement : la nuit tombe dehors (la classe, elle, a cours de jour).
+  let nuitDehors = false;
+  function bougie(groupe, x, y, haut) {
+    const cire = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, haut, 16), matDe("#efe4cc", { roughness: .55 }));
+    cire.position.set(x, y + haut / 2, 0);
+    // Une coulure de cire sur le côté.
+    const coulure = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.12, 4, 8), matDe("#f3ead6", { roughness: .5 }));
+    coulure.position.set(x + 0.07, y + haut - 0.1, 0.02);
+    const meche = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.06, 5), matDe("#1c1714"));
+    meche.position.set(x, y + haut + 0.03, 0);
+    const flamme = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 10),
+      new THREE.MeshBasicMaterial({ color: "#ffd27a", transparent: true, opacity: .95 }));
+    flamme.scale.set(1, 2.3, 1);
+    flamme.position.set(x, y + haut + 0.11, 0);
+    const coeur = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), new THREE.MeshBasicMaterial({ color: "#fffbef" }));
+    coeur.scale.set(1, 1.8, 1);
+    coeur.position.set(x, y + haut + 0.085, 0);
+    if (!halo) {
+      const t = document.createElement("canvas"); t.width = t.height = 64;
+      const g = t.getContext("2d");
+      const d = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      d.addColorStop(0, "rgba(255,210,130,.9)"); d.addColorStop(.35, "rgba(255,170,70,.35)"); d.addColorStop(1, "rgba(255,140,40,0)");
+      g.fillStyle = d; g.fillRect(0, 0, 64, 64);
+      halo = new THREE.CanvasTexture(t);
+      halo.colorSpace = THREE.SRGBColorSpace;
+    }
+    const lueurH = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    lueurH.scale.set(0.55, 0.7, 1);
+    lueurH.position.set(x, y + haut + 0.12, 0);
+    groupe.add(cire, coulure, meche, flamme, coeur, lueurH);
+    bougies.push({ flamme, coeur, lueurH, phase: Math.random() * 6 });
+  }
+
   function construireMaison() {
     const fond = -8, largeur = 17;
+    const h = new Date().getHours();
+    nuitDehors = h < 7 || h >= 19;
     piece({ largeur, fond, avant: 7, papier: TEX.papierPeint, horloge: false });
 
-    // La fenêtre au-dessus du bureau.
-    const fenetre = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: "#dbe6ec" }));
+    // La fenêtre au-dessus du bureau : le jour, ou la nuit, à l'heure qu'il est.
+    // La nuit, ce sont les bougies qui éclairent.
+    const nuit = nuitDehors;
+    soleil.intensity = nuit ? 0.35 : 2.4;
+    ciel.intensity = nuit ? 0.55 : 1.1;
+    plafonnier.intensity = nuit ? 4 : 18;
+    const fenetre = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 4), new THREE.MeshBasicMaterial({ color: nuit ? "#1a2536" : "#dbe6ec" }));
     fenetre.position.set(0, 6.1, fond + 0.13);
+    if (nuit) {
+      // Une lune et quelques étoiles derrière la vitre.
+      const lune = new THREE.Mesh(new THREE.CircleGeometry(0.32, 24), new THREE.MeshBasicMaterial({ color: "#efe7cf" }));
+      lune.position.set(1.5, 7.2, fond + 0.15);
+      decor.add(lune);
+      for (let i = 0; i < 16; i++) {
+        const etoile = new THREE.Mesh(new THREE.CircleGeometry(0.02 + (i % 3) * 0.012, 5), new THREE.MeshBasicMaterial({ color: "#dfe6f5" }));
+        etoile.position.set(-2.4 + ((i * 37) % 97) / 97 * 4.8, 4.3 + ((i * 53 + 11) % 89) / 89 * 3.5, fond + 0.14);
+        decor.add(etoile);
+      }
+    }
     const cadreF = new THREE.Mesh(boiteRonde(5.7, 4.5, 0.14, 0.04), matDe("#3a2d22"));
     cadreF.position.set(0, 6.1, fond + 0.02);
     const croisee = new THREE.Group();
@@ -1027,23 +1082,45 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     ombrer(bureau);
     decor.add(bureau);
 
-    // La lampe de bureau : un pied, un bras, un abat-jour, et sa lumière.
-    const lampe = new THREE.Group();
+    // Des bougies, pas de lampe : un chandelier de laiton à trois branches à
+    // gauche, une bougie seule dans sa coupelle à droite. Les flammes vacillent.
     const laiton = matDe("#9c7a3c", { metalness: .75, roughness: .3 });
-    const socle = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.1, 24), laiton);
-    const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 10), laiton);
-    bras.position.set(0, 0.75, 0); bras.rotation.z = 0.25;
-    const abat = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 24, 1, true), matDe("#2f5a3c", { side: THREE.DoubleSide, roughness: .5 }));
-    abat.position.set(0.2, 1.5, 0.15);
-    abat.rotation.set(0.4, 0, -0.6);
-    const ampoule = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: "#fff1cf" }));
-    ampoule.position.set(0.28, 1.36, 0.22);
-    lampe.add(socle, bras, abat, ampoule);
-    lampe.position.set(-1.9, 2.3, fond + 0.9);
-    ombrer(lampe);
-    const lueur = new THREE.PointLight("#ffd9a0", 9, 9, 2);
-    lueur.position.set(-1.6, 3.5, fond + 1.3);
-    decor.add(lampe, lueur);
+    const chandelier = new THREE.Group();
+    const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.1, 24), laiton);
+    const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.95, 12), laiton);
+    tige.position.y = 0.52;
+    const noeudT = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), laiton);
+    noeudT.position.y = 0.55;
+    chandelier.add(pied, tige, noeudT);
+    const brasC = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 8, 24, Math.PI), laiton);
+    brasC.rotation.z = Math.PI;
+    brasC.position.y = 1.02;
+    chandelier.add(brasC);
+    const branches = [[-0.42, 1.0, 0.55], [0, 1.0, 0.72], [0.42, 1.0, 0.5]];
+    for (const [x, , haut] of branches) {
+      const coupe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.06, 0.08, 16), laiton);
+      coupe.position.set(x, x === 0 ? 1.0 : 1.02, 0);
+      chandelier.add(coupe);
+      bougie(chandelier, x, (x === 0 ? 1.04 : 1.06), haut);
+    }
+    chandelier.position.set(-1.75, 2.25, fond + 0.95);
+    ombrer(chandelier);
+    const seule = new THREE.Group();
+    const coupelle = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.05, 20), laiton);
+    const anse = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 12), laiton);
+    anse.position.set(0.3, 0.03, 0); anse.rotation.x = Math.PI / 2;
+    seule.add(coupelle, anse);
+    bougie(seule, 0, 0.03, 0.38);
+    seule.position.set(1.95, 2.25, fond + 1.0);
+    ombrer(seule);
+    decor.add(chandelier, seule);
+    // Leur lumière, chaude et basse : elle bouge avec les flammes.
+    const lueur = new THREE.PointLight("#ffb866", 7, 9, 2);
+    lueur.position.set(-1.7, 3.6, fond + 1.3);
+    const lueur2 = new THREE.PointLight("#ffb866", 2.6, 6, 2);
+    lueur2.position.set(1.95, 3.0, fond + 1.3);
+    decor.add(lueur, lueur2);
+    bougies.push({ lumiere: lueur, base: 7, phase: 0.3 }, { lumiere: lueur2, base: 2.6, phase: 2.1 });
 
     // La chaise, dossier vers nous.
     chaise(0, fond + 3.15, 0);
@@ -1235,6 +1312,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     ardoise = null;
     objetsProf = null;
+    bougies = [];
     dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() }
       : maison ? { cle, reunion: false, maison: true, ...construireMaison() }
       : reunion ? { cle, reunion: true, ...construireReunion(total) }
@@ -1675,6 +1753,16 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       return;
     }
     const maintenant = performance.now();
+    // Les flammes vacillent ; leur lumière avec.
+    for (const b of bougies) {
+      const v = Math.sin(s * 11 + b.phase) * 0.5 + Math.sin(s * 23.7 + b.phase * 3) * 0.3 + Math.sin(s * 4.3 + b.phase) * 0.2;
+      if (b.flamme) {
+        b.flamme.scale.set(1 - v * 0.08, 2.3 + v * 0.35, 1 - v * 0.08);
+        b.flamme.rotation.z = Math.sin(s * 3.1 + b.phase) * 0.12;
+        b.lueurH.material.opacity = 0.8 + v * 0.18;
+      }
+      if (b.lumiere) b.lumiere.intensity = b.base * (0.88 + v * 0.12);
+    }
     for (const x of gens.values()) {
       const p = x.p;
       if (pas(x, maintenant)) {
