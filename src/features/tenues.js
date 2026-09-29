@@ -66,7 +66,7 @@ export const TENUES_IMAGES = {
 };
 /* Où l'insigne est cousu, sur ces gabarits : [x, y, taille]. */
 const INSIGNES_VESTE = [
-  [338, 116, 0.6],          // la poche de poitrine, côté cœur
+  [338, 116, 0.8],          // la poche de poitrine, côté cœur
   [183, 388, 0.95],         // l'épaule droite, à l'extérieur
   [406, 388, 0.95],         // l'épaule gauche, à l'extérieur
   [491, 112, 1.3]           // le dos
@@ -77,9 +77,9 @@ const INSIGNES_VESTE = [
 export const TENUES = {
   "croise-noir": {
     libelle: "Costume croisé noir", famille: "costume",
-    veste: "#1c1c20", chemise: "#f3f2ee", cravate: "#8e1b22", largeurCravate: 10,
+    veste: "#25262c", chemise: "#f3f2ee", cravate: "#8e1b22", largeurCravate: 10,
     croise: true, rayure: .045, pochette: "#f3f2ee",
-    pantalon: "#1a1a1e", chaussures: "#101011"
+    pantalon: "#222328", chaussures: "#101011"
   },
   "bordeaux-gilet": {
     libelle: "Veste bordeaux et gilet", famille: "costume",
@@ -89,8 +89,8 @@ export const TENUES = {
   },
   "noir-fin": {
     libelle: "Costume noir, cravate fine", famille: "costume",
-    veste: "#16161a", chemise: "#f5f5f3", cravate: "#0c0c0e", largeurCravate: 5,
-    pantalon: "#16161a", chaussures: "#0b0b0c"
+    veste: "#1f2025", chemise: "#f5f5f3", cravate: "#0c0c0e", largeurCravate: 5,
+    pantalon: "#1f2025", chaussures: "#0b0b0c"
   },
   "gris-bleu": {
     libelle: "Veste grise sur gilet bleu", famille: "costume",
@@ -194,8 +194,9 @@ function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = t
     g.fillRect(x + Math.random() * l, y + Math.random() * h, .6, .6);
   }
   if (rayure) {
-    g.fillStyle = `rgba(255,255,255,${rayure})`;
-    for (let i = x + 3; i < x + l; i += 5) g.fillRect(i, y, .5, h);
+    // Une rayure tennis discrète : serrée, elle ferait un code-barres de loin.
+    g.fillStyle = `rgba(255,255,255,${rayure * 0.55})`;
+    for (let i = x + 4; i < x + l; i += 9) g.fillRect(i, y, .5, h);
   }
   if (chevron) {
     // Le tweed : des chevrons serrés, une colonne sur deux dans l'autre sens.

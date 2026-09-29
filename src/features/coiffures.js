@@ -47,6 +47,43 @@ export const TEINTS = [
   { cle: "#f5cd30", libelle: "Classique" }
 ];
 
+/* --- Le crâne ---------------------------------------------------------------
+   La tête (voir classe-3d.js) : un cylindre de rayon 0,62, sommet plat à
+   1,22, bords arrondis (rayon 0,2). On la décrit par une abscisse `s` qui
+   part du sommet, passe l'arrondi et descend le long du côté. */
+const R0 = 0.62, RC = 0.2, YTOP = 1.22, YARC = 1.02, PLAT = R0 - RC;
+const SARC = PLAT + (Math.PI / 2) * RC;
+const DEVANT = Math.PI;                             // le front regarde vers -z
+
+function pointProfil(s) {
+  if (s <= PLAT) return { rho: s, y: YTOP, nr: 0, ny: 1 };
+  if (s <= SARC) {
+    const a = (s - PLAT) / RC;
+    return { rho: PLAT + RC * Math.sin(a), y: YARC + RC * Math.cos(a), nr: Math.sin(a), ny: Math.cos(a) };
+  }
+  return { rho: R0, y: YARC - (s - SARC), nr: 1, ny: 0 };
+}
+/** L'abscisse où le profil passe à la hauteur h. */
+function sDeHauteur(h) {
+  if (h >= YARC) return PLAT + RC * Math.acos(Math.min(1, (h - YARC) / RC));
+  return SARC + (YARC - h);
+}
+const lisse = (a, b, x) => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+/** Entre des repères [x, y], en douceur (tangentes plates à chaque repère). */
+function interpoler(cles, x) {
+  if (x <= cles[0][0]) return cles[0][1];
+  for (let i = 0; i < cles.length - 1; i++) {
+    const [x0, y0] = cles[i], [x1, y1] = cles[i + 1];
+    if (x <= x1) return y0 + (y1 - y0) * lisse(x0, x1, x);
+  }
+  return cles[cles.length - 1][1];
+}
+/** L'écart au front : 0 au milieu du front, π à la nuque. */
+const ecartDuFront = (theta) => Math.abs(((theta - DEVANT + 3 * Math.PI) % (2 * Math.PI)) - Math.PI);
+
 /**
  * Construire une coupe.
  * @param THREE  la bibliothèque (chargée par classe-3d.js)
@@ -56,226 +93,273 @@ export const TEINTS = [
  */
 export function construireCoiffure(THREE, style, mat) {
   const g = new THREE.Group();
-  const DEVANT = Math.PI;                         // l'angle du front, pour les cylindres
+  const v = new THREE.Vector3();
 
-  /* La chevelure : une coque qui épouse le crâne (même profil que la tête,
-     un peu plus large) et s'arrête sur une ligne d'implantation — le front,
-     les tempes, la nuque — propre à chaque coupe. Rien ne perce, rien ne
-     flotte, et de dos on voit enfin des cheveux, pas un bonnet.
-       F, S, N : hauteur de la ligne au front, sur les côtés, à la nuque
-       e : épaisseur ; dessus : volume sur le haut ; evase : ce qui s'écarte
-       en descendant (carré, cheveux longs) ; dents : bord effilé */
-  const chevelure = ({ F = 0.97, S = 0.6, N = 0.32, e = 0.035, dessus = 0.06, evase = 0, dents = 0.025, tempe = 0.12 } = {}) => {
-    const R = 0.62 + e, C = 0.2 + e, HAUT = 1.22 + e, EPAULE = 1.02;
-    const colonnes = 96, rangs = [];
-    const bonus = (rho) => dessus * Math.max(0, 1 - (rho / R) ** 2);
-    // Le profil, du sommet vers le bas : le plat, l'arrondi, puis la chute.
-    for (const rho of [0, 0.14, 0.28, 0.42]) rangs.push({ rho, y: HAUT, chute: 0 });
-    for (let i = 1; i <= 6; i++) {
-      const a = Math.PI / 2 - (i / 6) * (Math.PI / 2);
-      rangs.push({ rho: 0.42 + Math.cos(a) * C, y: EPAULE + Math.sin(a) * C, chute: 0 });
-    }
-    const CHUTE = 8;
-    for (let i = 1; i <= CHUTE; i++) rangs.push({ rho: R, y: null, chute: i / CHUTE });
-    const ligne = (theta) => {
-      const f = Math.cos(theta - DEVANT);                 // 1 au front, -1 à la nuque
-      // Aux tempes, la ligne remonte un peu avant de redescendre en pattes.
-      const ecart = Math.acos(Math.max(-1, Math.min(1, f)));
-      const h = Math.max(0, f) ** 2 * F + Math.max(0, -f) ** 2 * N + (1 - f * f) * S
-        + tempe * Math.exp(-(((ecart - 0.8) / 0.28) ** 2));
-      const dent = dents * Math.abs(((theta * 16 / Math.PI) % 2) - 1);   // un bord effilé, en pointes
-      return Math.min(EPAULE - 0.02, h + dent);
+  /* La chevelure : une masse pleine (dessus, dessous, et la tranche) posée
+     sur le crâne. Sa limite — le front, les tempes, les pattes, la nuque —
+     est donnée par des repères, d'avant en arrière ; son épaisseur varie :
+     du volume sur le dessus, une raie, une mèche relevée, des côtés courts.
+       lignes : [[écart au front, hauteur], …] (0 = front, π = nuque)
+       e : épaisseur de base ; dessus : dôme ; devant : mèche relevée ;
+       cotes : épaisseur des côtés (1 = comme le dessus) ; evase : ce qui
+       s'écarte en tombant ; ondule : { k, amp } les pointes arrondies ;
+       raie : { x, amp } ; asym : frange balayée d'un côté ; bord : finesse
+       de la tranche. */
+  const coque = ({
+    lignes, e = 0.04, dessus = 0.06, devant = 0, cotes = 1, evase = 0, ondule = null,
+    raie = null, asym = 0, bord = 0.55, arriere = 0, colonnes = 128, rangs = 26
+  }) => {
+    const hauteur = (theta) => {
+      const ec = ecartDuFront(theta);
+      let h = interpoler(lignes, ec);
+      if (asym) h += asym * Math.sin(theta) * (1 - lisse(0.25, 1.05, ec));
+      if (ondule) h += ondule.amp * Math.abs(Math.sin(theta * ondule.k / 2)) ** 1.5 * (ondule.devant ? 1 - lisse(0.5, 1.1, ec) : 1);
+      return h;
     };
-    const pos = [], uv = [], index = [];
+    const epaisseur = (s, sFin, x, y, z) => {
+      const haut = 1 - lisse(0, SARC + 0.05, s);          // 1 au sommet, 0 sur le côté
+      let t = e + dessus * haut;
+      // La mèche relevée : sur le devant du dessus.
+      if (devant) t += devant * lisse(-0.05, -0.5, z) * Math.exp(-(((y - 1.18) / 0.22) ** 2));
+      // Du volume à l'arrière du crâne (cheveux longs, chignon bas).
+      if (arriere) t += arriere * lisse(0.1, 0.55, z) * lisse(0.2, 0.9, y) * (1 - lisse(0.9, 1.25, y));
+      // La raie : un sillon, et les cheveux rabattus du côté le plus fourni.
+      if (raie) {
+        const d = x - raie.x;
+        const devantTete = lisse(0.45, -0.1, z);
+        t *= 1 - devantTete * 0.65 * (1 - lisse(0, 0.08, Math.abs(d)));
+        t += raie.amp * haut * lisse(0, 0.4, -d * (raie.cote || 1));
+      }
+      // Les côtés courts (dégradé, undercut).
+      if (cotes !== 1) t *= cotes + (1 - cotes) * lisse(0.88, 1.12, y);
+      // La tranche, un peu plus fine : un bord net, pas une marche.
+      return t * (bord + (1 - bord) * lisse(0, 0.14, sFin - s));
+    };
+    const ext = [], int = [], uvs = [];
+    const fins = [];
     for (let c = 0; c <= colonnes; c++) {
       const theta = (c / colonnes) * Math.PI * 2;
-      const bas = ligne(theta);
-      rangs.forEach((r, k) => {
-        const y = r.y ?? EPAULE + (bas - EPAULE) * r.chute;
-        const descente = Math.max(0, EPAULE - y);
-        const rho = r.rho + evase * Math.min(1, descente / 1.1) ** 1.2;
-        pos.push(Math.sin(theta) * rho, y + bonus(r.rho), Math.cos(theta) * rho);
-        uv.push(c / colonnes * 3, 1 - k / (rangs.length - 1));
-      });
+      const sFin = sDeHauteur(hauteur(theta));
+      fins.push(sFin);
+      const sn = Math.sin(theta), cs = Math.cos(theta);
+      for (let k = 0; k <= rangs; k++) {
+        const s = (k / rangs) * sFin;
+        const p = pointProfil(s);
+        const x = sn * p.rho, z = cs * p.rho;
+        const ecarte = evase * lisse(0.85, -1.4, p.y);
+        const t = epaisseur(s, sFin, x, p.y, z);
+        const ro = p.rho + p.nr * t + ecarte, yo = p.y + p.ny * t;
+        const ri = p.rho + p.nr * 0.008 + ecarte * 0.97, yi = p.y + p.ny * 0.008;
+        ext.push(sn * ro, yo, cs * ro);
+        int.push(sn * ri, yi, cs * ri);
+        uvs.push((c / colonnes) * 6, s / 2.4);
+      }
     }
-    const n = rangs.length;
-    for (let c = 0; c < colonnes; c++) for (let k = 0; k < n - 1; k++) {
-      const a = c * n + k, b = (c + 1) * n + k;
-      index.push(a, b, a + 1, b, b + 1, a + 1);
+    const grille = (pos, inverse) => {
+      const idx = [];
+      const n = rangs + 1;
+      for (let c = 0; c < colonnes; c++) for (let k = 0; k < rangs; k++) {
+        const a = c * n + k, b = (c + 1) * n + k;
+        if (inverse) idx.push(a, a + 1, b, b, a + 1, b + 1);
+        else idx.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      g.add(new THREE.Mesh(geo, mat));
+    };
+    grille(ext, false);
+    grille(int, true);
+    // La tranche : du dessus au dessous, tout autour.
+    const tranche = [], uvt = [], idx = [];
+    const n = rangs + 1;
+    for (let c = 0; c <= colonnes; c++) {
+      const i = (c * n + rangs) * 3;
+      tranche.push(ext[i], ext[i + 1], ext[i + 2], int[i], int[i + 1], int[i + 2]);
+      uvt.push((c / colonnes) * 6, 1, (c / colonnes) * 6, 0.98);
+    }
+    for (let c = 0; c < colonnes; c++) {
+      const a = c * 2, b = (c + 1) * 2;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(index);
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(tranche, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvt, 2));
+    geo.setIndex(idx);
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
-    g.add(m);
-    return m;
+    g.add(new THREE.Mesh(geo, mat));
   };
-  // Une mèche : un pan courbe qui suit la tête et se termine en pointe.
-  const meche = (angle, largeur, haut, bas, { rayon = 0.725, pointe = 0.9, evase = 0.04 } = {}) => {
-    const h = haut - bas;
-    const geo = new THREE.CylinderGeometry(rayon, rayon + evase, h, 6, 2, true, angle - largeur / 2, largeur);
+
+  /* Une mèche, une queue de cheval : un tube qui suit une courbe, plus ou
+     moins épais le long du chemin (r(t), t de 0 à 1), le bout arrondi. */
+  const tube = (points, r, { seg = 36, rad = 14, bout = true, aplatir = 1 } = {}) => {
+    const courbe = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
+    const geo = new THREE.TubeGeometry(courbe, seg, 1, rad, false);
     const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i);
-      const t = (h / 2 - y) / h;                 // 0 en haut, 1 à la pointe
-      if (t <= 0) continue;
-      const x = pos.getX(i), z = pos.getZ(i);
-      const r = Math.hypot(x, z);
-      const a = Math.atan2(x, z);
-      const ecart = ((angle - a + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
-      const a2 = a + ecart * pointe * t * t;     // on resserre vers la pointe
-      pos.setXYZ(i, Math.sin(a2) * r, y, Math.cos(a2) * r);
+    const c = new THREE.Vector3();
+    for (let i = 0; i <= seg; i++) {
+      courbe.getPointAt(i / seg, c);
+      const f = r(i / seg);
+      for (let j = 0; j <= rad; j++) {
+        const k = i * (rad + 1) + j;
+        v.fromBufferAttribute(pos, k).sub(c);
+        v.x *= aplatir;
+        v.multiplyScalar(f).add(c);
+        pos.setXYZ(k, v.x, v.y, v.z);
+      }
     }
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
-    m.position.y = bas + h / 2;
-    g.add(m);
-    return m;
-  };
-  // Une frange : des mèches qui se chevauchent, de longueurs inégales.
-  const frange = (bas, largeur, n, { centre = 0, haut = 1.17, varier = 0.07, rayon = 0.725, evase = 0.04 } = {}) => {
-    const pas = largeur / n;
-    for (let i = 0; i < n; i++) {
-      const a = DEVANT + centre - largeur / 2 + pas * (i + 0.5);
-      const b = bas + (((i * 37) % 5) / 4 - 0.5) * varier * 2;
-      meche(a, pas * 1.55, haut, b, { rayon: rayon + (i % 2) * 0.006, evase });
+    g.add(new THREE.Mesh(geo, mat));
+    if (bout) {
+      const fin = courbe.getPointAt(1);
+      const rf = r(1);
+      const b = new THREE.Mesh(new THREE.SphereGeometry(rf, 12, 8), mat);
+      b.position.copy(fin);
+      g.add(b);
     }
+    return courbe;
   };
-  // Un volume : une ellipse.
-  const volume = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), mat);
+  const boule = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), mat);
     m.scale.set(sx, sy, sz);
     m.position.set(x, y, z);
     m.rotation.set(rx, ry, rz);
     g.add(m);
     return m;
   };
+  const lien = (x, y, z, r, rx) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.32, 8, 20), mat);
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    g.add(m);
+  };
+
+  // Les lignes les plus courantes : front, tempes, pattes, côté, nuque.
+  const court = (F = 1.02, S = 0.66, N = 0.4) => [[0, F], [0.5, F - 0.03], [0.8, 0.86], [0.98, S - 0.06], [1.2, S], [2.2, S - 0.04], [2.75, N], [Math.PI, N]];
 
   switch (style) {
     case "degrade":
-      // Très courte, nette sur les côtés et la nuque, une petite frange en pointes.
-      chevelure({ F: 0.99, S: 0.66, N: 0.4, e: 0.025, dessus: 0.05 });
-      frange(0.98, 1.5, 6, { rayon: 0.655, varier: 0.03, evase: 0.01, haut: 1.2 });
+      // Courte et nette : un peu de longueur dessus, les côtés et la nuque
+      // dégradés au plus court.
+      coque({ lignes: court(1.03, 0.68, 0.42), e: 0.022, dessus: 0.08, devant: 0.04, cotes: 0.4,
+        ondule: { k: 30, amp: 0.012, devant: true } });
       break;
 
     case "undercut":
-      // Les côtés rasés au plus près, le dessus long, séparé au milieu, qui
-      // retombe en rideau de part et d'autre du front.
-      chevelure({ F: 1.0, S: 0.64, N: 0.36, e: 0.012, dessus: 0, dents: 0.01 });
-      volume(0, 1.25, -0.02, 0.72, 0.27, 0.76, 0.1);
-      frange(0.84, 0.95, 3, { centre: -0.52, varier: 0.06 });
-      frange(0.84, 0.95, 3, { centre: 0.52, varier: 0.06 });
+      // Les côtés rasés ; le dessus long, rabattu en arrière, qui déborde un peu.
+      coque({ lignes: court(1.03, 0.66, 0.4), e: 0.01, dessus: 0, bord: 1 });
+      coque({ lignes: [[0, 1.03], [0.7, 1.02], [1.2, 0.98], [Math.PI, 0.9]], e: 0.075, dessus: 0.1, devant: 0.12, bord: 0.85 });
       break;
 
     case "meche":
-      // Une mèche relevée sur le devant, les côtés courts.
-      chevelure({ F: 0.99, S: 0.62, N: 0.34, e: 0.03, dessus: 0.08 });
-      volume(-0.04, 1.32, -0.3, 0.6, 0.3, 0.46, -0.4, 0.15);
-      volume(0.2, 1.35, -0.02, 0.44, 0.22, 0.56, -0.1, -0.2);
+      // Une mèche relevée sur le devant, le reste court et net.
+      coque({ lignes: court(1.04, 0.66, 0.42), e: 0.028, dessus: 0.08, devant: 0.2, cotes: 0.55 });
       break;
 
     case "mi-long":
-      // Jusqu'à la mâchoire, en bataille : des pointes partout.
-      chevelure({ F: 0.9, S: 0.3, N: 0.16, e: 0.05, dessus: 0.1, evase: 0.06, dents: 0.09, tempe: 0.04 });
-      frange(0.84, 1.95, 7, { varier: 0.09, rayon: 0.68 });
-      for (const s of [-1, 1]) for (const [d, b] of [[1.15, 0.24], [1.45, 0.18], [1.8, 0.2], [2.2, 0.16], [2.6, 0.18]]) {
-        meche(DEVANT + s * d, 0.42, 1.0, b, { rayon: 0.7, evase: 0.07 });
-      }
+      // Jusqu'à la mâchoire, raie au milieu, les mèches du devant en rideau.
+      coque({
+        lignes: [[0, 1.05], [0.45, 0.99], [0.82, 0.66], [1.05, 0.3], [1.4, 0.24], [2.4, 0.22], [Math.PI, 0.24]],
+        e: 0.05, dessus: 0.08, evase: 0.07, raie: { x: 0, amp: 0.03 }, ondule: { k: 34, amp: 0.035 }
+      });
       break;
 
     case "carre":
       // Au carré, à hauteur du menton, une frange droite, bien nette.
-      chevelure({ F: 0.95, S: 0.2, N: 0.18, e: 0.05, dessus: 0.08, evase: 0.12, dents: 0.008, tempe: 0 });
-      frange(0.95, 1.74, 9, { varier: 0.012, rayon: 0.675, evase: 0.01 });
+      coque({
+        lignes: [[0, 0.8], [0.55, 0.8], [0.82, 0.3], [1.1, 0.2], [Math.PI, 0.22]],
+        e: 0.055, dessus: 0.08, evase: 0.1, ondule: { k: 40, amp: 0.012 }
+      });
       break;
 
     case "long":
-      // Longue, lisse, raie au milieu : elle tombe dans le dos et sur les épaules.
-      chevelure({ F: 0.97, S: 0.02, N: -0.75, e: 0.05, dessus: 0.07, evase: 0.2, dents: 0.03, tempe: 0 });
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.45, 0.62, 1.2, 0.72, { rayon: 0.68, evase: 0.06 });
+      // Longue et lisse, raie au milieu : elle tombe sur les épaules et dans le dos.
+      coque({
+        lignes: [[0, 1.05], [0.28, 0.95], [0.6, 0.5], [0.9, -0.55], [1.4, -0.9], [2.4, -1.05], [Math.PI, -1.1]],
+        e: 0.05, dessus: 0.07, evase: 0.2, arriere: 0.05, raie: { x: 0, amp: 0.03 },
+        ondule: { k: 26, amp: 0.05 }
+      });
       break;
 
     case "queue":
-      // Tirés en arrière, une queue de cheval haute qui tombe dans le dos.
-      chevelure({ F: 0.99, S: 0.62, N: 0.42, e: 0.022, dessus: 0.04, dents: 0.01 });
-      {
-        const lien = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.05, 8, 18), mat);
-        lien.position.set(0, 1.1, 0.7);
-        lien.rotation.x = 1.2;
-        g.add(lien);
-      }
-      volume(0, 0.95, 0.84, 0.21, 0.27, 0.18, 0.3);
-      volume(0, 0.6, 0.9, 0.18, 0.27, 0.16, 0.1);
-      volume(0, 0.28, 0.88, 0.13, 0.24, 0.12, -0.1);
-      frange(0.96, 1.0, 4, { centre: -0.3, varier: 0.06, rayon: 0.66 });
+      // Tirés en arrière, une queue de cheval qui part haut et tombe dans le dos.
+      coque({ lignes: court(1.03, 0.62, 0.44), e: 0.028, dessus: 0.05 });
+      lien(0, 1.0, 0.7, 0.13, 1.25);
+      tube([[0, 1.02, 0.66], [0, 0.98, 0.88], [0, 0.66, 1.0], [0, 0.22, 0.98], [0, -0.32, 0.9]],
+        (t) => (0.13 + 0.07 * Math.sin(Math.PI * Math.min(1, t * 1.6))) * (1 - 0.55 * t * t), { aplatir: 1.15 });
       break;
 
     case "chignon":
-      // Relevés en chignon, deux mèches libres qui encadrent le visage.
-      chevelure({ F: 0.99, S: 0.64, N: 0.46, e: 0.022, dessus: 0.04, dents: 0.01 });
-      volume(0, 1.2, 0.62, 0.33, 0.31, 0.29);
-      {
-        const tour2 = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 8, 20), mat);
-        tour2.position.set(0, 1.13, 0.56);
-        tour2.rotation.x = 1.3;
-        g.add(tour2);
-      }
-      frange(1.0, 1.2, 5, { varier: 0.05, rayon: 0.66 });
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.98, 0.3, 1.05, 0.3, { rayon: 0.665 });
+      // Relevés en chignon bas sur la nuque, une frange balayée de côté.
+      coque({ lignes: [[0, 0.88], [0.5, 0.84], [0.85, 0.66], [1.2, 0.6], [2.3, 0.56], [Math.PI, 0.5]],
+        e: 0.03, dessus: 0.05, asym: 0.12, arriere: 0.03, ondule: { k: 22, amp: 0.02, devant: true } });
+      boule(0, 0.62, 0.8, 0.3, 0.26, 0.24);
+      lien(0, 0.62, 0.6, 0.2, 0.15);
+      tube([[0.56, 0.95, -0.28], [0.64, 0.7, -0.3], [0.62, 0.36, -0.26]], (t) => 0.06 * (1 - 0.5 * t), { seg: 16, rad: 8 });
       break;
 
     case "rase":
       // Rasée de près : une ombre de cheveux, nette, qui suit le crâne.
-      chevelure({ F: 1.0, S: 0.66, N: 0.4, e: 0.008, dessus: 0, dents: 0 });
+      coque({ lignes: court(1.03, 0.66, 0.4), e: 0.012, dessus: 0.005, bord: 1 });
       break;
 
     case "chignon-haut":
-      // Les cheveux mi-longs relevés en petit chignon sur l'arrière du crâne,
-      // les côtés dégagés, deux mèches qui s'échappent devant.
-      chevelure({ F: 0.97, S: 0.58, N: 0.36, e: 0.03, dessus: 0.05, dents: 0.02 });
-      volume(0, 1.3, 0.34, 0.26, 0.22, 0.24);
-      {
-        const lien = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.04, 8, 18), mat);
-        lien.position.set(0, 1.24, 0.34);
-        lien.rotation.x = 0.4;
-        g.add(lien);
+      // Mi-longs, relevés en petit chignon sur l'arrière du crâne ; deux
+      // mèches s'échappent devant.
+      coque({ lignes: court(1.02, 0.6, 0.44), e: 0.03, dessus: 0.06 });
+      boule(0, 1.28, 0.36, 0.22, 0.19, 0.2);
+      lien(0, 1.2, 0.36, 0.14, 0.35);
+      for (const sx of [-1, 1]) {
+        tube([[sx * 0.42, 1.16, -0.5], [sx * 0.6, 0.98, -0.48], [sx * 0.66, 0.76, -0.42]], (t) => 0.075 * (1 - 0.45 * t), { seg: 16, rad: 10 });
       }
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.7, 0.3, 1.12, 0.62, { rayon: 0.665, evase: 0.03 });
       break;
 
-    case "tresse":
+    case "tresse": {
       // Une tresse unique, qui part de la nuque et descend dans le dos.
-      chevelure({ F: 0.98, S: 0.52, N: 0.4, e: 0.028, dessus: 0.05, dents: 0.01 });
-      for (let i = 0; i < 6; i++) {
+      coque({ lignes: court(1.02, 0.56, 0.42), e: 0.03, dessus: 0.05, ondule: { k: 22, amp: 0.02, devant: true } });
+      const courbe = new THREE.CatmullRomCurve3([[0, 0.72, 0.64], [0, 0.4, 0.84], [0, -0.1, 0.9], [0, -0.8, 0.86]]
+        .map((p) => new THREE.Vector3(...p)));
+      const nb = 14;
+      for (let i = 0; i < nb; i++) {
+        const t = i / (nb - 1);
+        courbe.getPointAt(t, v);
         const cote = i % 2 ? 1 : -1;
-        volume(cote * 0.05, 0.42 - i * 0.2, 0.74 + i * 0.012, 0.15 - i * 0.008, 0.13, 0.12, 0, 0, cote * 0.5);
+        const r = 0.15 * (1 - 0.45 * t);
+        boule(v.x + cote * r * 0.35, v.y, v.z, r * 0.85, r * 1.25, r * 0.8, 0, 0, cote * 0.6);
       }
-      frange(0.97, 1.3, 5, { centre: 0.2, varier: 0.04, rayon: 0.66 });
+      courbe.getPointAt(1, v);
+      lien(v.x, v.y - 0.08, v.z, 0.06, Math.PI / 2);
+      tube([[v.x, v.y - 0.1, v.z], [v.x, v.y - 0.25, v.z + 0.02], [v.x, v.y - 0.36, v.z]], (t) => 0.07 * (1 - 0.6 * t) + 0.02, { seg: 8, rad: 8 });
       break;
+    }
 
-    case "epis":
-      // Courte et texturée, des épis qui partent dans tous les sens.
-      chevelure({ F: 0.97, S: 0.6, N: 0.34, e: 0.035, dessus: 0.08, dents: 0.05 });
-      for (let i = 0; i < 14; i++) {
-        const a = (i / 14) * Math.PI * 2, r = i % 2 ? 0.28 : 0.45;
-        const epi = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 6), mat);
-        epi.position.set(Math.sin(a) * r, 1.28 + (i % 3) * 0.02, Math.cos(a) * r);
-        epi.rotation.set(Math.cos(a) * 0.6, 0, -Math.sin(a) * 0.6);
-        g.add(epi);
+    case "epis": {
+      // Courte, en bataille : des épis épais, rabattus vers l'arrière, et une
+      // frange en pointes.
+      coque({ lignes: [[0, 0.92], [0.5, 0.9], [0.8, 0.8], [1.0, 0.58], [2.2, 0.54], [Math.PI, 0.36]],
+        e: 0.05, dessus: 0.1, ondule: { k: 16, amp: 0.07 } });
+      // Chaque épi part du dessus et se couche vers l'arrière et le côté.
+      const epis = [[0, 0.05, 0.62], [0.55, 0.25, 0.55], [-0.55, 0.25, 0.55], [1.25, 0.4, 0.5], [-1.25, 0.4, 0.5],
+        [2.1, 0.42, 0.46], [-2.1, 0.42, 0.46], [Math.PI, 0.38, 0.5], [0.2, -0.3, 0.5], [-0.25, -0.28, 0.48]];
+      for (const [a, r, h] of epis) {
+        const x = Math.sin(a) * r, z = Math.cos(a) * r;
+        const m = new THREE.Mesh(new THREE.ConeGeometry(0.2, h, 8), mat);
+        m.geometry.translate(0, h / 2, 0);
+        m.position.set(x, 1.24, z + 0.05);
+        // Couché vers l'arrière (+z) et un peu vers l'extérieur.
+        m.rotation.set(1.05 + Math.cos(a) * 0.15, 0, -Math.sin(a) * 0.55);
+        g.add(m);
       }
-      frange(0.93, 1.5, 6, { varier: 0.06, rayon: 0.68 });
       break;
+    }
 
     case "raie":
     default:
-      // La coupe classique : raie sur le côté, le dessus peigné, une mèche
-      // balayée vers la tempe.
-      chevelure({ F: 0.97, S: 0.6, N: 0.32, e: 0.035, dessus: 0.08 });
-      volume(-0.14, 1.28, -0.2, 0.6, 0.24, 0.58, -0.1, 0.35, 0.08);
-      volume(0.3, 1.24, -0.04, 0.44, 0.2, 0.58, 0, -0.2, -0.12);
-      frange(1.0, 1.3, 5, { centre: 0.32, varier: 0.05, rayon: 0.665 });
+      // La coupe classique : raie sur le côté, le dessus peigné et rabattu.
+      coque({ lignes: court(1.03, 0.66, 0.42), e: 0.035, dessus: 0.09, devant: 0.05,
+        raie: { x: 0.24, amp: 0.07 }, cotes: 0.75, ondule: { k: 26, amp: 0.012, devant: true } });
       break;
   }
   return fusionner(THREE, g, mat);
@@ -317,17 +401,28 @@ function fusionner(THREE, g, mat) {
   return groupe;
 }
 
-/** Le fil des cheveux : des stries fines, qui donnent le brillant. */
+/** Le fil des cheveux : des mèches fines, peu contrastées — du brillant, pas du bois. */
 export function toileCheveux() {
   const c = document.createElement("canvas");
-  c.width = 128; c.height = 128;
+  c.width = 256; c.height = 256;
   const g = c.getContext("2d");
-  g.fillStyle = "#b8b8b8"; g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 260; i++) {
-    const x = Math.random() * 128;
-    g.strokeStyle = Math.random() > .5 ? `rgba(255,255,255,${Math.random() * .5})` : `rgba(0,0,0,${Math.random() * .45})`;
-    g.lineWidth = .5 + Math.random();
-    g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + 4, 40, x - 4, 90, x + 2, 128); g.stroke();
+  g.fillStyle = "#b4b4b4"; g.fillRect(0, 0, 256, 256);
+  // De larges nappes à peine plus claires ou plus sombres : le volume des mèches.
+  for (let i = 0; i < 26; i++) {
+    const x = Math.random() * 256, l = 8 + Math.random() * 18;
+    const d = g.createLinearGradient(x - l, 0, x + l, 0);
+    const clair = Math.random() > .5;
+    d.addColorStop(0, "rgba(0,0,0,0)");
+    d.addColorStop(.5, clair ? "rgba(255,255,255,.10)" : "rgba(0,0,0,.10)");
+    d.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = d; g.fillRect(x - l, 0, l * 2, 256);
+  }
+  // Puis les cheveux eux-mêmes : fins, nombreux, presque droits.
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 256;
+    g.strokeStyle = Math.random() > .55 ? `rgba(255,255,255,${.04 + Math.random() * .1})` : `rgba(0,0,0,${.04 + Math.random() * .12})`;
+    g.lineWidth = .4 + Math.random() * .6;
+    g.beginPath(); g.moveTo(x, 0); g.quadraticCurveTo(x + (Math.random() - .5) * 6, 128, x + (Math.random() - .5) * 4, 256); g.stroke();
   }
   return c;
 }

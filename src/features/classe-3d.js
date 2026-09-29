@@ -304,7 +304,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   /* --- L'apparence : ce que le joueur a choisi, ou ce que son nom tire au sort */
   const DEFAUTS = {
-    tenue: NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume"),   // l'uniforme, on le choisit
+    // Par défaut, un costume — veste comprise (pas de chemise seule, qui de
+    // loin fait un bloc blanc). L'uniforme, on le choisit.
+    tenue: NOMS_TENUES.filter((n) => ficheTenue(n)?.famille === "costume" && ficheTenue(n)?.veste),
     coiffure: COIFFURES.map((c) => c.cle),
     cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
     peau: TEINTS.map((t) => t.cle).slice(0, 6)

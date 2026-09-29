@@ -12815,8 +12815,8 @@ function drap(g, [x, y, l, h], couleur, { rayure = 0, ombreBas = 0.12, bords = t
     g.fillRect(x + Math.random() * l, y + Math.random() * h, 0.6, 0.6);
   }
   if (rayure) {
-    g.fillStyle = `rgba(255,255,255,${rayure})`;
-    for (let i = x + 3; i < x + l; i += 5) g.fillRect(i, y, 0.5, h);
+    g.fillStyle = `rgba(255,255,255,${rayure * 0.55})`;
+    for (let i = x + 4; i < x + l; i += 9) g.fillRect(i, y, 0.5, h);
   }
   if (chevron) {
     g.save();
@@ -13696,7 +13696,7 @@ var init_tenues = __esm({
       }
     };
     INSIGNES_VESTE = [
-      [338, 116, 0.6],
+      [338, 116, 0.8],
       // la poche de poitrine, côté cœur
       [183, 388, 0.95],
       // l'épaule droite, à l'extérieur
@@ -13709,14 +13709,14 @@ var init_tenues = __esm({
       "croise-noir": {
         libelle: "Costume crois\xE9 noir",
         famille: "costume",
-        veste: "#1c1c20",
+        veste: "#25262c",
         chemise: "#f3f2ee",
         cravate: "#8e1b22",
         largeurCravate: 10,
         croise: true,
         rayure: 0.045,
         pochette: "#f3f2ee",
-        pantalon: "#1a1a1e",
+        pantalon: "#222328",
         chaussures: "#101011"
       },
       "bordeaux-gilet": {
@@ -13735,11 +13735,11 @@ var init_tenues = __esm({
       "noir-fin": {
         libelle: "Costume noir, cravate fine",
         famille: "costume",
-        veste: "#16161a",
+        veste: "#1f2025",
         chemise: "#f5f5f3",
         cravate: "#0c0c0e",
         largeurCravate: 5,
-        pantalon: "#16161a",
+        pantalon: "#1f2025",
         chaussures: "#0b0b0c"
       },
       "gris-bleu": {
@@ -13887,185 +13887,299 @@ var init_tenues = __esm({
 });
 
 // src/features/coiffures.js
+function pointProfil(s) {
+  if (s <= PLAT) return { rho: s, y: YTOP, nr: 0, ny: 1 };
+  if (s <= SARC) {
+    const a = (s - PLAT) / RC;
+    return { rho: PLAT + RC * Math.sin(a), y: YARC + RC * Math.cos(a), nr: Math.sin(a), ny: Math.cos(a) };
+  }
+  return { rho: R0, y: YARC - (s - SARC), nr: 1, ny: 0 };
+}
+function sDeHauteur(h) {
+  if (h >= YARC) return PLAT + RC * Math.acos(Math.min(1, (h - YARC) / RC));
+  return SARC + (YARC - h);
+}
+function interpoler(cles2, x) {
+  if (x <= cles2[0][0]) return cles2[0][1];
+  for (let i = 0; i < cles2.length - 1; i++) {
+    const [x0, y0] = cles2[i], [x1, y1] = cles2[i + 1];
+    if (x <= x1) return y0 + (y1 - y0) * lisse(x0, x1, x);
+  }
+  return cles2[cles2.length - 1][1];
+}
 function construireCoiffure(THREE, style, mat) {
   const g = new THREE.Group();
-  const DEVANT = Math.PI;
-  const chevelure = ({ F = 0.97, S = 0.6, N = 0.32, e = 0.035, dessus = 0.06, evase = 0, dents = 0.025, tempe = 0.12 } = {}) => {
-    const R = 0.62 + e, C = 0.2 + e, HAUT = 1.22 + e, EPAULE = 1.02;
-    const colonnes = 96, rangs = [];
-    const bonus = (rho) => dessus * Math.max(0, 1 - (rho / R) ** 2);
-    for (const rho of [0, 0.14, 0.28, 0.42]) rangs.push({ rho, y: HAUT, chute: 0 });
-    for (let i = 1; i <= 6; i++) {
-      const a = Math.PI / 2 - i / 6 * (Math.PI / 2);
-      rangs.push({ rho: 0.42 + Math.cos(a) * C, y: EPAULE + Math.sin(a) * C, chute: 0 });
-    }
-    const CHUTE = 8;
-    for (let i = 1; i <= CHUTE; i++) rangs.push({ rho: R, y: null, chute: i / CHUTE });
-    const ligne = (theta) => {
-      const f = Math.cos(theta - DEVANT);
-      const ecart2 = Math.acos(Math.max(-1, Math.min(1, f)));
-      const h = Math.max(0, f) ** 2 * F + Math.max(0, -f) ** 2 * N + (1 - f * f) * S + tempe * Math.exp(-(((ecart2 - 0.8) / 0.28) ** 2));
-      const dent = dents * Math.abs(theta * 16 / Math.PI % 2 - 1);
-      return Math.min(EPAULE - 0.02, h + dent);
+  const v = new THREE.Vector3();
+  const coque = ({
+    lignes,
+    e = 0.04,
+    dessus = 0.06,
+    devant = 0,
+    cotes = 1,
+    evase = 0,
+    ondule = null,
+    raie = null,
+    asym = 0,
+    bord = 0.55,
+    arriere = 0,
+    colonnes = 128,
+    rangs = 26
+  }) => {
+    const hauteur = (theta) => {
+      const ec = ecartDuFront(theta);
+      let h = interpoler(lignes, ec);
+      if (asym) h += asym * Math.sin(theta) * (1 - lisse(0.25, 1.05, ec));
+      if (ondule) h += ondule.amp * Math.abs(Math.sin(theta * ondule.k / 2)) ** 1.5 * (ondule.devant ? 1 - lisse(0.5, 1.1, ec) : 1);
+      return h;
     };
-    const pos = [], uv = [], index = [];
+    const epaisseur = (s, sFin, x, y, z) => {
+      const haut = 1 - lisse(0, SARC + 0.05, s);
+      let t = e + dessus * haut;
+      if (devant) t += devant * lisse(-0.05, -0.5, z) * Math.exp(-(((y - 1.18) / 0.22) ** 2));
+      if (arriere) t += arriere * lisse(0.1, 0.55, z) * lisse(0.2, 0.9, y) * (1 - lisse(0.9, 1.25, y));
+      if (raie) {
+        const d = x - raie.x;
+        const devantTete = lisse(0.45, -0.1, z);
+        t *= 1 - devantTete * 0.65 * (1 - lisse(0, 0.08, Math.abs(d)));
+        t += raie.amp * haut * lisse(0, 0.4, -d * (raie.cote || 1));
+      }
+      if (cotes !== 1) t *= cotes + (1 - cotes) * lisse(0.88, 1.12, y);
+      return t * (bord + (1 - bord) * lisse(0, 0.14, sFin - s));
+    };
+    const ext = [], int = [], uvs = [];
+    const fins = [];
     for (let c = 0; c <= colonnes; c++) {
       const theta = c / colonnes * Math.PI * 2;
-      const bas = ligne(theta);
-      rangs.forEach((r, k) => {
-        const y = r.y ?? EPAULE + (bas - EPAULE) * r.chute;
-        const descente = Math.max(0, EPAULE - y);
-        const rho = r.rho + evase * Math.min(1, descente / 1.1) ** 1.2;
-        pos.push(Math.sin(theta) * rho, y + bonus(r.rho), Math.cos(theta) * rho);
-        uv.push(c / colonnes * 3, 1 - k / (rangs.length - 1));
-      });
+      const sFin = sDeHauteur(hauteur(theta));
+      fins.push(sFin);
+      const sn = Math.sin(theta), cs = Math.cos(theta);
+      for (let k = 0; k <= rangs; k++) {
+        const s = k / rangs * sFin;
+        const p = pointProfil(s);
+        const x = sn * p.rho, z = cs * p.rho;
+        const ecarte = evase * lisse(0.85, -1.4, p.y);
+        const t = epaisseur(s, sFin, x, p.y, z);
+        const ro = p.rho + p.nr * t + ecarte, yo = p.y + p.ny * t;
+        const ri = p.rho + p.nr * 8e-3 + ecarte * 0.97, yi = p.y + p.ny * 8e-3;
+        ext.push(sn * ro, yo, cs * ro);
+        int.push(sn * ri, yi, cs * ri);
+        uvs.push(c / colonnes * 6, s / 2.4);
+      }
     }
-    const n = rangs.length;
-    for (let c = 0; c < colonnes; c++) for (let k = 0; k < n - 1; k++) {
-      const a = c * n + k, b = (c + 1) * n + k;
-      index.push(a, b, a + 1, b, b + 1, a + 1);
+    const grille = (pos, inverse) => {
+      const idx2 = [];
+      const n2 = rangs + 1;
+      for (let c = 0; c < colonnes; c++) for (let k = 0; k < rangs; k++) {
+        const a = c * n2 + k, b = (c + 1) * n2 + k;
+        if (inverse) idx2.push(a, a + 1, b, b, a + 1, b + 1);
+        else idx2.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+      const geo2 = new THREE.BufferGeometry();
+      geo2.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo2.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geo2.setIndex(idx2);
+      geo2.computeVertexNormals();
+      g.add(new THREE.Mesh(geo2, mat));
+    };
+    grille(ext, false);
+    grille(int, true);
+    const tranche = [], uvt = [], idx = [];
+    const n = rangs + 1;
+    for (let c = 0; c <= colonnes; c++) {
+      const i = (c * n + rangs) * 3;
+      tranche.push(ext[i], ext[i + 1], ext[i + 2], int[i], int[i + 1], int[i + 2]);
+      uvt.push(c / colonnes * 6, 1, c / colonnes * 6, 0.98);
+    }
+    for (let c = 0; c < colonnes; c++) {
+      const a = c * 2, b = (c + 1) * 2;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
     }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(index);
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(tranche, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvt, 2));
+    geo.setIndex(idx);
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
-    g.add(m);
-    return m;
+    g.add(new THREE.Mesh(geo, mat));
   };
-  const meche = (angle, largeur, haut, bas, { rayon = 0.725, pointe = 0.9, evase = 0.04 } = {}) => {
-    const h = haut - bas;
-    const geo = new THREE.CylinderGeometry(rayon, rayon + evase, h, 6, 2, true, angle - largeur / 2, largeur);
+  const tube = (points, r, { seg = 36, rad = 14, bout = true, aplatir: aplatir2 = 1 } = {}) => {
+    const courbe = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)));
+    const geo = new THREE.TubeGeometry(courbe, seg, 1, rad, false);
     const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i);
-      const t = (h / 2 - y) / h;
-      if (t <= 0) continue;
-      const x = pos.getX(i), z = pos.getZ(i);
-      const r = Math.hypot(x, z);
-      const a = Math.atan2(x, z);
-      const ecart2 = (angle - a + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-      const a2 = a + ecart2 * pointe * t * t;
-      pos.setXYZ(i, Math.sin(a2) * r, y, Math.cos(a2) * r);
+    const c = new THREE.Vector3();
+    for (let i = 0; i <= seg; i++) {
+      courbe.getPointAt(i / seg, c);
+      const f = r(i / seg);
+      for (let j = 0; j <= rad; j++) {
+        const k = i * (rad + 1) + j;
+        v.fromBufferAttribute(pos, k).sub(c);
+        v.x *= aplatir2;
+        v.multiplyScalar(f).add(c);
+        pos.setXYZ(k, v.x, v.y, v.z);
+      }
     }
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
-    m.position.y = bas + h / 2;
-    g.add(m);
-    return m;
-  };
-  const frange = (bas, largeur, n, { centre = 0, haut = 1.17, varier = 0.07, rayon = 0.725, evase = 0.04 } = {}) => {
-    const pas = largeur / n;
-    for (let i = 0; i < n; i++) {
-      const a = DEVANT + centre - largeur / 2 + pas * (i + 0.5);
-      const b = bas + (i * 37 % 5 / 4 - 0.5) * varier * 2;
-      meche(a, pas * 1.55, haut, b, { rayon: rayon + i % 2 * 6e-3, evase });
+    g.add(new THREE.Mesh(geo, mat));
+    if (bout) {
+      const fin = courbe.getPointAt(1);
+      const rf = r(1);
+      const b = new THREE.Mesh(new THREE.SphereGeometry(rf, 12, 8), mat);
+      b.position.copy(fin);
+      g.add(b);
     }
+    return courbe;
   };
-  const volume = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), mat);
+  const boule = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), mat);
     m.scale.set(sx, sy, sz);
     m.position.set(x, y, z);
     m.rotation.set(rx, ry, rz);
     g.add(m);
     return m;
   };
+  const lien = (x, y, z, r, rx) => {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.32, 8, 20), mat);
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    g.add(m);
+  };
+  const court = (F = 1.02, S = 0.66, N = 0.4) => [[0, F], [0.5, F - 0.03], [0.8, 0.86], [0.98, S - 0.06], [1.2, S], [2.2, S - 0.04], [2.75, N], [Math.PI, N]];
   switch (style) {
     case "degrade":
-      chevelure({ F: 0.99, S: 0.66, N: 0.4, e: 0.025, dessus: 0.05 });
-      frange(0.98, 1.5, 6, { rayon: 0.655, varier: 0.03, evase: 0.01, haut: 1.2 });
+      coque({
+        lignes: court(1.03, 0.68, 0.42),
+        e: 0.022,
+        dessus: 0.08,
+        devant: 0.04,
+        cotes: 0.4,
+        ondule: { k: 30, amp: 0.012, devant: true }
+      });
       break;
     case "undercut":
-      chevelure({ F: 1, S: 0.64, N: 0.36, e: 0.012, dessus: 0, dents: 0.01 });
-      volume(0, 1.25, -0.02, 0.72, 0.27, 0.76, 0.1);
-      frange(0.84, 0.95, 3, { centre: -0.52, varier: 0.06 });
-      frange(0.84, 0.95, 3, { centre: 0.52, varier: 0.06 });
+      coque({ lignes: court(1.03, 0.66, 0.4), e: 0.01, dessus: 0, bord: 1 });
+      coque({ lignes: [[0, 1.03], [0.7, 1.02], [1.2, 0.98], [Math.PI, 0.9]], e: 0.075, dessus: 0.1, devant: 0.12, bord: 0.85 });
       break;
     case "meche":
-      chevelure({ F: 0.99, S: 0.62, N: 0.34, e: 0.03, dessus: 0.08 });
-      volume(-0.04, 1.32, -0.3, 0.6, 0.3, 0.46, -0.4, 0.15);
-      volume(0.2, 1.35, -0.02, 0.44, 0.22, 0.56, -0.1, -0.2);
+      coque({ lignes: court(1.04, 0.66, 0.42), e: 0.028, dessus: 0.08, devant: 0.2, cotes: 0.55 });
       break;
     case "mi-long":
-      chevelure({ F: 0.9, S: 0.3, N: 0.16, e: 0.05, dessus: 0.1, evase: 0.06, dents: 0.09, tempe: 0.04 });
-      frange(0.84, 1.95, 7, { varier: 0.09, rayon: 0.68 });
-      for (const s of [-1, 1]) for (const [d, b] of [[1.15, 0.24], [1.45, 0.18], [1.8, 0.2], [2.2, 0.16], [2.6, 0.18]]) {
-        meche(DEVANT + s * d, 0.42, 1, b, { rayon: 0.7, evase: 0.07 });
-      }
+      coque({
+        lignes: [[0, 1.05], [0.45, 0.99], [0.82, 0.66], [1.05, 0.3], [1.4, 0.24], [2.4, 0.22], [Math.PI, 0.24]],
+        e: 0.05,
+        dessus: 0.08,
+        evase: 0.07,
+        raie: { x: 0, amp: 0.03 },
+        ondule: { k: 34, amp: 0.035 }
+      });
       break;
     case "carre":
-      chevelure({ F: 0.95, S: 0.2, N: 0.18, e: 0.05, dessus: 0.08, evase: 0.12, dents: 8e-3, tempe: 0 });
-      frange(0.95, 1.74, 9, { varier: 0.012, rayon: 0.675, evase: 0.01 });
+      coque({
+        lignes: [[0, 0.8], [0.55, 0.8], [0.82, 0.3], [1.1, 0.2], [Math.PI, 0.22]],
+        e: 0.055,
+        dessus: 0.08,
+        evase: 0.1,
+        ondule: { k: 40, amp: 0.012 }
+      });
       break;
     case "long":
-      chevelure({ F: 0.97, S: 0.02, N: -0.75, e: 0.05, dessus: 0.07, evase: 0.2, dents: 0.03, tempe: 0 });
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.45, 0.62, 1.2, 0.72, { rayon: 0.68, evase: 0.06 });
+      coque({
+        lignes: [[0, 1.05], [0.28, 0.95], [0.6, 0.5], [0.9, -0.55], [1.4, -0.9], [2.4, -1.05], [Math.PI, -1.1]],
+        e: 0.05,
+        dessus: 0.07,
+        evase: 0.2,
+        arriere: 0.05,
+        raie: { x: 0, amp: 0.03 },
+        ondule: { k: 26, amp: 0.05 }
+      });
       break;
     case "queue":
-      chevelure({ F: 0.99, S: 0.62, N: 0.42, e: 0.022, dessus: 0.04, dents: 0.01 });
-      {
-        const lien = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.05, 8, 18), mat);
-        lien.position.set(0, 1.1, 0.7);
-        lien.rotation.x = 1.2;
-        g.add(lien);
-      }
-      volume(0, 0.95, 0.84, 0.21, 0.27, 0.18, 0.3);
-      volume(0, 0.6, 0.9, 0.18, 0.27, 0.16, 0.1);
-      volume(0, 0.28, 0.88, 0.13, 0.24, 0.12, -0.1);
-      frange(0.96, 1, 4, { centre: -0.3, varier: 0.06, rayon: 0.66 });
+      coque({ lignes: court(1.03, 0.62, 0.44), e: 0.028, dessus: 0.05 });
+      lien(0, 1, 0.7, 0.13, 1.25);
+      tube(
+        [[0, 1.02, 0.66], [0, 0.98, 0.88], [0, 0.66, 1], [0, 0.22, 0.98], [0, -0.32, 0.9]],
+        (t) => (0.13 + 0.07 * Math.sin(Math.PI * Math.min(1, t * 1.6))) * (1 - 0.55 * t * t),
+        { aplatir: 1.15 }
+      );
       break;
     case "chignon":
-      chevelure({ F: 0.99, S: 0.64, N: 0.46, e: 0.022, dessus: 0.04, dents: 0.01 });
-      volume(0, 1.2, 0.62, 0.33, 0.31, 0.29);
-      {
-        const tour2 = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 8, 20), mat);
-        tour2.position.set(0, 1.13, 0.56);
-        tour2.rotation.x = 1.3;
-        g.add(tour2);
-      }
-      frange(1, 1.2, 5, { varier: 0.05, rayon: 0.66 });
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.98, 0.3, 1.05, 0.3, { rayon: 0.665 });
+      coque({
+        lignes: [[0, 0.88], [0.5, 0.84], [0.85, 0.66], [1.2, 0.6], [2.3, 0.56], [Math.PI, 0.5]],
+        e: 0.03,
+        dessus: 0.05,
+        asym: 0.12,
+        arriere: 0.03,
+        ondule: { k: 22, amp: 0.02, devant: true }
+      });
+      boule(0, 0.62, 0.8, 0.3, 0.26, 0.24);
+      lien(0, 0.62, 0.6, 0.2, 0.15);
+      tube([[0.56, 0.95, -0.28], [0.64, 0.7, -0.3], [0.62, 0.36, -0.26]], (t) => 0.06 * (1 - 0.5 * t), { seg: 16, rad: 8 });
       break;
     case "rase":
-      chevelure({ F: 1, S: 0.66, N: 0.4, e: 8e-3, dessus: 0, dents: 0 });
+      coque({ lignes: court(1.03, 0.66, 0.4), e: 0.012, dessus: 5e-3, bord: 1 });
       break;
     case "chignon-haut":
-      chevelure({ F: 0.97, S: 0.58, N: 0.36, e: 0.03, dessus: 0.05, dents: 0.02 });
-      volume(0, 1.3, 0.34, 0.26, 0.22, 0.24);
-      {
-        const lien = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.04, 8, 18), mat);
-        lien.position.set(0, 1.24, 0.34);
-        lien.rotation.x = 0.4;
-        g.add(lien);
+      coque({ lignes: court(1.02, 0.6, 0.44), e: 0.03, dessus: 0.06 });
+      boule(0, 1.28, 0.36, 0.22, 0.19, 0.2);
+      lien(0, 1.2, 0.36, 0.14, 0.35);
+      for (const sx of [-1, 1]) {
+        tube([[sx * 0.42, 1.16, -0.5], [sx * 0.6, 0.98, -0.48], [sx * 0.66, 0.76, -0.42]], (t) => 0.075 * (1 - 0.45 * t), { seg: 16, rad: 10 });
       }
-      for (const s of [-1, 1]) meche(DEVANT + s * 0.7, 0.3, 1.12, 0.62, { rayon: 0.665, evase: 0.03 });
       break;
-    case "tresse":
-      chevelure({ F: 0.98, S: 0.52, N: 0.4, e: 0.028, dessus: 0.05, dents: 0.01 });
-      for (let i = 0; i < 6; i++) {
+    case "tresse": {
+      coque({ lignes: court(1.02, 0.56, 0.42), e: 0.03, dessus: 0.05, ondule: { k: 22, amp: 0.02, devant: true } });
+      const courbe = new THREE.CatmullRomCurve3([[0, 0.72, 0.64], [0, 0.4, 0.84], [0, -0.1, 0.9], [0, -0.8, 0.86]].map((p) => new THREE.Vector3(...p)));
+      const nb = 14;
+      for (let i = 0; i < nb; i++) {
+        const t = i / (nb - 1);
+        courbe.getPointAt(t, v);
         const cote = i % 2 ? 1 : -1;
-        volume(cote * 0.05, 0.42 - i * 0.2, 0.74 + i * 0.012, 0.15 - i * 8e-3, 0.13, 0.12, 0, 0, cote * 0.5);
+        const r = 0.15 * (1 - 0.45 * t);
+        boule(v.x + cote * r * 0.35, v.y, v.z, r * 0.85, r * 1.25, r * 0.8, 0, 0, cote * 0.6);
       }
-      frange(0.97, 1.3, 5, { centre: 0.2, varier: 0.04, rayon: 0.66 });
+      courbe.getPointAt(1, v);
+      lien(v.x, v.y - 0.08, v.z, 0.06, Math.PI / 2);
+      tube([[v.x, v.y - 0.1, v.z], [v.x, v.y - 0.25, v.z + 0.02], [v.x, v.y - 0.36, v.z]], (t) => 0.07 * (1 - 0.6 * t) + 0.02, { seg: 8, rad: 8 });
       break;
-    case "epis":
-      chevelure({ F: 0.97, S: 0.6, N: 0.34, e: 0.035, dessus: 0.08, dents: 0.05 });
-      for (let i = 0; i < 14; i++) {
-        const a = i / 14 * Math.PI * 2, r = i % 2 ? 0.28 : 0.45;
-        const epi = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 6), mat);
-        epi.position.set(Math.sin(a) * r, 1.28 + i % 3 * 0.02, Math.cos(a) * r);
-        epi.rotation.set(Math.cos(a) * 0.6, 0, -Math.sin(a) * 0.6);
-        g.add(epi);
+    }
+    case "epis": {
+      coque({
+        lignes: [[0, 0.92], [0.5, 0.9], [0.8, 0.8], [1, 0.58], [2.2, 0.54], [Math.PI, 0.36]],
+        e: 0.05,
+        dessus: 0.1,
+        ondule: { k: 16, amp: 0.07 }
+      });
+      const epis = [
+        [0, 0.05, 0.62],
+        [0.55, 0.25, 0.55],
+        [-0.55, 0.25, 0.55],
+        [1.25, 0.4, 0.5],
+        [-1.25, 0.4, 0.5],
+        [2.1, 0.42, 0.46],
+        [-2.1, 0.42, 0.46],
+        [Math.PI, 0.38, 0.5],
+        [0.2, -0.3, 0.5],
+        [-0.25, -0.28, 0.48]
+      ];
+      for (const [a, r, h] of epis) {
+        const x = Math.sin(a) * r, z = Math.cos(a) * r;
+        const m = new THREE.Mesh(new THREE.ConeGeometry(0.2, h, 8), mat);
+        m.geometry.translate(0, h / 2, 0);
+        m.position.set(x, 1.24, z + 0.05);
+        m.rotation.set(1.05 + Math.cos(a) * 0.15, 0, -Math.sin(a) * 0.55);
+        g.add(m);
       }
-      frange(0.93, 1.5, 6, { varier: 0.06, rayon: 0.68 });
       break;
+    }
     case "raie":
     default:
-      chevelure({ F: 0.97, S: 0.6, N: 0.32, e: 0.035, dessus: 0.08 });
-      volume(-0.14, 1.28, -0.2, 0.6, 0.24, 0.58, -0.1, 0.35, 0.08);
-      volume(0.3, 1.24, -0.04, 0.44, 0.2, 0.58, 0, -0.2, -0.12);
-      frange(1, 1.3, 5, { centre: 0.32, varier: 0.05, rayon: 0.665 });
+      coque({
+        lignes: court(1.03, 0.66, 0.42),
+        e: 0.035,
+        dessus: 0.09,
+        devant: 0.05,
+        raie: { x: 0.24, amp: 0.07 },
+        cotes: 0.75,
+        ondule: { k: 26, amp: 0.012, devant: true }
+      });
       break;
   }
   return fusionner(THREE, g, mat);
@@ -14107,23 +14221,33 @@ function fusionner(THREE, g, mat) {
 }
 function toileCheveux() {
   const c = document.createElement("canvas");
-  c.width = 128;
-  c.height = 128;
+  c.width = 256;
+  c.height = 256;
   const g = c.getContext("2d");
-  g.fillStyle = "#b8b8b8";
-  g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 260; i++) {
-    const x = Math.random() * 128;
-    g.strokeStyle = Math.random() > 0.5 ? `rgba(255,255,255,${Math.random() * 0.5})` : `rgba(0,0,0,${Math.random() * 0.45})`;
-    g.lineWidth = 0.5 + Math.random();
+  g.fillStyle = "#b4b4b4";
+  g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 26; i++) {
+    const x = Math.random() * 256, l = 8 + Math.random() * 18;
+    const d = g.createLinearGradient(x - l, 0, x + l, 0);
+    const clair = Math.random() > 0.5;
+    d.addColorStop(0, "rgba(0,0,0,0)");
+    d.addColorStop(0.5, clair ? "rgba(255,255,255,.10)" : "rgba(0,0,0,.10)");
+    d.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = d;
+    g.fillRect(x - l, 0, l * 2, 256);
+  }
+  for (let i = 0; i < 900; i++) {
+    const x = Math.random() * 256;
+    g.strokeStyle = Math.random() > 0.55 ? `rgba(255,255,255,${0.04 + Math.random() * 0.1})` : `rgba(0,0,0,${0.04 + Math.random() * 0.12})`;
+    g.lineWidth = 0.4 + Math.random() * 0.6;
     g.beginPath();
     g.moveTo(x, 0);
-    g.bezierCurveTo(x + 4, 40, x - 4, 90, x + 2, 128);
+    g.quadraticCurveTo(x + (Math.random() - 0.5) * 6, 128, x + (Math.random() - 0.5) * 4, 256);
     g.stroke();
   }
   return c;
 }
-var COIFFURES, COULEURS_CHEVEUX, TEINTS;
+var COIFFURES, COULEURS_CHEVEUX, TEINTS, R0, RC, YTOP, YARC, PLAT, SARC, DEVANT, lisse, ecartDuFront;
 var init_coiffures = __esm({
   "src/features/coiffures.js"() {
     COIFFURES = [
@@ -14161,6 +14285,18 @@ var init_coiffures = __esm({
       { cle: "#5e3a26", libelle: "Fonc\xE9" },
       { cle: "#f5cd30", libelle: "Classique" }
     ];
+    R0 = 0.62;
+    RC = 0.2;
+    YTOP = 1.22;
+    YARC = 1.02;
+    PLAT = R0 - RC;
+    SARC = PLAT + Math.PI / 2 * RC;
+    DEVANT = Math.PI;
+    lisse = (a, b, x) => {
+      const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+      return t * t * (3 - 2 * t);
+    };
+    ecartDuFront = (theta) => Math.abs((theta - DEVANT + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
   }
 });
 
@@ -14426,8 +14562,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     return m;
   }
   const DEFAUTS3 = {
-    tenue: NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume"),
-    // l'uniforme, on le choisit
+    // Par défaut, un costume — veste comprise (pas de chemise seule, qui de
+    // loin fait un bloc blanc). L'uniforme, on le choisit.
+    tenue: NOMS_TENUES.filter((n) => ficheTenue(n)?.famille === "costume" && ficheTenue(n)?.veste),
     coiffure: COIFFURES.map((c) => c.cle),
     cheveux: COULEURS_CHEVEUX.map((c) => c.cle).slice(0, 7),
     peau: TEINTS.map((t) => t.cle).slice(0, 6)
