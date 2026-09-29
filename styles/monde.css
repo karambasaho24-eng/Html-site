@@ -624,3 +624,5 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
   .apparence { grid-template-columns: 1fr; }
   .apparence__apercu { height: 260px; }
 }
+.apparence__rigueur { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-fond); color: var(--texte-doux); font-size: 12.5px; line-height: 1.45; }
+.apparence__rigueur b { color: var(--texte); font-weight: 600; }

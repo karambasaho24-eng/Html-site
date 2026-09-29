@@ -10,7 +10,7 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { emettre } from "../core/bus.js";
-import { majPreference } from "../core/session.js";
+import { majPreference, rafraichirClasses } from "../core/session.js";
 import { ouvrirModale } from "../ui/modal.js";
 import { succes } from "../ui/toast.js";
 import { NOMS_TENUES, libelleTenue, ficheTenue } from "./tenues.js";
@@ -23,6 +23,8 @@ export const monAvatar = () => ({ ...(etat.profil?.preferences?.avatar || {}) })
 const auHasard = (liste) => liste[Math.floor(Math.random() * liste.length)];
 
 export async function ouvrirApparence() {
+  // Les tenues de rigueur ont pu changer depuis la connexion.
+  await rafraichirClasses().catch(() => {});
   let avatar = monAvatar();
   let apercu = null;
   const scene = el("div.apparence__apercu");
@@ -54,7 +56,13 @@ export async function ouvrirApparence() {
       style: { background: c.cle }, onclick: () => { avatar[cle] = c.cle; maj(); }
     })));
 
+    // Les classes qui imposent une tenue : on y apparaît dans celle-là.
+    const rigueur = (etat.classes || []).filter((c) => c?.settings?.tenue && !c.archived);
     render(choix,
+      rigueur.length ? el("p.apparence__rigueur", icone("drapeau", 13),
+        el("span", "Tenue de rigueur : ",
+          rigueur.map((c, i) => [i ? " · " : "", el("b", c.name), ` : ${libelleTenue(c.settings.tenue)}`]),
+          ". Vous y apparaîtrez ainsi, avec votre coupe et votre teint.")) : null,
       groupe("Tenue", el("div",
         el("p.apparence__sous-titre", "Costumes"),
         el("div.apparence__tenues", costumes.map(tenue)),
