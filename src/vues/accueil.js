@@ -36,6 +36,7 @@ import {
   panneauDocumentsConsole, panneauPersonnes
 } from "../features/console.js";
 import { imageDetouree } from "../features/affaires.js";
+import { creerBuveur, jaugeEncre, remplirChezSoi } from "../features/encre.js";
 
 export default async function vueAccueil() {
   const moi = etat.utilisateur.id;
@@ -80,7 +81,12 @@ export default async function vueAccueil() {
         surSac: () => console_.ouvrir("sac"),
         choisi: () => cahierOuvert?.id,
         choisir: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); },
-        surNouveau: () => cahierNeuf()
+        surNouveau: () => cahierNeuf(),
+        encre: {
+          encrier: () => encrierDeLaPlume(),
+          remplir: () => remplirIci(),
+          frappe: () => buveur.frappe()
+        }
       }) },
       { cle: "note", mot: "Note", rendre: panneauNote({ bureau, classe: null, gens: () => gens.gens, nomDe: (p) => gens.nomDe(p) }) },
       { cle: "documents", mot: "Documents", rendre: panneauDocumentsConsole() },
@@ -155,7 +161,41 @@ export default async function vueAccueil() {
       garde: (action) => bureau.peutFaire(action),
       pageInitiale: page
     });
-    render(decor.livre, el("div.salle__scene", el("div.mon-cahier", editeur.noeud)));
+    // À la plume, l'encre se voit et se boit, ici comme en classe.
+    const encrier = encrierDeLaPlume();
+    render(decor.livre, el("div.salle__scene", el("div.mon-cahier",
+      encrier ? jaugeEncre(encrier, { remplir: remplirIci }) : null,
+      editeur.noeud)));
+    ecouterLEncre(editeur.noeud);
+  }
+
+  /* --- L'encre : la plume boit, on remplit au flacon de la maison ---------- */
+  function encrierDeLaPlume() {
+    const v = bureau.peutFaire("ecrire");
+    if (v.encrier) return v.encrier;
+    // À sec : la jauge reste, à zéro, avec « Remplir ».
+    return /encrier est vide/.test(v.message || "")
+      ? bureau.objets().find((o) => o.kind === "encrier" && Number(o.level || 0) <= 0) || null
+      : null;
+  }
+  const buveur = creerBuveur({
+    encrier: () => bureau.peutFaire("ecrire").encrier || null,
+    surChange: () => rafraichirJauges(),
+    surVide: () => { remonterLivre(); console_.rafraichir(); }
+  });
+  function ecouterLEncre(zone) {
+    zone?.addEventListener("input", (e) => {
+      if (e.target?.closest?.(".parchemin__corps")) buveur.frappe();
+    });
+  }
+  function rafraichirJauges() {
+    const e = encrierDeLaPlume();
+    for (const j of noeud.querySelectorAll(".encre-niveau")) {
+      if (e) j.replaceWith(jaugeEncre(e, { remplir: remplirIci }));
+    }
+  }
+  async function remplirIci() {
+    if (await remplirChezSoi(bureau)) { remonterLivre(); console_.rafraichir(); decor.peindre(); }
   }
 
   function fermerLivre() {

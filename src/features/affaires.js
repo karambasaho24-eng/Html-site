@@ -71,7 +71,7 @@ export const CATALOGUE = {
   encrier:   { volume: 2, libelle: "Encrier",   categorie: "ecriture", consomme: true,
                aide: "C'est lui qui se vide quand on écrit à la plume." },
   encre:     { volume: 2, libelle: "Flacon d'encre", categorie: "ecriture", consomme: true,
-               aide: "De quoi remplir l'encrier plusieurs fois." },
+               aide: "De quoi remplir l'encrier quatre fois." },
   craie:     { volume: 1, libelle: "Craie",     categorie: "ecriture", ecrit: true, nombre: true,
                aide: "Pour le tableau. Elle s'use." },
   gomme:     { volume: 1, libelle: "Gomme",     categorie: "ecriture",
@@ -198,7 +198,9 @@ export const DOTATION = [
   { kind: "gomme",   dans: "trousse" },
   { kind: "regle",   dans: "trousse" },
   { kind: "buvard",  dans: "cartable" },
-  { kind: "feuilles", dans: "cartable", quantity: 20 }
+  { kind: "feuilles", dans: "cartable", quantity: 20 },
+  // Le flacon reste à la maison : on y remplit son encrier.
+  { kind: "encre", level: 100 }
 ];
 
 /**

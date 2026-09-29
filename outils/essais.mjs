@@ -374,8 +374,9 @@ try {
     return { plancher: vide.level, verse, niveau: apres.level, flacon: restant.level };
   `);
   verifier("un encrier vide ne passe pas sous zero", encre.plancher === 0);
-  verifier("le remplissage verse ce qu'il faut", encre.verse === 100 - 0 - 40 || encre.verse === 60, String(encre.verse));
-  verifier("ce qui entre dans l'encrier sort du flacon", encre.niveau + encre.flacon === 60);
+  // Un flacon contient quatre encriers : remplir un encrier vide en prend le quart.
+  verifier("le remplissage verse ce qu'il faut", encre.verse === 100 && encre.niveau === 100, String(encre.verse));
+  verifier("ce qui entre dans l'encrier sort du flacon (au quart)", encre.flacon === 60 - 25, String(encre.flacon));
 
   /* =======================================================================
      9. Les permissions ne sont pas dans l'ecran
@@ -809,6 +810,46 @@ try {
     && await depot(cadet, "return (await d.cahiers.mesCahiers(etat.utilisateur.id)).length") === avantCahiers + 1);
   await cadet.keyboard.press("Escape");
   await cadet.waitForTimeout(500);
+
+  // L'encre : la plume en main, chez soi, chaque ligne entame l'encrier.
+  const ids = await depot(cadet, `const l = await d.affaires.miennes(etat.utilisateur.id);
+    const g = (k) => l.find((o) => o.kind === k);
+    return { plume: g("plume")?.id, encrier: g("encrier")?.id, flacon: g("encre")?.id };`);
+  verifier("un flacon d'encre attend a la maison", Boolean(ids.flacon));
+  await depot(cadet, `for (const id of ${JSON.stringify([ids.plume, ids.encrier])}) await d.affaires.rangerDans(await d.affaires.lire(id), null);
+    localStorage.setItem("ojm.enmain.maison", JSON.stringify(String(${JSON.stringify(ids.plume)}))); return 1;`);
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(600);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1500);
+  await cadet.click('.actions__geste[data-geste="cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("chez soi, a la plume : la jauge d'encre est au-dessus du cahier",
+    await cadet.locator(".mon-cahier .encre-niveau").isVisible());
+  await cadet.click(".mon-cahier .parchemin__corps");
+  await cadet.keyboard.type("Rapport de la troisieme expedition hors des murs : pertes legeres, cartes a refaire. ".repeat(2), { delay: 2 });
+  await cadet.waitForTimeout(2200);
+  const niveau = await depot(cadet, `return (await d.affaires.lire(${JSON.stringify(ids.encrier)})).level;`);
+  verifier("ecrire a la plume vide l'encrier peu a peu", niveau <= 97 && niveau >= 90, `niveau ${niveau}`);
+  verifier("la jauge suit en direct", (await cadet.locator(".mon-cahier .encre-niveau__pc").innerText()).trim() === `${niveau} %`);
+  await depot(cadet, `await d.affaires.consommer(await d.affaires.lire(${JSON.stringify(ids.encrier)}), 100); return 1;`);
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(600);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1500);
+  await cadet.click('.actions__geste[data-geste="cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("encrier vide : on le voit, et on ne trace plus",
+    await cadet.locator('.mon-cahier .encre-niveau[data-vide="1"]').isVisible());
+  await cadet.screenshot({ path: `${CAPT}/encre-vide.png` });
+  await cadet.click(".mon-cahier .encre-niveau__remplir");
+  await cadet.waitForTimeout(1500);
+  const apres = await depot(cadet, `return { e: (await d.affaires.lire(${JSON.stringify(ids.encrier)})).level, f: (await d.affaires.lire(${JSON.stringify(ids.flacon)})).level };`);
+  verifier("on remplit l'encrier au flacon de la maison (un quart du flacon)", apres.e === 100 && apres.f === 75, JSON.stringify(apres));
+  verifier("et la plume peut de nouveau ecrire", await cadet.locator('.mon-cahier .encre-niveau[data-vide="1"]').count() === 0);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1200);
+
   await cadet.click('.actions__geste[data-geste="sac"]');
   await cadet.waitForTimeout(700);
   verifier("le geste Sac ouvre le sac de la chambre", await cadet.locator('.chez-moi .scene[data-etat="sac"]').count() === 1);

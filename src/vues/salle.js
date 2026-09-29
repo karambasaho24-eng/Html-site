@@ -33,6 +33,7 @@ import {
 } from "../features/console.js";
 import { observer } from "../core/store.js";
 import { docHote } from "../core/hote.js";
+import { CARACTERES_PAR_POINT, jaugeEncre } from "../features/encre.js";
 import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
 import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
 import { monAvatar } from "../features/apparence.js";
@@ -414,13 +415,18 @@ export default async function vueSalle({ params }) {
 
   /* --- L'encre -------------------------------------------------------------
      Une plume qui n'a plus d'encre ne trace plus. C'est la seule consommation
-     automatique du site, et elle est volontairement lente : un pour cent tous
-     les trois cent cinquante caractères, soit plusieurs séances pleines pour
-     vider un encrier. Le but n'est pas de rendre l'écriture pénible — c'est de
-     donner une raison de vérifier son matériel avant d'entrer, et de faire
-     exister la scène du cadet qui demande de l'encre à son voisin. */
-  const CARACTERES_PAR_POINT = 350;
+     automatique du site : un pour cent tous les cinquante caractères (voir
+     encre.js), de quoi remplir quelques pages. Assez pour qu'on voie l'encre
+     baisser et qu'on pense à la remplir — et que la scène du cadet qui
+     demande de l'encre à son voisin existe. */
   let fraisEncre = 0;
+  /** La jauge d'encre, remise à jour là où elle est affichée. */
+  function rafraichirJauge() {
+    const e = monEncrier();
+    for (const j of noeud?.querySelectorAll?.(".encre-niveau") || []) {
+      if (e) j.replaceWith(jaugeEncre(e, { remplir: remplirMonEncrier }));
+    }
+  }
 
   /** L'encrier qui sert : celui qui est sur le bureau, si j'écris à la plume. */
   const monEncrier = () => bureau.peutFaire("ecrire").encrier || null;
@@ -448,14 +454,15 @@ export default async function vueSalle({ params }) {
     try {
       const maj = await depotAffaires.consommer(encrier, points);
       Object.assign(encrier, maj);
+      rafraichirJauge();
       if (Number(encrier.level || 0) <= 0) {
         toast("Votre encrier est vide", {
           corps: "La plume gratte le papier sans rien laisser. Remplissez-le, ou demandez de l'encre.",
           type: "attn", duree: 10000
         });
         await peindreMonCahier();
-      } else if (Number(encrier.level) === 10) {
-        toast("Il ne reste presque plus d'encre", { type: "attn" });
+      } else if (Number(encrier.level) <= 15 && Number(encrier.level) + points > 15) {
+        toast("L'encre baisse", { corps: `Il reste ${encrier.level} % dans l'encrier.`, type: "attn" });
       }
     } catch { /* un encrier qu'on ne peut pas entamer n'empêche pas d'écrire */ }
   }, 1400);
@@ -649,11 +656,7 @@ export default async function vueSalle({ params }) {
                 icone("main", 14), "En demander"))
           : null,
         !prive() && !aSec() && jEcrisALaPlume() && monEncrier()
-          ? el("div.encre-niveau", { title: `Encre : ${monEncrier().level} %` },
-              figureObjet("encrier"),
-              el("span.petit.faible", "Encre"),
-              el("span.jauge", el("span.jauge__remplissage",
-                { style: { width: `${Math.max(3, Number(monEncrier().level || 0))}%` } })))
+          ? jaugeEncre(monEncrier(), { remplir: remplirMonEncrier })
           : null,
         el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
       )

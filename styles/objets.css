@@ -1013,3 +1013,15 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 .dossier-carte__lieu { color: var(--attn); }
 .dossier__papiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .dossier__papier { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* L'encre : le niveau se lit d'un coup d'œil ; bas, il vire ; vide, il le dit. */
+.encre-niveau { flex-wrap: wrap; color: var(--texte-doux); }
+.encre-niveau__mot { color: var(--texte-faible); }
+.encre-niveau__pc { font-variant-numeric: tabular-nums; color: var(--texte-doux); min-width: 3.2em; }
+.encre-niveau .jauge__remplissage { background: linear-gradient(90deg, #2c4a86, #5a86d6); transition: width .4s var(--courbe, ease); }
+.encre-niveau[data-bas="1"] .jauge__remplissage { background: linear-gradient(90deg, #7a3b1c, #c46a2a); }
+.encre-niveau[data-bas="1"] .encre-niveau__pc { color: #e0a25a; }
+.encre-niveau[data-vide="1"] .encre-niveau__mot { color: var(--alerte); font-weight: 600; }
+.encre-niveau__remplir { margin-left: auto; }
+.console__corps > .encre-niveau { margin: 0; }
+.mon-cahier > .encre-niveau { margin: 0 0 8px; }

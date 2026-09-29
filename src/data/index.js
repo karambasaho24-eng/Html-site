@@ -496,15 +496,19 @@ export const affaires = {
   /**
    * Remplir son encrier au flacon. Ce qui entre dans l'un sort de l'autre :
    * sans cela, l'encre se créerait toute seule et l'objet ne pèserait plus rien.
+   * Un flacon contient quatre encriers : un point de flacon en verse quatre.
    */
   async remplir(encrier, flacon) {
     const place = 100 - Number(encrier.level || 0);
     if (place <= 0) return { verse: 0 };
     const dispo = Number(flacon?.level || 0);
     if (dispo <= 0) return { verse: 0 };
-    const verse = Math.min(place, dispo);
-    await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
-    await T("belongings").majorer(flacon.id, { level: dispo - verse });
+    const verse = Math.min(place, dispo * 4);
+    const pris = Math.min(dispo, Math.ceil(verse / 4));
+    const e = await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
+    const f = await T("belongings").majorer(flacon.id, { level: dispo - pris });
+    Object.assign(encrier, e || { level: Number(encrier.level || 0) + verse });
+    Object.assign(flacon, f || { level: dispo - pris });
     return { verse };
   },
 

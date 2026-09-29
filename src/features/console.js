@@ -22,6 +22,7 @@ import { formulaireNote } from "./note-rapide.js";
 import { panneauDocuments } from "./gestes.js";
 import { creerEditeurCahier } from "./editeur-cahier.js";
 import { diagnostic, pretAEcrire } from "./pret-a-ecrire.js";
+import { jaugeEncre } from "./encre.js";
 
 /**
  * @param {object} o
@@ -205,7 +206,7 @@ export function panneauSac(bureau, { apres = null } = {}) {
  * Le cahier, en petit : les outils posés en haut (on en prend un), la page
  * en dessous. Sans outil en main, on lit ; on n'écrit pas.
  */
-export function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {}, surNouveau = null } = {}) {
+export function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir = () => {}, surNouveau = null, encre = null } = {}) {
   let editeur = null;
   return (zone, api) => {
     editeur?.detruire?.();
@@ -267,7 +268,14 @@ export function panneauCahier(bureau, { surSac = null, choisi = () => null, choi
             onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
           }, el("img", { src: imageDetouree(o.kind), alt: "" })))
         : null),
+      // À la plume : ce qu'il reste d'encre, et « Remplir ».
+      encre?.encrier() ? jaugeEncre(encre.encrier(), { remplir: encre.remplir }) : null,
       el("div.console__page", editeur.noeud));
+    if (encre) {
+      editeur.noeud.addEventListener("input", (e) => {
+        if (e.target?.closest?.(".parchemin__corps")) encre.frappe();
+      });
+    }
   };
 }
 

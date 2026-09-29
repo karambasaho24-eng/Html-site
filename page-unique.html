@@ -2672,6 +2672,18 @@ button.mode-seance:hover { border-color: var(--laiton); color: var(--texte); }
 .dossier__papiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .dossier__papier { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+/* L'encre : le niveau se lit d'un coup d'œil ; bas, il vire ; vide, il le dit. */
+.encre-niveau { flex-wrap: wrap; color: var(--texte-doux); }
+.encre-niveau__mot { color: var(--texte-faible); }
+.encre-niveau__pc { font-variant-numeric: tabular-nums; color: var(--texte-doux); min-width: 3.2em; }
+.encre-niveau .jauge__remplissage { background: linear-gradient(90deg, #2c4a86, #5a86d6); transition: width .4s var(--courbe, ease); }
+.encre-niveau[data-bas="1"] .jauge__remplissage { background: linear-gradient(90deg, #7a3b1c, #c46a2a); }
+.encre-niveau[data-bas="1"] .encre-niveau__pc { color: #e0a25a; }
+.encre-niveau[data-vide="1"] .encre-niveau__mot { color: var(--alerte); font-weight: 600; }
+.encre-niveau__remplir { margin-left: auto; }
+.console__corps > .encre-niveau { margin: 0; }
+.mon-cahier > .encre-niveau { margin: 0 0 8px; }
+
 /* ---- board.css ---- */
 /* ===========================================================================
    Tableau interactif
@@ -7165,15 +7177,19 @@ var init_data = __esm({
       /**
        * Remplir son encrier au flacon. Ce qui entre dans l'un sort de l'autre :
        * sans cela, l'encre se créerait toute seule et l'objet ne pèserait plus rien.
+       * Un flacon contient quatre encriers : un point de flacon en verse quatre.
        */
       async remplir(encrier, flacon) {
         const place = 100 - Number(encrier.level || 0);
         if (place <= 0) return { verse: 0 };
         const dispo = Number(flacon?.level || 0);
         if (dispo <= 0) return { verse: 0 };
-        const verse = Math.min(place, dispo);
-        await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
-        await T("belongings").majorer(flacon.id, { level: dispo - verse });
+        const verse = Math.min(place, dispo * 4);
+        const pris = Math.min(dispo, Math.ceil(verse / 4));
+        const e = await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
+        const f = await T("belongings").majorer(flacon.id, { level: dispo - pris });
+        Object.assign(encrier, e || { level: Number(encrier.level || 0) + verse });
+        Object.assign(flacon, f || { level: dispo - pris });
         return { verse };
       },
       perdre: (id) => T("belongings").majorer(id, { state: "lost", container_id: null, carried: false }),
@@ -9222,7 +9238,7 @@ var init_affaires = __esm({
         libelle: "Flacon d'encre",
         categorie: "ecriture",
         consomme: true,
-        aide: "De quoi remplir l'encrier plusieurs fois."
+        aide: "De quoi remplir l'encrier quatre fois."
       },
       craie: {
         volume: 1,
@@ -9375,7 +9391,9 @@ var init_affaires = __esm({
       { kind: "gomme", dans: "trousse" },
       { kind: "regle", dans: "trousse" },
       { kind: "buvard", dans: "cartable" },
-      { kind: "feuilles", dans: "cartable", quantity: 20 }
+      { kind: "feuilles", dans: "cartable", quantity: 20 },
+      // Le flacon reste à la maison : on y remplit son encrier.
+      { kind: "encre", level: 100 }
     ];
     DOTATION_PROFESSEUR = [
       { kind: "sacoche", carried: true, label: "Sacoche du professeur" },
@@ -18605,6 +18623,104 @@ var init_dossiers = __esm({
   }
 });
 
+// src/features/encre.js
+function creerBuveur({ encrier, surVide = null, surChange = null }) {
+  let frais = 0;
+  const boire = debounce(async () => {
+    const e = encrier();
+    if (!e) {
+      frais = 0;
+      return;
+    }
+    const points = Math.floor(frais / CARACTERES_PAR_POINT);
+    if (points < 1) return;
+    frais -= points * CARACTERES_PAR_POINT;
+    const avant = Number(e.level ?? 0);
+    try {
+      Object.assign(e, await affaires.consommer(e, points));
+    } catch {
+      return;
+    }
+    const niveau = Number(e.level ?? 0);
+    surChange?.(e);
+    if (niveau <= 0) {
+      toast("Votre encrier est vide", {
+        corps: "La plume gratte le papier sans rien laisser. Remplissez-le au flacon, ou prenez un crayon.",
+        type: "attn",
+        duree: 1e4
+      });
+      surVide?.(e);
+    } else if (niveau <= 15 && avant > 15) {
+      toast("L'encre baisse", { corps: `Il reste ${niveau} % dans l'encrier.`, type: "attn" });
+    }
+  }, 900);
+  return { frappe(n = 1) {
+    frais += n;
+    boire();
+  } };
+}
+function jaugeEncre(encrier, { remplir = null } = {}) {
+  const niveau = Math.max(0, Math.min(100, Math.round(Number(encrier?.level ?? 0))));
+  return el(
+    "div.encre-niveau",
+    {
+      dataset: { bas: niveau <= 15 ? "1" : "", vide: niveau <= 0 ? "1" : "" },
+      title: `Encre : ${niveau} %`
+    },
+    figureObjet("encrier"),
+    el("span.encre-niveau__mot", niveau <= 0 ? "Encrier vide" : "Encre"),
+    el("span.jauge", el("span.jauge__remplissage", { style: { width: `${Math.max(3, niveau)}%` } })),
+    el("span.encre-niveau__pc", `${niveau} %`),
+    remplir && niveau < 100 ? el("button.btn.btn--petit.encre-niveau__remplir", { type: "button", onclick: remplir }, icone("goutte", 13), "Remplir") : null
+  );
+}
+async function remplirChezSoi(bureau) {
+  const objets = bureau.objets();
+  const encrier = bureau.peutFaire("ecrire").encrier || bureau.surLeBureau().find((o) => o.kind === "encrier") || objets.find((o) => o.kind === "encrier" && o.state !== "lost");
+  if (!encrier) {
+    toast("Vous n'avez pas d'encrier.");
+    return false;
+  }
+  let flacon = objets.find((o) => o.kind === "encre" && Number(o.level || 0) > 0 && o.state !== "lost" && (o.place || "range") === "range");
+  try {
+    if (!flacon) {
+      flacon = await affaires.creer({
+        owner_id: bureau.moi,
+        kind: "encre",
+        label: "Flacon d'encre",
+        category: "ecriture",
+        level: 100,
+        size: 2
+      });
+      objets.push(flacon);
+      toast("Un flacon neuf", { corps: "Vous entamez un flacon d'encre, pos\xE9 sur votre bureau.", duree: 3500 });
+    }
+    const { verse } = await affaires.remplir(encrier, flacon);
+    if (!verse) {
+      toast("L'encrier est d\xE9j\xE0 plein.");
+      return false;
+    }
+    await bureau.charger();
+    toast("Encrier rempli", { corps: "La plume peut \xE9crire.", type: "ok" });
+    return true;
+  } catch (err) {
+    erreur("Impossible de remplir", messageErreur(err));
+    return false;
+  }
+}
+var CARACTERES_PAR_POINT;
+var init_encre = __esm({
+  "src/features/encre.js"() {
+    init_dom();
+    init_icons();
+    init_data();
+    init_toast();
+    init_util();
+    init_affaires();
+    CARACTERES_PAR_POINT = 50;
+  }
+});
+
 // src/features/console.js
 function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = null, scene = null }) {
   const zone = el("div.console__panneau");
@@ -18803,7 +18919,7 @@ function panneauSac(bureau, { apres = null } = {}) {
   };
 }
 function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir: choisir2 = () => {
-}, surNouveau = null } = {}) {
+}, surNouveau = null, encre = null } = {}) {
   let editeur = null;
   return (zone, api) => {
     editeur?.detruire?.();
@@ -18865,8 +18981,15 @@ function panneauCahier(bureau, { surSac = null, choisi = () => null, choisir: ch
         title: tenu?.id === o.id ? "Reposer" : `Prendre ${nomObjet(o).toLowerCase()}`,
         onclick: () => bureau.prendre(tenu?.id === o.id ? null : o)
       }, el("img", { src: imageDetouree(o.kind), alt: "" }))) : null),
+      // À la plume : ce qu'il reste d'encre, et « Remplir ».
+      encre?.encrier() ? jaugeEncre(encre.encrier(), { remplir: encre.remplir }) : null,
       el("div.console__page", editeur.noeud)
     );
+    if (encre) {
+      editeur.noeud.addEventListener("input", (e) => {
+        if (e.target?.closest?.(".parchemin__corps")) encre.frappe();
+      });
+    }
   };
 }
 function bandeauEcriture(bureau, { apres = null } = {}) {
@@ -18944,6 +19067,7 @@ var init_console = __esm({
     init_gestes();
     init_editeur_cahier();
     init_pret_a_ecrire();
+    init_encre();
   }
 });
 
@@ -19171,7 +19295,12 @@ async function vueAccueil() {
           cahierOuvert = c;
           console_.ouvrir("cahier");
         },
-        surNouveau: () => cahierNeuf()
+        surNouveau: () => cahierNeuf(),
+        encre: {
+          encrier: () => encrierDeLaPlume(),
+          remplir: () => remplirIci(),
+          frappe: () => buveur.frappe()
+        }
       }) },
       { cle: "note", mot: "Note", rendre: panneauNote({ bureau, classe: null, gens: () => gens.gens, nomDe: (p) => gens.nomDe(p) }) },
       { cle: "documents", mot: "Documents", rendre: panneauDocumentsConsole() },
@@ -19247,7 +19376,44 @@ async function vueAccueil() {
       garde: (action) => bureau.peutFaire(action),
       pageInitiale: page
     });
-    render(decor.livre, el("div.salle__scene", el("div.mon-cahier", editeur.noeud)));
+    const encrier = encrierDeLaPlume();
+    render(decor.livre, el("div.salle__scene", el(
+      "div.mon-cahier",
+      encrier ? jaugeEncre(encrier, { remplir: remplirIci }) : null,
+      editeur.noeud
+    )));
+    ecouterLEncre(editeur.noeud);
+  }
+  function encrierDeLaPlume() {
+    const v = bureau.peutFaire("ecrire");
+    if (v.encrier) return v.encrier;
+    return /encrier est vide/.test(v.message || "") ? bureau.objets().find((o) => o.kind === "encrier" && Number(o.level || 0) <= 0) || null : null;
+  }
+  const buveur = creerBuveur({
+    encrier: () => bureau.peutFaire("ecrire").encrier || null,
+    surChange: () => rafraichirJauges(),
+    surVide: () => {
+      remonterLivre();
+      console_.rafraichir();
+    }
+  });
+  function ecouterLEncre(zone) {
+    zone?.addEventListener("input", (e) => {
+      if (e.target?.closest?.(".parchemin__corps")) buveur.frappe();
+    });
+  }
+  function rafraichirJauges() {
+    const e = encrierDeLaPlume();
+    for (const j of noeud.querySelectorAll(".encre-niveau")) {
+      if (e) j.replaceWith(jaugeEncre(e, { remplir: remplirIci }));
+    }
+  }
+  async function remplirIci() {
+    if (await remplirChezSoi(bureau)) {
+      remonterLivre();
+      console_.rafraichir();
+      decor.peindre();
+    }
   }
   function fermerLivre() {
     editeur?.detruire?.();
@@ -19471,6 +19637,7 @@ var init_accueil = __esm({
     init_gestes();
     init_console();
     init_affaires();
+    init_encre();
   }
 });
 
@@ -24765,8 +24932,13 @@ async function vueSalle({ params }) {
   }
   let cahierOuvertId = local.lire(`ojm.moncahier.${classe.id}`, null);
   let editeurPersonnel = null;
-  const CARACTERES_PAR_POINT = 350;
   let fraisEncre = 0;
+  function rafraichirJauge() {
+    const e = monEncrier();
+    for (const j of noeud?.querySelectorAll?.(".encre-niveau") || []) {
+      if (e) j.replaceWith(jaugeEncre(e, { remplir: remplirMonEncrier }));
+    }
+  }
   const monEncrier = () => bureau.peutFaire("ecrire").encrier || null;
   const jEcrisALaPlume = () => Boolean(bureau.peutFaire("ecrire").encrier);
   function aSec() {
@@ -24785,6 +24957,7 @@ async function vueSalle({ params }) {
     try {
       const maj = await affaires.consommer(encrier, points);
       Object.assign(encrier, maj);
+      rafraichirJauge();
       if (Number(encrier.level || 0) <= 0) {
         toast("Votre encrier est vide", {
           corps: "La plume gratte le papier sans rien laisser. Remplissez-le, ou demandez de l'encre.",
@@ -24792,8 +24965,8 @@ async function vueSalle({ params }) {
           duree: 1e4
         });
         await peindreMonCahier();
-      } else if (Number(encrier.level) === 10) {
-        toast("Il ne reste presque plus d'encre", { type: "attn" });
+      } else if (Number(encrier.level) <= 15 && Number(encrier.level) + points > 15) {
+        toast("L'encre baisse", { corps: `Il reste ${encrier.level} % dans l'encrier.`, type: "attn" });
       }
     } catch {
     }
@@ -25005,16 +25178,7 @@ async function vueSalle({ params }) {
             "En demander"
           )
         ) : null,
-        !prive() && !aSec() && jEcrisALaPlume() && monEncrier() ? el(
-          "div.encre-niveau",
-          { title: `Encre : ${monEncrier().level} %` },
-          figureObjet("encrier"),
-          el("span.petit.faible", "Encre"),
-          el("span.jauge", el(
-            "span.jauge__remplissage",
-            { style: { width: `${Math.max(3, Number(monEncrier().level || 0))}%` } }
-          ))
-        ) : null,
+        !prive() && !aSec() && jEcrisALaPlume() && monEncrier() ? jaugeEncre(monEncrier(), { remplir: remplirMonEncrier }) : null,
         el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
       )
     );
@@ -27665,6 +27829,7 @@ var init_salle = __esm({
     init_console();
     init_store();
     init_hote();
+    init_encre();
     init_scene_bureau();
     init_pret_a_ecrire();
     init_apparence();
