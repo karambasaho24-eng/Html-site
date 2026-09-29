@@ -745,7 +745,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   function animerSac(x, maintenant) {
     const sac = x.sac;
     if (!sac || !x.siege) return;
-    const dt = Math.min(80, maintenant - (x.sacDernier || maintenant));
+    const dt = Math.min(400, maintenant - (x.sacDernier || maintenant));
     x.sacDernier = maintenant;
     const cible = x.sacOuvert ? 1 : 0;
     const avant = x.sacP || 0;
@@ -1509,7 +1509,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   hote.appendChild(boutonSac);
   /* La caméra à la troisième personne : derrière soi, un peu au-dessus. */
   const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
-  let suivre = false, cameraPosee = false;
+  let suivre = false, cameraPosee = false, derniereCam = 0;
   function viserDerriere(o) {
     posCible.set(o.x + 0.9, 6.3, o.z + 5.6);
     regardCible.set(o.x * 0.5, 2.8, o.z - 8);
@@ -1687,10 +1687,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     // La caméra rejoint doucement sa cible (on change de place, on se lève).
     if (suivre) {
-      camera.position.lerp(posCible, 0.07);
-      regard.lerp(regardCible, 0.07);
+      // Au temps, pas à l'image : le même glissé, que l'ordinateur soit rapide ou non.
+      const f = 1 - Math.exp(-(maintenant - (derniereCam || maintenant)) / 220);
+      camera.position.lerp(posCible, f);
+      regard.lerp(regardCible, f);
       camera.lookAt(regard);
     }
+    derniereCam = maintenant;
     if (prof) {
       const p = prof.p;
       if (!dispo.reunion) {
