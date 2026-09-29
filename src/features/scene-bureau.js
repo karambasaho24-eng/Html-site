@@ -84,7 +84,13 @@ export function creerScene({
   mains = () => new Set(),
   // Le tableau vivant, même quand il n'est pas à l'écran (cahier ouvert,
   // petite fenêtre) : la classe en 3D continue de le montrer.
-  toile = null
+  toile = null,
+  // Le plan de classe fixé par le professeur : { user_id : numéro de place }.
+  plan = () => ({}),
+  // On clique une place dans la salle en 3D : (numéro, qui l'occupe).
+  surPlace = null,
+  // On clique le cahier posé sur la table de quelqu'un.
+  surCahierDe = null
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -562,19 +568,37 @@ export function creerScene({
     const responsable = tous.find((p) => String(p.user_id) === String(estrade?.user_id || ""))
       || tous.find((p) => p.role === "teacher");
     const m = typeof mode === "function" ? mode() : mode;
+    const fixe = plan?.() || {};
+    const tenu = bureau.enMain();
+    const monBureau = [
+      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+      ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
+        .map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
+    ].slice(0, 14);
     classe3d.maj({
       mode: ["reunion", "entretien"].includes(m) ? "reunion" : "classe",
+      // Le professeur regarde sa classe ; l'élève se voit, assis, de dos.
+      vue: staff ? "prof" : "eleve",
       eleves: tous
-        .filter((p) => p.role !== "teacher" && String(p.user_id) !== moiId)
-        .map((p) => ({
-          id: String(p.user_id),
-          nom: (nomDe(p) || "Participant").split(/\s+/)[0],
-          brut: p,
-          // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
-          avatar: classe?.settings?.tenue ? { ...(p.avatar || {}), tenue: classe.settings.tenue } : p.avatar || null,
-          bureau: Array.isArray(p.bureau) ? p.bureau : [],
-          main: levees.has(String(p.user_id))
-        })),
+        .filter((p) => !["teacher", "observer"].includes(p.role))
+        .map((p) => {
+          const id = String(p.user_id);
+          const moi = id === moiId;
+          const placee = Number.isInteger(fixe[id]) ? fixe[id] : null;
+          return {
+            id, moi,
+            nom: moi ? "Vous" : (nomDe(p) || "Participant").split(/\s+/)[0],
+            brut: p,
+            // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
+            avatar: classe?.settings?.tenue ? { ...(p.avatar || {}), tenue: classe.settings.tenue } : p.avatar || null,
+            bureau: moi ? monBureau : Array.isArray(p.bureau) ? p.bureau : [],
+            main: levees.has(id),
+            // Sa place : celle du plan du professeur, sinon celle qu'il a choisie.
+            place: placee ?? (Number.isInteger(p.place) ? p.place : null),
+            depuis: placee != null ? 0 : p.placeDepuis || Date.now(),
+            ecrit: Boolean(p.ecrit)
+          };
+        }),
       prof: {
         present: Boolean(estrade?.present),
         nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
@@ -589,7 +613,9 @@ export function creerScene({
       hote: vue3d,
       toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
-      surPersonne: (ancre, p) => surPersonne?.(ancre, p)
+      surPersonne: (ancre, p) => surPersonne?.(ancre, p),
+      surPlace: avant ? null : (i, qui) => surPlace?.(i, qui),
+      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p)
     }).then((c) => {
       // La scène a été fermée pendant qu'on préparait la 3D : on la défait
       // aussitôt, sinon elle tournerait pour rien, hors de la page.
@@ -613,6 +639,8 @@ export function creerScene({
     /** La classe en 3D, déplacée dans un autre conteneur (la console), ou remise en place. */
     classeDans: (conteneur) => { if (classe3d) { classe3d.deplacer(conteneur || vue3d); return true; } return false; },
     a3d: () => Boolean(classe3d),
+    /** Qui est où, qui écrit : on redonne l'état à la classe en 3D. */
+    majClasse: () => maj3d(),
     detruire: () => { detruite = true; lacherAvatar?.(); classe3d?.detruire(); classe3d = null; },
     peindre, definirEtat,
     etat: () => etatScene,

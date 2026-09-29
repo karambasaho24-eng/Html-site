@@ -4493,6 +4493,8 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 }
 .apparence__rigueur { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-fond); color: var(--texte-doux); font-size: 12.5px; line-height: 1.45; }
 .apparence__rigueur b { color: var(--texte); font-weight: 600; }
+/* Soi-même, dans la salle en 3D */
+.classe3d__nom--moi { background: var(--accent); color: #1b1712; font-weight: 600; }
 
 /* ---- responsive.css ---- */
 /* ===========================================================================
@@ -14036,7 +14038,7 @@ function graine(texte) {
     return (h >>> 0) % 1e4 / 1e4;
   };
 }
-async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null }) {
+async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null }) {
   const THREE = await chargerThree();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "low-power" });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -14443,6 +14445,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       m.receiveShadow = true;
       m.castShadow = true;
       m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.35 });
+      m.userData.objet = kind;
       groupe.add(m);
     };
     if (info.tex) monter(info);
@@ -14598,7 +14601,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const objets = new THREE.Group();
     objets.position.set(x, 2.24, z - 1.05);
     decor.add(objets);
-    return objets;
+    return { objets, groupe: g };
   }
   function chaise(x, z, angle) {
     const g = new THREE.Group();
@@ -14653,7 +14656,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     for (let r = 0; r < rangs; r++) {
       for (let c = 0; c < cols; c++) {
         const x = (c - (cols - 1) / 2) * pasX, z = -4.6 + r * pasZ;
-        sieges.push({ x, z: z + 0.35, angle: 0, objets: pupitre(x, z) });
+        sieges.push({ x, z: z + 0.35, angle: 0, ...pupitre(x, z) });
       }
     }
     sieges.sort((a, b) => a.z - b.z || Math.abs(a.x) - Math.abs(b.x));
@@ -14902,10 +14905,11 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const reunion = etat2.mode === "reunion";
     const n = etat2.eleves.length;
     const total = Math.max(6, n + (etat2.prof.present ? 1 : 0) + 1);
-    const cols = colonnesPour(n);
+    const places = n + 4;
+    const cols = colonnesPour(places);
     const maison = etat2.mode === "maison";
     const portrait = etat2.mode === "portrait";
-    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
+    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(places / cols))}`;
     if (cle === dispo.cle) return;
     for (const o of [...decor.children]) {
       decor.remove(o);
@@ -14915,9 +14919,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
     ardoise = null;
     objetsProf = null;
-    dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() } : maison ? { cle, reunion: false, maison: true, ...construireMaison() } : reunion ? { cle, reunion: true, ...construireReunion(total) } : { cle, reunion: false, ...construireClasse(n) };
-    const libres = [...dispo.sieges];
-    for (const x of gens.values()) asseoir(x, libres.shift() || dispo.sieges[0]);
+    dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() } : maison ? { cle, reunion: false, maison: true, ...construireMaison() } : reunion ? { cle, reunion: true, ...construireReunion(total) } : { cle, reunion: false, ...construireClasse(places) };
+    dispo.sieges.forEach((siege, i) => {
+      siege.index = i;
+      siege.groupe?.traverse((m) => {
+        m.userData.siege = i;
+      });
+    });
+    for (const x of gens.values()) {
+      x.siege = null;
+      x.trajet = null;
+    }
     if (prof) placerProf();
     cadrer();
   }
@@ -14948,34 +14960,53 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       if (ids.has(id)) continue;
       retirer(x.p.racine);
       x.etiquette.remove();
-      garnir(x.siege.objets, []);
+      if (x.siege) garnir(x.siege.objets, []);
       gens.delete(id);
     }
-    const prises = new Set([...gens.values()].map((x) => x.siege));
+    const cible = /* @__PURE__ */ new Map();
+    const prises = /* @__PURE__ */ new Set();
+    const voulus = etat2.eleves.filter((e) => Number.isInteger(e.place) && dispo.sieges[e.place]).sort((a, b) => (a.depuis || 0) - (b.depuis || 0));
+    for (const e of voulus) {
+      const siege = dispo.sieges[e.place];
+      if (prises.has(siege)) continue;
+      prises.add(siege);
+      cible.set(String(e.id), siege);
+    }
     for (const e of etat2.eleves) {
       const id = String(e.id);
+      if (cible.has(id)) continue;
+      const actuel = gens.get(id)?.siege;
+      const siege = actuel && !prises.has(actuel) ? actuel : dispo.sieges.find((t) => !prises.has(t));
+      if (!siege) continue;
+      prises.add(siege);
+      cible.set(id, siege);
+    }
+    for (const e of etat2.eleves) {
+      const id = String(e.id);
+      const siege = cible.get(id);
+      if (!siege) continue;
       let x = gens.get(id);
       if (!x) {
-        const siege = dispo.sieges.find((s) => !prises.has(s));
-        if (!siege) continue;
-        prises.add(siege);
         const p = personnage(id, e.avatar);
         scene.add(p.racine);
         x = {
           p,
           personne: e,
-          etiquette: etiquette(e.nom),
+          etiquette: etiquette(e.nom, e.moi ? "classe3d__nom--moi" : ""),
           sig: null,
           arrive: performance.now(),
-          avSig: JSON.stringify(e.avatar || {})
+          avSig: JSON.stringify(e.avatar || {}),
+          siege: null
         };
-        x.etiquette.onclick = () => surPersonne?.(x.etiquette, x.personne.brut);
+        x.etiquette.onclick = () => {
+          if (!x.personne.moi) surPersonne?.(x.etiquette, x.personne.brut);
+        };
         p.racine.traverse((o) => {
           o.userData.personne = id;
         });
         gens.set(id, x);
-        asseoir(x, siege);
       }
+      x.personne = e;
       const avSig = JSON.stringify(e.avatar || {});
       if (avSig !== x.avSig) {
         retirer(x.p.racine);
@@ -14985,17 +15016,61 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         });
         scene.add(x.p.racine);
         x.avSig = avSig;
-        asseoir(x, x.siege);
+        if (x.siege && !x.trajet) asseoir(x, x.siege);
       }
-      x.personne = e;
+      if (!x.siege) asseoir(x, siege);
+      else if (x.siege !== siege) marcher(x, siege);
       x.etiquette.textContent = e.nom;
       x.etiquette.classList.toggle("classe3d__nom--main", Boolean(e.main));
+      if (x.trajet) continue;
       const sig = JSON.stringify(e.bureau || []);
       if (sig !== x.sig) {
         x.sig = sig;
         x.p.tenir(garnir(x.siege.objets, e.bureau || []));
       }
     }
+    cadrer();
+  }
+  function marcher(x, siege) {
+    if (x.siege) garnir(x.siege.objets, []);
+    x.p.tenir(null);
+    const de = x.p.racine.position.clone();
+    const arrivee = new THREE.Vector3(siege.x, 0.05, siege.z + 1.7);
+    const distance = de.distanceTo(arrivee);
+    x.trajet = { de, arrivee, siege, t0: performance.now(), duree: 700 + distance * 330 };
+    x.p.poser("debout");
+    x.siege = siege;
+    x.sig = null;
+  }
+  function pas(x, maintenant) {
+    const t = x.trajet;
+    if (!t) return false;
+    const p = x.p;
+    const a = Math.min(1, (maintenant - t.t0) / t.duree);
+    const lever = Math.min(1, a / 0.12);
+    const marche = Math.max(0, Math.min(1, (a - 0.12) / 0.8));
+    const doux = marche * marche * (3 - 2 * marche);
+    const x0 = t.de.x + (t.arrivee.x - t.de.x) * doux;
+    const z0 = t.de.z + (t.arrivee.z - t.de.z) * doux;
+    p.racine.position.set(x0, t.de.y + (0.05 - t.de.y) * lever, z0);
+    const dx = t.arrivee.x - t.de.x, dz = t.arrivee.z - t.de.z;
+    if (marche > 0 && marche < 1 && Math.hypot(dx, dz) > 0.01) {
+      const vise = Math.atan2(-dx, -dz);
+      p.racine.rotation.y += (vise - p.racine.rotation.y) * 0.2;
+    }
+    const balan = marche > 0 && marche < 1 ? Math.sin(maintenant / 95) * 0.55 : 0;
+    p.jambeG.epaule.rotation.x = balan;
+    p.jambeD.epaule.rotation.x = -balan;
+    p.brasG.epaule.rotation.x = -balan * 0.7;
+    p.brasD.epaule.rotation.x = balan * 0.7;
+    if (a >= 1) {
+      x.trajet = null;
+      asseoir(x, t.siege);
+      x.arrive = maintenant;
+      x.sig = JSON.stringify(x.personne.bureau || []);
+      p.tenir(garnir(t.siege.objets, x.personne.bureau || []));
+    }
+    return true;
   }
   function majProf() {
     const p = etat2.prof;
@@ -15051,13 +15126,37 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
       regard.set(0, 2.9 + k * 0.6, -R * 0.55);
     } else {
-      const plus = Math.max(0, (dispo.rangs || 3) - 3);
-      camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
-      camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
-      regard.set(0, 3.2 + k * 0.5, -7);
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (etat2.vue === "prof") {
+        camera.fov = 58 - k * 18;
+        posCible.set(0, 8.2 - k * 0.8, dispo.fond + 0.9);
+        regardCible.set(0, 1.6, (dispo.dernier ?? 2) - 1);
+        suivre = true;
+      } else if (moi?.siege) {
+        camera.fov = 54 - k * 14;
+        viserDerriere(moi.trajet ? moi.p.racine.position : moi.siege);
+        suivre = true;
+      } else {
+        const plus = Math.max(0, (dispo.rangs || 3) - 3);
+        camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
+        camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
+        regard.set(0, 3.2 + k * 0.5, -7);
+        suivre = false;
+      }
+      if (suivre && !cameraPosee) {
+        camera.position.copy(posCible);
+        regard.copy(regardCible);
+      }
+      cameraPosee = suivre;
     }
     camera.lookAt(regard);
     camera.updateProjectionMatrix();
+  }
+  const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
+  let suivre = false, cameraPosee = false;
+  function viserDerriere(o) {
+    posCible.set(o.x + 0.9, 6.3, o.z + 5.6);
+    regardCible.set(o.x * 0.5, 2.8, o.z - 8);
   }
   const observateur = new ResizeObserver(() => cadrer());
   observateur.observe(hote);
@@ -15070,10 +15169,28 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     return rayon.intersectObjects(scene.children, true)[0]?.object || null;
   }
   let survol = null;
+  const anneau = new THREE.Mesh(
+    new THREE.RingGeometry(0.9, 1.15, 40),
+    new THREE.MeshBasicMaterial({ color: "#e8c896", transparent: true, opacity: 0.85, depthWrite: false })
+  );
+  anneau.rotation.x = -Math.PI / 2;
+  anneau.visible = false;
+  anneau.raycast = () => {
+  };
+  scene.add(anneau);
+  const occupant = (i) => [...gens.entries()].find(([, x]) => x.siege?.index === i)?.[0] || null;
   canvas.addEventListener("pointermove", (e) => {
     const o = viser(e);
+    const place = surPlace && !dispo.portrait && !dispo.maison && Number.isInteger(o?.userData.siege) ? o.userData.siege : null;
+    const libre = place != null && !occupant(place);
+    anneau.visible = libre;
+    if (libre) {
+      const sg = dispo.sieges[place];
+      anneau.position.set(sg.x, 0.03, sg.z);
+    }
+    const cahier = surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "") ? "cahier" : null;
     const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
-    canvas.style.cursor = cible ? "pointer" : "";
+    canvas.style.cursor = cible || libre || cahier ? "pointer" : place != null ? "not-allowed" : "";
     if (cible !== survol) {
       for (const [id, x] of gens) x.etiquette.classList.toggle("classe3d__nom--survol", id === cible);
       survol = cible;
@@ -15094,6 +15211,18 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
   });
   canvas.addEventListener("click", (e) => {
     const o = viser(e);
+    if (surPlace && Number.isInteger(o?.userData.siege) && !dispo.portrait && !dispo.maison) {
+      surPlace(o.userData.siege, occupant(o.userData.siege));
+      anneau.visible = false;
+      return;
+    }
+    if (o?.userData.objet && /cahier|carnet|livre/.test(o.userData.objet)) {
+      const [, x] = [...gens.entries()].find(([, g]) => g.siege?.objets === o.parent) || [];
+      if (x && !x.personne.moi && surCahier) {
+        surCahier(x.etiquette, x.personne.brut);
+        return;
+      }
+    }
     if (o?.userData.tableau) surTableau?.();
     else if (o?.userData.personne) {
       const x = gens.get(o.userData.personne);
@@ -15149,8 +15278,13 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       renderer.render(scene, camera);
       return;
     }
+    const maintenant = performance.now();
     for (const x of gens.values()) {
       const p = x.p;
+      if (pas(x, maintenant)) {
+        if (x.personne.moi) viserDerriere(p.racine.position);
+        continue;
+      }
       const k = s + p.phase;
       p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
       if (x.arrive) {
@@ -15163,12 +15297,20 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
       } else if (p.brasD.epaule.rotation.x > 2) {
         p.poser(p.pose);
+      } else if (p.outil && x.personne.ecrit) {
+        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 9) * 0.035;
+        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.7) * 0.07;
       } else if (p.outil) {
-        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 7) * 0.03;
-        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.1) * 0.05;
+        p.brasD.epaule.rotation.x += (1 - p.brasD.epaule.rotation.x) * 0.2;
+        p.brasD.epaule.rotation.z += (0.1 - p.brasD.epaule.rotation.z) * 0.2;
       }
       p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
-      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && !x.personne.main ? 0.28 : 0);
+      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && x.personne.ecrit && !x.personne.main ? 0.28 : 0);
+    }
+    if (suivre) {
+      camera.position.lerp(posCible, 0.07);
+      regard.lerp(regardCible, 0.07);
+      camera.lookAt(regard);
     }
     if (prof) {
       const p = prof.p;
@@ -15199,8 +15341,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
      * @param {Array} o.eleves  [{ id, nom, brut, bureau: [{ k, m }], main }]
      * @param {object} o.prof   { present, nom, bureau }
      */
-    maj({ mode: mode2 = "classe", eleves = [], prof: p = { present: false } } = {}) {
-      etat2 = { mode: mode2, eleves, prof: p };
+    maj({ mode: mode2 = "classe", eleves = [], prof: p = { present: false }, vue = "eleve" } = {}) {
+      etat2 = { mode: mode2, eleves, prof: p, vue };
       reconstruire();
       majGens();
       majProf();
@@ -16067,7 +16209,13 @@ function creerScene({
   mains: mains2 = () => /* @__PURE__ */ new Set(),
   // Le tableau vivant, même quand il n'est pas à l'écran (cahier ouvert,
   // petite fenêtre) : la classe en 3D continue de le montrer.
-  toile = null
+  toile = null,
+  // Le plan de classe fixé par le professeur : { user_id : numéro de place }.
+  plan = () => ({}),
+  // On clique une place dans la salle en 3D : (numéro, qui l'occupe).
+  surPlace = null,
+  // On clique le cahier posé sur la table de quelqu'un.
+  surCahierDe = null
 }) {
   let etatScene = "bureau";
   let sacOuvert = false;
@@ -16566,7 +16714,7 @@ function creerScene({
   function maj3d() {
     if (!classe3d) return;
     if (avant) {
-      const tenu = bureau.enMain();
+      const tenu2 = bureau.enMain();
       classe3d.maj({
         mode: "maison",
         eleves: [{
@@ -16576,7 +16724,7 @@ function creerScene({
           avatar: monAvatar(),
           bureau: [
             ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
-            ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ({ k: o.kind, ...tenu?.id === o.id ? { m: 1 } : {} }))
+            ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ({ k: o.kind, ...tenu2?.id === o.id ? { m: 1 } : {} }))
           ].slice(0, 12)
         }]
       });
@@ -16587,17 +16735,35 @@ function creerScene({
     const tous = participants();
     const responsable = tous.find((p) => String(p.user_id) === String(estrade?.user_id || "")) || tous.find((p) => p.role === "teacher");
     const m = typeof mode2 === "function" ? mode2() : mode2;
+    const fixe = plan?.() || {};
+    const tenu = bureau.enMain();
+    const monBureau = [
+      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier" })),
+      ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ({ k: o.kind, ...tenu?.id === o.id ? { m: 1 } : {} }))
+    ].slice(0, 14);
     classe3d.maj({
       mode: ["reunion", "entretien"].includes(m) ? "reunion" : "classe",
-      eleves: tous.filter((p) => p.role !== "teacher" && String(p.user_id) !== moiId).map((p) => ({
-        id: String(p.user_id),
-        nom: (nomDe(p) || "Participant").split(/\s+/)[0],
-        brut: p,
-        // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
-        avatar: classe?.settings?.tenue ? { ...p.avatar || {}, tenue: classe.settings.tenue } : p.avatar || null,
-        bureau: Array.isArray(p.bureau) ? p.bureau : [],
-        main: levees.has(String(p.user_id))
-      })),
+      // Le professeur regarde sa classe ; l'élève se voit, assis, de dos.
+      vue: staff ? "prof" : "eleve",
+      eleves: tous.filter((p) => !["teacher", "observer"].includes(p.role)).map((p) => {
+        const id = String(p.user_id);
+        const moi = id === moiId;
+        const placee = Number.isInteger(fixe[id]) ? fixe[id] : null;
+        return {
+          id,
+          moi,
+          nom: moi ? "Vous" : (nomDe(p) || "Participant").split(/\s+/)[0],
+          brut: p,
+          // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
+          avatar: classe?.settings?.tenue ? { ...p.avatar || {}, tenue: classe.settings.tenue } : p.avatar || null,
+          bureau: moi ? monBureau : Array.isArray(p.bureau) ? p.bureau : [],
+          main: levees.has(id),
+          // Sa place : celle du plan du professeur, sinon celle qu'il a choisie.
+          place: placee ?? (Number.isInteger(p.place) ? p.place : null),
+          depuis: placee != null ? 0 : p.placeDepuis || Date.now(),
+          ecrit: Boolean(p.ecrit)
+        };
+      }),
       prof: {
         present: Boolean(estrade?.present),
         nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
@@ -16612,7 +16778,9 @@ function creerScene({
       hote: vue3d,
       toile: () => toile?.() || noeud.querySelector(".scene__ecran canvas.tableau__toile"),
       surTableau: () => surTableau?.(),
-      surPersonne: (ancre, p) => surPersonne?.(ancre, p)
+      surPersonne: (ancre, p) => surPersonne?.(ancre, p),
+      surPlace: avant ? null : (i, qui) => surPlace?.(i, qui),
+      surCahier: avant ? null : (ancre, p) => surCahierDe?.(ancre, p)
     }).then((c) => {
       if (detruite) {
         c.detruire();
@@ -16648,6 +16816,8 @@ function creerScene({
       return false;
     },
     a3d: () => Boolean(classe3d),
+    /** Qui est où, qui écrit : on redonne l'état à la classe en 3D. */
+    majClasse: () => maj3d(),
     detruire: () => {
       detruite = true;
       lacherAvatar?.();
@@ -23545,6 +23715,9 @@ async function vueSalle({ params }) {
   let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
   let ongletPanneau = staff ? "eleves" : "notes";
   let participants = [];
+  const clePlace = `ojm.place.${session?.id}`;
+  let maPlace = local.lire(clePlace, null);
+  let jEcris = false, finEcriture = null;
   let quitte = false;
   let listeMains = [];
   let listeQuestions = [];
@@ -23629,8 +23802,46 @@ async function vueSalle({ params }) {
     surEstrade: (present) => basculerEstrade(present),
     mode: () => session.mode || "cours",
     mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id))),
-    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null
+    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null,
+    plan: () => session.plan || {},
+    surPlace: (i, qui) => choisirPlace(i, qui),
+    // Le professeur clique le cahier ouvert sur une table : il le vérifie.
+    surCahierDe: (ancre, p) => staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p)
   });
+  let placerQui = null;
+  async function choisirPlace(i, qui) {
+    const moi = String(etat.utilisateur.id);
+    if (staff) {
+      if (!placerQui) {
+        toast("Choisissez d'abord qui placer", { corps: "Cliquez son nom dans la salle, puis \xAB Changer de place \xBB.", type: "info" });
+        return;
+      }
+      if (qui && qui !== String(placerQui.user_id)) {
+        toast("Cette place est prise", { type: "attn" });
+        return;
+      }
+      const plan = { ...session.plan || {}, [placerQui.user_id]: i };
+      session.plan = plan;
+      decor.majClasse();
+      toast(`${nomPersonne(placerQui)} change de place`, { type: "ok" });
+      placerQui = null;
+      await sessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistr\xE9", messageErreur(e)));
+      return;
+    }
+    if (qui === moi) return;
+    if (qui) {
+      toast("Cette place est prise", { corps: "Choisissez une place libre.", type: "attn" });
+      return;
+    }
+    if (Number.isInteger(session.plan?.[moi])) {
+      toast("Le professeur vous a plac\xE9", { corps: "C'est lui qui peut vous changer de place.", type: "info" });
+      return;
+    }
+    maPlace = { place: i, depuis: Date.now() };
+    local.ecrire(clePlace, maPlace);
+    majPresence();
+    decor.majClasse();
+  }
   decor.surChangementEtat((etatDecor) => {
     const voulue = etatDecor === "bureau" && fenetre2 === "compact" ? "compact" : etatDecor;
     if (voulue !== fenetre2) appliquerFenetre(voulue);
@@ -24681,6 +24892,25 @@ async function vueSalle({ params }) {
         icone: "main",
         action: () => demanderUnObjet(participant)
       },
+      staff ? {
+        libelle: "Changer de place",
+        icone: "grille",
+        action: () => {
+          placerQui = participant;
+          toast(`O\xF9 asseoir ${nomPersonne(participant)} ?`, { corps: "Cliquez une place libre dans la salle.", type: "info" });
+        }
+      } : null,
+      staff && Number.isInteger(session.plan?.[participant.user_id]) ? {
+        libelle: "Le laisser choisir sa place",
+        icone: "profil",
+        action: async () => {
+          const plan = { ...session.plan || {} };
+          delete plan[participant.user_id];
+          session.plan = plan;
+          decor.majClasse();
+          await sessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistr\xE9", messageErreur(e)));
+        }
+      } : null,
       staff && offre(session, "cartable") ? {
         libelle: "Confisquer un objet",
         icone: "bouclier",
@@ -25967,7 +26197,10 @@ async function vueSalle({ params }) {
       statut: "present",
       horodatage: Date.now(),
       bureau: resumeBureau(),
-      avatar: monAvatar()
+      avatar: monAvatar(),
+      place: maPlace?.place ?? null,
+      placeDepuis: maPlace?.depuis ?? null,
+      ecrit: jEcris
     });
   }, 250);
   function resumeBureau() {
@@ -26030,6 +26263,10 @@ async function vueSalle({ params }) {
               peindrePanneau();
             }
             if (nouveau?.status === "ended") return surFinDeSession();
+            if (nouveau && "plan" in nouveau && JSON.stringify(nouveau.plan || {}) !== JSON.stringify(session.plan || {})) {
+              session.plan = nouveau.plan || {};
+              decor.majClasse();
+            }
             if (nouveau && "estrade" in nouveau && JSON.stringify(nouveau.estrade || {}) !== JSON.stringify(session.estrade || {})) {
               const avant = Boolean(session.estrade?.present);
               session.estrade = nouveau.estrade || {};
@@ -26185,7 +26422,10 @@ async function vueSalle({ params }) {
           statut: "present",
           horodatage: Date.now(),
           bureau: resumeBureau(),
-          avatar: monAvatar()
+          avatar: monAvatar(),
+          place: maPlace?.place ?? null,
+          placeDepuis: maPlace?.depuis ?? null,
+          ecrit: false
         },
         surMaj: (liste) => {
           const uniques = /* @__PURE__ */ new Map();
@@ -26564,6 +26804,20 @@ async function vueSalle({ params }) {
   else await peindreScene();
   const petit = () => ["compact", "mini"].includes(etat.taille);
   const lacherAvatar = ecouter("avatar:change", () => majPresence());
+  function surFrappe(e) {
+    if (quitte || !e.target?.closest?.(".parchemin__corps, .pense-bete__texte, .note-rapide textarea")) return;
+    clearTimeout(finEcriture);
+    finEcriture = setTimeout(() => {
+      jEcris = false;
+      majPresence();
+      decor.majClasse();
+    }, 2e3);
+    if (jEcris) return;
+    jEcris = true;
+    majPresence();
+    decor.majClasse();
+  }
+  document.addEventListener("input", surFrappe, true);
   var lacherTaille = observer("taille", async () => {
     if (petit()) {
       if (!consoleSalle.ouvert()) consoleSalle.demarrer();
@@ -26608,6 +26862,8 @@ async function vueSalle({ params }) {
       definirStatut(null);
       lacherTaille?.();
       lacherAvatar();
+      document.removeEventListener("input", surFrappe, true);
+      clearTimeout(finEcriture);
       bureau.laisserTout();
       clearInterval(tictac);
       canalSession?.fermer();

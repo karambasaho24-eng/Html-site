@@ -78,7 +78,7 @@ const LARGEUR = {
   craie: .2, buvard: .56, registre: .58, cachet: .2
 };
 
-export async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null }) {
+export async function creerClasse3D({ hote, toile = () => null, surTableau = null, surPersonne = null, surPlace = null, surCahier = null }) {
   const THREE = await chargerThree();
 
   /* --- Le rendu ------------------------------------------------------------ */
@@ -492,6 +492,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       m.castShadow = true;
       // L'ombre suit la silhouette de l'objet, pas le carré de l'image.
       m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.35 });
+      m.userData.objet = kind;           // on le reconnaît au clic
       groupe.add(m);
     };
     if (info.tex) monter(info); else info.attente.push(monter);
@@ -654,7 +655,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const objets = new THREE.Group();
     objets.position.set(x, 2.24, z - 1.05);
     decor.add(objets);
-    return objets;
+    return { objets, groupe: g };
   }
 
   function chaise(x, z, angle) {
@@ -711,7 +712,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     for (let r = 0; r < rangs; r++) {
       for (let c = 0; c < cols; c++) {
         const x = (c - (cols - 1) / 2) * pasX, z = -4.6 + r * pasZ;
-        sieges.push({ x, z: z + 0.35, angle: 0, objets: pupitre(x, z) });
+        sieges.push({ x, z: z + 0.35, angle: 0, ...pupitre(x, z) });
       }
     }
     // Les premiers rangs d'abord, le milieu avant les bords.
@@ -967,10 +968,12 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const reunion = etat.mode === "reunion";
     const n = etat.eleves.length;
     const total = Math.max(6, n + (etat.prof.present ? 1 : 0) + 1);
-    const cols = colonnesPour(n);
+    // Quelques places libres de plus : on choisit où l'on s'assoit.
+    const places = n + 4;
+    const cols = colonnesPour(places);
     const maison = etat.mode === "maison";
     const portrait = etat.mode === "portrait";
-    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(n / cols))}`;
+    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(places / cols))}`;
     if (cle === dispo.cle) return;
     for (const o of [...decor.children]) {
       decor.remove(o);
@@ -981,10 +984,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() }
       : maison ? { cle, reunion: false, maison: true, ...construireMaison() }
       : reunion ? { cle, reunion: true, ...construireReunion(total) }
-      : { cle, reunion: false, ...construireClasse(n) };
-    // Chacun reprend une place dans la nouvelle salle.
-    const libres = [...dispo.sieges];
-    for (const x of gens.values()) asseoir(x, libres.shift() || dispo.sieges[0]);
+      : { cle, reunion: false, ...construireClasse(places) };
+    // Chaque place a son numéro, que l'on retrouve au clic.
+    dispo.sieges.forEach((siege, i) => {
+      siege.index = i;
+      siege.groupe?.traverse((m) => { m.userData.siege = i; });
+    });
+    // Chacun reprendra sa place dans la nouvelle salle (majGens).
+    for (const x of gens.values()) { x.siege = null; x.trajet = null; }
     if (prof) placerProf();
     cadrer();
   }
@@ -1018,26 +1025,49 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       if (ids.has(id)) continue;
       retirer(x.p.racine);
       x.etiquette.remove();
-      garnir(x.siege.objets, []);
+      if (x.siege) garnir(x.siege.objets, []);
       gens.delete(id);
     }
-    const prises = new Set([...gens.values()].map((x) => x.siege));
+    // Qui s'assoit où. D'abord ceux qui ont choisi leur place (ou que le
+    // professeur a placés), dans l'ordre où ils l'ont fait : une place prise
+    // l'est pour de bon. Puis les autres gardent la leur, ou prennent la
+    // première libre.
+    const cible = new Map();
+    const prises = new Set();
+    const voulus = etat.eleves
+      .filter((e) => Number.isInteger(e.place) && dispo.sieges[e.place])
+      .sort((a, b) => (a.depuis || 0) - (b.depuis || 0));
+    for (const e of voulus) {
+      const siege = dispo.sieges[e.place];
+      if (prises.has(siege)) continue;
+      prises.add(siege);
+      cible.set(String(e.id), siege);
+    }
     for (const e of etat.eleves) {
       const id = String(e.id);
+      if (cible.has(id)) continue;
+      const actuel = gens.get(id)?.siege;
+      const siege = actuel && !prises.has(actuel) ? actuel : dispo.sieges.find((t) => !prises.has(t));
+      if (!siege) continue;
+      prises.add(siege);
+      cible.set(id, siege);
+    }
+
+    for (const e of etat.eleves) {
+      const id = String(e.id);
+      const siege = cible.get(id);
+      if (!siege) continue;
       let x = gens.get(id);
       if (!x) {
-        const siege = dispo.sieges.find((s) => !prises.has(s));
-        if (!siege) continue;
-        prises.add(siege);
         const p = personnage(id, e.avatar);
         scene.add(p.racine);
-        x = { p, personne: e, etiquette: etiquette(e.nom), sig: null, arrive: performance.now(),
-              avSig: JSON.stringify(e.avatar || {}) };
-        x.etiquette.onclick = () => surPersonne?.(x.etiquette, x.personne.brut);
+        x = { p, personne: e, etiquette: etiquette(e.nom, e.moi ? "classe3d__nom--moi" : ""), sig: null,
+              arrive: performance.now(), avSig: JSON.stringify(e.avatar || {}), siege: null };
+        x.etiquette.onclick = () => { if (!x.personne.moi) surPersonne?.(x.etiquette, x.personne.brut); };
         p.racine.traverse((o) => { o.userData.personne = id; });
         gens.set(id, x);
-        asseoir(x, siege);
       }
+      x.personne = e;
       // Il a changé d'apparence : on le rhabille, à la même place.
       const avSig = JSON.stringify(e.avatar || {});
       if (avSig !== x.avSig) {
@@ -1046,18 +1076,68 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         x.p.racine.traverse((o) => { o.userData.personne = id; });
         scene.add(x.p.racine);
         x.avSig = avSig;
-        asseoir(x, x.siege);
+        if (x.siege && !x.trajet) asseoir(x, x.siege);
       }
-      x.personne = e;
+      // Sa place : il s'y assoit tout de suite (en arrivant), ou il se lève
+      // et y va à pied (il en change).
+      if (!x.siege) asseoir(x, siege);
+      else if (x.siege !== siege) marcher(x, siege);
       x.etiquette.textContent = e.nom;
       x.etiquette.classList.toggle("classe3d__nom--main", Boolean(e.main));
       // Ce qu'il a devant lui : on ne repose que si cela a changé.
+      if (x.trajet) continue;
       const sig = JSON.stringify(e.bureau || []);
       if (sig !== x.sig) {
         x.sig = sig;
         x.p.tenir(garnir(x.siege.objets, e.bureau || []));
       }
     }
+    cadrer();
+  }
+
+  /* Changer de place : on se lève, on passe derrière les rangs, on
+     s'assoit. Les affaires suivent. */
+  function marcher(x, siege) {
+    if (x.siege) garnir(x.siege.objets, []);
+    x.p.tenir(null);
+    const de = x.p.racine.position.clone();
+    const arrivee = new THREE.Vector3(siege.x, 0.05, siege.z + 1.7);
+    const distance = de.distanceTo(arrivee);
+    x.trajet = { de, arrivee, siege, t0: performance.now(), duree: 700 + distance * 330 };
+    x.p.poser("debout");
+    x.siege = siege;
+    x.sig = null;
+  }
+
+  /* Un pas de la marche. Renvoie vrai tant qu'il marche. */
+  function pas(x, maintenant) {
+    const t = x.trajet;
+    if (!t) return false;
+    const p = x.p;
+    const a = Math.min(1, (maintenant - t.t0) / t.duree);
+    // Se lever (les premiers instants), marcher, puis s'asseoir.
+    const lever = Math.min(1, a / 0.12);
+    const marche = Math.max(0, Math.min(1, (a - 0.12) / 0.8));
+    const doux = marche * marche * (3 - 2 * marche);
+    const x0 = t.de.x + (t.arrivee.x - t.de.x) * doux;
+    const z0 = t.de.z + (t.arrivee.z - t.de.z) * doux;
+    p.racine.position.set(x0, t.de.y + (0.05 - t.de.y) * lever, z0);
+    const dx = t.arrivee.x - t.de.x, dz = t.arrivee.z - t.de.z;
+    if (marche > 0 && marche < 1 && Math.hypot(dx, dz) > 0.01) {
+      const vise = Math.atan2(-dx, -dz);
+      p.racine.rotation.y += (vise - p.racine.rotation.y) * 0.2;
+    }
+    const balan = marche > 0 && marche < 1 ? Math.sin(maintenant / 95) * 0.55 : 0;
+    p.jambeG.epaule.rotation.x = balan; p.jambeD.epaule.rotation.x = -balan;
+    p.brasG.epaule.rotation.x = -balan * 0.7; p.brasD.epaule.rotation.x = balan * 0.7;
+    if (a >= 1) {
+      x.trajet = null;
+      asseoir(x, t.siege);
+      x.arrive = maintenant;
+      x.sig = JSON.stringify(x.personne.bureau || []);
+      p.tenir(garnir(t.siege.objets, x.personne.bureau || []));
+    }
+    return true;
   }
 
   function majProf() {
@@ -1116,13 +1196,39 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
       regard.set(0, 2.9 + k * 0.6, -R * 0.55);
     } else {
-      const plus = Math.max(0, (dispo.rangs || 3) - 3);
-      camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
-      camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
-      regard.set(0, 3.2 + k * 0.5, -7);
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (etat.vue === "prof") {
+        // Le professeur, devant le tableau, regarde sa classe.
+        camera.fov = 58 - k * 18;
+        posCible.set(0, 8.2 - k * 0.8, dispo.fond + 0.9);
+        regardCible.set(0, 1.6, (dispo.dernier ?? 2) - 1);
+        suivre = true;
+      } else if (moi?.siege) {
+        // L'élève se voit de dos, assis à sa place, les autres autour.
+        camera.fov = 54 - k * 14;
+        viserDerriere(moi.trajet ? moi.p.racine.position : moi.siege);
+        suivre = true;
+      } else {
+        const plus = Math.max(0, (dispo.rangs || 3) - 3);
+        camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
+        camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
+        regard.set(0, 3.2 + k * 0.5, -7);
+        suivre = false;
+      }
+      if (suivre && !cameraPosee) {
+        camera.position.copy(posCible); regard.copy(regardCible);
+      }
+      cameraPosee = suivre;
     }
     camera.lookAt(regard);
     camera.updateProjectionMatrix();
+  }
+  /* La caméra à la troisième personne : derrière soi, un peu au-dessus. */
+  const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
+  let suivre = false, cameraPosee = false;
+  function viserDerriere(o) {
+    posCible.set(o.x + 0.9, 6.3, o.z + 5.6);
+    regardCible.set(o.x * 0.5, 2.8, o.z - 8);
   }
   const observateur = new ResizeObserver(() => cadrer());
   observateur.observe(hote);
@@ -1137,10 +1243,26 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return rayon.intersectObjects(scene.children, true)[0]?.object || null;
   }
   let survol = null;
+  // L'anneau qui montre, au sol, la place libre que l'on vise.
+  const anneau = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.15, 40),
+    new THREE.MeshBasicMaterial({ color: "#e8c896", transparent: true, opacity: 0.85, depthWrite: false }));
+  anneau.rotation.x = -Math.PI / 2;
+  anneau.visible = false;
+  anneau.raycast = () => {};              // on vise à travers
+  scene.add(anneau);
+  const occupant = (i) => [...gens.entries()].find(([, x]) => x.siege?.index === i)?.[0] || null;
   canvas.addEventListener("pointermove", (e) => {
     const o = viser(e);
+    const place = surPlace && !dispo.portrait && !dispo.maison && Number.isInteger(o?.userData.siege) ? o.userData.siege : null;
+    const libre = place != null && !occupant(place);
+    anneau.visible = libre;
+    if (libre) {
+      const sg = dispo.sieges[place];
+      anneau.position.set(sg.x, 0.03, sg.z);
+    }
+    const cahier = surCahier && /cahier|carnet|livre/.test(o?.userData.objet || "") ? "cahier" : null;
     const cible = o?.userData.tableau ? "tableau" : o?.userData.personne || null;
-    canvas.style.cursor = cible ? "pointer" : "";
+    canvas.style.cursor = cible || libre || cahier ? "pointer" : place != null ? "not-allowed" : "";
     if (cible !== survol) {
       for (const [id, x] of gens) x.etiquette.classList.toggle("classe3d__nom--survol", id === cible);
       survol = cible;
@@ -1160,6 +1282,16 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   canvas.addEventListener("pointerup", () => { glisse = null; });
   canvas.addEventListener("click", (e) => {
     const o = viser(e);
+    if (surPlace && Number.isInteger(o?.userData.siege) && !dispo.portrait && !dispo.maison) {
+      surPlace(o.userData.siege, occupant(o.userData.siege));
+      anneau.visible = false;
+      return;
+    }
+    // Un cahier posé sur la table de quelqu'un : on peut le lui demander, le vérifier.
+    if (o?.userData.objet && /cahier|carnet|livre/.test(o.userData.objet)) {
+      const [, x] = [...gens.entries()].find(([, g]) => g.siege?.objets === o.parent) || [];
+      if (x && !x.personne.moi && surCahier) { surCahier(x.etiquette, x.personne.brut); return; }
+    }
     if (o?.userData.tableau) surTableau?.();
     else if (o?.userData.personne) {
       const x = gens.get(o.userData.personne);
@@ -1218,8 +1350,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       renderer.render(scene, camera);
       return;
     }
+    const maintenant = performance.now();
     for (const x of gens.values()) {
       const p = x.p;
+      if (pas(x, maintenant)) {
+        if (x.personne.moi) viserDerriere(p.racine.position);
+        continue;
+      }
       const k = s + p.phase;
       p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
       // Qui arrive s'assoit : il descend doucement sur sa chaise.
@@ -1233,15 +1370,25 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
       } else if (p.brasD.epaule.rotation.x > 2) {
         p.poser(p.pose);
+      } else if (p.outil && x.personne.ecrit) {
+        // Il écrit, en ce moment même : la main va et vient sur la page.
+        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 9) * 0.035;
+        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.7) * 0.07;
       } else if (p.outil) {
-        // Il écrit : le bras sur la table, la main qui va et vient.
-        p.brasD.epaule.rotation.x = 1.02 + Math.sin(k * 7) * 0.03;
-        p.brasD.epaule.rotation.z = 0.12 + Math.sin(k * 3.1) * 0.05;
+        // La plume en main, il n'écrit pas : la main posée, immobile.
+        p.brasD.epaule.rotation.x += (1.0 - p.brasD.epaule.rotation.x) * 0.2;
+        p.brasD.epaule.rotation.z += (0.1 - p.brasD.epaule.rotation.z) * 0.2;
       }
       // En réunion on regarde les uns, puis les autres ; en classe, le
       // tableau, avec un coup d'œil de temps en temps. Qui écrit baisse la tête.
       p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
-      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && !x.personne.main ? 0.28 : 0);
+      p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && x.personne.ecrit && !x.personne.main ? 0.28 : 0);
+    }
+    // La caméra rejoint doucement sa cible (on change de place, on se lève).
+    if (suivre) {
+      camera.position.lerp(posCible, 0.07);
+      regard.lerp(regardCible, 0.07);
+      camera.lookAt(regard);
     }
     if (prof) {
       const p = prof.p;
@@ -1274,8 +1421,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
      * @param {Array} o.eleves  [{ id, nom, brut, bureau: [{ k, m }], main }]
      * @param {object} o.prof   { present, nom, bureau }
      */
-    maj({ mode = "classe", eleves = [], prof: p = { present: false } } = {}) {
-      etat = { mode, eleves, prof: p };
+    maj({ mode = "classe", eleves = [], prof: p = { present: false }, vue = "eleve" } = {}) {
+      etat = { mode, eleves, prof: p, vue };
       reconstruire();
       majGens();
       majProf();

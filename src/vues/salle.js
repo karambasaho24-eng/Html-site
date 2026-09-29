@@ -104,6 +104,11 @@ export default async function vueSalle({ params }) {
   let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
   let ongletPanneau = staff ? "eleves" : "notes";
   let participants = [];
+  // Ma place dans la salle (choisie par moi ; le plan du professeur l'emporte),
+  // et si j'écris en ce moment : les deux voyagent avec ma présence.
+  const clePlace = `ojm.place.${session?.id}`;
+  let maPlace = local.lire(clePlace, null);
+  let jEcris = false, finEcriture = null;
   let quitte = false;               // la salle est quittée : plus rien ne se repeint
   let listeMains = [];
   let listeQuestions = [];
@@ -198,8 +203,42 @@ export default async function vueSalle({ params }) {
     surEstrade: (present) => basculerEstrade(present),
     mode: () => session.mode || "cours",
     mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id))),
-    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null
+    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null,
+    plan: () => session.plan || {},
+    surPlace: (i, qui) => choisirPlace(i, qui),
+    // Le professeur clique le cahier ouvert sur une table : il le vérifie.
+    surCahierDe: (ancre, p) => (staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p))
   });
+
+  /* --- Les places ------------------------------------------------------------ */
+  let placerQui = null;              // le professeur place quelqu'un : qui
+  async function choisirPlace(i, qui) {
+    const moi = String(etat.utilisateur.id);
+    if (staff) {
+      if (!placerQui) {
+        toast("Choisissez d'abord qui placer", { corps: "Cliquez son nom dans la salle, puis « Changer de place ».", type: "info" });
+        return;
+      }
+      if (qui && qui !== String(placerQui.user_id)) { toast("Cette place est prise", { type: "attn" }); return; }
+      const plan = { ...(session.plan || {}), [placerQui.user_id]: i };
+      session.plan = plan;
+      decor.majClasse();
+      toast(`${nomPersonne(placerQui)} change de place`, { type: "ok" });
+      placerQui = null;
+      await depotSessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistré", messageErreur(e)));
+      return;
+    }
+    if (qui === moi) return;
+    if (qui) { toast("Cette place est prise", { corps: "Choisissez une place libre.", type: "attn" }); return; }
+    if (Number.isInteger(session.plan?.[moi])) {
+      toast("Le professeur vous a placé", { corps: "C'est lui qui peut vous changer de place.", type: "info" });
+      return;
+    }
+    maPlace = { place: i, depuis: Date.now() };
+    local.ecrire(clePlace, maPlace);
+    majPresence();
+    decor.majClasse();
+  }
   decor.surChangementEtat((etatDecor) => {
     const voulue = etatDecor === "bureau" && fenetre === "compact" ? "compact" : etatDecor;
     if (voulue !== fenetre) appliquerFenetre(voulue);
@@ -1228,6 +1267,23 @@ export default async function vueSalle({ params }) {
         action: () => tendreUnObjet(participant) },
       { libelle: "Lui demander un objet", icone: "main",
         action: () => demanderUnObjet(participant) },
+      staff
+        ? { libelle: "Changer de place", icone: "grille",
+            action: () => {
+              placerQui = participant;
+              toast(`Où asseoir ${nomPersonne(participant)} ?`, { corps: "Cliquez une place libre dans la salle.", type: "info" });
+            } }
+        : null,
+      staff && Number.isInteger(session.plan?.[participant.user_id])
+        ? { libelle: "Le laisser choisir sa place", icone: "profil",
+            action: async () => {
+              const plan = { ...(session.plan || {}) };
+              delete plan[participant.user_id];
+              session.plan = plan;
+              decor.majClasse();
+              await depotSessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistré", messageErreur(e)));
+            } }
+        : null,
       staff && offre(session, "cartable")
         ? { libelle: "Confisquer un objet", icone: "bouclier", danger: true,
             action: () => confisquer(participant) }
@@ -2488,7 +2544,8 @@ export default async function vueSalle({ params }) {
       grade: maFiche()?.rank || null,
       role: staff ? "teacher" : estObservateur() ? "observer" : "student",
       scene, statut: "present", horodatage: Date.now(),
-      bureau: resumeBureau(), avatar: monAvatar()
+      bureau: resumeBureau(), avatar: monAvatar(),
+      place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: jEcris
     });
   }, 250);
 
@@ -2557,6 +2614,11 @@ export default async function vueSalle({ params }) {
               peindrePanneau();
             }
             if (nouveau?.status === "ended") return surFinDeSession();
+            if (nouveau && "plan" in nouveau
+                && JSON.stringify(nouveau.plan || {}) !== JSON.stringify(session.plan || {})) {
+              session.plan = nouveau.plan || {};
+              decor.majClasse();
+            }
             if (nouveau && "estrade" in nouveau
                 && JSON.stringify(nouveau.estrade || {}) !== JSON.stringify(session.estrade || {})) {
               const avant = Boolean(session.estrade?.present);
@@ -2687,7 +2749,8 @@ export default async function vueSalle({ params }) {
           user_id: etat.utilisateur.id, nom: monNom(),
           grade: maFiche()?.rank || null,
           role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now(),
-          bureau: resumeBureau(), avatar: monAvatar()
+          bureau: resumeBureau(), avatar: monAvatar(),
+          place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: false
         },
         surMaj: (liste) => {
           const uniques = new Map();
@@ -3049,6 +3112,18 @@ export default async function vueSalle({ params }) {
   const petit = () => ["compact", "mini"].includes(etat.taille);
   // J'ai changé de tenue : les autres le voient aussitôt.
   const lacherAvatar = ecouter("avatar:change", () => majPresence());
+  // J'écris dans mon cahier (ou sur un pense-bête) : les autres me voient
+  // écrire ; deux secondes sans rien taper, la main s'arrête.
+  function surFrappe(e) {
+    if (quitte || !e.target?.closest?.(".parchemin__corps, .pense-bete__texte, .note-rapide textarea")) return;
+    clearTimeout(finEcriture);
+    finEcriture = setTimeout(() => { jEcris = false; majPresence(); decor.majClasse(); }, 2000);
+    if (jEcris) return;
+    jEcris = true;
+    majPresence();
+    decor.majClasse();
+  }
+  document.addEventListener("input", surFrappe, true);
   var lacherTaille = observer("taille", async () => {
     if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
     else { consoleSalle.fermer(); decor.classeDans(null); await appliquerFenetre(fenetre); }
@@ -3097,6 +3172,8 @@ export default async function vueSalle({ params }) {
       definirStatut(null);
       lacherTaille?.();
       lacherAvatar();
+      document.removeEventListener("input", surFrappe, true);
+      clearTimeout(finEcriture);
       // On sort de la salle : ce qui n'a pas été rangé y reste.
       bureau.laisserTout();
       clearInterval(tictac);
