@@ -158,7 +158,7 @@ export function creerScene({
       el("div.plateau__cartes.plateau__cartes--sac", dansSac.length
         ? dansSac.map(([genre, chose]) => {
             const nom = genre === "cahier" ? (chose.title || "Cahier") : nomObjet(chose);
-            return el("div.pose.pose--sac", { dataset: { id: String(chose.id), genre, kind: kindDe(genre, chose) } },
+            return el("div.pose.pose--sac", { dataset: { sac: String(chose.id) } },
               el("button.pose__corps", {
                 type: "button", title: `Sortir ${nom}`, "aria-label": `Sortir ${nom}`,
                 onclick: async (e) => {

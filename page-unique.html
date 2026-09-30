@@ -17786,7 +17786,7 @@ function creerScene({
         const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
         return el(
           "div.pose.pose--sac",
-          { dataset: { id: String(chose.id), genre, kind: kindDe(genre, chose) } },
+          { dataset: { sac: String(chose.id) } },
           el(
             "button.pose__corps",
             {
