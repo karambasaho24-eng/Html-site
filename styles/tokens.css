@@ -48,7 +48,7 @@
   --ligne:        #262e36;
   --ligne-forte:  #38424c;
   --ligne-laiton: rgba(201, 162, 39, .34);
-  --voile:        rgba(8, 10, 12, .72);
+  --voile:        rgba(14, 9, 5, .72);
 
   /* --- Typographie -------------------------------------------------------- */
   --f-titre: "Spectral", "Iowan Old Style", Georgia, serif;
@@ -89,59 +89,60 @@
   --transition: 140ms cubic-bezier(.4, 0, .2, 1);
 }
 
-/* --- Épure ----------------------------------------------------------------
-   Un graphite mat, quatre niveaux de surface, une seule couleur d'accent
-   (un ivoire chaud) et un vert pour « présent ». Pas de métal, pas de
-   dégradé : la matière est réservée aux objets — le bois, le cuir, le papier.
+/* --- Chaleur ---------------------------------------------------------------
+   Une pièce le soir, éclairée à la bougie : des bruns profonds plutôt qu'un
+   graphite froid, un texte couleur crème, un accent ambré, un vert pour
+   « présent ». La matière reste aux objets — le bois, le cuir, le papier.
    Les anciens noms (laiton, argent, métal, filet) sont conservés et pointent
    vers ces valeurs, pour que tout l'écran parle d'une seule voix. */
 :root {
-  --fond:      #0f1113;
-  --surface-0: #121417;
-  --surface-1: #16191c;
-  --surface-2: #1d2024;
-  --surface-3: #262a2f;
-  --accent:      #e8c896;
-  --accent-fond: rgba(232, 200, 150, .12);
-  --vert:        #7fc58a;
+  --fond:      #15100c;
+  --surface-0: #19130e;
+  --surface-1: #201811;
+  --surface-2: #2a2017;
+  --surface-3: #35291e;
+  --accent:      #eac48c;
+  --accent-fond: rgba(234, 196, 140, .14);
+  --vert:        #8fcb86;
 
-  --encre-1000: #0b0c0e;
+  --encre-1000: #0e0a07;
   --encre-900:  var(--fond);
   --encre-850:  var(--surface-1);
   --encre-800:  var(--surface-2);
   --encre-700:  var(--surface-3);
-  --encre-600:  #2e3338;
-  --encre-500:  #3a4046;
-  --encre-400:  #4d545b;
+  --encre-600:  #3d3024;
+  --encre-500:  #4a3b2c;
+  --encre-400:  #5e4c3a;
 
   --laiton:        var(--accent);
   --laiton-sombre: #b89a6c;
   --laiton-clair:  var(--accent);
-  --ligne-laiton:  rgba(232, 200, 150, .3);
+  --ligne-laiton:  rgba(234, 196, 140, .3);
   --bronze:        #b8905c;
   --bronze-clair:  var(--accent);
 
-  --argent-1: #ecebe8;
-  --argent-2: #b9bcc1;
-  --argent-3: #8d9197;
-  --argent-4: #6b7077;
-  --metal: #ecebe8;
+  --argent-1: #f2e9da;
+  --argent-2: #c9bba6;
+  --argent-3: #9c8c78;
+  --argent-4: #76685a;
+  --metal: #f2e9da;
   --metal-sombre: var(--surface-2);
-  --filet: rgba(255, 255, 255, .07);
+  --filet: rgba(255, 228, 196, .08);
 
-  --texte:        #ecebe8;
-  --texte-doux:   #a4a8ae;
-  --texte-faible: #6f747b;
-  --ligne:        rgba(255, 255, 255, .07);
-  --ligne-forte:  rgba(255, 255, 255, .13);
+  --texte:        #f2e9da;
+  --texte-doux:   #c3b3a0;
+  --texte-faible: #8e7f6d;
+  --ligne:        rgba(255, 228, 196, .08);
+  --ligne-forte:  rgba(255, 228, 196, .15);
   --ok:           var(--vert);
 
-  --f-titre: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --ombre-2: 0 8px 24px rgba(0,0,0,.35);
-  --ombre-3: 0 24px 60px rgba(0,0,0,.5);
+  /* Les titres à l'empattement, comme dans un cahier ; le reste en Inter. */
+  --f-titre: "Spectral", "Iowan Old Style", Georgia, serif;
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --ombre-2: 0 8px 24px rgba(10,5,0,.4);
+  --ombre-3: 0 24px 60px rgba(10,5,0,.55);
 
   --courbe: cubic-bezier(.2, .7, .2, 1);
   --transition: 160ms var(--courbe);

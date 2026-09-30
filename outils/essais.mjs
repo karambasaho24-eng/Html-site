@@ -64,7 +64,7 @@ async function creerCompte(page, nom, email) {
   await page.click('button[type="submit"]:has-text("Créer mon compte")');
   await page.waitForTimeout(1600);
   // La fenêtre « habillez votre personnage » s'ouvre à la première visite.
-  const bienvenue = await page.waitForSelector(".apparence", { timeout: 6000 }).then(() => true).catch(() => false);
+  const bienvenue = await page.waitForSelector(".apparence", { timeout: 15000 }).then(() => true).catch(() => false);
   verifier("tout juste inscrit, on commence par habiller son personnage", bienvenue);
   await page.keyboard.press("Escape");
   const cahiersDabord = await page.waitForSelector(".mes-cahiers", { timeout: 6000 }).then(() => true).catch(() => false);

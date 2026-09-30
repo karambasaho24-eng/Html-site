@@ -23,32 +23,6 @@ import { creerClasse3D, webglDisponible } from "./classe-3d.js";
 import { monAvatar } from "./apparence.js";
 import { ecouter } from "../core/bus.js";
 
-/* --- L'échelle des choses --------------------------------------------------
-   Largeur de chaque objet, en fraction de la largeur du pupitre. Un crayon
-   est plus long qu'une gomme ; un cahier plus large qu'un encrier. Sans cela
-   tout aurait la taille d'une vignette, et rien ne semblerait posé. */
-const LARGEUR = {
-  cahier: .17, carnet: .12, feuille: .14, feuilles: .16, dossier: .17, chemise: .17, pochette: .16,
-  crayon: .19, plume: .19, "stylo-plume": .18, gomme: .08, regle: .25, equerre: .15, compas: .085,
-  rapporteur: .16, "regle-a-calcul": .26, boulier: .12, encrier: .08, encre: .055, craie: .065,
-  buvard: .17, trousse: .2, "trousse-ouverte": .2, registre: .17, cachet: .06, carte: .18,
-  boussole: .08, lorgnette: .15, lanterne: .1, montre: .07, gourde: .09
-};
-
-/* Où chaque chose se pose d'elle-même la première fois : le cahier devant
-   soi, l'écriture à droite, la règle au-dessus, le calcul à gauche. Chacun
-   peut ensuite tout déplacer : la place est retenue. */
-const PLACES = [
-  { kinds: ["cahier", "carnet", "feuille"], x: .47, y: .56, dx: .07, dy: -.03 },
-  { kinds: ["crayon", "plume", "stylo-plume"], x: .7, y: .6, dx: .015, dy: .08 },
-  { kinds: ["gomme", "buvard"], x: .83, y: .78, dx: -.06, dy: -.02 },
-  { kinds: ["regle", "equerre", "rapporteur", "compas"], x: .45, y: .17, dx: .15, dy: .02 },
-  { kinds: ["regle-a-calcul", "boulier"], x: .2, y: .72, dx: .04, dy: -.12 },
-  { kinds: ["dossier", "chemise", "pochette", "registre"], x: .19, y: .33, dx: .05, dy: .04 },
-  { kinds: ["feuilles"], x: .72, y: .27, dx: .03, dy: .03 },
-  { kinds: ["encrier", "encre", "craie", "cachet"], x: .88, y: .35, dx: -.02, dy: .14 }
-];
-
 /** Une rotation stable par objet : le même stylo reste de biais pareil. */
 function biais(id) {
   let h = 0;
@@ -131,8 +105,8 @@ export function creerScene({
     el("div.scene__pupitre",
       el("div.pupitre__surface", { "aria-hidden": "true" }),
       avant ? null : banc,
-      objetsPupitre,
-      oublis),
+      oublis,
+      objetsPupitre),
     zoneSac,
     el("div.scene__premier-plan",
       el("div.scene__livre",
@@ -159,35 +133,46 @@ export function creerScene({
     return genre === "cahier" ? (chose.support || "cahier") : chose.kind;
   }
 
-  function placeDe(genre, chose, rang) {
-    const garde = local.lire(clePose(chose.id), null);
-    if (garde && Number.isFinite(garde.x) && Number.isFinite(garde.y)) return garde;
-    const kind = kindDe(genre, chose);
-    const place = PLACES.find((p) => p.kinds.includes(kind)) || { x: .32 + (rang % 4) * .12, y: .5, dx: 0, dy: .1 };
-    const n = rang;
-    return {
-      x: Math.min(.93, Math.max(.07, place.x + place.dx * n)),
-      y: Math.min(.9, Math.max(.1, place.y + place.dy * n))
-    };
-  }
-
   function peindrePupitre() {
     const tenu = bureau.enMain();
     const devant = [
       ...bureau.cahiersSurLeBureau().map((c) => ["cahier", c]),
       ...bureau.surLeBureau().map((o) => ["objet", o])
     ];
-    const rangs = new Map();
+    // Une table rangée : chaque chose sur sa carte, dans l'ordre (cahiers,
+    // de quoi écrire, le reste), deux gestes nets par chose — et « Tout
+    // ranger » pour débarrasser d'un coup. Rien ne déborde de la table.
+    const ordre = (g, c) => (g === "cahier" ? 0 : OUTILS_REQUIS.ecrire.includes(c.kind) ? 1 : 2);
+    devant.sort((a, b) => ordre(...a) - ordre(...b));
+    const rangeables = devant.filter(([g, c]) => g === "cahier" || !fiche(c.kind)?.contenant);
     render(objetsPupitre, devant.length
-      ? devant.map(([genre, chose]) => {
-          const kind = kindDe(genre, chose);
-          const groupe = PLACES.find((p) => p.kinds.includes(kind))?.kinds.join() || kind;
-          const rang = rangs.get(groupe) || 0;
-          rangs.set(groupe, rang + 1);
-          return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
-        })
+      ? [
+          el("div.plateau__entete",
+            el("span.plateau__titre", "Sur la table"),
+            el("span.plateau__compte", String(devant.length)),
+            tenu ? el("span.plateau__main", el("img", { src: imageDetouree(tenu.kind), alt: "" }), `${nomObjet(tenu)} en main`) : null,
+            rangeables.length > 1
+              ? el("button.btn.btn--petit.plateau__tout", { type: "button", onclick: toutRanger }, icone("sac", 13), "Tout ranger")
+              : null),
+          el("div.plateau__cartes", devant.map(([genre, chose]) => poseSurPupitre(genre, chose, null, tenu)))
+        ]
       : guide());
     noeud.classList.toggle("scene--vide", !devant.length);
+  }
+
+  /** Débarrasser la table : tout retourne dans le sac, une chose après l'autre. */
+  async function toutRanger(e) {
+    const bouton = e?.currentTarget;
+    if (bouton) bouton.disabled = true;
+    const aRanger = [
+      ...bureau.cahiersSurLeBureau().map((c) => ["cahier", c]),
+      ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ["objet", o])
+    ];
+    if (bureau.enMain()) bureau.prendre(null);
+    let n = 0;
+    for (const [genre, chose] of aRanger) if (await bureau.ranger(chose, genre)) n++;
+    peindre();
+    if (n) toast(n === 1 ? "Rangé dans le sac" : `${n} affaires rangées dans le sac`, { type: "ok", duree: 2200 });
   }
 
   /** Bureau vide : trois gestes, dans l'ordre, pour pouvoir écrire. */
@@ -255,35 +240,33 @@ export function creerScene({
       }, "Reprendre"));
   }
 
-  function poseSurPupitre(genre, chose, { x, y }, tenu) {
+  function poseSurPupitre(genre, chose, _place, tenu) {
     const kind = kindDe(genre, chose);
     const nom = genre === "cahier" ? (chose.title || "Cahier") : nomObjet(chose);
-    const r = biais(chose.id);
     const enMain = genre === "objet" && tenu?.id === chose.id;
-    const aEtiquette = ["cahier", "carnet", "dossier", "chemise"].includes(kind);
+    const action = actionEnMots(genre, chose, enMain);
+    // Sur le bouton, le mot court ; la phrase entière reste en info-bulle.
+    const court = { "Prendre en main": "Prendre", "Écrire une note": "Écrire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter" }[action] || action;
+    const contenant = genre === "objet" && fiche(chose.kind)?.contenant;
 
-    const noeudPose = el("button.pose", {
-      type: "button",
+    const noeudPose = el("div.pose", {
       class: [enMain ? "pose--en-main" : "", `pose--${kind}`].join(" "),
-      dataset: { id: String(chose.id), genre, kind },
-      style: {
-        left: `${x * 100}%`, top: `${y * 100}%`,
-        width: `${(LARGEUR[kind] || .11) * 100}%`,
-        "--r": `${r}deg`, zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
-      },
-      title: actionEnMots(genre, chose, enMain),
-      "aria-label": `${nom} — ${actionEnMots(genre, chose, enMain)}`
+      dataset: { id: String(chose.id), genre, kind }
     },
-      el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false }),
-      aEtiquette ? el("span.pose__etiquette", nom) : null,
-      el("span.pose__nom", nom),
-      el("span.pose__ranger", {
-        role: "button", title: "Remettre dans le sac", "aria-label": `Remettre ${nom} dans le sac`,
-        onpointerdown: (e) => e.stopPropagation(),
-        onclick: (e) => { e.stopPropagation(); remettre(genre, chose, noeudPose); }
-      }, icone("sac", 11))
+      el("button.pose__corps", {
+        type: "button", title: action, "aria-label": `${nom} — ${action}`,
+        onclick: () => geste(genre, chose)
+      },
+        el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false })),
+        el("span.pose__nom", nom),
+        enMain ? el("span.pose__etat", "En main") : null),
+      el("div.pose__actions",
+        el("button.pose__action.pose__action--principale", { type: "button", title: action, onclick: () => geste(genre, chose) }, court),
+        contenant ? null : el("button.pose__action", {
+          type: "button", title: `Remettre ${nom} dans le sac`, "aria-label": `Remettre ${nom} dans le sac`,
+          onclick: () => remettre(genre, chose, noeudPose)
+        }, icone("sac", 12), "Ranger"))
     );
-    brancherGlisser(noeudPose, genre, chose);
     return noeudPose;
   }
 
@@ -304,53 +287,6 @@ export function creerScene({
     if (chose.kind === "feuilles" || chose.kind === "feuille") { surNote?.(); return; }
     if (f.contenant && bureau.porter) { bureau.porter(chose); return; }
     bureau.prendre(bureau.enMain()?.id === chose.id ? null : chose);
-  }
-
-  /* --- Glisser : déplacer sur le bureau, ou vers le sac ------------------ */
-  function brancherGlisser(noeudPose, genre, chose) {
-    let depart = null;
-    let glisse = false;
-    noeudPose.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      depart = { x: e.clientX, y: e.clientY };
-      glisse = false;
-      noeudPose.setPointerCapture(e.pointerId);
-    });
-    noeudPose.addEventListener("pointermove", (e) => {
-      if (!depart) return;
-      if (!glisse && Math.hypot(e.clientX - depart.x, e.clientY - depart.y) < 6) return;
-      glisse = true;
-      noeudPose.classList.add("pose--souleve");
-      const cadre = objetsPupitre.getBoundingClientRect();
-      const x = Math.min(.96, Math.max(.04, (e.clientX - cadre.left) / cadre.width));
-      const y = Math.min(.96, Math.max(.04, (e.clientY - cadre.top) / cadre.height));
-      noeudPose.style.left = `${x * 100}%`;
-      noeudPose.style.top = `${y * 100}%`;
-      zoneSac.classList.toggle("scene__sac-zone--cible", surLeSac(e));
-    });
-    const finir = (e) => {
-      if (!depart) return;
-      const avaitGlisse = glisse;
-      depart = null;
-      glisse = false;
-      noeudPose.classList.remove("pose--souleve");
-      zoneSac.classList.remove("scene__sac-zone--cible");
-      if (!avaitGlisse) { geste(genre, chose); return; }
-      if (surLeSac(e)) { remettre(genre, chose, noeudPose); return; }
-      const cadre = objetsPupitre.getBoundingClientRect();
-      local.ecrire(clePose(chose.id), {
-        x: Math.min(.96, Math.max(.04, (e.clientX - cadre.left) / cadre.width)),
-        y: Math.min(.96, Math.max(.04, (e.clientY - cadre.top) / cadre.height))
-      });
-      peindrePupitre();
-    };
-    noeudPose.addEventListener("pointerup", finir);
-    noeudPose.addEventListener("pointercancel", () => { depart = null; glisse = false; peindrePupitre(); });
-  }
-
-  function surLeSac(e) {
-    const r = zoneSac.getBoundingClientRect();
-    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
   }
 
   /* --- Le voyage d'un objet --------------------------------------------- */

@@ -57,7 +57,7 @@
   --ligne:        #262e36;
   --ligne-forte:  #38424c;
   --ligne-laiton: rgba(201, 162, 39, .34);
-  --voile:        rgba(8, 10, 12, .72);
+  --voile:        rgba(14, 9, 5, .72);
 
   /* --- Typographie -------------------------------------------------------- */
   --f-titre: "Spectral", "Iowan Old Style", Georgia, serif;
@@ -98,59 +98,60 @@
   --transition: 140ms cubic-bezier(.4, 0, .2, 1);
 }
 
-/* --- Épure ----------------------------------------------------------------
-   Un graphite mat, quatre niveaux de surface, une seule couleur d'accent
-   (un ivoire chaud) et un vert pour « présent ». Pas de métal, pas de
-   dégradé : la matière est réservée aux objets — le bois, le cuir, le papier.
+/* --- Chaleur ---------------------------------------------------------------
+   Une pièce le soir, éclairée à la bougie : des bruns profonds plutôt qu'un
+   graphite froid, un texte couleur crème, un accent ambré, un vert pour
+   « présent ». La matière reste aux objets — le bois, le cuir, le papier.
    Les anciens noms (laiton, argent, métal, filet) sont conservés et pointent
    vers ces valeurs, pour que tout l'écran parle d'une seule voix. */
 :root {
-  --fond:      #0f1113;
-  --surface-0: #121417;
-  --surface-1: #16191c;
-  --surface-2: #1d2024;
-  --surface-3: #262a2f;
-  --accent:      #e8c896;
-  --accent-fond: rgba(232, 200, 150, .12);
-  --vert:        #7fc58a;
+  --fond:      #15100c;
+  --surface-0: #19130e;
+  --surface-1: #201811;
+  --surface-2: #2a2017;
+  --surface-3: #35291e;
+  --accent:      #eac48c;
+  --accent-fond: rgba(234, 196, 140, .14);
+  --vert:        #8fcb86;
 
-  --encre-1000: #0b0c0e;
+  --encre-1000: #0e0a07;
   --encre-900:  var(--fond);
   --encre-850:  var(--surface-1);
   --encre-800:  var(--surface-2);
   --encre-700:  var(--surface-3);
-  --encre-600:  #2e3338;
-  --encre-500:  #3a4046;
-  --encre-400:  #4d545b;
+  --encre-600:  #3d3024;
+  --encre-500:  #4a3b2c;
+  --encre-400:  #5e4c3a;
 
   --laiton:        var(--accent);
   --laiton-sombre: #b89a6c;
   --laiton-clair:  var(--accent);
-  --ligne-laiton:  rgba(232, 200, 150, .3);
+  --ligne-laiton:  rgba(234, 196, 140, .3);
   --bronze:        #b8905c;
   --bronze-clair:  var(--accent);
 
-  --argent-1: #ecebe8;
-  --argent-2: #b9bcc1;
-  --argent-3: #8d9197;
-  --argent-4: #6b7077;
-  --metal: #ecebe8;
+  --argent-1: #f2e9da;
+  --argent-2: #c9bba6;
+  --argent-3: #9c8c78;
+  --argent-4: #76685a;
+  --metal: #f2e9da;
   --metal-sombre: var(--surface-2);
-  --filet: rgba(255, 255, 255, .07);
+  --filet: rgba(255, 228, 196, .08);
 
-  --texte:        #ecebe8;
-  --texte-doux:   #a4a8ae;
-  --texte-faible: #6f747b;
-  --ligne:        rgba(255, 255, 255, .07);
-  --ligne-forte:  rgba(255, 255, 255, .13);
+  --texte:        #f2e9da;
+  --texte-doux:   #c3b3a0;
+  --texte-faible: #8e7f6d;
+  --ligne:        rgba(255, 228, 196, .08);
+  --ligne-forte:  rgba(255, 228, 196, .15);
   --ok:           var(--vert);
 
-  --f-titre: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --ombre-2: 0 8px 24px rgba(0,0,0,.35);
-  --ombre-3: 0 24px 60px rgba(0,0,0,.5);
+  /* Les titres à l'empattement, comme dans un cahier ; le reste en Inter. */
+  --f-titre: "Spectral", "Iowan Old Style", Georgia, serif;
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --ombre-2: 0 8px 24px rgba(10,5,0,.4);
+  --ombre-3: 0 24px 60px rgba(10,5,0,.55);
 
   --courbe: cubic-bezier(.2, .7, .2, 1);
   --transition: 160ms var(--courbe);
@@ -3155,9 +3156,9 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    ========================================================================= */
 
 :root {
-  --table-1: #2b231c;
-  --table-2: #231c16;
-  --table-bord: rgba(255, 240, 220, .06);
+  --table-1: #4a3222;
+  --table-2: #36241a;
+  --table-bord: rgba(255, 226, 190, .1);
   --ardoise: #1c2622;
   --f-main: "Caveat", "Segoe Print", "Bradley Hand", cursive;
   --dock-h: 74px;
@@ -3275,11 +3276,13 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    ========================================================================= */
 .scene__pupitre {
   position: relative; z-index: 2;
-  margin: 26px 4% 18px;
-  min-height: 0;
+  margin: 26px 2% 14px;
+  min-height: 188px;
+  /* Le sac est posé à gauche de la table : on lui laisse sa place. */
+  padding-left: calc(clamp(110px, 13vw, 170px) + 18px);
 }
 .pupitre__surface {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0 0 0 calc(clamp(110px, 13vw, 170px) + 6px);
   border-radius: 22px;
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='600' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.002 0.06' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
@@ -3291,7 +3294,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
     0 30px 60px -30px rgba(0,0,0,.85);
 }
 .pupitre__chant { display: none; }
-.pupitre__objets { position: absolute; inset: 4% 3% 6% 3%; }
+.pupitre__objets { position: relative; z-index: 1; padding: 14px 16px 10px 4px; min-height: 188px; }
 
 /* Bureau vide : trois gestes, dans l'ordre. */
 .pupitre__vide {
@@ -3358,12 +3361,13 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 
 /* --- Ce qu'on avait laissé ici ------------------------------------------ */
 .scene__oublis {
-  position: absolute; left: 50%; bottom: 14px; z-index: 6;
-  transform: translateX(-50%);
+  /* Dans la table, au-dessus des cartes : il ne cache plus rien. */
+  position: relative; z-index: 2;
+  margin: 0 16px 12px 4px;
   display: flex; align-items: center; gap: 12px;
-  width: max-content; max-width: calc(100% - 24px);
+  width: max-content; max-width: calc(100% - 20px);
   padding: 8px 8px 8px 12px; border-radius: 14px;
-  background: rgba(16,18,20,.92); backdrop-filter: blur(8px);
+  background: rgba(26,18,12,.92); backdrop-filter: blur(8px);
   box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 16px 32px rgba(0,0,0,.5);
   animation: monte .35s var(--doux);
 }
@@ -3374,71 +3378,72 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .oublis__texte b { font-size: 13px; font-weight: 600; color: var(--texte); }
 .oublis__texte span { font-size: 11.5px; color: var(--texte-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
 
-/* --- Un objet posé ------------------------------------------------------- */
+/* --- La table rangée : une carte par chose ---------------------------------
+   Pas d'objets jetés en vrac qui débordent : une rangée de cartes, chacune
+   avec sa vignette, son nom et deux gestes nets. La rangée défile si elle
+   est longue ; la table garde sa hauteur. */
+.plateau__entete {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+.plateau__titre { font-family: var(--f-titre); font-size: 15px; font-weight: 600; color: var(--texte); }
+.plateau__compte {
+  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px;
+  display: inline-grid; place-items: center;
+  font-size: 11.5px; font-weight: 600; color: var(--texte-doux); background: rgba(0,0,0,.25);
+}
+.plateau__main {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; color: #22170c; background: var(--accent);
+}
+.plateau__main img { height: 18px; transform: rotate(-12deg); }
+.plateau__tout { margin-left: auto; }
+.plateau__cartes {
+  display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
+  padding: 2px 2px 8px; scroll-snap-type: x proximity;
+  scrollbar-width: thin; scrollbar-color: rgba(255,230,200,.25) transparent;
+}
 .pose {
-  position: absolute;
-  padding: 0; border: 0; background: none; color: inherit; cursor: grab;
-  transform: translate(-50%, -50%) rotate(var(--r, 0deg));
-  transform-origin: center;
-  filter: drop-shadow(0 2px 1px rgba(0,0,0,.35)) drop-shadow(0 8px 10px rgba(0,0,0,.3));
-  transition: transform .2s var(--doux), filter .2s var(--doux);
-  touch-action: none;
+  position: relative; flex: 0 0 140px; scroll-snap-align: start;
+  display: flex; flex-direction: column;
+  border-radius: 16px; overflow: hidden;
+  background: rgba(24,16,10,.42);
+  box-shadow: inset 0 0 0 1px rgba(255,230,200,.08), 0 8px 18px -10px rgba(0,0,0,.6);
+  transition: transform .18s var(--doux), box-shadow .18s var(--doux), background .18s;
+  animation: apparait .3s var(--doux);
 }
-.pose__image { display: block; width: 100%; height: auto; pointer-events: none; }
-.pose:hover, .pose:focus-visible {
-  transform: translate(-50%, calc(-50% - 2px)) rotate(var(--r, 0deg));
-  filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)) drop-shadow(0 12px 14px rgba(0,0,0,.3)) brightness(1.05);
-  outline: none;
+.pose:hover { transform: translateY(-2px); background: rgba(34,23,14,.55); box-shadow: inset 0 0 0 1px rgba(255,230,200,.16), 0 12px 22px -10px rgba(0,0,0,.65); }
+.pose--en-main { background: rgba(232,190,130,.16); box-shadow: inset 0 0 0 1.5px var(--accent), 0 12px 22px -10px rgba(0,0,0,.65); }
+.pose__corps {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 8px 6px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: center;
 }
-.pose--souleve {
-  cursor: grabbing; transition: filter .15s var(--doux);
-  transform: translate(-50%, calc(-50% - 6px)) rotate(var(--r, 0deg)) scale(1.04);
-  filter: drop-shadow(0 20px 18px rgba(0,0,0,.4)) brightness(1.06);
-  z-index: 500 !important;
+.pose__vignette { height: 70px; width: 100%; display: grid; place-items: center; }
+.pose__image {
+  max-width: 100%; max-height: 70px; width: auto; height: auto; object-fit: contain; pointer-events: none;
+  filter: drop-shadow(0 6px 6px rgba(0,0,0,.4));
+  transition: transform .2s var(--doux);
 }
-.pose--en-main {
-  transform: translate(-50%, calc(-50% - 8px)) rotate(calc(var(--r, 0deg) - 10deg)) scale(1.06);
-  filter: drop-shadow(0 0 1.5px rgba(255,236,200,.9)) drop-shadow(0 18px 16px rgba(0,0,0,.35)) brightness(1.08);
-}
-.pose--arrive { animation: pose-pose .3s var(--doux); }
-@keyframes pose-pose { from { opacity: .4; transform: translate(-50%, calc(-50% - 6px)) rotate(var(--r, 0deg)) scale(1.03); } }
+.pose:hover .pose__image { transform: translateY(-2px) rotate(-2deg); }
+.pose--en-main .pose__image { transform: rotate(-10deg); }
 .pose__nom {
-  position: absolute; left: 50%; top: 100%;
-  transform: translate(-50%, 6px) rotate(calc(var(--r, 0deg) * -1));
-  font-size: 11px; color: rgba(245,238,228,.55);
-  white-space: nowrap; pointer-events: none;
-  transition: color .15s;
+  max-width: 100%; font-size: 12.5px; font-weight: 500; color: var(--texte);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pose:hover .pose__nom, .pose:focus-visible .pose__nom { color: rgba(245,238,228,.95); }
-.pose--cahier .pose__nom, .pose--carnet .pose__nom, .pose--dossier .pose__nom, .pose--chemise .pose__nom { display: none; }
-.pose--en-main .pose__nom { display: none; }
-.pose--en-main::after {
-  content: "En main"; position: absolute; left: 50%; top: 100%;
-  transform: translate(-50%, 8px) rotate(calc(var(--r, 0deg) * -1 + 10deg));
-  padding: 2px 8px; border-radius: 999px;
-  font-size: 10.5px; font-weight: 600; color: #1a150e; background: var(--accent);
-  white-space: nowrap;
+.pose__etat {
+  padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600;
+  color: #22170c; background: var(--accent);
 }
-.pose__etiquette {
-  position: absolute; left: 26%; top: 23%; width: 50%; height: 22%;
-  display: grid; place-items: center; text-align: center; overflow: hidden;
-  font-family: var(--f-main); font-weight: 700; line-height: 1;
-  font-size: clamp(9px, 1.05vw, 15px); color: #2b2418;
-  pointer-events: none; padding: 2px;
+.pose__actions { display: flex; gap: 4px; padding: 0 6px 8px; margin-top: auto; }
+.pose__action {
+  flex: 1 1 0; min-width: 0; height: 28px; padding: 0 6px; border: 0; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font: inherit; font-size: 11.5px; color: var(--texte-doux); background: rgba(0,0,0,.25); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pose--dossier .pose__etiquette, .pose--chemise .pose__etiquette { left: 26%; top: 24%; width: 50%; }
-.pose--carnet .pose__etiquette { left: 22%; top: 20%; width: 56%; font-size: clamp(8px, .9vw, 12px); }
-.pose__ranger {
-  position: absolute; right: -6px; top: -6px;
-  width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--surface-2); color: var(--texte-doux);
-  box-shadow: 0 0 0 1px var(--ligne-forte);
-  opacity: 0; transform: rotate(calc(var(--r, 0deg) * -1));
-  transition: opacity .15s; cursor: pointer;
-}
-.pose:hover .pose__ranger { opacity: 1; }
-.pose__ranger:hover { color: var(--texte); }
+.pose__action:hover { color: var(--texte); background: rgba(0,0,0,.4); }
+.pose__action--principale { color: #22170c; background: rgba(232,196,142,.85); font-weight: 600; }
+.pose__action--principale:hover { color: #22170c; background: var(--accent); }
 .pose--parti { opacity: 0 !important; }
 .pose__vol {
   position: fixed; z-index: 9000; pointer-events: none;
@@ -3469,7 +3474,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .scene__sac-mot {
   padding: 5px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 500; color: var(--texte);
-  background: rgba(16,18,20,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+  background: rgba(26,18,12,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
   transition: background .15s, box-shadow .15s;
 }
 .scene__sac:hover .scene__sac-mot { background: var(--surface-3); }
@@ -3836,7 +3841,8 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    La classe en 3D
    ========================================================================= */
 .scene__classe3d { display: none; }
-.scene--3d { grid-template-rows: minmax(230px, 58%) minmax(0, 1fr); }
+/* La vue 3D prend la place qui reste ; la table, toujours la sienne. */
+.scene--3d { grid-template-rows: minmax(200px, 1fr) auto; }
 .scene--3d .scene__avant { padding: 10px 1.5% 0; }
 .scene--3d .scene__classe3d {
   display: block; position: relative;
@@ -3859,14 +3865,14 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   position: absolute; left: 0; top: 0;
   padding: 2px 8px; border-radius: 999px; border: 0;
   font: inherit; font-size: 11px; font-weight: 500; line-height: 16px; white-space: nowrap;
-  color: #f1efe9; background: rgba(12,14,16,.62); backdrop-filter: blur(4px);
+  color: #f1efe9; background: rgba(26,17,10,.66); backdrop-filter: blur(4px);
   pointer-events: auto; cursor: pointer;
   transition: background .15s, color .15s;
 }
 .classe3d__nom[hidden] { display: none; }
-.classe3d__nom--survol, .classe3d__nom:hover { background: var(--accent); color: #15130f; }
+.classe3d__nom--survol, .classe3d__nom:hover { background: var(--accent); color: #22170c; }
 .classe3d__nom--prof { background: rgba(127,197,138,.85); color: #0f1a12; font-weight: 600; }
-.chassis[data-taille="moyen"] .scene--3d { grid-template-rows: minmax(200px, 50%) minmax(0, 1fr); }
+.chassis[data-taille="moyen"] .scene--3d { grid-template-rows: minmax(170px, 1fr) auto; }
 
 /* ===========================================================================
    Le sac ouvert tient TOUJOURS dans la fenêtre : la zone du sac occupe la
@@ -3889,7 +3895,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .scene[data-etat="sac"] .scene__sac { width: clamp(140px, 15vw, 210px); }
 .scene[data-etat="sac"] .sac__contenu { left: auto; transform: none; width: min(880px, calc(100vw - 40px)); max-height: none; }
 .classe3d__nom--main::before { content: "✋ "; }
-.classe3d__nom--main { background: var(--accent); color: #15130f; }
+.classe3d__nom--main { background: var(--accent); color: #22170c; }
 
 /* ---- monde.css ---- */
 /* ===========================================================================
@@ -3960,7 +3966,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   position: absolute; top: 3px; right: 3px;
   min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
   display: grid; place-items: center;
-  font-size: 9px; font-weight: 700; color: #15130f; background: var(--accent);
+  font-size: 9px; font-weight: 700; color: #22170c; background: var(--accent);
 }
 .contexte__reseau { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--texte-faible); margin-right: 6px; }
 .contexte__voyant { width: 6px; height: 6px; border-radius: 50%; background: var(--attn); }
@@ -4024,7 +4030,7 @@ button.presence:hover { background: var(--surface-2); }
   position: absolute; top: 4px; right: 14px;
   min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 10px; font-weight: 700; color: #15130f; background: var(--accent);
+  font-size: 10px; font-weight: 700; color: #22170c; background: var(--accent);
 }
 
 /* --- Le tiroir « ⋯ » : tout ce qui n'est pas un geste ------------------- */
@@ -4109,7 +4115,7 @@ body.tiroir-ouvert::after { content: ""; position: fixed; inset: 0; z-index: 55;
 /* --- Documents sous la main ----------------------------------------------- */
 .documents-rapides { display: grid; gap: 14px; }
 .doc-titre { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); margin: 0 0 6px; }
-.doc-compte { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; color: #15130f; background: var(--accent); margin-left: 4px; }
+.doc-compte { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; color: #22170c; background: var(--accent); margin-left: 4px; }
 .doc-ligne {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 9px 10px; border-radius: 10px; border: 0;
@@ -4280,7 +4286,7 @@ body.tiroir-ouvert::after { content: ""; position: fixed; inset: 0; z-index: 55;
 /* Le cahier en petit. */
 .console__onglets { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
 .console__onglet { flex: 0 0 auto; height: 28px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; color: var(--texte-doux); background: var(--surface-1); border: 0; box-shadow: inset 0 0 0 1px var(--ligne); cursor: pointer; }
-.console__onglet[aria-pressed="true"] { color: #15130f; background: var(--accent); box-shadow: none; }
+.console__onglet[aria-pressed="true"] { color: #22170c; background: var(--accent); box-shadow: none; }
 .console__outils { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .console__outil { width: 50px; height: 38px; border-radius: 10px; display: grid; place-items: center; border: 0; background: none; cursor: pointer; }
 .console__outil:hover { background: var(--surface-2); }
@@ -4380,8 +4386,8 @@ body.tiroir-ouvert::after { content: ""; position: fixed; inset: 0; z-index: 55;
 :focus-visible { outline-color: var(--accent); }
 .toast { border-radius: 14px; background: var(--surface-1); border: 0; box-shadow: 0 0 0 1px var(--ligne-forte), 0 16px 40px rgba(0,0,0,.5); }
 .btn { border-radius: 10px; font-weight: 500; }
-.btn--primaire { background: var(--accent); border-color: var(--accent); color: #15130f; }
-.btn--primaire:hover { background: #f0d5ab; border-color: #f0d5ab; color: #15130f; }
+.btn--primaire { background: var(--accent); border-color: var(--accent); color: #22170c; }
+.btn--primaire:hover { background: #f3d3a4; border-color: #f3d3a4; color: #22170c; }
 .chassis[data-taille="compact"] .page, .chassis[data-taille="mini"] .page { padding: 12px 12px 20px; }
 .chassis[data-taille="compact"] .colonnes, .chassis[data-taille="mini"] .colonnes { grid-template-columns: 1fr; }
 
@@ -4472,11 +4478,12 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .console__classe3d .classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 
 /* Chez moi, en 3D : la chambre et son bureau, sous le bonjour. */
-.chez-moi > .scene.scene--3d { grid-template-rows: auto minmax(0, 1fr); }
+.chez-moi > .scene.scene--3d { grid-template-rows: minmax(0, 1fr) auto; }
 .chez-moi .scene--3d .scene__avant--mur { padding: 18px 4% 0; display: flex; flex-direction: column; }
 .chez-moi .scene--3d .scene__avant--mur .mur { width: 100%; max-width: none; }
+.chez-moi .scene--3d .scene__avant--mur { min-height: 0; }
 .chez-moi .scene--3d .scene__avant--mur .scene__classe3d {
-  height: clamp(210px, 40vh, 460px); margin-top: 14px; flex: 0 0 auto;
+  height: auto; min-height: 200px; margin-top: 14px; flex: 1 1 auto;
 }
 .chez-moi .scene--3d .scene__pupitre { margin-top: 14px; }
 .classe3d__nom:empty { display: none; }
@@ -4486,10 +4493,10 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
   position: absolute; right: 12px; top: 12px; z-index: 3;
   display: inline-flex; align-items: center; gap: 7px;
   height: 32px; padding: 0 13px; border-radius: 999px; border: 0; cursor: pointer;
-  font: inherit; font-size: 12.5px; font-weight: 500; color: #15130f; background: var(--accent);
+  font: inherit; font-size: 12.5px; font-weight: 500; color: #22170c; background: var(--accent);
   box-shadow: 0 6px 18px rgba(0,0,0,.35);
 }
-.classe3d__habiller:hover { background: #f0d5ab; }
+.classe3d__habiller:hover { background: #f3d3a4; }
 .apparence { display: grid; grid-template-columns: minmax(240px, 34%) 1fr; gap: 18px; min-height: 0; }
 .apparence__gauche { display: flex; flex-direction: column; gap: 8px; }
 .apparence__apercu { position: relative; height: min(56vh, 460px); border-radius: 16px; overflow: hidden; background: #2a2d31; }
@@ -17707,8 +17714,8 @@ function creerScene({
       "div.scene__pupitre",
       el("div.pupitre__surface", { "aria-hidden": "true" }),
       avant ? null : banc,
-      objetsPupitre,
-      oublis
+      oublis,
+      objetsPupitre
     ),
     zoneSac,
     el(
@@ -17738,32 +17745,39 @@ function creerScene({
   function kindDe(genre, chose) {
     return genre === "cahier" ? chose.support || "cahier" : chose.kind;
   }
-  function placeDe(genre, chose, rang) {
-    const garde = local.lire(clePose(chose.id), null);
-    if (garde && Number.isFinite(garde.x) && Number.isFinite(garde.y)) return garde;
-    const kind = kindDe(genre, chose);
-    const place = PLACES.find((p) => p.kinds.includes(kind)) || { x: 0.32 + rang % 4 * 0.12, y: 0.5, dx: 0, dy: 0.1 };
-    const n = rang;
-    return {
-      x: Math.min(0.93, Math.max(0.07, place.x + place.dx * n)),
-      y: Math.min(0.9, Math.max(0.1, place.y + place.dy * n))
-    };
-  }
   function peindrePupitre() {
     const tenu = bureau.enMain();
     const devant = [
       ...bureau.cahiersSurLeBureau().map((c) => ["cahier", c]),
       ...bureau.surLeBureau().map((o) => ["objet", o])
     ];
-    const rangs = /* @__PURE__ */ new Map();
-    render(objetsPupitre, devant.length ? devant.map(([genre, chose]) => {
-      const kind = kindDe(genre, chose);
-      const groupe = PLACES.find((p) => p.kinds.includes(kind))?.kinds.join() || kind;
-      const rang = rangs.get(groupe) || 0;
-      rangs.set(groupe, rang + 1);
-      return poseSurPupitre(genre, chose, placeDe(genre, chose, rang), tenu);
-    }) : guide());
+    const ordre = (g, c) => g === "cahier" ? 0 : OUTILS_REQUIS.ecrire.includes(c.kind) ? 1 : 2;
+    devant.sort((a, b) => ordre(...a) - ordre(...b));
+    const rangeables = devant.filter(([g, c]) => g === "cahier" || !fiche(c.kind)?.contenant);
+    render(objetsPupitre, devant.length ? [
+      el(
+        "div.plateau__entete",
+        el("span.plateau__titre", "Sur la table"),
+        el("span.plateau__compte", String(devant.length)),
+        tenu ? el("span.plateau__main", el("img", { src: imageDetouree(tenu.kind), alt: "" }), `${nomObjet(tenu)} en main`) : null,
+        rangeables.length > 1 ? el("button.btn.btn--petit.plateau__tout", { type: "button", onclick: toutRanger }, icone("sac", 13), "Tout ranger") : null
+      ),
+      el("div.plateau__cartes", devant.map(([genre, chose]) => poseSurPupitre(genre, chose, null, tenu)))
+    ] : guide());
     noeud.classList.toggle("scene--vide", !devant.length);
+  }
+  async function toutRanger(e) {
+    const bouton2 = e?.currentTarget;
+    if (bouton2) bouton2.disabled = true;
+    const aRanger = [
+      ...bureau.cahiersSurLeBureau().map((c) => ["cahier", c]),
+      ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant).map((o) => ["objet", o])
+    ];
+    if (bureau.enMain()) bureau.prendre(null);
+    let n = 0;
+    for (const [genre, chose] of aRanger) if (await bureau.ranger(chose, genre)) n++;
+    peindre();
+    if (n) toast(n === 1 ? "Rang\xE9 dans le sac" : `${n} affaires rang\xE9es dans le sac`, { type: "ok", duree: 2200 });
   }
   function guide() {
     const etape = (n, texte, fait = false) => el(
@@ -17842,43 +17856,42 @@ function creerScene({
       }, "Reprendre")
     );
   }
-  function poseSurPupitre(genre, chose, { x, y }, tenu) {
+  function poseSurPupitre(genre, chose, _place, tenu) {
     const kind = kindDe(genre, chose);
     const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
-    const r = biais(chose.id);
     const enMain = genre === "objet" && tenu?.id === chose.id;
-    const aEtiquette = ["cahier", "carnet", "dossier", "chemise"].includes(kind);
+    const action = actionEnMots(genre, chose, enMain);
+    const court = { "Prendre en main": "Prendre", "\xC9crire une note": "\xC9crire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter" }[action] || action;
+    const contenant = genre === "objet" && fiche(chose.kind)?.contenant;
     const noeudPose = el(
-      "button.pose",
+      "div.pose",
       {
-        type: "button",
         class: [enMain ? "pose--en-main" : "", `pose--${kind}`].join(" "),
-        dataset: { id: String(chose.id), genre, kind },
-        style: {
-          left: `${x * 100}%`,
-          top: `${y * 100}%`,
-          width: `${(LARGEUR2[kind] || 0.11) * 100}%`,
-          "--r": `${r}deg`,
-          zIndex: String(Math.round(y * 100) + (enMain ? 200 : 0))
-        },
-        title: actionEnMots(genre, chose, enMain),
-        "aria-label": `${nom} \u2014 ${actionEnMots(genre, chose, enMain)}`
+        dataset: { id: String(chose.id), genre, kind }
       },
-      el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false }),
-      aEtiquette ? el("span.pose__etiquette", nom) : null,
-      el("span.pose__nom", nom),
-      el("span.pose__ranger", {
-        role: "button",
-        title: "Remettre dans le sac",
-        "aria-label": `Remettre ${nom} dans le sac`,
-        onpointerdown: (e) => e.stopPropagation(),
-        onclick: (e) => {
-          e.stopPropagation();
-          remettre(genre, chose, noeudPose);
-        }
-      }, icone("sac", 11))
+      el(
+        "button.pose__corps",
+        {
+          type: "button",
+          title: action,
+          "aria-label": `${nom} \u2014 ${action}`,
+          onclick: () => geste(genre, chose)
+        },
+        el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false })),
+        el("span.pose__nom", nom),
+        enMain ? el("span.pose__etat", "En main") : null
+      ),
+      el(
+        "div.pose__actions",
+        el("button.pose__action.pose__action--principale", { type: "button", title: action, onclick: () => geste(genre, chose) }, court),
+        contenant ? null : el("button.pose__action", {
+          type: "button",
+          title: `Remettre ${nom} dans le sac`,
+          "aria-label": `Remettre ${nom} dans le sac`,
+          onclick: () => remettre(genre, chose, noeudPose)
+        }, icone("sac", 12), "Ranger")
+      )
     );
-    brancherGlisser(noeudPose, genre, chose);
     return noeudPose;
   }
   function actionEnMots(genre, chose, enMain) {
@@ -17908,60 +17921,6 @@ function creerScene({
       return;
     }
     bureau.prendre(bureau.enMain()?.id === chose.id ? null : chose);
-  }
-  function brancherGlisser(noeudPose, genre, chose) {
-    let depart = null;
-    let glisse = false;
-    noeudPose.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
-      depart = { x: e.clientX, y: e.clientY };
-      glisse = false;
-      noeudPose.setPointerCapture(e.pointerId);
-    });
-    noeudPose.addEventListener("pointermove", (e) => {
-      if (!depart) return;
-      if (!glisse && Math.hypot(e.clientX - depart.x, e.clientY - depart.y) < 6) return;
-      glisse = true;
-      noeudPose.classList.add("pose--souleve");
-      const cadre = objetsPupitre.getBoundingClientRect();
-      const x = Math.min(0.96, Math.max(0.04, (e.clientX - cadre.left) / cadre.width));
-      const y = Math.min(0.96, Math.max(0.04, (e.clientY - cadre.top) / cadre.height));
-      noeudPose.style.left = `${x * 100}%`;
-      noeudPose.style.top = `${y * 100}%`;
-      zoneSac.classList.toggle("scene__sac-zone--cible", surLeSac(e));
-    });
-    const finir = (e) => {
-      if (!depart) return;
-      const avaitGlisse = glisse;
-      depart = null;
-      glisse = false;
-      noeudPose.classList.remove("pose--souleve");
-      zoneSac.classList.remove("scene__sac-zone--cible");
-      if (!avaitGlisse) {
-        geste(genre, chose);
-        return;
-      }
-      if (surLeSac(e)) {
-        remettre(genre, chose, noeudPose);
-        return;
-      }
-      const cadre = objetsPupitre.getBoundingClientRect();
-      local.ecrire(clePose(chose.id), {
-        x: Math.min(0.96, Math.max(0.04, (e.clientX - cadre.left) / cadre.width)),
-        y: Math.min(0.96, Math.max(0.04, (e.clientY - cadre.top) / cadre.height))
-      });
-      peindrePupitre();
-    };
-    noeudPose.addEventListener("pointerup", finir);
-    noeudPose.addEventListener("pointercancel", () => {
-      depart = null;
-      glisse = false;
-      peindrePupitre();
-    });
-  }
-  function surLeSac(e) {
-    const r = zoneSac.getBoundingClientRect();
-    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
   }
   function voler(image, de, vers, { finit = 1 } = {}) {
     if (!de || !vers || matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
@@ -18351,7 +18310,7 @@ function creerScene({
     }
   };
 }
-var LARGEUR2, PLACES, clePose;
+var clePose;
 var init_scene_bureau = __esm({
   "src/features/scene-bureau.js"() {
     init_dom();
@@ -18365,49 +18324,6 @@ var init_scene_bureau = __esm({
     init_classe_3d();
     init_apparence();
     init_bus();
-    LARGEUR2 = {
-      cahier: 0.17,
-      carnet: 0.12,
-      feuille: 0.14,
-      feuilles: 0.16,
-      dossier: 0.17,
-      chemise: 0.17,
-      pochette: 0.16,
-      crayon: 0.19,
-      plume: 0.19,
-      "stylo-plume": 0.18,
-      gomme: 0.08,
-      regle: 0.25,
-      equerre: 0.15,
-      compas: 0.085,
-      rapporteur: 0.16,
-      "regle-a-calcul": 0.26,
-      boulier: 0.12,
-      encrier: 0.08,
-      encre: 0.055,
-      craie: 0.065,
-      buvard: 0.17,
-      trousse: 0.2,
-      "trousse-ouverte": 0.2,
-      registre: 0.17,
-      cachet: 0.06,
-      carte: 0.18,
-      boussole: 0.08,
-      lorgnette: 0.15,
-      lanterne: 0.1,
-      montre: 0.07,
-      gourde: 0.09
-    };
-    PLACES = [
-      { kinds: ["cahier", "carnet", "feuille"], x: 0.47, y: 0.56, dx: 0.07, dy: -0.03 },
-      { kinds: ["crayon", "plume", "stylo-plume"], x: 0.7, y: 0.6, dx: 0.015, dy: 0.08 },
-      { kinds: ["gomme", "buvard"], x: 0.83, y: 0.78, dx: -0.06, dy: -0.02 },
-      { kinds: ["regle", "equerre", "rapporteur", "compas"], x: 0.45, y: 0.17, dx: 0.15, dy: 0.02 },
-      { kinds: ["regle-a-calcul", "boulier"], x: 0.2, y: 0.72, dx: 0.04, dy: -0.12 },
-      { kinds: ["dossier", "chemise", "pochette", "registre"], x: 0.19, y: 0.33, dx: 0.05, dy: 0.04 },
-      { kinds: ["feuilles"], x: 0.72, y: 0.27, dx: 0.03, dy: 0.03 },
-      { kinds: ["encrier", "encre", "craie", "cachet"], x: 0.88, y: 0.35, dx: -0.02, dy: 0.14 }
-    ];
     clePose = (id) => `ojm.pose.${id}`;
   }
 });
@@ -24085,7 +24001,7 @@ function creerTableau(options = {}) {
     return true;
   }
   const toile = el("canvas.tableau__toile", {
-    width: LARGEUR3,
+    width: LARGEUR2,
     height: HAUTEUR,
     dataset: { lecture: lectureSeule ? "1" : "0" },
     role: "img",
@@ -24114,11 +24030,11 @@ function creerTableau(options = {}) {
   function peindre() {
     ctx.save();
     ctx.fillStyle = fondDeToile();
-    ctx.fillRect(0, 0, LARGEUR3, HAUTEUR);
+    ctx.fillRect(0, 0, LARGEUR2, HAUTEUR);
     if (surface.dataset.fond === "quadrille") {
       ctx.strokeStyle = "rgba(255,255,255,.055)";
       ctx.lineWidth = 1;
-      for (let x = 32; x < LARGEUR3; x += 32) {
+      for (let x = 32; x < LARGEUR2; x += 32) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, HAUTEUR);
@@ -24127,7 +24043,7 @@ function creerTableau(options = {}) {
       for (let y = 32; y < HAUTEUR; y += 32) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(LARGEUR3, y);
+        ctx.lineTo(LARGEUR2, y);
         ctx.stroke();
       }
     }
@@ -24226,10 +24142,10 @@ function creerTableau(options = {}) {
   function peindreFondImage() {
     const img = imageFond?.image;
     if (!img?.complete || !img.naturelleOk) return;
-    const echelle = Math.min(LARGEUR3 / img.naturalWidth, HAUTEUR / img.naturalHeight);
+    const echelle = Math.min(LARGEUR2 / img.naturalWidth, HAUTEUR / img.naturalHeight);
     const l = img.naturalWidth * echelle;
     const h = img.naturalHeight * echelle;
-    ctx.drawImage(img, (LARGEUR3 - l) / 2, (HAUTEUR - h) / 2, l, h);
+    ctx.drawImage(img, (LARGEUR2 - l) / 2, (HAUTEUR - h) / 2, l, h);
   }
   const cacheImages = /* @__PURE__ */ new Map();
   function chargerImage2(source) {
@@ -24243,14 +24159,14 @@ function creerTableau(options = {}) {
   function coordonnees(evenement) {
     const rect = toile.getBoundingClientRect();
     return [
-      clamp((evenement.clientX - rect.left) / rect.width * LARGEUR3, 0, LARGEUR3),
+      clamp((evenement.clientX - rect.left) / rect.width * LARGEUR2, 0, LARGEUR2),
       clamp((evenement.clientY - rect.top) / rect.height * HAUTEUR, 0, HAUTEUR)
     ];
   }
   const diffuserFragment = throttle((element) => {
     surFragment?.({ id: element.id, kind: element.kind, data: element.data, z: element.z });
   }, 70);
-  const diffuserCurseur = throttle((x, y) => surCurseur?.(x / LARGEUR3, y / HAUTEUR), 90);
+  const diffuserCurseur = throttle((x, y) => surCurseur?.(x / LARGEUR2, y / HAUTEUR), 90);
   toile.addEventListener("pointerdown", (evenement) => {
     if (!ecriture) return;
     if (evenement.button !== 0 && evenement.pointerType === "mouse") return;
@@ -24328,7 +24244,7 @@ function creerTableau(options = {}) {
       contenteditable: "true",
       role: "textbox",
       style: {
-        left: `${x / LARGEUR3 * rect.width}px`,
+        left: `${x / LARGEUR2 * rect.width}px`,
         top: `${y / HAUTEUR * rect.height}px`,
         color: couleur,
         fontSize: `${34 / HAUTEUR * rect.height}px`
@@ -24536,7 +24452,7 @@ function creerTableau(options = {}) {
     /** Image PNG de l'état courant (capture vers le cahier). */
     instantane(qualite = 0.82) {
       const reduit = document.createElement("canvas");
-      reduit.width = Math.round(LARGEUR3 * 0.75);
+      reduit.width = Math.round(LARGEUR2 * 0.75);
       reduit.height = Math.round(HAUTEUR * 0.75);
       reduit.getContext("2d").drawImage(toile, 0, 0, reduit.width, reduit.height);
       return reduit.toDataURL("image/jpeg", qualite);
@@ -24545,12 +24461,12 @@ function creerTableau(options = {}) {
     peindre
   };
 }
-var LARGEUR3, HAUTEUR, OUTILS, TEINTES2, EPAISSEURS;
+var LARGEUR2, HAUTEUR, OUTILS, TEINTES2, EPAISSEURS;
 var init_tableau = __esm({
   "src/features/tableau.js"() {
     init_dom();
     init_util();
-    LARGEUR3 = 1600;
+    LARGEUR2 = 1600;
     HAUTEUR = 900;
     OUTILS = [
       { cle: "crayon", libelle: "Crayon", icone: "crayon" },
