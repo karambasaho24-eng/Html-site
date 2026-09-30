@@ -145,8 +145,36 @@ export function creerScene({
     const ordre = (g, c) => (g === "cahier" ? 0 : OUTILS_REQUIS.ecrire.includes(c.kind) ? 1 : 2);
     devant.sort((a, b) => ordre(...a) - ordre(...b));
     const rangeables = devant.filter(([g, c]) => g === "cahier" || !fiche(c.kind)?.contenant);
-    render(objetsPupitre, devant.length
+    // Le sac ouvert en 3D : ce qu'il contient, en petites étiquettes lisibles
+    // — un clic, et la chose sort sur la table.
+    const dansSac = classe3d && sacOuvert ? [
+      ...bureau.cahiersDansMonSac().map((c) => ["cahier", c]),
+      ...bureau.dansMonSac().map((o) => ["objet", o])
+    ] : null;
+    const rangeeSac = dansSac ? [
+      el("div.plateau__entete",
+        el("span.plateau__titre", "Dans le sac"),
+        el("span.plateau__compte", String(dansSac.length))),
+      el("div.plateau__cartes.plateau__cartes--sac", dansSac.length
+        ? dansSac.map(([genre, chose]) => {
+            const nom = genre === "cahier" ? (chose.title || "Cahier") : nomObjet(chose);
+            return el("div.pose.pose--sac", { dataset: { id: String(chose.id), genre, kind: kindDe(genre, chose) } },
+              el("button.pose__corps", {
+                type: "button", title: `Sortir ${nom}`, "aria-label": `Sortir ${nom}`,
+                onclick: async (e) => {
+                  await sortirDuSac(genre, chose, e.currentTarget.closest(".pose"));
+                  classe3d?.majSac(contenuSac3d());
+                }
+              },
+                el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kindDe(genre, chose)), alt: "", draggable: false })),
+                el("span.pose__nom", nom),
+                el("span.pose__action.pose__action--principale", "Sortir")));
+          })
+        : el("span.petit.faible", "Votre sac est vide."))
+    ] : [];
+    render(objetsPupitre, dansSac && !devant.length ? rangeeSac : devant.length
       ? [
+          ...rangeeSac,
           el("div.plateau__entete",
             el("span.plateau__titre", "Sur la table"),
             el("span.plateau__compte", String(devant.length)),
@@ -246,7 +274,7 @@ export function creerScene({
     const enMain = genre === "objet" && tenu?.id === chose.id;
     const action = actionEnMots(genre, chose, enMain);
     // Sur le bouton, le mot court ; la phrase entière reste en info-bulle.
-    const court = { "Prendre en main": "Prendre", "Écrire une note": "Écrire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter" }[action] || action;
+    const court = { "Prendre en main": "Prendre", "Écrire une note": "Écrire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter", "Reposer": "Poser" }[action] || action;
     const contenant = genre === "objet" && fiche(chose.kind)?.contenant;
 
     const noeudPose = el("div.pose", {
@@ -258,14 +286,13 @@ export function creerScene({
         onclick: () => geste(genre, chose)
       },
         el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false })),
-        el("span.pose__nom", nom),
-        enMain ? el("span.pose__etat", "En main") : null),
+        el("span.pose__nom", nom)),
       el("div.pose__actions",
         el("button.pose__action.pose__action--principale", { type: "button", title: action, onclick: () => geste(genre, chose) }, court),
         contenant ? null : el("button.pose__action", {
           type: "button", title: `Remettre ${nom} dans le sac`, "aria-label": `Remettre ${nom} dans le sac`,
           onclick: () => remettre(genre, chose, noeudPose)
-        }, icone("sac", 12), "Ranger"))
+        }, icone("sac", 13)))
     );
     return noeudPose;
   }

@@ -1857,7 +1857,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const { table } = posesSac(moiSac.siege);
       const a = moiSac.siege.angle || 0;
       camera.fov = 40;
-      const d = Math.max(1.3, 2.5 / Math.max(0.3, camera.aspect));
+      // Le sac entier dans l'image, avec un peu de table autour — jamais un
+      // gros plan illisible, même dans une fenêtre très large ou très basse.
+      const t = 2 * Math.tan((camera.fov / 2) * Math.PI / 180);
+      const d = Math.max(2.1 / t, 2.8 / (t * Math.max(0.3, camera.aspect)));
       const inc = 0.42;                                     // l'inclinaison, depuis la verticale
       const dz = Math.sin(inc) * d, dy = Math.cos(inc) * d;
       posCible.set(table.x + Math.sin(a) * dz, table.y + SAC.H + dy, table.z + Math.cos(a) * dz);
@@ -1875,17 +1878,22 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const d = Math.max(4.5 / t, 3.6 / (t * camera.aspect));
       camera.position.set(0, 2.4, d);
       regard.set(0, 1.95, 0);
+      suivre = false; cameraPosee = false;
     } else if (dispo.maison) {
       // Chez soi : on se voit de trois quarts dos, assis à son bureau.
       // Fenêtre très large : on recule et on resserre, sans déformer la pièce.
+      // Le sac refermé, la caméra y revient en glissant.
       camera.fov = 46 - k * 16;
-      camera.position.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
-      regard.set(-0.2, 2.7, dispo.fond + 1.4);
+      posCible.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
+      regardCible.set(-0.2, 2.7, dispo.fond + 1.4);
+      if (!cameraPosee) { camera.position.copy(posCible); regard.copy(regardCible); }
+      suivre = true; cameraPosee = true;
     } else if (dispo.reunion) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
       regard.set(0, 2.9 + k * 0.6, -R * 0.55);
+      suivre = false; cameraPosee = false;
     } else {
       const moi = [...gens.values()].find((x) => x.personne.moi);
       if (etat.vue === "prof") {

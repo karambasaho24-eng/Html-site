@@ -3276,14 +3276,13 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    ========================================================================= */
 .scene__pupitre {
   position: relative; z-index: 2;
-  margin: 26px 2% 14px;
-  min-height: 188px;
+  margin: 14px 2% 10px;
   /* Le sac est posé à gauche de la table : on lui laisse sa place. */
-  padding-left: calc(clamp(110px, 13vw, 170px) + 18px);
+  padding-left: calc(clamp(76px, 8vw, 112px) + 14px);
 }
 .pupitre__surface {
-  position: absolute; inset: 0 0 0 calc(clamp(110px, 13vw, 170px) + 6px);
-  border-radius: 22px;
+  position: absolute; inset: 0 0 0 calc(clamp(76px, 8vw, 112px) + 6px);
+  border-radius: 16px;
   background:
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='600' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.002 0.06' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
     radial-gradient(80% 70% at 30% 20%, rgba(255, 236, 210, .05), transparent 70%),
@@ -3294,7 +3293,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
     0 30px 60px -30px rgba(0,0,0,.85);
 }
 .pupitre__chant { display: none; }
-.pupitre__objets { position: relative; z-index: 1; padding: 14px 16px 10px 4px; min-height: 188px; }
+.pupitre__objets { position: relative; z-index: 1; padding: 10px 12px 10px 4px; min-height: 88px; }
 
 /* Bureau vide : trois gestes, dans l'ordre. */
 .pupitre__vide {
@@ -3378,72 +3377,72 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 .oublis__texte b { font-size: 13px; font-weight: 600; color: var(--texte); }
 .oublis__texte span { font-size: 11.5px; color: var(--texte-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
 
-/* --- La table rangée : une carte par chose ---------------------------------
-   Pas d'objets jetés en vrac qui débordent : une rangée de cartes, chacune
-   avec sa vignette, son nom et deux gestes nets. La rangée défile si elle
-   est longue ; la table garde sa hauteur. */
+/* --- La table rangée : une petite étiquette par chose ---------------------
+   Discrètes, sur une ou deux lignes : la table ne mange pas la vue 3D. Un
+   clic sur l'étiquette = le geste principal ; le petit sac = ranger. */
 .plateau__entete {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin: 0 0 10px;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px;
 }
-.plateau__titre { font-family: var(--f-titre); font-size: 15px; font-weight: 600; color: var(--texte); }
+.plateau__titre {
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: none;
+  color: var(--texte-doux);
+}
 .plateau__compte {
-  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   display: inline-grid; place-items: center;
-  font-size: 11.5px; font-weight: 600; color: var(--texte-doux); background: rgba(0,0,0,.25);
+  font-size: 10.5px; font-weight: 600; color: var(--texte-faible); background: rgba(0,0,0,.25);
 }
 .plateau__main {
-  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; color: #22170c; background: var(--accent);
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px 0 5px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: #22170c; background: var(--accent);
 }
-.plateau__main img { height: 18px; transform: rotate(-12deg); }
-.plateau__tout { margin-left: auto; }
+.plateau__main img { height: 15px; transform: rotate(-12deg); }
+.plateau__tout { margin-left: auto; height: 26px; font-size: 11.5px; }
 .plateau__cartes {
-  display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden;
-  padding: 2px 2px 8px; scroll-snap-type: x proximity;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  max-height: 84px; overflow-y: auto; overflow-x: hidden;
+  padding: 1px;
   scrollbar-width: thin; scrollbar-color: rgba(255,230,200,.25) transparent;
 }
 .pose {
-  position: relative; flex: 0 0 140px; scroll-snap-align: start;
-  display: flex; flex-direction: column;
-  border-radius: 16px; overflow: hidden;
-  background: rgba(24,16,10,.42);
-  box-shadow: inset 0 0 0 1px rgba(255,230,200,.08), 0 8px 18px -10px rgba(0,0,0,.6);
-  transition: transform .18s var(--doux), box-shadow .18s var(--doux), background .18s;
-  animation: apparait .3s var(--doux);
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 36px; padding: 0 3px 0 2px; border-radius: 10px;
+  background: rgba(24,16,10,.45);
+  box-shadow: inset 0 0 0 1px rgba(255,230,200,.08);
+  transition: background .15s, box-shadow .15s;
+  animation: apparait .25s var(--doux);
 }
-.pose:hover { transform: translateY(-2px); background: rgba(34,23,14,.55); box-shadow: inset 0 0 0 1px rgba(255,230,200,.16), 0 12px 22px -10px rgba(0,0,0,.65); }
-.pose--en-main { background: rgba(232,190,130,.16); box-shadow: inset 0 0 0 1.5px var(--accent), 0 12px 22px -10px rgba(0,0,0,.65); }
+.pose:hover { background: rgba(40,27,16,.7); box-shadow: inset 0 0 0 1px rgba(255,230,200,.18); }
+.pose--en-main { background: rgba(232,190,130,.18); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .pose__corps {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 10px 8px 6px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; text-align: center;
+  display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
 }
-.pose__vignette { height: 70px; width: 100%; display: grid; place-items: center; }
+.pose__vignette { width: 28px; height: 26px; display: grid; place-items: center; flex: 0 0 auto; }
 .pose__image {
-  max-width: 100%; max-height: 70px; width: auto; height: auto; object-fit: contain; pointer-events: none;
-  filter: drop-shadow(0 6px 6px rgba(0,0,0,.4));
-  transition: transform .2s var(--doux);
+  max-width: 28px; max-height: 26px; width: auto; height: auto; object-fit: contain; pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.45));
 }
-.pose:hover .pose__image { transform: translateY(-2px) rotate(-2deg); }
 .pose--en-main .pose__image { transform: rotate(-10deg); }
 .pose__nom {
-  max-width: 100%; font-size: 12.5px; font-weight: 500; color: var(--texte);
+  max-width: 120px; font-size: 12px; font-weight: 500; color: var(--texte);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pose__etat {
-  padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600;
-  color: #22170c; background: var(--accent);
-}
-.pose__actions { display: flex; gap: 4px; padding: 0 6px 8px; margin-top: auto; }
+.pose__actions { display: inline-flex; align-items: center; gap: 2px; }
 .pose__action {
-  flex: 1 1 0; min-width: 0; height: 28px; padding: 0 6px; border: 0; border-radius: 9px;
+  height: 26px; min-width: 26px; padding: 0 8px; border: 0; border-radius: 7px;
   display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-  font: inherit; font-size: 11.5px; color: var(--texte-doux); background: rgba(0,0,0,.25); cursor: pointer;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: inherit; font-size: 11px; color: var(--texte-faible); background: transparent; cursor: pointer;
+  white-space: nowrap;
 }
-.pose__action:hover { color: var(--texte); background: rgba(0,0,0,.4); }
+.pose__action:not(.pose__action--principale) { padding: 0; }
+.pose__action:hover { color: var(--texte); background: rgba(0,0,0,.35); }
 .pose__action--principale { color: #22170c; background: rgba(232,196,142,.85); font-weight: 600; }
 .pose__action--principale:hover { color: #22170c; background: var(--accent); }
+.plateau__cartes--sac { margin-bottom: 10px; }
+.pose--sac .pose__action { margin-left: 2px; }
 .pose--parti { opacity: 0 !important; }
 .pose__vol {
   position: fixed; z-index: 9000; pointer-events: none;
@@ -3472,8 +3471,8 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 }
 .scene__sac:hover .scene__sac-image { transform: translateY(-3px); }
 .scene__sac-mot {
-  padding: 5px 12px; border-radius: 999px;
-  font-size: 12px; font-weight: 500; color: var(--texte);
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 500; color: var(--texte);
   background: rgba(26,18,12,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
   transition: background .15s, box-shadow .15s;
 }
@@ -3842,7 +3841,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
    ========================================================================= */
 .scene__classe3d { display: none; }
 /* La vue 3D prend la place qui reste ; la table, toujours la sienne. */
-.scene--3d { grid-template-rows: minmax(200px, 1fr) auto; }
+.scene--3d { grid-template-rows: minmax(300px, 1fr) auto; }
 .scene--3d .scene__avant { padding: 10px 1.5% 0; }
 .scene--3d .scene__classe3d {
   display: block; position: relative;
@@ -3858,7 +3857,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
 }
 .scene--3d .scene__estrade,
 .scene--3d .scene__banc { display: none; }
-.scene--3d .scene__pupitre { margin-top: 12px; }
+.scene--3d .scene__pupitre { margin-top: 8px; }
 .classe3d__toile { display: block; width: 100%; height: 100%; }
 .classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .classe3d__nom {
@@ -3884,7 +3883,7 @@ body.mode-examen .barre__outils .hors-examen { display: none; }
   pointer-events: none;
 }
 .scene__sac-zone > * { pointer-events: auto; }
-.scene__sac { width: clamp(104px, 11vw, 165px); }
+.scene__sac { width: clamp(70px, 7.5vw, 104px); }
 .sac__contenu {
   position: relative; left: auto; bottom: auto;
   flex: 0 1 auto; min-height: 0; max-height: none;
@@ -4479,11 +4478,11 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 
 /* Chez moi, en 3D : la chambre et son bureau, sous le bonjour. */
 .chez-moi > .scene.scene--3d { grid-template-rows: minmax(0, 1fr) auto; }
-.chez-moi .scene--3d .scene__avant--mur { padding: 18px 4% 0; display: flex; flex-direction: column; }
+.chez-moi .scene--3d .scene__avant--mur { padding: 18px 4% 0; display: flex; flex-direction: column; gap: 0; }
 .chez-moi .scene--3d .scene__avant--mur .mur { width: 100%; max-width: none; }
 .chez-moi .scene--3d .scene__avant--mur { min-height: 0; }
 .chez-moi .scene--3d .scene__avant--mur .scene__classe3d {
-  height: auto; min-height: 200px; margin-top: 14px; flex: 1 1 auto;
+  height: auto; min-height: clamp(260px, 44vh, 620px); margin-top: 12px; flex: 1 1 auto;
 }
 .chez-moi .scene--3d .scene__pupitre { margin-top: 14px; }
 .classe3d__nom:empty { display: none; }
@@ -6739,7 +6738,7 @@ function normaliserTrousse(valeur) {
   }
   return valeur;
 }
-var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, affaires, VOLUME_SUPPORT, salles, classement, remisesObjet, privations, remisesCahier, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
+var pilote, T, profils, rbac, classes, membres, personnages, livret, sessions, presence, renvois, journal, cahiers, pages, penseBetes, cartable, dotationsEnCours, affaires, VOLUME_SUPPORT, salles, classement, remisesObjet, privations, remisesCahier, annotations, papiers, tableaux, documents, dossiers, cours, exercices, notes, annonces, questions, mains, sondages, minuteries, notifications, favoris, temps, fichiers, auth;
 var init_data = __esm({
   "src/data/index.js"() {
     init_config();
@@ -7103,6 +7102,7 @@ var init_data = __esm({
         };
       }
     };
+    dotationsEnCours = /* @__PURE__ */ new Map();
     affaires = {
       miennes: (utilisateurId) => T("belongings").liste({ owner_id: utilisateurId }, { ordre: "created_at" }),
       /** Ce que j'ai entre les mains sans que ce soit à moi. */
@@ -7209,7 +7209,14 @@ var init_data = __esm({
        * cela, la première visite montre une étagère nue et une consigne qu'on ne
        * peut pas satisfaire. On ne la repose jamais deux fois.
        */
-      async assurerDotation(utilisateurId, dotation) {
+      assurerDotation(utilisateurId, dotation) {
+        const cle = String(utilisateurId);
+        if (!dotationsEnCours.has(cle)) {
+          dotationsEnCours.set(cle, this.doter(utilisateurId, dotation).finally(() => dotationsEnCours.delete(cle)));
+        }
+        return dotationsEnCours.get(cle);
+      },
+      async doter(utilisateurId, dotation) {
         const deja = await this.miennes(utilisateurId).catch(() => []);
         if (deja.length) return deja;
         const parType = /* @__PURE__ */ new Map();
@@ -16553,7 +16560,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       const { table: table2 } = posesSac(moiSac.siege);
       const a = moiSac.siege.angle || 0;
       camera.fov = 40;
-      const d = Math.max(1.3, 2.5 / Math.max(0.3, camera.aspect));
+      const t = 2 * Math.tan(camera.fov / 2 * Math.PI / 180);
+      const d = Math.max(2.1 / t, 2.8 / (t * Math.max(0.3, camera.aspect)));
       const inc = 0.42;
       const dz = Math.sin(inc) * d, dy = Math.cos(inc) * d;
       posCible.set(table2.x + Math.sin(a) * dz, table2.y + SAC.H + dy, table2.z + Math.cos(a) * dz);
@@ -16569,15 +16577,25 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       const d = Math.max(4.5 / t, 3.6 / (t * camera.aspect));
       camera.position.set(0, 2.4, d);
       regard.set(0, 1.95, 0);
+      suivre = false;
+      cameraPosee = false;
     } else if (dispo.maison) {
       camera.fov = 46 - k * 16;
-      camera.position.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
-      regard.set(-0.2, 2.7, dispo.fond + 1.4);
+      posCible.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
+      regardCible.set(-0.2, 2.7, dispo.fond + 1.4);
+      if (!cameraPosee) {
+        camera.position.copy(posCible);
+        regard.copy(regardCible);
+      }
+      suivre = true;
+      cameraPosee = true;
     } else if (dispo.reunion) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
       regard.set(0, 2.9 + k * 0.6, -R * 0.55);
+      suivre = false;
+      cameraPosee = false;
     } else {
       const moi = [...gens.values()].find((x) => x.personne.moi);
       if (etat2.vue === "prof") {
@@ -17754,7 +17772,41 @@ function creerScene({
     const ordre = (g, c) => g === "cahier" ? 0 : OUTILS_REQUIS.ecrire.includes(c.kind) ? 1 : 2;
     devant.sort((a, b) => ordre(...a) - ordre(...b));
     const rangeables = devant.filter(([g, c]) => g === "cahier" || !fiche(c.kind)?.contenant);
-    render(objetsPupitre, devant.length ? [
+    const dansSac = classe3d && sacOuvert ? [
+      ...bureau.cahiersDansMonSac().map((c) => ["cahier", c]),
+      ...bureau.dansMonSac().map((o) => ["objet", o])
+    ] : null;
+    const rangeeSac = dansSac ? [
+      el(
+        "div.plateau__entete",
+        el("span.plateau__titre", "Dans le sac"),
+        el("span.plateau__compte", String(dansSac.length))
+      ),
+      el("div.plateau__cartes.plateau__cartes--sac", dansSac.length ? dansSac.map(([genre, chose]) => {
+        const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
+        return el(
+          "div.pose.pose--sac",
+          { dataset: { id: String(chose.id), genre, kind: kindDe(genre, chose) } },
+          el(
+            "button.pose__corps",
+            {
+              type: "button",
+              title: `Sortir ${nom}`,
+              "aria-label": `Sortir ${nom}`,
+              onclick: async (e) => {
+                await sortirDuSac(genre, chose, e.currentTarget.closest(".pose"));
+                classe3d?.majSac(contenuSac3d());
+              }
+            },
+            el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kindDe(genre, chose)), alt: "", draggable: false })),
+            el("span.pose__nom", nom),
+            el("span.pose__action.pose__action--principale", "Sortir")
+          )
+        );
+      }) : el("span.petit.faible", "Votre sac est vide."))
+    ] : [];
+    render(objetsPupitre, dansSac && !devant.length ? rangeeSac : devant.length ? [
+      ...rangeeSac,
       el(
         "div.plateau__entete",
         el("span.plateau__titre", "Sur la table"),
@@ -17861,7 +17913,7 @@ function creerScene({
     const nom = genre === "cahier" ? chose.title || "Cahier" : nomObjet(chose);
     const enMain = genre === "objet" && tenu?.id === chose.id;
     const action = actionEnMots(genre, chose, enMain);
-    const court = { "Prendre en main": "Prendre", "\xC9crire une note": "\xC9crire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter" }[action] || action;
+    const court = { "Prendre en main": "Prendre", "\xC9crire une note": "\xC9crire", "Ouvrir le dossier": "Ouvrir", "Prendre ce sac": "Porter", "Reposer": "Poser" }[action] || action;
     const contenant = genre === "objet" && fiche(chose.kind)?.contenant;
     const noeudPose = el(
       "div.pose",
@@ -17878,8 +17930,7 @@ function creerScene({
           onclick: () => geste(genre, chose)
         },
         el("span.pose__vignette", el("img.pose__image", { src: imageDetouree(kind), alt: "", draggable: false })),
-        el("span.pose__nom", nom),
-        enMain ? el("span.pose__etat", "En main") : null
+        el("span.pose__nom", nom)
       ),
       el(
         "div.pose__actions",
@@ -17889,7 +17940,7 @@ function creerScene({
           title: `Remettre ${nom} dans le sac`,
           "aria-label": `Remettre ${nom} dans le sac`,
           onclick: () => remettre(genre, chose, noeudPose)
-        }, icone("sac", 12), "Ranger")
+        }, icone("sac", 13))
       )
     );
     return noeudPose;

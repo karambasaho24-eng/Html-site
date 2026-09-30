@@ -417,6 +417,8 @@ export const cartable = {
    ceci dit ce qui existe. Les deux se répondent : on boucle son sac en
    choisissant parmi ses affaires, et la déclaration en garde la trace.
    ========================================================================= */
+const dotationsEnCours = new Map();
+
 export const affaires = {
   miennes: (utilisateurId) =>
     T("belongings").liste({ owner_id: utilisateurId }, { ordre: "created_at" }),
@@ -525,7 +527,18 @@ export const affaires = {
    * cela, la première visite montre une étagère nue et une consigne qu'on ne
    * peut pas satisfaire. On ne la repose jamais deux fois.
    */
-  async assurerDotation(utilisateurId, dotation) {
+  assurerDotation(utilisateurId, dotation) {
+    // Plusieurs vues la demandent au même moment (chez soi, le sac, le
+    // cahier) : une seule distribution, que tout le monde attend.
+    const cle = String(utilisateurId);
+    if (!dotationsEnCours.has(cle)) {
+      dotationsEnCours.set(cle, this.doter(utilisateurId, dotation)
+        .finally(() => dotationsEnCours.delete(cle)));
+    }
+    return dotationsEnCours.get(cle);
+  },
+
+  async doter(utilisateurId, dotation) {
     const deja = await this.miennes(utilisateurId).catch(() => []);
     if (deja.length) return deja;
 
