@@ -86,6 +86,79 @@ function analyserFiltreTemps(expression) {
   return (ligne) => String(ligne?.[colonne]) === brut;
 }
 
+/* --- Le garde du lieu -----------------------------------------------------
+   L'équivalent de app_garde_du_lieu (0019). Sans lui, le mode démonstration
+   laisserait ranger un boulier dans une trousse pleine, ou récupérer depuis
+   chez soi un stylo resté en salle — et on croirait avoir écrit du code qui
+   tient, alors qu'il ne tiendrait qu'ici. */
+let recuperationEnCours = false;
+
+function tailleDuContenu(contenantId, sauf) {
+  let total = 0;
+  for (const t of ["belongings", "notebooks"]) {
+    for (const l of charger(t)) {
+      if (String(l.container_id || "") === String(contenantId) && l.id !== sauf) total += Number(l.size || 1);
+    }
+  }
+  return total;
+}
+
+function dansLeSac(contenantId) {
+  const objets = charger("belongings");
+  let courant = contenantId;
+  for (let i = 0; i < 8 && courant; i++) {
+    const b = objets.find((o) => o.id === courant);
+    if (!b) return false;
+    if (b.carried && (b.place || "range") === "range") return true;
+    courant = b.container_id;
+  }
+  return false;
+}
+
+function gardeDuLieu(ancien, nouveau) {
+  const lieu = (o) => o?.place || "range";
+  if (ancien && lieu(ancien) === "salle" && !recuperationEnCours) {
+    if (lieu(nouveau) !== "salle" || (nouveau.container_id || null) !== (ancien.container_id || null)) {
+      throw new ErreurDonnees("Cet objet est resté en salle : il faut aller le récupérer.", "42501");
+    }
+  }
+  if (nouveau.container_id) {
+    if (nouveau.container_id === nouveau.id) {
+      throw new ErreurDonnees("Un contenant ne se range pas dans lui-même", "22023");
+    }
+    const hote = charger("belongings").find((o) => o.id === nouveau.container_id);
+    if (!hote || !hote.is_container) throw new ErreurDonnees("Cet objet n'est pas un contenant", "22023");
+    if (hote.owner_id !== nouveau.owner_id) {
+      throw new ErreurDonnees("On ne range pas ses affaires chez quelqu'un d'autre", "42501");
+    }
+    const change = !ancien || ancien.container_id !== nouveau.container_id
+      || Number(nouveau.size || 1) > Number(ancien.size || 1);
+    if (hote.capacity != null && change
+        && tailleDuContenu(nouveau.container_id, nouveau.id) + Number(nouveau.size || 1) > hote.capacity) {
+      throw new ErreurDonnees(`Il n'y a plus de place dans ${hote.label || hote.kind}`, "22023");
+    }
+    Object.assign(nouveau, { place: "range", place_session: null, place_class: null,
+                             place_label: null, place_at: null });
+  }
+  if (lieu(nouveau) === "bureau" && lieu(ancien) !== "bureau") {
+    if (ancien && lieu(ancien) === "range" && !recuperationEnCours
+        && (!ancien.container_id || !dansLeSac(ancien.container_id))) {
+      throw new ErreurDonnees("On ne sort que ce qu'on a dans son sac.", "42501");
+    }
+    if (!nouveau.place_session) {
+      throw new ErreurDonnees("Sortir un objet suppose une activité en cours", "22023");
+    }
+    nouveau.place_at = new Date().toISOString();
+  }
+  if (lieu(nouveau) === "salle" && lieu(ancien) !== "salle") {
+    if (!nouveau.place_class) throw new ErreurDonnees("Un objet laissé en salle doit dire laquelle", "22023");
+    nouveau.place_at = new Date().toISOString();
+  }
+  return nouveau;
+}
+
+const GARDES = { belongings: gardeDuLieu, notebooks: gardeDuLieu };
+
 /* --- Dépôt générique ------------------------------------------------------ */
 function depot(nom) {
   return {
@@ -116,6 +189,7 @@ function depot(nom) {
         ...objet,
         id: objet.id || uid()
       };
+      if (GARDES[nom]) GARDES[nom](null, ligne);
 
       // Équivalent du déclencheur classes_set_code côté SQL.
       if (nom === "classes" && !ligne.code) {
@@ -161,7 +235,8 @@ function depot(nom) {
       const i = lignes.findIndex((l) => l.id === id);
       if (i < 0) throw new ErreurDonnees("Élément introuvable", "P0002");
       const ancien = { ...lignes[i] };
-      lignes[i] = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+      const fusion = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+      lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
       sauver(nom, lignes);
       signaler(nom, "UPDATE", lignes[i], ancien);
       return { ...lignes[i] };
@@ -354,10 +429,20 @@ export async function creerPiloteLocal() {
 
       // Il quitte le sac de celui qui s'en sépare : un objet prêté ne reste
       // pas rangé dans la trousse de son propriétaire.
-      await t("belongings").majorer(objet.id, ligne.kind === "give"
-        ? { owner_id: cible, former_owner: source, holder_id: null, state: "owned",
-            container_id: null, carried: false }
-        : { holder_id: cible, state: "lent", container_id: null, carried: false });
+      if (objet.place === "salle") {
+        throw new ErreurDonnees("Cet objet est resté en salle : on ne tend pas ce qu'on n'a pas.", "42501");
+      }
+      // En séance, ce qu'on reçoit arrive sur le bureau : on peut s'en servir.
+      const lieu = await procedures._lieu_de_remise(ligne);
+      recuperationEnCours = true;
+      try {
+        await t("belongings").majorer(objet.id, {
+          ...(ligne.kind === "give"
+            ? { owner_id: cible, former_owner: source, holder_id: null, state: "owned" }
+            : { holder_id: cible, state: "lent" }),
+          container_id: null, carried: false, ...lieu
+        });
+      } finally { recuperationEnCours = false; }
 
       const maj = await t("belonging_handoffs").majorer(handoff, {
         state: "accepted", settled_at: new Date().toISOString(), belonging_id: objet.id
@@ -381,9 +466,16 @@ export async function creerPiloteLocal() {
         throw new ErreurDonnees("Un objet donné ne se reprend pas : il faut le redemander", "42501");
       }
       const objet = await t("belongings").lire(ligne.belonging_id);
-      await t("belongings").majorer(ligne.belonging_id, {
-        holder_id: null, state: "owned", container_id: null, carried: false
-      });
+      if (objet?.place === "salle") {
+        throw new ErreurDonnees("Cet objet est resté en salle : il faut d'abord aller le chercher.", "42501");
+      }
+      const lieu = await procedures._lieu_de_remise(ligne);
+      recuperationEnCours = true;
+      try {
+        await t("belongings").majorer(ligne.belonging_id, {
+          holder_id: null, state: "owned", container_id: null, carried: false, ...lieu
+        });
+      } finally { recuperationEnCours = false; }
       const maj = await t("belonging_handoffs").majorer(handoff, {
         state: "returned", settled_at: new Date().toISOString()
       });
@@ -436,6 +528,110 @@ export async function creerPiloteLocal() {
         body: objet.label || objet.kind, link: "/affaires", read_at: null
       });
       return maj;
+    },
+
+    /** Équivalent de app_lieu_de_remise. */
+    async _lieu_de_remise(ligne) {
+      const s = ligne.session_id ? await t("class_sessions").lire(ligne.session_id) : null;
+      return s?.status === "live"
+        ? { place: "bureau", place_session: ligne.session_id, place_class: ligne.class_id || s.class_id,
+            place_label: null }
+        : { place: "range", place_session: null, place_class: null, place_label: null };
+    },
+
+    /** Équivalent de app_salle_ouverte. */
+    async _salle_ouverte(classeId, pour) {
+      const live = await t("class_sessions").liste({ class_id: classeId, status: "live" });
+      if (live.length) return true;
+      const c = await t("classes").lire(classeId);
+      const r = c?.settings || {};
+      const maintenant = Date.now();
+      if (r.salle_ouverte_jusqua && new Date(r.salle_ouverte_jusqua).getTime() > maintenant) return true;
+      const passe = r.passes?.[pour];
+      return Boolean(passe && new Date(passe).getTime() > maintenant);
+    },
+
+    async _sac_avec_place(proprietaire, besoin) {
+      const sacs = (await t("belongings").liste({ owner_id: proprietaire }))
+        .filter((b) => b.is_container && b.carried && (b.place || "range") === "range"
+          && ["owned", "borrowed"].includes(b.state || "owned"))
+        .sort((a, b) => (b.capacity || 0) - (a.capacity || 0));
+      return sacs.find((b) => (b.capacity || 0) - tailleDuContenu(b.id) >= besoin)?.id || null;
+    },
+
+    async _recuperer(table, id, message) {
+      const ligne = await t(table).lire(id);
+      if (!ligne) throw new ErreurDonnees("Introuvable", "P0002");
+      if (ligne.owner_id !== monId() && ligne.holder_id !== monId()) {
+        throw new ErreurDonnees("Ce n'est pas à vous", "42501");
+      }
+      if ((ligne.place || "range") === "range") return ligne;
+      if (!ligne.place_class || !(await procedures._salle_ouverte(ligne.place_class, monId()))) {
+        throw new ErreurDonnees(message, "42501");
+      }
+      recuperationEnCours = true;
+      try {
+        return await t(table).majorer(id, {
+          place: "range", place_session: null, place_class: null, place_label: null, place_at: null,
+          container_id: await procedures._sac_avec_place(ligne.owner_id, Number(ligne.size || 1))
+        });
+      } finally { recuperationEnCours = false; }
+    },
+
+    /** Équivalent de reprendre_a_ma_place (0022) : revenu à sa place, on
+     *  retrouve devant soi ce qu'on avait laissé dans CETTE salle. */
+    async reprendre_a_ma_place({ genre, target, seance }) {
+      const s = await t("class_sessions").lire(seance);
+      if (!s || s.status !== "live") throw new ErreurDonnees("Aucune séance en cours ici : la salle est fermée.", "42501");
+      const table = genre === "cahier" ? "notebooks" : "belongings";
+      const ligne = await t(table).lire(target);
+      if (!ligne) throw new ErreurDonnees("Introuvable", "P0002");
+      if (ligne.owner_id !== monId() && ligne.holder_id !== monId()) throw new ErreurDonnees("Ce n'est pas à vous", "42501");
+      const lieu = ligne.place || "range";
+      if (lieu === "range" || (lieu === "bureau" && ligne.place_session === seance)) return true;
+      if (ligne.place_class !== s.class_id) throw new ErreurDonnees("Cet objet a été laissé dans une autre salle.", "42501");
+      recuperationEnCours = true;
+      try {
+        await t(table).majorer(target, { place: "bureau", place_session: seance, place_class: s.class_id, container_id: null });
+      } finally { recuperationEnCours = false; }
+      return true;
+    },
+
+    recover_belonging: ({ target }) =>
+      procedures._recuperer("belongings", target, "La salle est fermée : l'objet y reste."),
+    recover_notebook: ({ target }) =>
+      procedures._recuperer("notebooks", target, "La salle est fermée : le cahier y reste."),
+
+    async forgotten_in_class({ target_class }) {
+      const objets = (await t("belongings").liste({ place_class: target_class }))
+        .filter((o) => ["salle", "bureau"].includes(o.place))
+        .map((o) => ({ genre: "objet", id: o.id, owner_id: o.owner_id, kind: o.kind,
+                       label: o.label, place: o.place, place_at: o.place_at }));
+      const supports = (await t("notebooks").liste({ place_class: target_class }))
+        .filter((o) => ["salle", "bureau"].includes(o.place))
+        .map((o) => ({ genre: "cahier", id: o.id, owner_id: o.owner_id, kind: o.support || "cahier",
+                       label: o.title, place: o.place, place_at: o.place_at }));
+      return [...objets, ...supports].sort((a, b) => String(b.place_at).localeCompare(String(a.place_at)));
+    },
+
+    async restitute_forgotten({ genre, target }) {
+      const table = genre === "cahier" ? "notebooks" : "belongings";
+      const ligne = await t(table).lire(target);
+      if (!ligne?.place_class) throw new ErreurDonnees("Rien à rendre", "P0002");
+      const classe = ligne.place_class;
+      recuperationEnCours = true;
+      try {
+        await t(table).majorer(target, {
+          place: "range", place_session: null, place_class: null, place_label: null, place_at: null,
+          container_id: await procedures._sac_avec_place(ligne.owner_id, Number(ligne.size || 1))
+        });
+      } finally { recuperationEnCours = false; }
+      await t("notifications").creer({
+        user_id: ligne.owner_id, class_id: classe, kind: "affaires",
+        title: "On vous a rendu ce que vous aviez oublié",
+        body: ligne.title || ligne.label || ligne.kind, link: "/affaires", read_at: null
+      });
+      return true;
     },
 
     async join_class({ join_code }) {
@@ -711,22 +907,26 @@ export async function creerPiloteLocal() {
       async session() { return sessionCourante(); },
       async utilisateur() { return sessionCourante()?.user || null; },
 
-      async inscrire({ email, motDePasse, nom, role }) {
+      async inscrire({ pseudo, motDePasse }) {
         const liste = comptes();
-        const normalise = String(email).trim().toLowerCase();
+        const propre = String(pseudo || "").trim().replace(/\s+/g, " ");
+        const normalise = propre.toLowerCase();
+        if (propre.length < 3 || propre.length > 24) {
+          throw new ErreurDonnees("Le pseudo doit faire entre 3 et 24 caractères.", "22023");
+        }
         if (liste.some((c) => c.email === normalise)) {
-          throw new ErreurDonnees("User already registered", "23505");
+          throw new ErreurDonnees("Ce pseudo est déjà pris.", "23505");
         }
         const compte = {
           id: uid(), email: normalise,
           empreinte: await empreinte(motDePasse),
-          nom: nom || normalise.split("@")[0]
+          nom: propre
         };
         liste.push(compte);
         sauverComptes(liste);
 
         await t("profiles").creer({
-          id: compte.id, display_name: compte.nom, role_key: role || "student",
+          id: compte.id, display_name: compte.nom, role_key: "student",
           preferences: {}, avatar_url: null, roblox_name: null, bio: null
         });
 
@@ -735,8 +935,8 @@ export async function creerPiloteLocal() {
         return { user: session.user, session };
       },
 
-      async connecter({ email, motDePasse }) {
-        const normalise = String(email).trim().toLowerCase();
+      async connecter({ pseudo, motDePasse }) {
+        const normalise = String(pseudo || "").trim().replace(/\s+/g, " ").toLowerCase();
         const compte = comptes().find((c) => c.email === normalise);
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {
@@ -745,6 +945,23 @@ export async function creerPiloteLocal() {
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
         definirSession(session);
         return { user: session.user, session };
+      },
+
+      async changerMotDePasse(nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === sessionCourante()?.user?.id);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+      async remettreMotDePasse(cible, nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === cible);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
       },
 
       async lienMagique() {

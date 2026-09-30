@@ -70,7 +70,11 @@ function applyProp(node, key, value) {
     return;
   }
   if (key === "style" && typeof value === "object") {
-    Object.assign(node.style, value);
+    // Les propriétés personnalisées (--x) ne passent pas par Object.assign.
+    for (const [propriete, valeur] of Object.entries(value)) {
+      if (propriete.startsWith("--")) node.style.setProperty(propriete, valeur);
+      else node.style[propriete] = valeur;
+    }
     return;
   }
   if (key === "dataset") {

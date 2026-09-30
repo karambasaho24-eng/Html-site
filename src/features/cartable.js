@@ -23,12 +23,12 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { cahiers, cartable as depotCartable, affaires as depotAffaires } from "../data/index.js";
+import { cahiers, cartable as depotCartable, affaires as depotAffaires, VOLUME_SUPPORT } from "../data/index.js";
 import { ouvrirModale, menu } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 import {
-  CATALOGUE, DOTATION, KITS_SUGGERES, fiche, nomObjet, nomType,
-  imageObjet, indexer, surMoi, indisponible, niveauEnMots, etatObjet
+  CATALOGUE, DOTATION, DOTATION_PROFESSEUR, KITS_SUGGERES, fiche, nomObjet, nomType,
+  imageObjet, imageDetouree, indexer, surMoi, indisponible, niveauEnMots, etatObjet, vitrine
 } from "./affaires.js";
 import { materielAttendu, ecart } from "./materiel.js";
 
@@ -79,11 +79,80 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     return carte;
   };
 
-  const utilisables = objets.filter((o) => !indisponible(o, moi));
+  // Ce qui n'est pas rangé chez soi — sorti sur un bureau, resté dans une
+  // salle — ne se range pas d'ici : il faut d'abord aller le reprendre.
+  const ailleurs = (o) => (o.place || "range") !== "range";
+  const utilisables = objets.filter((o) => !indisponible(o, moi) && !ailleurs(o));
+  const absents = objets.filter((o) => !indisponible(o, moi) && ailleurs(o));
   const contenants = () => utilisables.filter((o) => fiche(o.kind)?.contenant);
+
+  // Les cahiers sont des objets : ils ont un volume et vont DANS un contenant.
+  const supportsLibres = mesSupports.filter((c) => !ailleurs(c));
+  const supportsAbsents = mesSupports.filter((c) => ailleurs(c));
+  const rangement = new Map();   // cahierId -> contenantId | null
+  for (const c of supportsLibres) {
+    rangement.set(String(c.id), c.container_id ? String(c.container_id) : null);
+  }
+
+  /* --- Le volume ----------------------------------------------------------
+     Un sac n'est pas sans fond. Une plume ne prend presque rien, un cahier
+     prend sa place, une règle à calcul encombre. Ce qui ne rentre pas reste
+     dehors : on ne triche pas avec la contenance. */
+  const volumeObjet = (o) => Number(o.size ?? fiche(o.kind)?.volume ?? 1);
+  const volumeSupport = (c) => Number(c?.size ?? VOLUME_SUPPORT[c?.support || "cahier"] ?? 4);
+  const capaciteDe = (c) => Number(c?.capacity ?? fiche(c?.kind)?.capacite ?? 99);
+
+  function occupe(contenantId) {
+    const carte = index();
+    let total = 0;
+    for (const o of objets) {
+      if (String(carte.get(String(o.id))?.container_id || "") === String(contenantId)) total += volumeObjet(o);
+    }
+    for (const [id, dans] of rangement) {
+      if (String(dans || "") === String(contenantId)) {
+        total += volumeSupport(mesSupports.find((c) => String(c.id) === id));
+      }
+    }
+    return total;
+  }
+
+  function tientDans(contenantId, volume) {
+    const c = objets.find((o) => String(o.id) === String(contenantId));
+    return occupe(contenantId) + volume <= capaciteDe(c);
+  }
+
+  function plein(contenantId, nom) {
+    const c = objets.find((o) => String(o.id) === String(contenantId));
+    toast(`${nomObjet(c)} est plein`, {
+      corps: `${nom} n'y rentre pas (${occupe(contenantId)}/${capaciteDe(c)}). `
+        + "Retirez quelque chose, ou ouvrez un autre contenant.",
+      type: "attn"
+    });
+  }
+
+  /** Ce cahier est-il dans un contenant que je porte ? */
+  function supportSurMoi(id) {
+    const dans = rangement.get(String(id));
+    return Boolean(dans) && estSurMoi(dans);
+  }
+
+  /** La déclaration des supports emportés : { id: titre }. */
+  function supportsEmportes() {
+    const sortie = {};
+    for (const c of supportsLibres) if (supportSurMoi(c.id)) sortie[String(c.id)] = c.title || "";
+    return sortie;
+  }
 
   /** Le contenant ouvert : celui qui reçoit le prochain objet cliqué. */
   let cible = premierContenantPorte();
+
+  // Un ancien sac déclarait ses cahiers sans les ranger nulle part : on les
+  // glisse dans le contenant porté, s'il y a la place.
+  for (const [id] of emportes) {
+    const c = supportsLibres.find((x) => String(x.id) === String(id));
+    if (!c || rangement.get(String(id)) || !cible) continue;
+    if (tientDans(cible, volumeSupport(c))) rangement.set(String(id), cible);
+  }
 
   function premierContenantPorte() {
     const carte = index();
@@ -105,7 +174,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
      naître. */
   const noeuds = new Map();
   for (const o of utilisables) noeuds.set(`o:${o.id}`, noeudObjet(o));
-  for (const c of mesSupports) noeuds.set(`s:${c.id}`, noeudSupport(c));
+  for (const c of supportsLibres) noeuds.set(`s:${c.id}`, noeudSupport(c));
 
   const etagere   = el("div.plateau__objets");
   const dansLeSac = el("div.plateau__sac");
@@ -159,7 +228,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
 
   if (enregistre) {
     succes(session ? "Affaires équipées" : "Sac bouclé");
-    surEnregistrement?.({ notebooks: Object.fromEntries(emportes), supplies: declaration() });
+    surEnregistrement?.({ notebooks: supportsEmportes(), supplies: declaration() });
   }
   return enregistre === true;
 
@@ -179,17 +248,32 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     try {
       // On n'écrit que ce qui a bougé : une préparation qui ne change rien ne
       // doit pas toucher vingt lignes.
-      for (const o of objets) {
+      // Ce qui sort d'abord, ce qui entre ensuite : sinon un contenant plein
+      // refuserait ce qu'on y met à la place de ce qu'on en retire.
+      const gestes = [];
+      for (const o of utilisables) {
         const p = place.get(String(o.id));
         const bouge = String(p.container_id || "") !== String(o.container_id || "")
           || p.carried !== Boolean(o.carried);
-        if (!bouge) continue;
-        await depotAffaires.majorer(o.id, { container_id: p.container_id, carried: p.carried });
-        o.container_id = p.container_id;
-        o.carried = p.carried;
+        if (bouge) gestes.push({ sort: !p.container_id, faire: async () => {
+          await depotAffaires.majorer(o.id, { container_id: p.container_id, carried: p.carried });
+          o.container_id = p.container_id;
+          o.carried = p.carried;
+        } });
       }
+      for (const c of supportsLibres) {
+        const dans = rangement.get(String(c.id)) || null;
+        if (String(dans || "") === String(c.container_id || "")) continue;
+        gestes.push({ sort: !dans, faire: async () => {
+          await cahiers.rangerDans(c, dans);
+          c.container_id = dans;
+        } });
+      }
+      for (const g of gestes.filter((x) => x.sort)) await g.faire();
+      for (const g of gestes.filter((x) => !x.sort)) await g.faire();
+
       await depotCartable.enregistrer(classe.id, moi, {
-        notebooks: Object.fromEntries(emportes),
+        notebooks: supportsEmportes(),
         supplies: declaration(),
         session: session?.id || null
       });
@@ -212,8 +296,8 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     render(etagere, []);
     render(dansLeSac, []);
 
-    for (const c of mesSupports) {
-      (emportes.has(String(c.id)) ? dansLeSac : etagere).appendChild(noeuds.get(`s:${c.id}`));
+    for (const c of supportsLibres) {
+      if (!supportSurMoi(c.id)) etagere.appendChild(noeuds.get(`s:${c.id}`));
     }
 
     // Les contenants portés forment des casiers ; le reste tombe en vrac.
@@ -244,6 +328,11 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       etagere.appendChild(noeuds.get(`o:${o.id}`));
     }
 
+    // Ce qui est ailleurs se voit, mais ne se prend pas d'un clic : un stylo
+    // oublié en salle 3 n'est pas sur l'étagère de la maison.
+    for (const o of absents) etagere.appendChild(noeudAilleurs(nomObjet(o), o.kind, o));
+    for (const c of supportsAbsents) etagere.appendChild(noeudAilleurs(c.title, c.support || "cahier", c));
+
     majPlateaux();
   }
 
@@ -251,7 +340,11 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
   function casier(contenantPorte, carte) {
     const dedans = utilisables.filter((o) =>
       String(carte.get(String(o.id))?.container_id || "") === String(contenantPorte.id));
+    const supportsDedans = supportsLibres.filter((c) =>
+      String(rangement.get(String(c.id)) || "") === String(contenantPorte.id));
     const ouvert = String(cible) === String(contenantPorte.id);
+    const pris = occupe(contenantPorte.id);
+    const contenance = capaciteDe(contenantPorte);
     const objetsDedans = el("div.casier__objets");
 
     const noeud = el("div.casier", { class: ouvert ? "casier--ouvert" : "",
@@ -262,10 +355,14 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
                       : `Ouvrir ${nomObjet(contenantPorte).toLowerCase()}`,
         onclick: () => { cible = String(contenantPorte.id); replacer(); }
       },
-        el("span.casier__figure", { "aria-hidden": "true",
-          style: { backgroundImage: `url("${imageObjet(ouvert ? ouvertDe(contenantPorte.kind) : contenantPorte.kind)}")` } }),
+        // Le contenant tel qu'il est, avec ce qu'il contient à cet instant :
+        // on range une plume, et on la voit entrer dans la trousse.
+        vitrine(contenantPorte, dedans, { taille: 96 }),
         el("span.casier__nom", nomObjet(contenantPorte)),
-        el("span.casier__compte", dedans.length ? `${dedans.length}` : "vide"),
+        el("span.casier__compte", {
+          class: pris >= contenance ? "casier__compte--plein" : "",
+          title: "Place occupée sur la contenance"
+        }, `${pris}/${contenance}`),
         el("span.casier__etat", ouvert ? "ouvert" : "")),
       objetsDedans,
       el("button.casier__laisser", {
@@ -278,20 +375,12 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       if (fiche(o.kind)?.contenant) objetsDedans.appendChild(casier(o, carte));
       else objetsDedans.appendChild(noeuds.get(`o:${o.id}`));
     }
-    if (!dedans.length) {
+    for (const c of supportsDedans) objetsDedans.appendChild(noeuds.get(`s:${c.id}`));
+    if (!dedans.length && !supportsDedans.length) {
       objetsDedans.appendChild(el("p.casier__vide.petit.faible",
         ouvert ? "Cliquez un objet à gauche pour l'y mettre." : "Rien dedans."));
     }
     return noeud;
-  }
-
-  /* Déclaration et non affectation : `casier()` l'appelle dès le premier rendu,
-     qui a lieu pendant la construction du corps de la modale — avant qu'une
-     constante déclarée plus bas ne soit initialisée. */
-  function ouvertDe(kind) {
-    if (kind === "cartable") return "cartable-ouvert";
-    if (kind === "trousse") return "trousse-ouverte";
-    return kind;
   }
 
   /* --- Le geste ----------------------------------------------------------- */
@@ -340,6 +429,8 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       return;
     }
 
+    if (!dedans && !tientDans(cible, volumeObjet(objet))) { plein(cible, nomObjet(objet)); return; }
+
     animer(noeud, () => {
       place.set(String(objet.id), dedans
         ? { container_id: null, carried: false }
@@ -359,10 +450,12 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       // Une trousse se met dans le cartable si on en porte un ; sinon on la
       // porte à la main, ce qui est permis et se voit.
       const carte = index();
+      // Seulement s'il y a la place : sinon on la porte à côté.
       const hote = contenants().find((o) =>
         carte.get(String(o.id))?.carried && !carte.get(String(o.id))?.container_id
         && String(o.id) !== String(contenantPorte.id)
-        && o.kind !== contenantPorte.kind);
+        && o.kind !== contenantPorte.kind
+        && tientDans(o.id, volumeObjet(contenantPorte)));
       place.set(String(contenantPorte.id), {
         container_id: hote ? String(hote.id) : null, carried: true
       });
@@ -376,13 +469,36 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
 
   function basculerSupport(c) {
     const noeud = noeuds.get(`s:${c.id}`);
-    const dedans = emportes.has(String(c.id));
+    const dedans = supportSurMoi(c.id);
+    if (!dedans) {
+      if (!cible) {
+        toast("Prenez d'abord un contenant", {
+          corps: "Un cahier se range dans un cartable, une sacoche, un dossier.", type: "attn"
+        });
+        return;
+      }
+      if (!tientDans(cible, volumeSupport(c))) { plein(cible, c.title || "Ce cahier"); return; }
+    }
     animer(noeud, () => {
-      if (dedans) emportes.delete(String(c.id));
-      else emportes.set(String(c.id), c.title || "");
+      rangement.set(String(c.id), dedans ? null : cible);
       replacer();
       return !dedans;
     });
+  }
+
+  /** Un objet qui n'est pas là : on dit où il est, on ne le déplace pas. */
+  function noeudAilleurs(nom, kind, o) {
+    const ou = o.place === "bureau" && session && String(o.place_session) === String(session.id)
+      ? "Sur votre bureau"
+      : `Resté : ${o.place_label || "une salle"}`;
+    return el("button.objet.objet--ailleurs", {
+      type: "button", disabled: true, dataset: { kind },
+      title: `${nom} n'est pas chez vous. Il faut aller le reprendre là où il est.`
+    },
+      el("span.objet__figure", { dataset: { objet: kind }, "aria-hidden": "true",
+        style: { backgroundImage: `url("${imageDetouree(kind)}")` } }),
+      el("span.objet__nom", nom),
+      el("span.objet__type", "📍 " + ou));
   }
 
   /* --- Les nœuds ---------------------------------------------------------- */
@@ -402,7 +518,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       oncontextmenu: (e) => { e.preventDefault(); menuObjet(e.currentTarget, o); }
     },
       el("span.objet__figure", { dataset: { objet: o.kind }, "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(o.kind)}")` } }),
+        style: { backgroundImage: `url("${imageDetouree(o.kind)}")` } }),
       el("span.objet__nom", nomObjet(o)),
       el("span.objet__type",
         f.nombre && o.quantity != null ? `${o.quantity} unités`
@@ -428,7 +544,7 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       onclick: () => basculerSupport(c)
     },
       el("span.objet__figure", { dataset: { objet: c.support || "cahier" }, "aria-hidden": "true",
-        style: { backgroundImage: `url("${imageObjet(c.support || "cahier")}")` } }),
+        style: { backgroundImage: `url("${imageDetouree(c.support || "cahier")}")` } }),
       el("span.objet__nom", c.title),
       el("span.objet__type", NOMS_SUPPORT[c.support] || "Cahier"),
       demande ? el("span.objet__demande", "demandé") : null
@@ -511,25 +627,33 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
       poserContenant(cartablePossede, true);
     }
     let pris = 0;
+    const refus = [];
     for (const kind of kit.objets) {
       const o = utilisables.find((x) => x.kind === kind && !estSurMoi(x.id));
       if (!o) continue;
       if (fiche(kind)?.contenant) poserContenant(o, true);
-      else place.set(String(o.id), { container_id: cible, carried: false });
+      else if (tientDans(cible, volumeObjet(o))) place.set(String(o.id), { container_id: cible, carried: false });
+      else { refus.push(nomObjet(o)); continue; }
       pris++;
     }
     // Les supports demandés partent avec : « prends la consigne » veut dire
     // tout ce qui a été demandé, cahier compris.
     if (kit.nom === "Consigne") {
       for (const s of attendu.supports || []) {
-        const c = mesSupports.find((x) =>
+        const c = supportsLibres.find((x) =>
           String(x.id) === String(s.id)
           || String(x.title || "").trim().toLowerCase() === String(s.title || "").trim().toLowerCase());
-        if (c && !emportes.has(String(c.id))) { emportes.set(String(c.id), c.title || ""); pris++; }
+        if (!c || supportSurMoi(c.id)) continue;
+        if (tientDans(cible, volumeSupport(c))) { rangement.set(String(c.id), cible); pris++; }
+        else refus.push(c.title || "un cahier");
       }
     }
     replacer();
-    toast(pris ? `${pris} objet${pris > 1 ? "s" : ""} pris` : "Vous les avez déjà tous.");
+    if (refus.length) {
+      toast("Tout ne rentre pas", { corps: `Plus de place pour : ${refus.join(", ")}.`, type: "attn", duree: 6000 });
+    } else {
+      toast(pris ? `${pris} objet${pris > 1 ? "s" : ""} pris` : "Vous les avez déjà tous.");
+    }
   }
 
   /** Le rabat annonce ce qu'on emporte et ce qui manque encore. */
@@ -538,8 +662,8 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
     dansLeSac.parentElement?.classList.toggle("plateau--nu", !dansLeSac.children.length);
 
     const manque = ecart(
-      { notebooks: Object.fromEntries(emportes), supplies: declaration() }, attendu);
-    const total = Object.keys(declaration()).length + emportes.size;
+      { notebooks: supportsEmportes(), supplies: declaration() }, attendu);
+    const total = Object.keys(declaration()).length + Object.keys(supportsEmportes()).length;
 
     render(zoneRabat,
       el("span.cartable__compte",
@@ -551,15 +675,39 @@ export async function preparerAffaires({ classe, session = null, surEnregistreme
   }
 }
 
+/**
+ * Le professeur reçoit une fois son matériel — craie, crayon, gomme, feuilles,
+ * dossier — dans une sacoche qu'il porte. Seulement s'il n'a pas de craie :
+ * on ne double pas ce qu'il possède déjà, et on ne lui donne rien d'autre.
+ */
+export async function assurerMaterielProfesseur(moi) {
+  const miens = await depotAffaires.toutes(moi).catch(() => null);
+  if (!miens || miens.some((o) => o.kind === "craie" && String(o.owner_id) === String(moi))) return false;
+  const crees = new Map();
+  for (const item of dotationComplete(DOTATION_PROFESSEUR)) {
+    const cree = await depotAffaires.creer({
+      owner_id: moi, kind: item.kind, label: item.label || "",
+      category: item.category, is_container: item.contenant,
+      carried: Boolean(item.carried),
+      container_id: item.dans ? (crees.get(item.dans)?.id || null) : null,
+      quantity: item.quantity ?? 1, size: item.size, capacity: item.capacity
+    });
+    crees.set(item.kind, cree);
+  }
+  return true;
+}
+
 /** La dotation, enrichie de ce que le catalogue sait de chaque objet. */
-export function dotationComplete() {
-  return DOTATION.map((item) => {
+export function dotationComplete(liste = DOTATION) {
+  return liste.map((item) => {
     const f = CATALOGUE[item.kind] || {};
     return {
       ...item,
-      label: f.libelle || item.kind,
+      label: item.label || f.libelle || item.kind,
       category: f.categorie || "autre",
-      contenant: Boolean(f.contenant)
+      contenant: Boolean(f.contenant),
+      size: f.volume || 1,
+      capacity: f.capacite ?? null
     };
   });
 }

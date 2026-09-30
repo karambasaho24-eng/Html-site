@@ -39,8 +39,20 @@ export function creerTableau(options = {}) {
     surElementTermine = null,
     surFragment = null,
     surCurseur = null,
-    fond = "ardoise"
+    fond = "ardoise",
+    // (outil) → { ok, message, conseil }. Le tableau ne dessine rien que
+    // l'objet correspondant ne permette : pas de craie, pas de trait.
+    garde = null,
+    surRefus = null
   } = options;
+
+  let dernierRefus = 0;
+  function refuse(outilVoulu) {
+    const verdict = garde?.(outilVoulu);
+    if (!verdict || verdict.ok) return false;
+    if (Date.now() - dernierRefus > 2500) { dernierRefus = Date.now(); surRefus?.(verdict); }
+    return true;
+  }
 
   const toile = el("canvas.tableau__toile", {
     width: LARGEUR, height: HAUTEUR,
@@ -217,6 +229,8 @@ export function creerTableau(options = {}) {
   toile.addEventListener("pointerdown", (evenement) => {
     if (!ecriture) return;
     if (evenement.button !== 0 && evenement.pointerType === "mouse") return;
+    // Refusé AVANT la capture : rien ne commence, rien ne s'affiche.
+    if (refuse(outil)) return;
     toile.setPointerCapture(evenement.pointerId);
     const [x, y] = coordonnees(evenement);
 
@@ -251,7 +265,7 @@ export function creerTableau(options = {}) {
     if (ecriture) diffuserCurseur(x, y);
 
     if (!enCours) {
-      if (ecriture && outil === "gomme" && evenement.buttons === 1) effacerA(x, y);
+      if (ecriture && outil === "gomme" && evenement.buttons === 1 && !refuse("gomme")) effacerA(x, y);
       return;
     }
     if (enCours.kind === "trait") {

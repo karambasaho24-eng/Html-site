@@ -51,8 +51,8 @@ export function messageErreur(err) {
   if (!err) return "Erreur inconnue.";
   const brut = err.message || String(err);
   const table = {
-    "Invalid login credentials": "Identifiants incorrects.",
-    "User already registered": "Un compte existe déjà avec cette adresse.",
+    "Invalid login credentials": "Pseudo ou mot de passe incorrect.",
+    "User already registered": "Ce pseudo est déjà pris.",
     "Email not confirmed": "Adresse non confirmée : ouvrez le courriel reçu à la création du compte.",
     "Permission refusée": "Vous n'avez pas les droits nécessaires.",
     "Code de classe introuvable": "Ce code ne correspond à aucune classe.",

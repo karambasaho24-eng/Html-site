@@ -57,12 +57,21 @@ async function depot(page, expression) {
 async function creerCompte(page, nom, email) {
   await page.goto(RACINE);
   await page.waitForTimeout(700);
-  await page.click("text=Créer un compte");
-  await page.fill('input[autocomplete="name"]', nom);
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[autocomplete="new-password"]', "motdepasse1");
-  await page.click('button:has-text("Créer mon compte")');
+  await page.click('[role="tab"]:has-text("Créer mon compte")');
+  await page.fill('input[name="pseudo"]', nom);
+  await page.fill('input[name="mdp"]', "motdepasse1");
+  await page.fill('input[name="mdp2"]', "motdepasse1");
+  await page.click('button[type="submit"]:has-text("Créer mon compte")');
   await page.waitForTimeout(1600);
+  // La fenêtre « habillez votre personnage » s'ouvre à la première visite.
+  const bienvenue = await page.waitForSelector(".apparence", { timeout: 15000 }).then(() => true).catch(() => false);
+  verifier("tout juste inscrit, on commence par habiller son personnage", bienvenue);
+  await page.keyboard.press("Escape");
+  const cahiersDabord = await page.waitForSelector(".mes-cahiers", { timeout: 6000 }).then(() => true).catch(() => false);
+  verifier("puis on choisit ses cahiers", cahiersDabord);
+  for (let i = 0; i < 3 && await page.locator(".voile").count(); i++) {
+    await page.keyboard.press("Escape"); await page.waitForTimeout(500);
+  }
 }
 
 const nav = await chromium.launch({ executablePath: CHROME });
@@ -365,8 +374,9 @@ try {
     return { plancher: vide.level, verse, niveau: apres.level, flacon: restant.level };
   `);
   verifier("un encrier vide ne passe pas sous zero", encre.plancher === 0);
-  verifier("le remplissage verse ce qu'il faut", encre.verse === 100 - 0 - 40 || encre.verse === 60, String(encre.verse));
-  verifier("ce qui entre dans l'encrier sort du flacon", encre.niveau + encre.flacon === 60);
+  // Un flacon contient quatre encriers : remplir un encrier vide en prend le quart.
+  verifier("le remplissage verse ce qu'il faut", encre.verse === 100 && encre.niveau === 100, String(encre.verse));
+  verifier("ce qui entre dans l'encrier sort du flacon (au quart)", encre.flacon === 60 - 25, String(encre.flacon));
 
   /* =======================================================================
      9. Les permissions ne sont pas dans l'ecran
@@ -471,10 +481,394 @@ try {
   await maitre.goto(`${RACINE}#/classe/${classeId}/salle`);
   await maitre.waitForTimeout(2600);
   verifier("la salle s'ouvre cote estrade", await maitre.locator(".salle").count() === 1);
+  // En 3D, l'eleve present apparait a sa place, et son nom le suit : une vue
+  // montee hors de la page ne se redessinait plus une fois affichee.
+  if (await maitre.locator(".scene--3d").count()) {
+    await maitre.bringToFront();
+    await maitre.waitForTimeout(1500);
+    const places = await maitre.$$eval(".classe3d__nom:not(.classe3d__nom--prof)",
+      (noms) => noms.filter((n) => n.textContent && n.style.transform).length);
+    verifier("en 3D, l'eleve present est assis a sa place", places >= 1, String(places));
+  }
   verifier("le controle du materiel est affiche",
     await maitre.locator(".controle-materiel").count() >= 1);
 
   await depot(maitre, `return d.sessions.terminer("${seance}");`);
+
+  /* =======================================================================
+     13. La place des choses : les objets conditionnent les actions
+     ===================================================================== */
+  journal.push("\n13. La place des choses");
+  const seanceA = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours A", "cours")).id;`);
+
+  // Le cadet s'installe : il sort de son sac un crayon et un cahier.
+  const installe = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    const seance = { id: "${seanceA}", status: "live", class_id: classe.id };
+    const ctx = p.contexte({ session: seance, classe });
+    const moi = etat.utilisateur.id;
+    let mien = await d.affaires.miennes(moi);
+    // Le sac tel qu'on le boucle : le cartable sur l'epaule, la trousse
+    // dedans, le crayon dans la trousse.
+    const cartable = mien.find((o) => o.kind === "cartable");
+    const trousse = mien.find((o) => o.kind === "trousse");
+    await d.affaires.porter(cartable.id, true);
+    await d.affaires.rangerDans(trousse, cartable.id);
+    await d.affaires.rangerDans(mien.find((o) => o.kind === "crayon" && o.owner_id === moi), trousse.id);
+    mien = await d.affaires.miennes(moi);
+    const avant = p.peutFaire("ecrire", mien, { moiId: moi, ctx });
+    const cahier = await d.cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier du jour",
+      container_id: cartable.id });
+    const crayon = mien.find((o) => o.kind === "crayon" && o.owner_id === moi);
+    await d.affaires.sortir(crayon, { session: seance, classe });
+    await d.cahiers.sortir(cahier, { session: seance, classe });
+    mien = await d.affaires.miennes(moi);
+    const apres = p.peutFaire("ecrire", mien, { moiId: moi, ctx });
+    const effacer = p.peutFaire("effacer", mien, { moiId: moi, ctx });
+    // Un compas resté chez soi ne se pose pas sur le bureau.
+    const compas = await d.affaires.creer({ owner_id: moi, kind: "compas", label: "", size: 1 });
+    let horsSac = "accepte";
+    try { await d.affaires.sortir(compas, { session: seance, classe }); } catch (e) { horsSac = "refus"; }
+    return { avant: avant.ok, conseil: avant.conseil || "", apres: apres.ok, effacer: effacer.ok,
+      horsSac, cahier: cahier.id, crayon: crayon.id };
+  `);
+  verifier("en seance, un crayon au fond du sac ne suffit pas", installe.avant === false, installe.conseil);
+  verifier("le conseil dit de le sortir du sac", /sac/i.test(installe.conseil), installe.conseil);
+  verifier("sorti sur le bureau, le crayon permet d'ecrire", installe.apres === true);
+  verifier("sans gomme sur le bureau, on n'efface pas", installe.effacer === false);
+  verifier("on ne pose pas sur le bureau ce qui n'est pas dans le sac", installe.horsSac === "refus");
+
+  // Il part en laissant crayon et cahier sur la table.
+  await depot(cadet, `
+    const classe = await d.classes.lire("${classeId}");
+    await d.affaires.laisser({ id: "${installe.crayon}" }, { classe });
+    await d.cahiers.laisser({ id: "${installe.cahier}" }, { classe });
+    return true;
+  `);
+  await depot(maitre, `return d.sessions.terminer("${seanceA}");`);
+  const seanceB = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours B", "cours")).id;`);
+
+  const suivante = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    const ctx = p.contexte({ session: { id: "${seanceB}", status: "live" }, classe });
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    // On retire la plume du jeu : seul le crayon oublie aurait permis d'ecrire.
+    const plume = mien.find((o) => o.kind === "plume");
+    const crayon = mien.find((o) => o.id === "${installe.crayon}");
+    const sans = mien.filter((o) => o.id !== plume.id);
+    const v = p.peutFaire("ecrire", sans, { moiId: moi, ctx });
+    return { ok: v.ok, conseil: v.conseil || "", lieu: p.situer(crayon, { moiId: moi, ctx, index: a.indexer(mien) }).lieu };
+  `);
+  verifier("le crayon oublie reste dans la salle", suivante.lieu === "salle", suivante.lieu);
+  verifier("a l'activite suivante, sans crayon, on n'ecrit pas", suivante.ok === false, suivante.conseil);
+
+  // Le bogue d'origine : revenu à sa place, l'objet oublié avait « disparu ».
+  // Il doit revenir devant soi, sur le bureau de la séance en cours.
+  const reprise = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const classe = await d.classes.lire("${classeId}");
+    await d.affaires.reprendre("${installe.crayon}", "${seanceB}");
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    const crayon = mien.find((o) => o.id === "${installe.crayon}");
+    const ctx = p.contexte({ session: { id: "${seanceB}", status: "live" }, classe });
+    return p.situer(crayon, { moiId: moi, ctx, index: a.indexer(mien) }).lieu;
+  `);
+  verifier("revenu en salle, l'objet oublie se reprend sur le bureau", reprise === "bureau", reprise);
+  await depot(maitre, `return d.sessions.terminer("${seanceB}");`);
+
+  const ferme = await depot(cadet, `
+    try { await d.affaires.recuperer("${installe.crayon}"); return "repris"; }
+    catch (e) { return "refus : " + e.message; }
+  `);
+  verifier("salle fermee : on ne recupere pas son crayon", ferme.startsWith("refus"), ferme);
+
+  await cadet.goto(`${RACINE}#/cahier/${installe.cahier}`);
+  await cadet.waitForTimeout(1500);
+  verifier("le cahier oublie ne s'ouvre pas",
+    (await cadet.locator("text=n'est pas entre vos mains").count()) === 1);
+
+  const trouves = await depot(maitre, `
+    const liste = await d.salles.oublies("${classeId}");
+    const classe = await d.classes.lire("${classeId}");
+    await d.salles.ouvrir(classe, 30);
+    return liste.map((x) => x.id);
+  `);
+  verifier("le professeur voit les objets oublies", trouves.includes(installe.crayon)
+    && trouves.includes(installe.cahier), JSON.stringify(trouves));
+
+  const repris = await depot(cadet, `
+    const o = await d.affaires.recuperer("${installe.crayon}");
+    return { place: o.place, dans: o.container_id };
+  `);
+  verifier("salle ouverte : le crayon se recupere", repris.place === "range", JSON.stringify(repris));
+
+  const rendu = await depot(maitre, `
+    const classe = await d.classes.lire("${classeId}");
+    await d.salles.fermer(classe);
+    await d.salles.restituer("cahier", "${installe.cahier}");
+    const c = await d.cahiers.lire("${installe.cahier}");
+    return c.place;
+  `);
+  verifier("le professeur restitue le cahier a son proprietaire", rendu === "range", String(rendu));
+
+  const contenance = await depot(cadet, `
+    const moi = etat.utilisateur.id;
+    const etui = await d.affaires.creer({ owner_id: moi, kind: "etui", size: 3, capacity: 6,
+      is_container: true, carried: true });
+    let n = 0;
+    try {
+      for (let i = 0; i < 8; i++) {
+        const x = await d.affaires.creer({ owner_id: moi, kind: "crayon", size: 1 });
+        await d.affaires.rangerDans(x, etui.id);
+        n++;
+      }
+    } catch (e) { return { n, refus: e.message }; }
+    return { n, refus: null };
+  `);
+  verifier("un etui plein refuse le crayon de trop", contenance.n === 6 && contenance.refus,
+    JSON.stringify(contenance));
+
+  const dossier = await depot(cadet, `
+    const p = await import("/src/features/portee.js");
+    const moi = etat.utilisateur.id;
+    const classe = await d.classes.lire("${classeId}");
+    const dos = await d.affaires.creer({ owner_id: moi, kind: "dossier", label: "Rapports",
+      size: 3, capacity: 6, is_container: true });
+    const papier = await d.papiers.creer({ author_id: moi, title: "Rapport de patrouille", model: "note", body: "RAS" });
+    await d.classement.ranger(dos.id, papier.id, moi);
+    const dedans = (await d.classement.contenu(dos.id)).length;
+    await d.affaires.laisser(dos, { classe });
+    const mien = await d.affaires.miennes(moi);
+    const ou = p.situer(mien.find((o) => o.id === dos.id), { moiId: moi, ctx: p.contexte(), index: a.indexer(mien) });
+    return { dedans, ok: ou.ok, lieu: ou.lieu };
+  `);
+  verifier("un papier se classe dans un dossier", dossier.dedans === 1);
+  verifier("un dossier oublie n'est plus accessible", dossier.ok === false && dossier.lieu === "salle",
+    JSON.stringify(dossier));
+
+  /* =======================================================================
+     14. La scene : le bureau devant soi
+     ===================================================================== */
+  journal.push("\n14. La scene");
+  const CAPT = process.env.CAPTURES || "/tmp";
+  const seanceC = await depot(maitre, `return (await d.sessions.demarrer("${classeId}", "Cours de geographie", "cours")).id;`);
+  await depot(cadet, `
+    const moi = etat.utilisateur.id;
+    const mien = await d.affaires.miennes(moi);
+    const cartable = mien.find((o) => o.kind === "cartable");
+    const trousse = mien.find((o) => o.kind === "trousse");
+    await d.affaires.porter(cartable.id, true);
+    await d.affaires.rangerDans(trousse, cartable.id);
+    for (const o of mien.filter((x) => x.owner_id === moi && ["crayon", "gomme", "regle"].includes(x.kind) && (x.place || "range") === "range")) {
+      await d.affaires.rangerDans(o, trousse.id).catch(() => null);
+    }
+    await d.cahiers.creer({ owner_id: moi, kind: "personal", title: "Geographie", container_id: cartable.id });
+    await d.cartable.enregistrer("${classeId}", moi, { notebooks: {}, supplies: {}, session: "${seanceC}" });
+    return true;
+  `);
+  await cadet.setViewportSize({ width: 1440, height: 900 });
+  await cadet.goto(`${RACINE}#/classe/${classeId}/salle`);
+  await cadet.waitForTimeout(3200);
+  for (let i = 0; i < 3 && await cadet.locator(".voile").count(); i++) {
+    await cadet.keyboard.press("Escape"); await cadet.waitForTimeout(400);
+  }
+  // La consigne de materiel de la classe prive le cadet : le maitre la leve,
+  // ce n'est pas ce qu'on essaie ici.
+  await depot(maitre, `
+    const liste = await d.privations.liste("${seanceC}");
+    for (const p of liste) await d.privations.trancher(p.id, true, etat.utilisateur.id).catch(() => null);
+    return true;
+  `);
+  await cadet.reload();
+  await cadet.waitForTimeout(3000);
+  for (let i = 0; i < 3 && await cadet.locator(".voile").count(); i++) {
+    await cadet.keyboard.press("Escape"); await cadet.waitForTimeout(400);
+  }
+  verifier("la salle s'ouvre sur le bureau", await cadet.locator(".scene").isVisible());
+  verifier("les gestes essentiels sont dans le dock", await cadet.locator(".dock .dock__chose").count() >= 6);
+  await cadet.screenshot({ path: `${CAPT}/scene-1-bureau-vide.png` });
+
+  await cadet.click(".scene__sac");
+  await cadet.waitForTimeout(700);
+  verifier("le sac s'ouvre et montre ce qu'il contient", await cadet.locator(".sac__chose").count() >= 2);
+  await cadet.screenshot({ path: `${CAPT}/scene-2-sac-ouvert.png` });
+
+  // En 3D, on fouille le sac à la souris ; la liste, invisible, sert au
+  // clavier : on l'active comme le ferait la touche Entrée.
+  const sortir = (sel) => cadet.locator(sel).first().evaluate((b) => b.click());
+  await sortir('.sac__chose[aria-label="Sortir Geographie"]');
+  await cadet.waitForTimeout(900);
+  await sortir('.sac__chose[aria-label^="Sortir Crayon"]');
+  await cadet.waitForTimeout(900);
+  await sortir('.sac__chose[aria-label^="Sortir Gomme"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  await sortir('.sac__chose[aria-label^="Sortir Règle"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  await sortir('.sac__chose[aria-label^="Sortir Feuilles"]').catch(() => {});
+  await cadet.waitForTimeout(900);
+  verifier("sortis du sac, le cahier et le crayon sont sur le bureau",
+    await cadet.locator('.pose[data-genre="cahier"]').count() === 1
+    && await cadet.locator('.pose[data-kind="crayon"]').count() >= 1);
+  await cadet.click(".scene__sac");
+  await cadet.waitForTimeout(500);
+  await cadet.screenshot({ path: `${CAPT}/scene-3-bureau-garni.png` });
+
+  await cadet.click('.pose[data-genre="cahier"]');
+  await cadet.waitForTimeout(1400);
+  verifier("le cahier s'ouvre sur le bureau", await cadet.locator('.scene[data-etat="cahier"]').count() === 1);
+  verifier("sans stylo en main, on n'ecrit pas", await cadet.locator(".manque-outil").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-4-cahier-sans-stylo.png` });
+  await cadet.click('.rail__outil:has-text("Crayon")');
+  await cadet.waitForTimeout(1200);
+  verifier("le crayon en main, on ecrit", await cadet.locator(".manque-outil").count() === 0);
+  await cadet.screenshot({ path: `${CAPT}/scene-5-cahier-crayon-en-main.png` });
+
+  await maitre.setViewportSize({ width: 1440, height: 900 });
+  await maitre.goto(`${RACINE}#/classe/${classeId}/salle`);
+  await maitre.reload();
+  await maitre.waitForTimeout(3000);
+  await maitre.click(".contexte__statut button.presence");
+  await maitre.waitForTimeout(900);
+  await maitre.screenshot({ path: `${CAPT}/scene-6-professeur.png` });
+  await cadet.click(".scene__livre .scene__fermer");
+  await cadet.waitForTimeout(1500);
+  verifier("l'eleve voit le professeur devant la classe",
+    await cadet.locator(".contexte__statut .presence--oui").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-7-professeur-present.png` });
+
+  await cadet.click('.dock__chose[aria-label="Écrire une note à quelqu\'un"]');
+  await cadet.waitForTimeout(700);
+  verifier("la note rapide s'ouvre en un geste", await cadet.locator(".note-rapide").count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/scene-8-note.png` });
+  await cadet.keyboard.press("Escape");
+  await cadet.waitForTimeout(400);
+
+  // En petite fenêtre (au-dessus du jeu) : la console remplace la scène.
+  await cadet.setViewportSize({ width: 460, height: 640 });
+  await cadet.waitForTimeout(900);
+  verifier("en petite fenetre, la salle devient une console",
+    await cadet.locator(".salle > .console").isVisible() && !(await cadet.locator(".salle > .scene").isVisible()));
+  await cadet.screenshot({ path: `${CAPT}/petit-1-salle-bureau.png` });
+  // Animation allumée : on se voit assis à sa place, en 3D, en tête de la console.
+  verifier("en petite fenetre, on se voit assis a son bureau (3D en tete de console)",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas.classe3d__toile').count() === 1);
+  await cadet.click(".salle > .console .console__anim");
+  await cadet.waitForTimeout(800);
+  verifier("animation coupee : plus de 3D, le tableau et l'interface",
+    await cadet.locator(".salle canvas.classe3d__toile").count() === 0
+    && await cadet.locator('.salle > .console .console__contenu[data-panneau="tableau"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/petit-1b-animation-coupee.png` });
+  await cadet.click(".salle > .console .console__anim");
+  await cadet.waitForTimeout(1500);
+  verifier("animation rallumee : on se revoit a sa place",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas.classe3d__toile').count() === 1);
+  await cadet.click('.console__barre [aria-label="Sac"]');
+  await cadet.waitForTimeout(700);
+  verifier("le sac s'ouvre dans la console", await cadet.locator('.console__contenu[data-panneau="sac"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/petit-2-salle-sac.png` });
+  await cadet.click('.console__barre [aria-label="Cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("le cahier s'ouvre dans la console", await cadet.locator('.console .parchemin').count() >= 1);
+  verifier("et la scene reste au-dessus : on se voit a son bureau pendant qu'on ecrit",
+    await cadet.locator('.salle > .console[data-scene="1"] .console__scene canvas').isVisible());
+  await cadet.screenshot({ path: `${CAPT}/petit-3-salle-cahier.png` });
+  await cadet.setViewportSize({ width: 380, height: 300 });
+  await cadet.waitForTimeout(900);
+  await cadet.screenshot({ path: `${CAPT}/petit-4-salle-mini.png` });
+  verifier("en toute petite fenetre, la barre des gestes reste la",
+    await cadet.locator(".console__barre").isVisible());
+  await cadet.setViewportSize({ width: 1440, height: 900 });
+  await cadet.waitForTimeout(900);
+  verifier("revenu en grand, la scene reprend sa place", await cadet.locator(".salle > .scene").isVisible());
+
+  await depot(maitre, `return d.sessions.terminer("${seanceC}");`);
+  await cadet.waitForTimeout(1500);
+  await cadet.setViewportSize({ width: 1280, height: 800 });
+  await maitre.setViewportSize({ width: 1280, height: 800 });
+
+  // Chez moi : le bureau de la chambre, et la barre des gestes.
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1800);
+  verifier("chez moi, on arrive devant son bureau", await cadet.locator(".chez-moi .scene").isVisible());
+  verifier("la barre des gestes est la", await cadet.locator(".actions .actions__geste").count() === 6);
+  verifier("plus de sigle « CP » : une maison pour rentrer chez soi",
+    (await cadet.locator(".contexte__sceau").innerText()).trim() === "" && await cadet.locator(".contexte__sceau svg").count() === 1);
+  const avantCahiers = await depot(cadet, "return (await d.cahiers.mesCahiers(etat.utilisateur.id)).length");
+  await cadet.click('.mur__raccourcis button:has-text("Mes cahiers")');
+  await cadet.waitForSelector(".mes-cahiers", { timeout: 5000 });
+  await cadet.fill('.mes-cahiers input[name="titre-cahier"]', "Stratégie");
+  await cadet.click('.mes-cahiers .mes-cahiers__teinte[title="Bordeaux"] >> nth=-1');
+  await cadet.click('.mes-cahiers button:has-text("Le prendre")');
+  await cadet.waitForTimeout(700);
+  await cadet.screenshot({ path: `${CAPT}/mes-cahiers.png` });
+  verifier("« Mes cahiers » : on en prend un neuf, couverture choisie",
+    await cadet.locator('.mes-cahiers__cahier:has-text("Stratégie")').count() === 1
+    && await depot(cadet, "return (await d.cahiers.mesCahiers(etat.utilisateur.id)).length") === avantCahiers + 1);
+  await cadet.keyboard.press("Escape");
+  await cadet.waitForTimeout(500);
+
+  // L'encre : la plume en main, chez soi, chaque ligne entame l'encrier.
+  const ids = await depot(cadet, `const l = await d.affaires.miennes(etat.utilisateur.id);
+    const g = (k) => l.find((o) => o.kind === k);
+    return { plume: g("plume")?.id, encrier: g("encrier")?.id, flacon: g("encre")?.id };`);
+  verifier("un flacon d'encre attend a la maison", Boolean(ids.flacon));
+  await depot(cadet, `for (const id of ${JSON.stringify([ids.plume, ids.encrier])}) await d.affaires.rangerDans(await d.affaires.lire(id), null);
+    localStorage.setItem("ojm.enmain.maison", JSON.stringify(String(${JSON.stringify(ids.plume)}))); return 1;`);
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(600);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1500);
+  await cadet.click('.actions__geste[data-geste="cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("chez soi, a la plume : la jauge d'encre est au-dessus du cahier",
+    await cadet.locator(".mon-cahier .encre-niveau").isVisible());
+  await cadet.click(".mon-cahier .parchemin__corps");
+  await cadet.keyboard.type("Rapport de la troisieme expedition hors des murs : pertes legeres, cartes a refaire. ".repeat(2), { delay: 2 });
+  await cadet.waitForTimeout(2200);
+  const niveau = await depot(cadet, `return (await d.affaires.lire(${JSON.stringify(ids.encrier)})).level;`);
+  verifier("ecrire a la plume vide l'encrier peu a peu", niveau <= 97 && niveau >= 90, `niveau ${niveau}`);
+  verifier("la jauge suit en direct", (await cadet.locator(".mon-cahier .encre-niveau__pc").innerText()).trim() === `${niveau} %`);
+  await depot(cadet, `await d.affaires.consommer(await d.affaires.lire(${JSON.stringify(ids.encrier)}), 100); return 1;`);
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(600);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1500);
+  await cadet.click('.actions__geste[data-geste="cahier"]');
+  await cadet.waitForTimeout(1200);
+  verifier("encrier vide : on le voit, et on ne trace plus",
+    await cadet.locator('.mon-cahier .encre-niveau[data-vide="1"]').isVisible());
+  await cadet.screenshot({ path: `${CAPT}/encre-vide.png` });
+  await cadet.click(".mon-cahier .encre-niveau__remplir");
+  await cadet.waitForTimeout(1500);
+  const apres = await depot(cadet, `return { e: (await d.affaires.lire(${JSON.stringify(ids.encrier)})).level, f: (await d.affaires.lire(${JSON.stringify(ids.flacon)})).level };`);
+  verifier("on remplit l'encrier au flacon de la maison (un quart du flacon)", apres.e === 100 && apres.f === 75, JSON.stringify(apres));
+  verifier("et la plume peut de nouveau ecrire", await cadet.locator('.mon-cahier .encre-niveau[data-vide="1"]').count() === 0);
+  await cadet.goto(`${RACINE}#/`);
+  await cadet.waitForTimeout(1200);
+
+  await cadet.click('.actions__geste[data-geste="sac"]');
+  await cadet.waitForTimeout(700);
+  verifier("le geste Sac ouvre le sac de la chambre", await cadet.locator('.chez-moi .scene[data-etat="sac"]').count() === 1);
+  await cadet.screenshot({ path: `${CAPT}/chez-moi-sac.png` });
+  await cadet.click('.actions__geste[data-geste="bureau"]');
+  await cadet.waitForTimeout(500);
+
+  await cadet.goto(`${RACINE}#/affaires`);
+  await cadet.waitForTimeout(1500);
+  verifier("mes affaires montrent ce qui est reste en salle",
+    (await cadet.locator(".affaires__section--restes").count()) === 1
+    && (await cadet.locator(".affaire--reste").count()) >= 1);
+  await cadet.screenshot({ path: `${process.env.CAPTURES || "/tmp"}/affaires-restes.png`, fullPage: true }).catch(() => {});
+  await cadet.goto(`${RACINE}#/papiers`);
+  await cadet.waitForTimeout(900);
+  await cadet.click('button.onglet:has-text("Dossiers")');
+  await cadet.waitForTimeout(900);
+  verifier("l'onglet dossiers montre le dossier oublie comme indisponible",
+    (await cadet.locator(".dossier-carte--hors").count()) >= 1);
 
   /* =======================================================================
      12. Les ecrans repondent
@@ -489,6 +883,33 @@ try {
     verifier(`la page ${route} s'affiche`, titre > 0);
   }
   verifier("aucune image manquante", manquantes.size === 0, [...manquantes].join(", "));
+
+  /* =======================================================================
+     13. Le compte : pseudo et mot de passe, sans courriel
+     ===================================================================== */
+  journal.push("\n13. Le compte");
+  await cadet.goto(`${RACINE}#/profil`);
+  await cadet.waitForTimeout(1000);
+  await cadet.click('button:has-text("Changer mon mot de passe")');
+  await cadet.waitForTimeout(400);
+  const champsMdp = cadet.locator('.modale input[type="password"]');
+  await champsMdp.nth(0).fill("nouveau-secret");
+  await champsMdp.nth(1).fill("nouveau-secret");
+  await cadet.click('.modale button:has-text("Changer")');
+  await cadet.waitForTimeout(600);
+  await cadet.click('button:has-text("Se déconnecter")');
+  await cadet.waitForTimeout(900);
+  await cadet.fill('input[name="pseudo"]', "cadet");
+  await cadet.fill('input[name="mdp"]', "motdepasse1");
+  await cadet.click('button[type="submit"]:has-text("Entrer")');
+  await cadet.waitForTimeout(900);
+  verifier("l'ancien mot de passe ne marche plus", await cadet.locator('input[name="pseudo"]').count() === 1);
+  await cadet.fill('input[name="mdp"]', "nouveau-secret");
+  await cadet.click('button[type="submit"]:has-text("Entrer")');
+  await cadet.waitForTimeout(1500);
+  verifier("on rentre avec son pseudo (majuscules indifferentes) et le nouveau mot de passe",
+    await cadet.locator('input[name="pseudo"]').count() === 0);
+
   verifier("aucune erreur de script", erreursPage.length === 0, erreursPage.slice(0, 3).join(" | "));
 
 } catch (err) {

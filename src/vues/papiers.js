@@ -17,6 +17,7 @@ import { L } from "../core/lexique.js";
 import {
   rendrePapier, composerPapier, tendrePapier, recevoirPapier, MODELES
 } from "../features/papier.js";
+import { panneauDossiers, classerPapier } from "../features/dossiers.js";
 
 const ETATS = {
   offered:  { libelle: "En attente", etiq: "etiq--attn" },
@@ -61,12 +62,19 @@ export default async function vuePapiers() {
     const enAttente = recus.filter((r) => r.state === "offered").length;
     render(onglets,
       [{ cle: "recus", libelle: "Reçus", compteur: enAttente },
-       { cle: "mes", libelle: "Rédigés par moi", compteur: mesPapiers.length }]
+       { cle: "mes", libelle: "Rédigés par moi", compteur: mesPapiers.length },
+       { cle: "dossiers", libelle: "Dossiers" }]
         .map((o) => el("button.onglet", {
           role: "tab", "aria-selected": String(o.cle === onglet),
           onclick: () => { onglet = o.cle; peindre(); }
         }, o.libelle, o.compteur ? el("span.pastille-compteur", String(o.compteur)) : null)));
 
+    if (onglet === "dossiers") {
+      render(zone, el("p.petit.faible", "…"));
+      panneauDossiers({ moiId: etat.utilisateur.id, connus: papiersConnus() })
+        .then((n) => { if (onglet === "dossiers") render(zone, n); });
+      return;
+    }
     render(zone, onglet === "recus" ? panneauRecus() : panneauMes());
   }
 
@@ -131,8 +139,16 @@ export default async function vuePapiers() {
     )));
   }
 
+  /** Ce que j'ai en main : ce que j'ai écrit, et ce que j'ai gardé. */
+  function papiersConnus() {
+    return [...mesPapiers,
+      ...recus.filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)];
+  }
+
   function actions(ancre, papier) {
     menu(ancre, [
+      { libelle: "Le classer dans un dossier", icone: "sac",
+        action: () => classerPapier(papier, { moiId: etat.utilisateur.id, ancre }) },
       { libelle: "Le tendre à quelqu'un", icone: "main", action: () => remettre(papier) },
       { libelle: "Le reprendre", icone: "crayon", action: () => modifier(papier) },
       {

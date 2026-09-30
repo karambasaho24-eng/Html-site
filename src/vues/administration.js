@@ -5,13 +5,20 @@ import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { pilote, profils, rbac, journal, papiers } from "../data/index.js";
+import { pilote, profils, rbac, journal, papiers, auth } from "../data/index.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
 import { estAdmin, estModerateur, LIBELLES_ROLES } from "../core/permissions.js";
-import { confirmer, menu, ouvrirModale } from "../ui/modal.js";
-import { erreur, toast, messageErreur } from "../ui/toast.js";
+import { confirmer, formulaire, menu, ouvrirModale } from "../ui/modal.js";
+import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { dateCourte, heure, depuis, aplatir } from "../core/util.js";
 import { rendrePapier, MODELES } from "../features/papier.js";
+
+// Facile à dicter en jeu : deux mots, quatre chiffres.
+function motDePasseAuHasard() {
+  const mots = ["Rempart", "Plume", "Encrier", "Bougie", "Pupitre", "Muraille", "Craie", "Horloge", "Lanterne", "Cadet"];
+  const n = new Uint32Array(3); crypto.getRandomValues(n);
+  return `${mots[n[0] % mots.length]}-${mots[n[1] % mots.length]}-${1000 + (n[2] % 9000)}`;
+}
 
 export default async function vueAdministration() {
   if (!estModerateur()) {
@@ -107,6 +114,7 @@ export default async function vueAdministration() {
   function menuCompte(ancre, profil) {
     menu(ancre, [
       { titre: profil.display_name },
+      { libelle: "Nouveau mot de passe…", action: () => nouveauMotDePasse(profil) },
       { titre: "Rôle global" },
       ...Object.entries(LIBELLES_ROLES).map(([cle, libelle]) => ({
         libelle: libelle + (profil.role_key === cle ? "  ✓" : ""),
@@ -127,6 +135,26 @@ export default async function vueAdministration() {
         }
       }))
     ]);
+  }
+
+  /* Le joueur a oublié son mot de passe : on lui en donne un nouveau, qu'on
+     lui transmet en jeu. Il pourra le changer depuis son profil. */
+  async function nouveauMotDePasse(profil) {
+    const sortie = await formulaire({
+      titre: `Nouveau mot de passe — ${profil.display_name}`,
+      note: "Transmettez-le au joueur en jeu ; il pourra le changer depuis son profil.",
+      champs: [{ cle: "mdp", label: "Mot de passe", type: "text", valeur: motDePasseAuHasard(), requis: true,
+                 aide: "Huit caractères minimum." }],
+      libelle: "Appliquer"
+    });
+    if (!sortie) return;
+    if (sortie.mdp.length < 8) { erreur("Mot de passe trop court", "Huit caractères au minimum."); return; }
+    try {
+      await auth.remettreMotDePasse(profil.id, sortie.mdp);
+      succes("Mot de passe changé", `${profil.display_name} peut entrer avec « ${sortie.mdp} ».`);
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
+    }
   }
 
   /**

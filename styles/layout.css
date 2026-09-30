@@ -176,6 +176,26 @@
 :root[data-density="minimal"] .rail { display: none; }
 :root[data-density="minimal"] .page { padding: var(--e-3); }
 
+/* En densité minimale, le rail est masqué — mais le bouton ☰ doit toujours
+   l'ouvrir. Sans cette règle, le tiroir n'existait que sur petit écran : sur un
+   écran large en « Minimal », on se retrouvait sans aucun menu, et le bouton
+   censé le rendre ne faisait rien. */
+:root[data-density="minimal"] body.tiroir-ouvert .rail {
+  display: flex;
+  position: fixed; inset: var(--h-barre) auto 0 0; z-index: 150;
+  width: 248px;
+  box-shadow: var(--ombre-3);
+}
+:root[data-density="minimal"] body.tiroir-ouvert .rail__lien span:not(.compteur),
+:root[data-density="minimal"] body.tiroir-ouvert .rail__titre { display: block; }
+:root[data-density="minimal"] body.tiroir-ouvert .rail__lien {
+  justify-content: flex-start; padding: 9px var(--e-4);
+}
+:root[data-density="minimal"] body.tiroir-ouvert::after {
+  content: ""; position: fixed; inset: var(--h-barre) 0 0 0; z-index: 140;
+  background: var(--voile);
+}
+
 /* Fenêtre flottante « cahier à côté de Roblox » */
 body.est-flottant .chassis {
   border: 1px solid var(--ligne-laiton);
@@ -307,45 +327,4 @@ body.avec-console:where(:root[data-density="minimal"]) .chassis {
 }
 .console-hote { grid-area: console; }
 
-.console {
-  display: flex; align-items: stretch; gap: 1px;
-  background: var(--ligne);
-  border-bottom: 1px solid var(--ligne);
-}
-/* Dans la grande fenêtre, cinq boutons étalés sur 1400 px ne sont pas une
-   console : ce sont cinq pancartes. On les garde à portée de pouce. */
-.console__bouton {
-  flex: 0 0 104px; min-width: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; padding: 7px 4px;
-  background: var(--encre-850); border: 0; cursor: pointer;
-  color: var(--texte-doux); font: inherit;
-  position: relative;
-  transition: background var(--transition), color var(--transition);
-}
-.console__bouton:hover { background: var(--encre-800); color: var(--texte); }
-.console__bouton:active { background: var(--encre-700); }
-.console__mot {
-  font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
-}
-.console__compteur {
-  position: absolute; top: 4px; right: calc(50% - 22px);
-  min-width: 15px; height: 15px; padding: 0 4px;
-  display: grid; place-items: center;
-  background: var(--attn); color: #17140c;
-  border-radius: 999px; font-size: 9px; font-weight: 700;
-}
-.console__compteur:empty { display: none; }
-.console[data-attente="1"] .console__bouton[data-cle="actions"] { color: var(--laiton-clair); }
-
-/* Dans la fenêtre d'à-côté, la console prime : le rail se replie, les mots
-   disparaissent, il ne reste que cinq pictogrammes et le nombre de choses qui
-   attendent une réponse. */
-.est-flottant .console__mot { display: none; }
-.est-flottant .console__bouton { flex: 1; padding: 6px 2px; }
-.est-flottant .console__compteur { right: calc(50% - 16px); }
-
-@media (max-width: 720px) {
-  .console__mot { display: none; }
-  .console__bouton { flex: 1; }
-}
+/* (L'ancienne console d'à-côté a été remplacée par features/console.js — styles dans monde.css.) */
