@@ -16395,7 +16395,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         if (x.sac) x.sac.visible = false;
         continue;
       }
-      if (x.sac) x.sac.visible = true;
+      if (x.sac) x.sac.visible = !x.siege?.debout;
       const k = s + p.phase;
       p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
       if (x.arrive) {

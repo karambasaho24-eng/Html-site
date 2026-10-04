@@ -2973,7 +2973,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         if (x.sac) x.sac.visible = false;
         continue;
       }
-      if (x.sac) x.sac.visible = true;
+      // Debout (au palais, dehors), on garde son sac à l'épaule : pas de sac par terre.
+      if (x.sac) x.sac.visible = !x.siege?.debout;
       const k = s + p.phase;
       p.torse.scale.y = 1 + Math.sin(k * 1.6) * 0.012;
       // Qui arrive s'assoit : il descend doucement sur sa chaise.
