@@ -1095,7 +1095,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     x.sacDernier = maintenant;
     const cible = x.sacOuvert ? 1 : 0;
     const avant = x.sacP || 0;
-    x.sacP = cible > avant ? Math.min(1, avant + dt / 1300) : Math.max(0, avant - dt / 900);
+    // Arrivé au bout (tout ouvert, ou tout fermé), on n'y touche plus : sinon
+    // le rabat repart d'un cheveu à chaque image, et il tremble.
+    x.sacP = cible === avant ? avant
+      : cible > avant ? Math.min(1, avant + dt / 1300) : Math.max(0, avant - dt / 900);
     const t = x.sacP;
     const { sol, table } = posesSac(x.siege);
     // 0 → 0,3 : il se penche et attrape le sac ; 0,3 → 0,75 : il le monte

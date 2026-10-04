@@ -14473,7 +14473,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     x.sacDernier = maintenant;
     const cible = x.sacOuvert ? 1 : 0;
     const avant = x.sacP || 0;
-    x.sacP = cible > avant ? Math.min(1, avant + dt / 1300) : Math.max(0, avant - dt / 900);
+    x.sacP = cible === avant ? avant : cible > avant ? Math.min(1, avant + dt / 1300) : Math.max(0, avant - dt / 900);
     const t = x.sacP;
     const { sol, table: table2 } = posesSac(x.siege);
     const monte = Math.max(0, Math.min(1, (t - 0.3) / 0.45));
