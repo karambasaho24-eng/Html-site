@@ -18,7 +18,6 @@ export const TITRES = [
   { cle: "commandant", libelle: "Commandant" },
   { cle: "capitaine", libelle: "Capitaine" },
   { cle: "chef_escouade", libelle: "Chef d'escouade" },
-  { cle: "pretre", libelle: "Prêtre du Culte des Murs" },
   { cle: "marchand", libelle: "Marchand" }
 ];
 
