@@ -112,6 +112,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   soleil.shadow.bias = -0.0003;
   soleil.shadow.normalBias = 0.02;
   scene.add(soleil, soleil.target);
+  // Une lumière de contour, venue de derrière : elle détache les silhouettes
+  // du décor, comme sur un plateau de tournage.
+  const contour = new THREE.DirectionalLight("#cfe0ff", 0.55);
+  contour.position.set(4, 9, -14);
+  scene.add(contour);
   const plafonnier = new THREE.PointLight("#ffe7c7", 18, 30, 2);
   plafonnier.position.set(0, 9.5, -2);
   scene.add(plafonnier);
@@ -472,7 +477,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   function personnage(cle, avatar = {}) {
     const alea = graine(cle);
     // Ce que le joueur a choisi ; à défaut, une apparence tirée de son nom.
-    const a = avatarComplet(cle, avatar);
+    // Un roi, une reine : l'habit royal, quoi qu'il ait choisi.
+    const a = avatarComplet(cle, ficheTitre(avatar?.titre)?.manteau ? { ...avatar, tenue: "royale" } : avatar);
     const peau = matDe(a.peau);
     const habit = matieresTenue(a.tenue);
     const cheveux = matiereCheveux(a.cheveux);
@@ -1751,11 +1757,35 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     table.add(plateau, chant, fut, socle);
     ombrer(table);
     decor.add(table);
-    // Une carafe et des verres au centre : une vraie table de réunion.
-    const verre = new THREE.MeshPhysicalMaterial({ color: "#e6eef2", roughness: .05, transmission: .9, thickness: .2, transparent: true, opacity: .55 });
-    const carafe = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 0.8, 20), verre);
-    carafe.position.set(0.25, 2.64, -0.15);
-    decor.add(carafe);
+    // Au centre : un chandelier de laiton allumé, une pile de dossiers, un encrier.
+    const laitonT = matDe("#9c7a3c", { metalness: .75, roughness: .3 });
+    const centre = new THREE.Group();
+    const piedC = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.08, 24), laitonT);
+    const tigeC = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.75, 12), laitonT);
+    tigeC.position.y = 0.42;
+    const brasC = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.03, 8, 24, Math.PI), laitonT);
+    brasC.rotation.z = Math.PI; brasC.position.y = 0.82;
+    centre.add(piedC, tigeC, brasC);
+    for (const [x, h] of [[-0.36, 0.42], [0, 0.55], [0.36, 0.4]]) {
+      const coupe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.05, 0.06, 14), laitonT);
+      coupe.position.set(x, 0.82, 0);
+      centre.add(coupe);
+      bougie(centre, x, 0.85, h);
+    }
+    centre.position.set(0, 2.24, 0);
+    const dossiers = new THREE.Group();
+    ["#6b4a2a", "#2f4a3a", "#7a2a22"].forEach((c, i) => {
+      const d = new THREE.Mesh(boiteRonde(1.0, 0.07, 1.3, 0.02), matDe(c, { roughness: .8 }));
+      d.position.set(0, i * 0.075, 0); d.rotation.y = (i - 1) * 0.18;
+      dossiers.add(d);
+    });
+    dossiers.position.set(-0.95, 2.28, 0.55);
+    ombrer(centre); ombrer(dossiers);
+    decor.add(centre, dossiers);
+    const lueurT = new THREE.PointLight("#ffb866", 5, 10, 2);
+    lueurT.position.set(0, 3.8, 0);
+    decor.add(lueurT);
+    bougies.push({ lumiere: lueurT, base: 5, phase: 1.3 });
 
     const sieges = [];
     for (let i = 0; i < total; i++) {
@@ -1863,6 +1893,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const T = texPalais();
     const fond = -16, avant = 16, largeur = 26;
     scene.background = new THREE.Color("#120d0b");
+    scene.fog = new THREE.Fog("#1a120c", 30, 70);
     ciel.color.set("#f2dcc0"); ciel.groundColor.set("#2a1a12"); ciel.intensity = 0.75;
     soleil.intensity = 1.3;
     plafonnier.intensity = 0;
@@ -2280,8 +2311,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       if (A.papier.parent !== bras.bout) { A.papier.parent?.remove(A.papier); bras.bout.add(A.papier); }
     };
     const lacherPapier = () => { A.papier?.parent?.remove(A.papier); };
-    for (const q of [de, a]) q.torse.scale.y = 1 + Math.sin(t / 620 + (q === a ? 1 : 0)) * 0.012;
+    for (const q of [de, a]) {
+      q.torse.scale.y = 1 + Math.sin(t / 620 + (q === a ? 1 : 0)) * 0.012;
+      if (!q.lecture) {
+        q.bassin.rotation.z = Math.sin(t / 900 + (q === a ? 2 : 0)) * 0.016;
+        q.brasG.epaule.rotation.x = q.brasG.epaule.rotation.x || Math.sin(t / 700) * 0.04;
+      }
+    }
     a.tete.rotation.y = Math.sin(t / 2100) * 0.12;
+    if (A.phase === "prend" && dt < 900) a.tete.rotation.x = Math.sin(Math.min(1, dt / 500) * Math.PI) * 0.18;
 
     if (A.phase === "approche") {
       // Il arrive de loin, et s'arrête à portée de main.
@@ -2941,7 +2979,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       // Qui arrive s'assoit : il descend doucement sur sa chaise.
       if (x.arrive) {
         const a = Math.min(1, (performance.now() - x.arrive) / 700);
-        p.bassin.position.y = (1 - a) * (1 - a) * 0.8;
+        // Debout, on ne s'assoit pas : on arrive, simplement.
+        p.bassin.position.y = (p.pose === "debout" ? 1.9 : 0) + (p.pose === "debout" ? 0 : (1 - a) * (1 - a) * 0.8);
         if (a >= 1) x.arrive = 0;
       }
       // Il prend ou range quelque chose : le bras droit est à ce geste-là.
@@ -2969,6 +3008,19 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       // tableau, avec un coup d'œil de temps en temps. Qui écrit baisse la tête.
       p.tete.rotation.y = Math.sin(k * 0.35) * (dispo.reunion ? 0.45 : 0.18) + (Math.sin(k * 0.11) > 0.93 ? 0.5 : 0);
       p.tete.rotation.x = Math.sin(k * 0.5) * 0.04 + (p.outil && x.personne.ecrit && !x.personne.main ? 0.28 : 0);
+      if (p.pose === "debout" && !x.personne.main) {
+        // Debout : le poids passe d'une jambe à l'autre, les bras bougent à peine.
+        p.bassin.rotation.z = Math.sin(k * 0.6) * 0.018;
+        p.bassin.position.x = Math.sin(k * 0.6) * 0.04;
+        p.brasG.epaule.rotation.x = Math.sin(k * 0.8) * 0.05;
+        if (!p.outil) p.brasD.epaule.rotation.x = -Math.sin(k * 0.8 + 1) * 0.05;
+        // Au palais, on regarde le souverain ; on ne détourne les yeux qu'un instant.
+        if (dispo.trone && x.siege) {
+          const vers = Math.atan2(-(dispo.tete.x - x.siege.x), -(dispo.tete.z - x.siege.z)) - p.racine.rotation.y;
+          p.tete.rotation.y = Math.max(-0.7, Math.min(0.7, vers)) + Math.sin(k * 0.3) * 0.08;
+          p.tete.rotation.x = -0.12;
+        }
+      }
       animerSac(x, maintenant);
     }
     // Ce qu'on sort du sac monte un instant avant de partir sur la table.

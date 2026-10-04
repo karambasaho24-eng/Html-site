@@ -148,6 +148,15 @@ export const TENUES = {
     ecusson: "entrainement",
     pantalon: "#e7e1d2", harnais: "#3b2618", bottes: "#2b1a10", jupe: "#3a2618"
   },
+  // L'habit du souverain : un long manteau de cour cramoisi, croisé, bordé
+  // d'or, sur une culotte claire. Aucun insigne de régiment : le roi n'en
+  // porte pas.
+  royale: {
+    libelle: "Habit royal", famille: "royale",
+    veste: "#6a0e1b", croise: true, manteau: true, chemise: "#f7f2e4", noeud: "#f7f2e4",
+    passepoil: "#d4a93a", epaulettes: "#d4a93a", aiguillette: "#e2c25c", poignets: "#d4a93a",
+    pantalon: "#f1ebdd", bande: "#d4a93a", chaussures: "#120d0b"
+  },
   repos: {
     libelle: "Tenue de repos", famille: "uniforme",
     veste: null, chemise: "#ece6d8", bretelles: "#3b2618",
