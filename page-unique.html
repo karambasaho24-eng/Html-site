@@ -13398,6 +13398,10 @@ function libelleTitre(porteur) {
   if (!porteur?.titre) return "";
   return String(porteur.titre_libelle || "").trim() || ficheTitre(porteur.titre)?.libelle || "";
 }
+function prefixer(titre, nom) {
+  const debut = String(nom).toLowerCase().replace(/[_\s-]+/g, " ").trim();
+  return debut.startsWith(String(titre).toLowerCase()) ? nom : `${titre} ${nom}`;
+}
 var TITRES, PAR_CLE, ficheTitre, siegeSurLeTrone;
 var init_titres = __esm({
   "src/features/titres.js"() {
@@ -19978,7 +19982,7 @@ function creerScene({
     const prenom = (p) => {
       const n = (nomDe(p) || "Participant").split(/\s+/)[0];
       const t = libelleTitre({ titre: titreDe(p), titre_libelle: p.titre_libelle });
-      return t ? `${t} ${n}` : n;
+      return t ? prefixer(t, n) : n;
     };
     const presidePas = (p) => surLeTrone ? String(p.user_id) !== String(surLeTrone.user_id) : p.role !== "teacher";
     classe3d.maj({
@@ -30266,7 +30270,8 @@ async function vueSalle({ params }) {
     const outil = tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind) ? tenu : outils[0] || null;
     const cahierPose = bureau.cahiersSurLeBureau()[0];
     const sac = bureau.sacsPortes()[0];
-    const present = Boolean(session.estrade?.present);
+    const souverainLa = ["audience", "reunion"].includes(session.mode) && (siegeSurLeTrone(etat.profil?.titre) || participants.some((p) => p.user_id !== etat.utilisateur.id && siegeSurLeTrone(p.titre)));
+    const present = Boolean(session.estrade?.present) || souverainLa;
     const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
     definirStatut([
       staff ? el(
@@ -30545,6 +30550,7 @@ var init_salle = __esm({
     init_apparence();
     init_bus();
     init_lecture();
+    init_titres();
     init_note_rapide();
     init_dossiers();
     init_fenetre_flottante();

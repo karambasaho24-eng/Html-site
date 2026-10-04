@@ -23,7 +23,7 @@ import { creerClasse3D, webglDisponible } from "./classe-3d.js";
 import { monAvatar } from "./apparence.js";
 import { ecouter } from "../core/bus.js";
 import { lectureCourante } from "./lecture.js";
-import { libelleTitre, siegeSurLeTrone } from "./titres.js";
+import { libelleTitre, siegeSurLeTrone, prefixer } from "./titres.js";
 
 /** Une rotation stable par objet : le même stylo reste de biais pareil. */
 function biais(id) {
@@ -598,7 +598,7 @@ export function creerScene({
     const prenom = (p) => {
       const n = (nomDe(p) || "Participant").split(/\s+/)[0];
       const t = libelleTitre({ titre: titreDe(p), titre_libelle: p.titre_libelle });
-      return t ? `${t} ${n}` : n;
+      return t ? prefixer(t, n) : n;
     };
     const presidePas = (p) => surLeTrone
       ? String(p.user_id) !== String(surLeTrone.user_id)

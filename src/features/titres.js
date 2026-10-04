@@ -35,7 +35,13 @@ export function libelleTitre(porteur) {
 /** « Commandant Erwin » — ou le nom seul. */
 export function nomTitre(porteur, nom) {
   const t = libelleTitre(porteur);
-  return t && nom ? `${t} ${nom}` : nom || t;
+  return t && nom ? prefixer(t, nom) : nom || t;
+}
+
+/** « Roi » + « Fritz » → « Roi Fritz » ; mais « Roi » + « Roi_Fritz » reste « Roi_Fritz ». */
+export function prefixer(titre, nom) {
+  const debut = String(nom).toLowerCase().replace(/[_\s-]+/g, " ").trim();
+  return debut.startsWith(String(titre).toLowerCase()) ? nom : `${titre} ${nom}`;
 }
 
 /** Ce titre fait-il siéger sur le trône ? */

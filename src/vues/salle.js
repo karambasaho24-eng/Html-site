@@ -39,6 +39,7 @@ import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
 import { monAvatar } from "../features/apparence.js";
 import { ecouter } from "../core/bus.js";
 import { lectureCourante } from "../features/lecture.js";
+import { siegeSurLeTrone } from "../features/titres.js";
 import { ecrireUneNote } from "../features/note-rapide.js";
 import { panneauDossiers } from "../features/dossiers.js";
 import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
@@ -2970,7 +2971,12 @@ export default async function vueSalle({ params }) {
     const outil = (tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind)) ? tenu : outils[0] || null;
     const cahierPose = bureau.cahiersSurLeBureau()[0];
     const sac = bureau.sacsPortes()[0];
-    const present = Boolean(session.estrade?.present);
+    // Au palais, le souverain est présent quand il est dans la salle : il
+    // siège sur son trône, il ne se « place » pas devant la classe.
+    const souverainLa = ["audience", "reunion"].includes(session.mode) && (
+      siegeSurLeTrone(etat.profil?.titre)
+      || participants.some((p) => p.user_id !== etat.utilisateur.id && siegeSurLeTrone(p.titre)));
+    const present = Boolean(session.estrade?.present) || souverainLa;
     const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
 
     // En haut, une ligne : le responsable est-il devant ? combien sommes-nous ?
