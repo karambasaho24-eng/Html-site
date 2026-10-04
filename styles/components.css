@@ -496,3 +496,14 @@ label.btn input[type="file"] { display: none; }
   color: var(--texte); font: inherit; font-size: 13px;
 }
 @media (max-width: 560px) { .commandes { left: 8px; bottom: 74px; } }
+
+/* --- Le message de fin (personnage banni) ------------------------------------ */
+.bannissement { display: grid; gap: var(--e-3); text-align: center; }
+.bannissement__sceau { color: var(--alerte); display: grid; place-items: center; }
+.bannissement__texte, .bannissement__suite { margin: 0; color: var(--texte); }
+.bannissement__raison {
+  text-align: left; padding: var(--e-3); border-radius: var(--r-md);
+  border: 1px solid rgba(180, 85, 78, .45); background: rgba(180, 85, 78, .1);
+}
+.bannissement__raison p { margin: 4px 0 0; white-space: pre-wrap; }
+.bannissement__etiquette { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }

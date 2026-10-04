@@ -1160,6 +1160,17 @@ label.btn input[type="file"] { display: none; }
 }
 @media (max-width: 560px) { .commandes { left: 8px; bottom: 74px; } }
 
+/* --- Le message de fin (personnage banni) ------------------------------------ */
+.bannissement { display: grid; gap: var(--e-3); text-align: center; }
+.bannissement__sceau { color: var(--alerte); display: grid; place-items: center; }
+.bannissement__texte, .bannissement__suite { margin: 0; color: var(--texte); }
+.bannissement__raison {
+  text-align: left; padding: var(--e-3); border-radius: var(--r-md);
+  border: 1px solid rgba(180, 85, 78, .45); background: rgba(180, 85, 78, .1);
+}
+.bannissement__raison p { margin: 4px 0 0; white-space: pre-wrap; }
+.bannissement__etiquette { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }
+
 /* ---- notebook.css ---- */
 /* ===========================================================================
    Cahier — surface de parchemin, reliure, pages
@@ -6512,6 +6523,36 @@ async function creerPiloteLocal() {
       journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
       return ligne.role_key;
     },
+    /** Bannir le personnage (bannir_personnage, 0032). */
+    async bannir_personnage({ cible, raison }) {
+      const moi = monId();
+      if (!estModerateurLocal()) throw new ErreurDonnees("R\xE9serv\xE9 \xE0 la mod\xE9ration.", "42501");
+      if (cible === moi) throw new ErreurDonnees("On ne bannit pas son propre personnage.", "42501");
+      const texte = String(raison || "").trim();
+      if (!texte || texte.length > 600) throw new ErreurDonnees("Donnez une raison (600 caract\xE8res au plus).", "22023");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (["moderator", "admin", "director"].includes(p.role_key) && !peutNommer()) {
+        throw new ErreurDonnees("Seule l'administration bannit un membre de l'encadrement.", "42501");
+      }
+      if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur bannit un super administrateur.", "42501");
+      }
+      const { avatar: avatar2, ...prefs } = p.preferences || {};
+      const lignes = charger("profiles");
+      const i = lignes.findIndex((l) => l.id === cible);
+      lignes[i] = {
+        ...lignes[i],
+        titre: null,
+        titre_libelle: null,
+        preferences: { ...prefs, bannissement: { raison: texte, le: (/* @__PURE__ */ new Date()).toISOString(), lu: false } }
+      };
+      sauver("profiles", lignes);
+      signaler("profiles", "UPDATE", lignes[i], p);
+      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: "Votre personnage a \xE9t\xE9 banni", body: texte, read_at: null });
+      journaliser(moi, "personnage.banni", { cible, nom: p.display_name, raison: texte });
+      return p.display_name;
+    },
     /** Supprimer un compte (supprimer_compte, 0031). */
     async supprimer_compte({ cible }) {
       const moi = monId();
@@ -7970,6 +8011,16 @@ var init_data = __esm({
       comptes: (limite = 500) => T("profiles").liste({}, { ordre: "created_at", sens: "desc", limite }),
       fiches: (limite = 500) => T("rp_profiles").liste({}, { ordre: "updated_at", sens: "desc", limite }),
       supprimerFiche: (id) => T("rp_profiles").supprimer(id),
+      /**
+       * Bannir le personnage (0032) : son titre et son apparence tombent, un
+       * message de fin l'attend ; puis ses fiches sont retirées.
+       */
+      async bannir(id, raison) {
+        const nom = await pilote.rpc("bannir_personnage", { cible: id, raison });
+        const fiches = await T("rp_profiles").liste({ user_id: id }).catch(() => []);
+        for (const f of fiches) await T("rp_profiles").supprimer(f.id).catch(() => null);
+        return nom;
+      },
       journal: (filtre = {}, limite = 300) => T("activity_logs").liste(filtre, { ordre: "created_at", sens: "desc", limite })
     };
     tableaux = {
@@ -10173,11 +10224,11 @@ var init_toast = __esm({
 
 // src/features/portee.js
 function contexte({ session = null, classe = null } = {}) {
-  const enCours = session && (session.status === "live" || !session.status);
+  const enCours2 = session && (session.status === "live" || !session.status);
   return {
-    seance: enCours ? session.id : null,
-    classe: enCours ? classe?.id || session.class_id || null : null,
-    libelle: enCours ? classe?.name || session.title || "la s\xE9ance" : null
+    seance: enCours2 ? session.id : null,
+    classe: enCours2 ? classe?.id || session.class_id || null : null,
+    libelle: enCours2 ? classe?.name || session.title || "la s\xE9ance" : null
   };
 }
 function dansLeSac2(objet, index) {
@@ -25968,7 +26019,7 @@ function creerTableau(options = {}) {
   let couleur = TEINTES2[0];
   let epaisseur = 4;
   let ecriture = !lectureSeule;
-  let enCours = null;
+  let enCours2 = null;
   const pileAnnulation = [];
   const pileRefaire = [];
   let imageFond = null;
@@ -26136,7 +26187,7 @@ function creerTableau(options = {}) {
       data: { couleur, epaisseur }
     };
     if (outil === "crayon" || outil === "stylo" || outil === "surligneur") {
-      enCours = {
+      enCours2 = {
         ...base,
         kind: "trait",
         data: {
@@ -26147,34 +26198,34 @@ function creerTableau(options = {}) {
         }
       };
     } else {
-      enCours = { ...base, kind: outil, data: { ...base.data, x1: x, y1: y, x2: x, y2: y } };
+      enCours2 = { ...base, kind: outil, data: { ...base.data, x1: x, y1: y, x2: x, y2: y } };
     }
-    provisoires.set(enCours.id, enCours);
+    provisoires.set(enCours2.id, enCours2);
     peindre();
   });
   toile.addEventListener("pointermove", (evenement) => {
     const [x, y] = coordonnees(evenement);
     if (ecriture) diffuserCurseur(x, y);
-    if (!enCours) {
+    if (!enCours2) {
       if (ecriture && outil === "gomme" && evenement.buttons === 1 && !refuse("gomme")) effacerA(x, y);
       return;
     }
-    if (enCours.kind === "trait") {
-      const points = enCours.data.points;
+    if (enCours2.kind === "trait") {
+      const points = enCours2.data.points;
       const dernier = points.at(-1);
       if (Math.hypot(x - dernier[0], y - dernier[1]) < 2) return;
       points.push([x, y]);
     } else {
-      enCours.data.x2 = x;
-      enCours.data.y2 = y;
+      enCours2.data.x2 = x;
+      enCours2.data.y2 = y;
     }
-    diffuserFragment(enCours);
+    diffuserFragment(enCours2);
     peindre();
   });
   function terminer() {
-    if (!enCours) return;
-    const element = enCours;
-    enCours = null;
+    if (!enCours2) return;
+    const element = enCours2;
+    enCours2 = null;
     provisoires.delete(element.id);
     if (element.kind === "trait" && element.data.points.length < 2) {
       element.data.points.push([element.data.points[0][0] + 0.5, element.data.points[0][1] + 0.5]);
@@ -26185,7 +26236,7 @@ function creerTableau(options = {}) {
   toile.addEventListener("pointerup", terminer);
   toile.addEventListener("pointercancel", terminer);
   toile.addEventListener("pointerleave", () => {
-    if (enCours) terminer();
+    if (enCours2) terminer();
   });
   function ouvrirSaisieTexte(x, y) {
     const rect = toile.getBoundingClientRect();
@@ -29945,8 +29996,8 @@ async function vueSalle({ params }) {
     });
   }, 250);
   function maLecture() {
-    const enCours = lectureCourante();
-    if (enCours) return enCours;
+    const enCours2 = lectureCourante();
+    if (enCours2) return enCours2;
     if (scene !== "moncahier" || jEcris) return null;
     const tenu = bureau.enMain();
     return tenu && ["plume", "crayon", "stylo-plume"].includes(tenu.kind) ? null : "cahier";
@@ -32884,6 +32935,7 @@ async function vueAdministration() {
       { titre: p.display_name },
       { libelle: "Lui \xE9crire", icone: "papier", action: () => ecrireA(p) },
       nomme && p.id !== etat.utilisateur.id ? { libelle: "Titre du personnage\u2026", icone: "drapeau", action: () => donnerTitre(p) } : null,
+      p.id !== etat.utilisateur.id ? { libelle: "Bannir le personnage\u2026", icone: "croix", danger: true, action: () => bannir(p) } : null,
       ...fiches.map((f) => ({
         libelle: `Supprimer la fiche \xAB ${f.name || "sans nom"} \xBB`,
         icone: "corbeille",
@@ -33088,6 +33140,7 @@ async function vueAdministration() {
       { libelle: "Nouveau mot de passe\u2026", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage\u2026", action: () => donnerTitre(profil) },
       { libelle: "Lui \xE9crire\u2026", action: () => ecrireA(profil) },
+      intouchable ? null : { libelle: "Bannir le personnage\u2026", danger: true, action: () => bannir(profil) },
       intouchable ? null : { libelle: "Supprimer le compte\u2026", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur \u2014 seul un super administrateur y touche" } : { titre: "R\xF4le" },
       ...intouchable ? [] : roles.map(([cle, libelle]) => ({
@@ -33110,6 +33163,22 @@ async function vueAdministration() {
         }
       }))
     ]);
+  }
+  async function bannir(profil) {
+    const sortie2 = await formulaire({
+      titre: `Bannir le personnage de ${profil.display_name}`,
+      note: "Son titre, son apparence et ses fiches de personnage disparaissent ; son compte reste. \xC0 sa prochaine visite, il lit la raison et doit recommencer un nouveau personnage. Inscrit au journal.",
+      champs: [{ cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }],
+      libelle: "Bannir le personnage"
+    });
+    if (!sortie2) return;
+    try {
+      await moderation.bannir(profil.id, sortie2.raison);
+      succes("Personnage banni", profil.display_name);
+      await peindre();
+    } catch (err) {
+      erreur("Bannissement impossible", messageErreur(err));
+    }
   }
   async function supprimerCompte(profil) {
     const sortie2 = await formulaire({
@@ -33238,6 +33307,7 @@ var init_administration = __esm({
       "compte.titre": "a attribu\xE9 un titre",
       "compte.code_cree": "a cr\xE9\xE9 un code de r\xF4le",
       "compte.supprime": "a supprim\xE9 un compte",
+      "personnage.banni": "a banni un personnage",
       "compte.code_utilise": "a utilis\xE9 un code de r\xF4le",
       "compte.code_refuse": "a tap\xE9 un code de r\xF4le invalide",
       "moderation.note": "a not\xE9 une remise",
@@ -34327,6 +34397,7 @@ var COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Cr\xE9er un code \xE0 usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le r\xF4le d'un compte (membre, moderateur, admin\u2026).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant\u2026|aucun [libell\xE9]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "bannir", usage: "/bannir PSEUDO RAISON", aide: "Bannir le personnage (le compte reste) ; le joueur lira la raison.", qui: "modo" },
   { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, d\xE9finitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe \xE0 un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce \xE0 tous les joueurs.", qui: "modo" },
@@ -34397,6 +34468,13 @@ async function executer(ligne) {
       const libelle = args.slice(2).join(" ") || null;
       await profils.titrer(p.id, fiche2.cle, libelle);
       return ok(`${p.display_name} : ${libelle || fiche2.libelle}.`);
+    }
+    case "bannir": {
+      if (args.length < 2) return ko("Usage : /bannir PSEUDO RAISON");
+      const p = await compte(args[0]);
+      const raison = args.slice(1).join(" ");
+      await moderation.bannir(p.id, raison);
+      return ok(`Personnage de ${p.display_name} banni. Il lira : \xAB ${raison} \xBB.`);
     }
     case "supprimer": {
       if (!args.length) return ko("Usage : /supprimer PSEUDO");
@@ -34551,6 +34629,61 @@ function monterCommandes(hote = document.body) {
   });
 }
 
+// src/features/bannissement.js
+init_dom();
+init_store();
+init_data();
+init_modal();
+init_icons();
+var enCours = false;
+function surveillerBannissement() {
+  observer(["profil"], () => verifier2());
+  observer(["notifications"], async (liste) => {
+    if (!etat.utilisateur || enCours) return;
+    if ((liste || []).some((n) => n.kind === "bannissement" && !n.read_at)) {
+      const frais = await profils.lire(etat.utilisateur.id).catch(() => null);
+      if (frais) definir({ profil: frais });
+    }
+  });
+  verifier2();
+}
+async function verifier2() {
+  const ban = etat.profil?.preferences?.bannissement;
+  if (!etat.utilisateur || !ban || ban.lu || enCours) return;
+  enCours = true;
+  try {
+    await ouvrirModale({
+      titre: "Votre personnage a \xE9t\xE9 banni",
+      corps: () => el(
+        "div.bannissement",
+        el("div.bannissement__sceau", icone("bouclier", 28)),
+        el(
+          "p.bannissement__texte",
+          "La mod\xE9ration a mis fin \xE0 votre personnage. Votre compte, lui, reste ouvert."
+        ),
+        el(
+          "div.bannissement__raison",
+          el("span.bannissement__etiquette", "Raison"),
+          el("p", ban.raison || "\u2014")
+        ),
+        el(
+          "p.bannissement__suite",
+          el("strong", "Vous devez recommencer un nouveau personnage."),
+          " Son apparence, son nom et sa fiche sont \xE0 refaire."
+        )
+      ),
+      actions: [{ libelle: "Cr\xE9er un nouveau personnage", variante: "primaire", valeur: true }]
+    });
+    const prefs = { ...etat.profil?.preferences || {}, bannissement: { ...ban, lu: true } };
+    const maj = await profils.majorer(etat.utilisateur.id, { preferences: prefs }).catch(() => null);
+    if (maj) definir({ profil: maj });
+    const { ouvrirApparence: ouvrirApparence2 } = await Promise.resolve().then(() => (init_apparence(), apparence_exports));
+    await ouvrirApparence2({ bienvenue: true });
+  } finally {
+    enCours = false;
+  }
+}
+
 // src/app.js
 function declarerRoutes() {
   definirRoute("/connexion", { nom: "connexion", vue: () => Promise.resolve().then(() => (init_auth(), auth_exports)), publique: true });
@@ -34609,6 +34742,7 @@ async function demarrer() {
     }
     await chargerSession();
     surveillerRemises();
+    surveillerBannissement();
     hote.hidden = false;
     const vue = construireChassis(hote);
     monterCommandes(document.body);

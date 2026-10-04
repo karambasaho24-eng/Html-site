@@ -985,6 +985,16 @@ export const moderation = {
   comptes: (limite = 500) => T("profiles").liste({}, { ordre: "created_at", sens: "desc", limite }),
   fiches: (limite = 500) => T("rp_profiles").liste({}, { ordre: "updated_at", sens: "desc", limite }),
   supprimerFiche: (id) => T("rp_profiles").supprimer(id),
+  /**
+   * Bannir le personnage (0032) : son titre et son apparence tombent, un
+   * message de fin l'attend ; puis ses fiches sont retirées.
+   */
+  async bannir(id, raison) {
+    const nom = await pilote.rpc("bannir_personnage", { cible: id, raison });
+    const fiches = await T("rp_profiles").liste({ user_id: id }).catch(() => []);
+    for (const f of fiches) await T("rp_profiles").supprimer(f.id).catch(() => null);
+    return nom;
+  },
   journal: (filtre = {}, limite = 300) =>
     T("activity_logs").liste(filtre, { ordre: "created_at", sens: "desc", limite })
 };

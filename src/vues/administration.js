@@ -71,6 +71,7 @@ const ACTIONS = {
   "compte.titre": "a attribué un titre",
   "compte.code_cree": "a créé un code de rôle",
   "compte.supprime": "a supprimé un compte",
+  "personnage.banni": "a banni un personnage",
   "compte.code_utilise": "a utilisé un code de rôle",
   "compte.code_refuse": "a tapé un code de rôle invalide",
   "moderation.note": "a noté une remise",
@@ -424,6 +425,7 @@ export default async function vueAdministration() {
       { titre: p.display_name },
       { libelle: "Lui écrire", icone: "papier", action: () => ecrireA(p) },
       nomme && p.id !== etat.utilisateur.id ? { libelle: "Titre du personnage…", icone: "drapeau", action: () => donnerTitre(p) } : null,
+      p.id !== etat.utilisateur.id ? { libelle: "Bannir le personnage…", icone: "croix", danger: true, action: () => bannir(p) } : null,
       ...fiches.map((f) => ({
         libelle: `Supprimer la fiche « ${f.name || "sans nom"} »`, icone: "corbeille", danger: true,
         action: async () => {
@@ -581,6 +583,7 @@ export default async function vueAdministration() {
       { libelle: "Nouveau mot de passe…", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage…", action: () => donnerTitre(profil) },
       { libelle: "Lui écrire…", action: () => ecrireA(profil) },
+      intouchable ? null : { libelle: "Bannir le personnage…", danger: true, action: () => bannir(profil) },
       intouchable ? null : { libelle: "Supprimer le compte…", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur — seul un super administrateur y touche" } : { titre: "Rôle" },
       ...(intouchable ? [] : roles.map(([cle, libelle]) => ({
@@ -604,6 +607,23 @@ export default async function vueAdministration() {
         }
       })))
     ]);
+  }
+
+  /* Bannir le personnage : le compte reste, le personnage part, la raison s'affiche au joueur. */
+  async function bannir(profil) {
+    const sortie = await formulaire({
+      titre: `Bannir le personnage de ${profil.display_name}`,
+      note: "Son titre, son apparence et ses fiches de personnage disparaissent ; son compte reste. "
+        + "À sa prochaine visite, il lit la raison et doit recommencer un nouveau personnage. Inscrit au journal.",
+      champs: [{ cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }],
+      libelle: "Bannir le personnage"
+    });
+    if (!sortie) return;
+    try {
+      await moderation.bannir(profil.id, sortie.raison);
+      succes("Personnage banni", profil.display_name);
+      await peindre();
+    } catch (err) { erreur("Bannissement impossible", messageErreur(err)); }
   }
 
   /* Supprimer un compte : on retape son pseudo, pour ne pas se tromper de ligne. */

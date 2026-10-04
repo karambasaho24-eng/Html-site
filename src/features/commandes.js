@@ -46,6 +46,7 @@ const COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Créer un code à usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le rôle d'un compte (membre, moderateur, admin…).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant…|aucun [libellé]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "bannir", usage: "/bannir PSEUDO RAISON", aide: "Bannir le personnage (le compte reste) ; le joueur lira la raison.", qui: "modo" },
   { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, définitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe à un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce à tous les joueurs.", qui: "modo" },
@@ -124,6 +125,14 @@ async function executer(ligne) {
       const libelle = args.slice(2).join(" ") || null;
       await profils.titrer(p.id, fiche.cle, libelle);
       return ok(`${p.display_name} : ${libelle || fiche.libelle}.`);
+    }
+
+    case "bannir": {
+      if (args.length < 2) return ko("Usage : /bannir PSEUDO RAISON");
+      const p = await compte(args[0]);
+      const raison = args.slice(1).join(" ");
+      await moderation.bannir(p.id, raison);
+      return ok(`Personnage de ${p.display_name} banni. Il lira : « ${raison} ».`);
     }
 
     case "supprimer": {

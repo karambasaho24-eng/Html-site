@@ -967,6 +967,34 @@ export async function creerPiloteLocal() {
       return ligne.role_key;
     },
 
+    /** Bannir le personnage (bannir_personnage, 0032). */
+    async bannir_personnage({ cible, raison }) {
+      const moi = monId();
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      if (cible === moi) throw new ErreurDonnees("On ne bannit pas son propre personnage.", "42501");
+      const texte = String(raison || "").trim();
+      if (!texte || texte.length > 600) throw new ErreurDonnees("Donnez une raison (600 caractères au plus).", "22023");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (["moderator", "admin", "director"].includes(p.role_key) && !peutNommer()) {
+        throw new ErreurDonnees("Seule l'administration bannit un membre de l'encadrement.", "42501");
+      }
+      if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur bannit un super administrateur.", "42501");
+      }
+      const { avatar, ...prefs } = p.preferences || {};
+      void avatar;
+      const lignes = charger("profiles");
+      const i = lignes.findIndex((l) => l.id === cible);
+      lignes[i] = { ...lignes[i], titre: null, titre_libelle: null,
+        preferences: { ...prefs, bannissement: { raison: texte, le: new Date().toISOString(), lu: false } } };
+      sauver("profiles", lignes);
+      signaler("profiles", "UPDATE", lignes[i], p);
+      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: "Votre personnage a été banni", body: texte, read_at: null });
+      journaliser(moi, "personnage.banni", { cible, nom: p.display_name, raison: texte });
+      return p.display_name;
+    },
+
     /** Supprimer un compte (supprimer_compte, 0031). */
     async supprimer_compte({ cible }) {
       const moi = monId();

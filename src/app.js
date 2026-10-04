@@ -19,6 +19,7 @@ import { stockageLocal, stockageSession } from "./core/stockage.js";
 import { basculerFenetreFlottante } from "./features/fenetre-flottante.js";
 import { surveillerRemises } from "./features/remises-globales.js";
 import { monterCommandes } from "./features/commandes.js";
+import { surveillerBannissement } from "./features/bannissement.js";
 
 /* --- Table de routage ------------------------------------------------------ */
 function declarerRoutes() {
@@ -90,6 +91,7 @@ async function demarrer() {
 
     await chargerSession();
     surveillerRemises();
+    surveillerBannissement();
 
     hote.hidden = false;
     const vue = construireChassis(hote);
