@@ -53,6 +53,8 @@ export const profils = {
   /** Un code de rôle (0030) : l'administration le crée, la personne le tape. */
   creerCodeRole: (role) => pilote.rpc("creer_code_role", { role }),
   utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
+  /** Supprimer un compte, définitivement (0031) : l'administration seule. */
+  supprimerCompte: (id) => pilote.rpc("supprimer_compte", { cible: id }),
   /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
   nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
   /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */

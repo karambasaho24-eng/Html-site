@@ -967,6 +967,25 @@ export async function creerPiloteLocal() {
       return ligne.role_key;
     },
 
+    /** Supprimer un compte (supprimer_compte, 0031). */
+    async supprimer_compte({ cible }) {
+      const moi = monId();
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration supprime un compte.", "42501");
+      if (cible === moi) throw new ErreurDonnees("On ne supprime pas son propre compte.", "42501");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur supprime un super administrateur.", "42501");
+      }
+      journaliser(moi, "compte.supprime", { cible: p.id, nom: p.display_name, role: p.role_key });
+      for (const table of ["class_members", "rp_profiles", "notifications", "belongings", "notebooks", "papers"]) {
+        await t(table).supprimerOu(table === "papers" ? { author_id: cible } : table === "notebooks" || table === "belongings" ? { owner_id: cible } : { user_id: cible });
+      }
+      await t("profiles").supprimer(cible);
+      sauverComptes(comptes().filter((c) => c.id !== cible));
+      return p.display_name;
+    },
+
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
       const membres = await t("class_members").liste({ class_id: target_class, status: "active" });
       let n = 0;

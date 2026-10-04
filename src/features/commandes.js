@@ -46,6 +46,7 @@ const COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Créer un code à usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le rôle d'un compte (membre, moderateur, admin…).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant…|aucun [libellé]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, définitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe à un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce à tous les joueurs.", qui: "modo" },
   { nom: "message", usage: "/message PSEUDO TEXTE", aide: "Écrire à un joueur, au nom de la modération.", qui: "modo" },
@@ -123,6 +124,19 @@ async function executer(ligne) {
       const libelle = args.slice(2).join(" ") || null;
       await profils.titrer(p.id, fiche.cle, libelle);
       return ok(`${p.display_name} : ${libelle || fiche.libelle}.`);
+    }
+
+    case "supprimer": {
+      if (!args.length) return ko("Usage : /supprimer PSEUDO");
+      const confirme = sansAccent(args[args.length - 1]) === "oui";
+      const pseudo = (confirme ? args.slice(0, -1) : args).join(" ");
+      const p = await compte(pseudo);
+      if (!confirme) {
+        return [{ texte: `Supprimer ${p.display_name} est définitif (compte, fiches, cahiers, papiers, affaires, espaces).`, genre: "erreur" },
+                { texte: `Pour confirmer, tapez : /supprimer ${p.display_name} oui`, genre: "info" }];
+      }
+      await profils.supprimerCompte(p.id);
+      return ok(`Compte ${p.display_name} supprimé.`);
     }
 
     case "mdp": {

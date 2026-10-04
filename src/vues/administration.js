@@ -70,6 +70,7 @@ const ACTIONS = {
   "compte.role": "a changé un rôle",
   "compte.titre": "a attribué un titre",
   "compte.code_cree": "a créé un code de rôle",
+  "compte.supprime": "a supprimé un compte",
   "compte.code_utilise": "a utilisé un code de rôle",
   "compte.code_refuse": "a tapé un code de rôle invalide",
   "moderation.note": "a noté une remise",
@@ -580,6 +581,7 @@ export default async function vueAdministration() {
       { libelle: "Nouveau mot de passe…", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage…", action: () => donnerTitre(profil) },
       { libelle: "Lui écrire…", action: () => ecrireA(profil) },
+      intouchable ? null : { libelle: "Supprimer le compte…", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur — seul un super administrateur y touche" } : { titre: "Rôle" },
       ...(intouchable ? [] : roles.map(([cle, libelle]) => ({
         libelle: libelle + (profil.role_key === cle ? "  ✓" : ""),
@@ -602,6 +604,27 @@ export default async function vueAdministration() {
         }
       })))
     ]);
+  }
+
+  /* Supprimer un compte : on retape son pseudo, pour ne pas se tromper de ligne. */
+  async function supprimerCompte(profil) {
+    const sortie = await formulaire({
+      titre: `Supprimer le compte de ${profil.display_name}`,
+      note: "Définitif : le compte, ses fiches, ses cahiers, ses papiers, ses affaires et les espaces "
+        + "qu'il a créés disparaissent. La suppression est inscrite au journal.",
+      champs: [{ cle: "pseudo", label: `Retapez « ${profil.display_name} » pour confirmer`, type: "text", requis: true, valeur: "" }],
+      libelle: "Supprimer définitivement"
+    });
+    if (!sortie) return;
+    if (sortie.pseudo.toLowerCase() !== profil.display_name.toLowerCase()) {
+      erreur("Pseudo différent", "Rien n'a été supprimé.");
+      return;
+    }
+    try {
+      await profils.supprimerCompte(profil.id);
+      succes("Compte supprimé", profil.display_name);
+      await peindre();
+    } catch (err) { erreur("Suppression impossible", messageErreur(err)); }
   }
 
   /* Le joueur a oublié son mot de passe : on lui en donne un nouveau, qu'on

@@ -6512,6 +6512,24 @@ async function creerPiloteLocal() {
       journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
       return ligne.role_key;
     },
+    /** Supprimer un compte (supprimer_compte, 0031). */
+    async supprimer_compte({ cible }) {
+      const moi = monId();
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration supprime un compte.", "42501");
+      if (cible === moi) throw new ErreurDonnees("On ne supprime pas son propre compte.", "42501");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur supprime un super administrateur.", "42501");
+      }
+      journaliser(moi, "compte.supprime", { cible: p.id, nom: p.display_name, role: p.role_key });
+      for (const table2 of ["class_members", "rp_profiles", "notifications", "belongings", "notebooks", "papers"]) {
+        await t(table2).supprimerOu(table2 === "papers" ? { author_id: cible } : table2 === "notebooks" || table2 === "belongings" ? { owner_id: cible } : { user_id: cible });
+      }
+      await t("profiles").supprimer(cible);
+      sauverComptes(comptes().filter((c) => c.id !== cible));
+      return p.display_name;
+    },
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
       const membres2 = await t("class_members").liste({ class_id: target_class, status: "active" });
       let n = 0;
@@ -7146,6 +7164,8 @@ var init_data = __esm({
       /** Un code de rôle (0030) : l'administration le crée, la personne le tape. */
       creerCodeRole: (role) => pilote.rpc("creer_code_role", { role }),
       utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
+      /** Supprimer un compte, définitivement (0031) : l'administration seule. */
+      supprimerCompte: (id) => pilote.rpc("supprimer_compte", { cible: id }),
       /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
       nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
       /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */
@@ -33069,6 +33089,7 @@ async function vueAdministration() {
       { libelle: "Nouveau mot de passe\u2026", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage\u2026", action: () => donnerTitre(profil) },
       { libelle: "Lui \xE9crire\u2026", action: () => ecrireA(profil) },
+      intouchable ? null : { libelle: "Supprimer le compte\u2026", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur \u2014 seul un super administrateur y touche" } : { titre: "R\xF4le" },
       ...intouchable ? [] : roles.map(([cle, libelle]) => ({
         libelle: libelle + (profil.role_key === cle ? "  \u2713" : ""),
@@ -33090,6 +33111,26 @@ async function vueAdministration() {
         }
       }))
     ]);
+  }
+  async function supprimerCompte(profil) {
+    const sortie2 = await formulaire({
+      titre: `Supprimer le compte de ${profil.display_name}`,
+      note: "D\xE9finitif : le compte, ses fiches, ses cahiers, ses papiers, ses affaires et les espaces qu'il a cr\xE9\xE9s disparaissent. La suppression est inscrite au journal.",
+      champs: [{ cle: "pseudo", label: `Retapez \xAB ${profil.display_name} \xBB pour confirmer`, type: "text", requis: true, valeur: "" }],
+      libelle: "Supprimer d\xE9finitivement"
+    });
+    if (!sortie2) return;
+    if (sortie2.pseudo.toLowerCase() !== profil.display_name.toLowerCase()) {
+      erreur("Pseudo diff\xE9rent", "Rien n'a \xE9t\xE9 supprim\xE9.");
+      return;
+    }
+    try {
+      await profils.supprimerCompte(profil.id);
+      succes("Compte supprim\xE9", profil.display_name);
+      await peindre();
+    } catch (err) {
+      erreur("Suppression impossible", messageErreur(err));
+    }
   }
   async function nouveauMotDePasse(profil) {
     const sortie2 = await formulaire({
@@ -33197,6 +33238,7 @@ var init_administration = __esm({
       "compte.role": "a chang\xE9 un r\xF4le",
       "compte.titre": "a attribu\xE9 un titre",
       "compte.code_cree": "a cr\xE9\xE9 un code de r\xF4le",
+      "compte.supprime": "a supprim\xE9 un compte",
       "compte.code_utilise": "a utilis\xE9 un code de r\xF4le",
       "compte.code_refuse": "a tap\xE9 un code de r\xF4le invalide",
       "moderation.note": "a not\xE9 une remise",
@@ -34286,6 +34328,7 @@ var COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Cr\xE9er un code \xE0 usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le r\xF4le d'un compte (membre, moderateur, admin\u2026).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant\u2026|aucun [libell\xE9]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, d\xE9finitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe \xE0 un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce \xE0 tous les joueurs.", qui: "modo" },
   { nom: "message", usage: "/message PSEUDO TEXTE", aide: "\xC9crire \xE0 un joueur, au nom de la mod\xE9ration.", qui: "modo" },
@@ -34355,6 +34398,20 @@ async function executer(ligne) {
       const libelle = args.slice(2).join(" ") || null;
       await profils.titrer(p.id, fiche2.cle, libelle);
       return ok(`${p.display_name} : ${libelle || fiche2.libelle}.`);
+    }
+    case "supprimer": {
+      if (!args.length) return ko("Usage : /supprimer PSEUDO");
+      const confirme = sansAccent(args[args.length - 1]) === "oui";
+      const pseudo = (confirme ? args.slice(0, -1) : args).join(" ");
+      const p = await compte(pseudo);
+      if (!confirme) {
+        return [
+          { texte: `Supprimer ${p.display_name} est d\xE9finitif (compte, fiches, cahiers, papiers, affaires, espaces).`, genre: "erreur" },
+          { texte: `Pour confirmer, tapez : /supprimer ${p.display_name} oui`, genre: "info" }
+        ];
+      }
+      await profils.supprimerCompte(p.id);
+      return ok(`Compte ${p.display_name} supprim\xE9.`);
     }
     case "mdp": {
       if (!args[0]) return ko("Usage : /mdp PSEUDO");
