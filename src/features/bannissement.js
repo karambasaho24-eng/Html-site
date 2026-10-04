@@ -32,14 +32,16 @@ async function verifier() {
   if (!etat.utilisateur || !ban || ban.lu || enCours) return;
   enCours = true;
   try {
+    const mort = ban.genre === "mort";
     await ouvrirModale({
-      titre: "Votre personnage a été banni",
+      titre: mort ? "Votre personnage est mort" : "Votre personnage a été banni",
       corps: () => el("div.bannissement",
-        el("div.bannissement__sceau", icone("bouclier", 28)),
-        el("p.bannissement__texte",
-          "La modération a mis fin à votre personnage. Votre compte, lui, reste ouvert."),
+        el("div.bannissement__sceau", icone(mort ? "croix" : "bouclier", 28)),
+        el("p.bannissement__texte", mort
+          ? "Votre personnage a trouvé la mort. Votre compte, lui, reste ouvert."
+          : "La modération a mis fin à votre personnage. Votre compte, lui, reste ouvert."),
         el("div.bannissement__raison",
-          el("span.bannissement__etiquette", "Raison"),
+          el("span.bannissement__etiquette", mort ? "Circonstances" : "Raison"),
           el("p", ban.raison || "—")),
         el("p.bannissement__suite", el("strong", "Vous devez recommencer un nouveau personnage."),
           " Son apparence, son nom et sa fiche sont à refaire.")),

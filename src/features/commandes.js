@@ -46,7 +46,12 @@ const COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Créer un code à usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le rôle d'un compte (membre, moderateur, admin…).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant…|aucun [libellé]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "mort", usage: "/mort PSEUDO CIRCONSTANCES", aide: "Le personnage est mort : le joueur recommence un nouveau personnage.", qui: "modo" },
   { nom: "bannir", usage: "/bannir PSEUDO RAISON", aide: "Bannir le personnage (le compte reste) ; le joueur lira la raison.", qui: "modo" },
+  { nom: "suspendre", usage: "/suspendre PSEUDO JOURS RAISON", aide: "Suspendre le compte pour quelques jours.", qui: "modo" },
+  { nom: "ban", usage: "/ban PSEUDO RAISON", aide: "Bannir le compte, définitivement.", qui: "admin" },
+  { nom: "banip", usage: "/banip PSEUDO RAISON", aide: "Bannir le compte et ses connexions (IP), définitivement.", qui: "admin" },
+  { nom: "lever", usage: "/lever PSEUDO", aide: "Lever la sanction en cours d'un compte.", qui: "modo" },
   { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, définitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe à un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce à tous les joueurs.", qui: "modo" },
@@ -127,12 +132,33 @@ async function executer(ligne) {
       return ok(`${p.display_name} : ${libelle || fiche.libelle}.`);
     }
 
-    case "bannir": {
-      if (args.length < 2) return ko("Usage : /bannir PSEUDO RAISON");
+    case "mort": case "bannir": case "ban": case "banip": {
+      if (args.length < 2) return ko(`Usage : /${nom} PSEUDO RAISON`);
       const p = await compte(args[0]);
       const raison = args.slice(1).join(" ");
-      await moderation.bannir(p.id, raison);
-      return ok(`Personnage de ${p.display_name} banni. Il lira : « ${raison} ».`);
+      const genre = { mort: "mort", bannir: "personnage", ban: "definitif", banip: "ip" }[nom];
+      await moderation.sanctionner(p.id, genre, raison);
+      const fait = { mort: "Le personnage de %s est mort", personnage: "Personnage de %s banni",
+                     definitif: "Compte de %s banni", ip: "Compte et IP de %s bannis" }[genre].replace("%s", p.display_name);
+      return ok(`${fait}. Il lira : « ${raison} ».`);
+    }
+
+    case "suspendre": {
+      const jours = Number(args[1]);
+      if (args.length < 3 || !(jours >= 1)) return ko("Usage : /suspendre PSEUDO JOURS RAISON");
+      const p = await compte(args[0]);
+      await moderation.sanctionner(p.id, "temporaire", args.slice(2).join(" "), jours);
+      return ok(`Compte de ${p.display_name} suspendu ${jours} jour${jours > 1 ? "s" : ""}.`);
+    }
+
+    case "lever": {
+      if (!args[0]) return ko("Usage : /lever PSEUDO");
+      const p = await compte(args.join(" "));
+      const actives = (await moderation.sanctions({ user_id: p.id }, 20))
+        .filter((x) => !x.levee_at && ["temporaire", "definitif", "ip"].includes(x.genre));
+      if (!actives.length) return info(`${p.display_name} n'a pas de sanction en cours.`);
+      for (const x of actives) await moderation.leverSanction(x.id);
+      return ok(`Sanction${actives.length > 1 ? "s" : ""} de ${p.display_name} levée${actives.length > 1 ? "s" : ""}.`);
     }
 
     case "supprimer": {

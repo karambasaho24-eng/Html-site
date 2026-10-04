@@ -63,6 +63,8 @@ export function messageErreur(err) {
     if (brut.includes(motif)) return message;
   }
   if (err.code === "23505") return "Cet élément existe déjà.";
+  // Nos propres refus (fonctions de la base) sont déjà en français clair.
+  if (err.code === "42501" && /^[A-ZÀ-Ý«]/.test(brut) && !/permission denied|violates|row-level/i.test(brut)) return brut;
   if (err.code === "42501") return "Vous n'avez pas les droits nécessaires.";
   return brut;
 }

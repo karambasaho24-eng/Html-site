@@ -1170,6 +1170,18 @@ label.btn input[type="file"] { display: none; }
 }
 .bannissement__raison p { margin: 4px 0 0; white-space: pre-wrap; }
 .bannissement__etiquette { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }
+.acces-bloque {
+  position: fixed; inset: 0; z-index: 2000;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(8, 5, 3, .92);
+}
+.acces-bloque__boite {
+  width: min(460px, 100%); display: grid; gap: var(--e-3); text-align: center;
+  padding: var(--e-5); border-radius: var(--r-lg);
+  background: var(--surface-1, #201811); border: 1px solid rgba(180, 85, 78, .5);
+}
+.acces-bloque__boite h2 { margin: 0; }
+.acces-bloque__boite p { margin: 0; }
 
 /* ---- notebook.css ---- */
 /* ===========================================================================
@@ -5340,7 +5352,8 @@ var init_contrat = __esm({
       "belonging_handoffs",
       "dossier_items",
       "moderation_notes",
-      "role_codes"
+      "role_codes",
+      "sanctions"
     ];
     ErreurDonnees = class extends Error {
       constructor(message, code = null, cause = null) {
@@ -5778,6 +5791,10 @@ function gardeRemisePapier(ancien, nouveau) {
     }
   }
   return nouveau;
+}
+function sanctionActive(cible) {
+  if (!cible) return null;
+  return charger("sanctions").filter((s) => s.user_id === cible && !s.levee_at && (["definitif", "ip"].includes(s.genre) || s.genre === "temporaire" && new Date(s.jusqua).getTime() > Date.now())).sort((a, b) => a.created_at < b.created_at ? 1 : -1)[0] || null;
 }
 function journaliser(qui, quoi, meta = {}, classe = null, seance = null) {
   const lignes = charger("activity_logs");
@@ -6523,35 +6540,70 @@ async function creerPiloteLocal() {
       journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
       return ligne.role_key;
     },
-    /** Bannir le personnage (bannir_personnage, 0032). */
-    async bannir_personnage({ cible, raison }) {
+    /** Sanctionner (sanctionner, 0033). La démonstration n'a pas d'adresse IP : « ip » vaut « definitif ». */
+    async sanctionner({ cible, genre, raison, jours = null }) {
       const moi = monId();
       if (!estModerateurLocal()) throw new ErreurDonnees("R\xE9serv\xE9 \xE0 la mod\xE9ration.", "42501");
-      if (cible === moi) throw new ErreurDonnees("On ne bannit pas son propre personnage.", "42501");
+      if (!["mort", "personnage", "temporaire", "definitif", "ip"].includes(genre)) throw new ErreurDonnees("Sanction inconnue.", "22023");
+      if (["definitif", "ip"].includes(genre) && !peutNommer()) {
+        throw new ErreurDonnees("Un bannissement d\xE9finitif ou IP rel\xE8ve de l'administration.", "42501");
+      }
+      if (cible === moi) throw new ErreurDonnees("On ne se sanctionne pas soi-m\xEAme.", "42501");
       const texte = String(raison || "").trim();
       if (!texte || texte.length > 600) throw new ErreurDonnees("Donnez une raison (600 caract\xE8res au plus).", "22023");
+      if (genre === "temporaire" && !(jours >= 1 && jours <= 365)) throw new ErreurDonnees("Une dur\xE9e de 1 \xE0 365 jours.", "22023");
       const p = await t("profiles").lire(cible);
       if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
       if (["moderator", "admin", "director"].includes(p.role_key) && !peutNommer()) {
-        throw new ErreurDonnees("Seule l'administration bannit un membre de l'encadrement.", "42501");
+        throw new ErreurDonnees("Seule l'administration sanctionne un membre de l'encadrement.", "42501");
       }
       if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
-        throw new ErreurDonnees("Seul un super administrateur bannit un super administrateur.", "42501");
+        throw new ErreurDonnees("Seul un super administrateur sanctionne un super administrateur.", "42501");
       }
-      const { avatar: avatar2, ...prefs } = p.preferences || {};
-      const lignes = charger("profiles");
-      const i = lignes.findIndex((l) => l.id === cible);
-      lignes[i] = {
-        ...lignes[i],
-        titre: null,
-        titre_libelle: null,
-        preferences: { ...prefs, bannissement: { raison: texte, le: (/* @__PURE__ */ new Date()).toISOString(), lu: false } }
-      };
-      sauver("profiles", lignes);
-      signaler("profiles", "UPDATE", lignes[i], p);
-      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: "Votre personnage a \xE9t\xE9 banni", body: texte, read_at: null });
-      journaliser(moi, "personnage.banni", { cible, nom: p.display_name, raison: texte });
+      await t("sanctions").creer({
+        user_id: cible,
+        nom: p.display_name,
+        genre,
+        raison: texte,
+        par: moi,
+        ip_hashes: [],
+        jusqua: genre === "temporaire" ? new Date(Date.now() + jours * 864e5).toISOString() : null,
+        levee_at: null,
+        levee_par: null
+      });
+      if (genre !== "temporaire") {
+        const { avatar: avatar2, ...prefs } = p.preferences || {};
+        const lignes = charger("profiles");
+        const i = lignes.findIndex((l) => l.id === cible);
+        lignes[i] = {
+          ...lignes[i],
+          titre: null,
+          titre_libelle: null,
+          preferences: { ...prefs, bannissement: { genre, raison: texte, le: (/* @__PURE__ */ new Date()).toISOString(), lu: false } }
+        };
+        sauver("profiles", lignes);
+        signaler("profiles", "UPDATE", lignes[i], p);
+      }
+      const titres = { mort: "Votre personnage est mort", personnage: "Votre personnage a \xE9t\xE9 banni", temporaire: "Votre compte est suspendu" };
+      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: titres[genre] || "Votre compte est banni", body: texte, read_at: null });
+      journaliser(moi, `sanction.${genre}`, { cible, nom: p.display_name, raison: texte, jours });
       return p.display_name;
+    },
+    async bannir_personnage({ cible, raison }) {
+      return procedures.sanctionner({ cible, genre: "personnage", raison });
+    },
+    async lever_sanction({ sanction }) {
+      const s = await t("sanctions").lire(sanction);
+      if (!s) throw new ErreurDonnees("Sanction introuvable.", "P0002");
+      if (!estModerateurLocal() || ["definitif", "ip"].includes(s.genre) && !peutNommer()) {
+        throw new ErreurDonnees("Vous ne pouvez pas lever cette sanction.", "42501");
+      }
+      await t("sanctions").majorer(sanction, { levee_at: (/* @__PURE__ */ new Date()).toISOString(), levee_par: monId() });
+      journaliser(monId(), "sanction.levee", { cible: s.user_id, nom: s.nom, genre: s.genre });
+    },
+    async mon_acces() {
+      const s = sanctionActive(monId());
+      return s ? { bloque: true, genre: s.genre, raison: s.raison, jusqua: s.jusqua, ip_vue: false } : { bloque: false, ip_vue: false };
     },
     /** Supprimer un compte (supprimer_compte, 0031). */
     async supprimer_compte({ cible }) {
@@ -6793,6 +6845,10 @@ async function creerPiloteLocal() {
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {
           throw new ErreurDonnees("Invalid login credentials", "401");
+        }
+        const ban = sanctionActive(compte.id);
+        if (ban) {
+          throw new ErreurDonnees(ban.genre === "temporaire" ? `Compte suspendu jusqu'au ${new Date(ban.jusqua).toLocaleString("fr-FR")}. Raison : ${ban.raison}` : `Compte banni d\xE9finitivement. Raison : ${ban.raison}`, "42501");
         }
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
         definirSession(session);
@@ -7207,6 +7263,8 @@ var init_data = __esm({
       utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
       /** Supprimer un compte, définitivement (0031) : l'administration seule. */
       supprimerCompte: (id) => pilote.rpc("supprimer_compte", { cible: id }),
+      /** L'accès est-il bloqué (compte suspendu, banni, connexion bannie) ? (0033) */
+      monAcces: () => pilote.rpc("mon_acces", {}),
       /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
       nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
       /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */
@@ -8011,6 +8069,20 @@ var init_data = __esm({
       comptes: (limite = 500) => T("profiles").liste({}, { ordre: "created_at", sens: "desc", limite }),
       fiches: (limite = 500) => T("rp_profiles").liste({}, { ordre: "updated_at", sens: "desc", limite }),
       supprimerFiche: (id) => T("rp_profiles").supprimer(id),
+      /**
+       * Sanctionner (0033) : mort, personnage, temporaire (jours), definitif, ip.
+       * Quand le personnage tombe, ses fiches sont retirées.
+       */
+      async sanctionner(id, genre, raison, jours = null) {
+        const nom = await pilote.rpc("sanctionner", { cible: id, genre, raison, jours });
+        if (genre !== "temporaire") {
+          const fiches = await T("rp_profiles").liste({ user_id: id }).catch(() => []);
+          for (const f of fiches) await T("rp_profiles").supprimer(f.id).catch(() => null);
+        }
+        return nom;
+      },
+      sanctions: (filtre = {}, limite = 200) => T("sanctions").liste(filtre, { ordre: "created_at", sens: "desc", limite }),
+      leverSanction: (id) => pilote.rpc("lever_sanction", { sanction: id }),
       /**
        * Bannir le personnage (0032) : son titre et son apparence tombent, un
        * message de fin l'attend ; puis ses fiches sont retirées.
@@ -10206,6 +10278,7 @@ function messageErreur(err) {
     if (brut.includes(motif)) return message;
   }
   if (err.code === "23505") return "Cet \xE9l\xE9ment existe d\xE9j\xE0.";
+  if (err.code === "42501" && /^[A-ZÀ-Ý«]/.test(brut) && !/permission denied|violates|row-level/i.test(brut)) return brut;
   if (err.code === "42501") return "Vous n'avez pas les droits n\xE9cessaires.";
   return brut;
 }
@@ -32583,6 +32656,7 @@ async function vueAdministration() {
     { cle: "remises", libelle: "Remises" },
     { cle: "journal", libelle: "Journal" },
     { cle: "personnages", libelle: "Personnages" },
+    { cle: "sanctions", libelle: "Sanctions" },
     { cle: "annonce", libelle: "Annonces" },
     admin ? { cle: "comptes", libelle: "Comptes et r\xF4les" } : null,
     admin ? { cle: "roles", libelle: "Permissions" } : null
@@ -32606,6 +32680,7 @@ async function vueAdministration() {
         remises: () => sectionRemises({ seulementSignalees: false }),
         journal: sectionJournal,
         personnages: sectionPersonnages,
+        sanctions: sectionSanctions,
         annonce: sectionAnnonces,
         comptes: sectionComptes,
         roles: sectionRoles
@@ -32935,7 +33010,7 @@ async function vueAdministration() {
       { titre: p.display_name },
       { libelle: "Lui \xE9crire", icone: "papier", action: () => ecrireA(p) },
       nomme && p.id !== etat.utilisateur.id ? { libelle: "Titre du personnage\u2026", icone: "drapeau", action: () => donnerTitre(p) } : null,
-      p.id !== etat.utilisateur.id ? { libelle: "Bannir le personnage\u2026", icone: "croix", danger: true, action: () => bannir(p) } : null,
+      p.id !== etat.utilisateur.id ? { libelle: "Sanctionner\u2026", icone: "croix", danger: true, action: () => sanctionner(p) } : null,
       ...fiches.map((f) => ({
         libelle: `Supprimer la fiche \xAB ${f.name || "sans nom"} \xBB`,
         icone: "corbeille",
@@ -33140,7 +33215,7 @@ async function vueAdministration() {
       { libelle: "Nouveau mot de passe\u2026", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage\u2026", action: () => donnerTitre(profil) },
       { libelle: "Lui \xE9crire\u2026", action: () => ecrireA(profil) },
-      intouchable ? null : { libelle: "Bannir le personnage\u2026", danger: true, action: () => bannir(profil) },
+      intouchable ? null : { libelle: "Sanctionner\u2026", danger: true, action: () => sanctionner(profil) },
       intouchable ? null : { libelle: "Supprimer le compte\u2026", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur \u2014 seul un super administrateur y touche" } : { titre: "R\xF4le" },
       ...intouchable ? [] : roles.map(([cle, libelle]) => ({
@@ -33164,21 +33239,73 @@ async function vueAdministration() {
       }))
     ]);
   }
-  async function bannir(profil) {
+  async function sanctionner(profil) {
+    const genres = GENRES_SANCTION.filter((g) => !g.admin || nomme);
     const sortie2 = await formulaire({
-      titre: `Bannir le personnage de ${profil.display_name}`,
-      note: "Son titre, son apparence et ses fiches de personnage disparaissent ; son compte reste. \xC0 sa prochaine visite, il lit la raison et doit recommencer un nouveau personnage. Inscrit au journal.",
-      champs: [{ cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }],
-      libelle: "Bannir le personnage"
+      titre: `Sanctionner ${profil.display_name}`,
+      note: "Le joueur lit la raison. Mort ou bannissement du personnage : il garde son compte et recommence un personnage. Suspension : il ne peut plus entrer jusqu'\xE0 la date. D\xE9finitif, IP : il ne peut plus entrer ; l'IP bloque aussi ses connexions (nouveau compte compris). Inscrit au journal ; une sanction se l\xE8ve.",
+      champs: [
+        {
+          cle: "genre",
+          label: "Sanction",
+          type: "select",
+          valeur: "personnage",
+          options: genres.map((g) => ({ valeur: g.cle, libelle: g.libelle }))
+        },
+        { cle: "jours", label: "Dur\xE9e en jours (suspension seulement)", type: "number", valeur: 3 },
+        { cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }
+      ],
+      libelle: "Appliquer la sanction"
     });
     if (!sortie2) return;
     try {
-      await moderation.bannir(profil.id, sortie2.raison);
-      succes("Personnage banni", profil.display_name);
+      await moderation.sanctionner(
+        profil.id,
+        sortie2.genre,
+        sortie2.raison,
+        sortie2.genre === "temporaire" ? Number(sortie2.jours) || 1 : null
+      );
+      succes(GENRES_SANCTION.find((g) => g.cle === sortie2.genre)?.fait || "Sanction appliqu\xE9e", profil.display_name);
       await peindre();
     } catch (err) {
-      erreur("Bannissement impossible", messageErreur(err));
+      erreur("Sanction impossible", messageErreur(err));
     }
+  }
+  async function sectionSanctions() {
+    const liste = await moderation.sanctions({}, 300);
+    const enCours2 = (x) => !x.levee_at && (x.genre !== "temporaire" || new Date(x.jusqua).getTime() > Date.now());
+    if (!liste.length) return blocVide("Aucune sanction", "Personne n'a \xE9t\xE9 sanctionn\xE9 pour l'instant.");
+    return el("div.moderation__liste", liste.map((x) => {
+      const g = GENRES_SANCTION.find((y) => y.cle === x.genre);
+      const actif2 = enCours2(x) && ["temporaire", "definitif", "ip"].includes(x.genre);
+      return el(
+        "article.moderation__carte",
+        el(
+          "div.moderation__tete",
+          el("span.etiq", { class: actif2 ? "etiq--alerte" : "" }, g?.libelle || x.genre),
+          x.levee_at ? el("span.etiq.etiq--ok", "Lev\xE9e") : null,
+          el("strong", x.nom || "?"),
+          el("span.pousse"),
+          el("span.petit.faible", `${dateCourte(x.created_at)} ${heure(x.created_at)}`)
+        ),
+        el("p", { style: { margin: 0 } }, x.raison),
+        x.jusqua ? el("p.petit.faible", { style: { margin: 0 } }, `Jusqu'au ${dateCourte(x.jusqua)} ${heure(x.jusqua)}`) : null,
+        actif2 && (nomme || x.genre === "temporaire") ? el("div.moderation__actions", el("button.btn.btn--petit", {
+          type: "button",
+          onclick: async () => {
+            const ok = await confirmer({ titre: "Lever la sanction", message: `${x.nom} pourra de nouveau entrer.`, libelle: "Lever" });
+            if (!ok) return;
+            try {
+              await moderation.leverSanction(x.id);
+              succes("Sanction lev\xE9e");
+              await peindre();
+            } catch (err) {
+              erreur("Impossible", messageErreur(err));
+            }
+          }
+        }, "Lever la sanction")) : null
+      );
+    }));
   }
   async function supprimerCompte(profil) {
     const sortie2 = await formulaire({
@@ -33258,7 +33385,7 @@ async function vueAdministration() {
   await peindre();
   return { noeud, titre: admin ? "Administration" : "Mod\xE9ration" };
 }
-var VERDICTS, ETATS3, ACTIONS, FAMILLES, nomTitre;
+var VERDICTS, ETATS3, ACTIONS, FAMILLES, GENRES_SANCTION, nomTitre;
 var init_administration = __esm({
   "src/vues/administration.js"() {
     init_dom();
@@ -33308,6 +33435,12 @@ var init_administration = __esm({
       "compte.code_cree": "a cr\xE9\xE9 un code de r\xF4le",
       "compte.supprime": "a supprim\xE9 un compte",
       "personnage.banni": "a banni un personnage",
+      "sanction.mort": "a d\xE9clar\xE9 la mort d'un personnage",
+      "sanction.personnage": "a banni un personnage",
+      "sanction.temporaire": "a suspendu un compte",
+      "sanction.definitif": "a banni un compte",
+      "sanction.ip": "a banni un compte et son IP",
+      "sanction.levee": "a lev\xE9 une sanction",
       "compte.code_utilise": "a utilis\xE9 un code de r\xF4le",
       "compte.code_refuse": "a tap\xE9 un code de r\xF4le invalide",
       "moderation.note": "a not\xE9 une remise",
@@ -33325,7 +33458,15 @@ var init_administration = __esm({
       { cle: "cahier.", libelle: "Cahiers" },
       { cle: "compte.", libelle: "Comptes" },
       { cle: "moderation.", libelle: "Mod\xE9ration" },
+      { cle: "sanction.", libelle: "Sanctions" },
       { cle: "session.", libelle: "S\xE9ances" }
+    ];
+    GENRES_SANCTION = [
+      { cle: "mort", libelle: "Mort du personnage", fait: "Personnage mort" },
+      { cle: "personnage", libelle: "Bannir le personnage", fait: "Personnage banni" },
+      { cle: "temporaire", libelle: "Suspendre le compte (temporaire)", fait: "Compte suspendu" },
+      { cle: "definitif", libelle: "Bannir le compte (d\xE9finitif)", fait: "Compte banni", admin: true },
+      { cle: "ip", libelle: "Bannir le compte et l'IP (d\xE9finitif)", fait: "Compte et IP bannis", admin: true }
     ];
     nomTitre = (cle) => TITRES.find((t) => t.cle === cle)?.libelle || cle;
   }
@@ -34397,7 +34538,12 @@ var COMMANDES = [
   { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Cr\xE9er un code \xE0 usage unique, valable 24 h.", qui: "admin" },
   { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le r\xF4le d'un compte (membre, moderateur, admin\u2026).", qui: "admin" },
   { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant\u2026|aucun [libell\xE9]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "mort", usage: "/mort PSEUDO CIRCONSTANCES", aide: "Le personnage est mort : le joueur recommence un nouveau personnage.", qui: "modo" },
   { nom: "bannir", usage: "/bannir PSEUDO RAISON", aide: "Bannir le personnage (le compte reste) ; le joueur lira la raison.", qui: "modo" },
+  { nom: "suspendre", usage: "/suspendre PSEUDO JOURS RAISON", aide: "Suspendre le compte pour quelques jours.", qui: "modo" },
+  { nom: "ban", usage: "/ban PSEUDO RAISON", aide: "Bannir le compte, d\xE9finitivement.", qui: "admin" },
+  { nom: "banip", usage: "/banip PSEUDO RAISON", aide: "Bannir le compte et ses connexions (IP), d\xE9finitivement.", qui: "admin" },
+  { nom: "lever", usage: "/lever PSEUDO", aide: "Lever la sanction en cours d'un compte.", qui: "modo" },
   { nom: "supprimer", usage: "/supprimer PSEUDO", aide: "Supprimer un compte, d\xE9finitivement (demande une confirmation).", qui: "admin" },
   { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe \xE0 un joueur.", qui: "admin" },
   { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce \xE0 tous les joueurs.", qui: "modo" },
@@ -34469,12 +34615,37 @@ async function executer(ligne) {
       await profils.titrer(p.id, fiche2.cle, libelle);
       return ok(`${p.display_name} : ${libelle || fiche2.libelle}.`);
     }
-    case "bannir": {
-      if (args.length < 2) return ko("Usage : /bannir PSEUDO RAISON");
+    case "mort":
+    case "bannir":
+    case "ban":
+    case "banip": {
+      if (args.length < 2) return ko(`Usage : /${nom} PSEUDO RAISON`);
       const p = await compte(args[0]);
       const raison = args.slice(1).join(" ");
-      await moderation.bannir(p.id, raison);
-      return ok(`Personnage de ${p.display_name} banni. Il lira : \xAB ${raison} \xBB.`);
+      const genre = { mort: "mort", bannir: "personnage", ban: "definitif", banip: "ip" }[nom];
+      await moderation.sanctionner(p.id, genre, raison);
+      const fait = {
+        mort: "Le personnage de %s est mort",
+        personnage: "Personnage de %s banni",
+        definitif: "Compte de %s banni",
+        ip: "Compte et IP de %s bannis"
+      }[genre].replace("%s", p.display_name);
+      return ok(`${fait}. Il lira : \xAB ${raison} \xBB.`);
+    }
+    case "suspendre": {
+      const jours = Number(args[1]);
+      if (args.length < 3 || !(jours >= 1)) return ko("Usage : /suspendre PSEUDO JOURS RAISON");
+      const p = await compte(args[0]);
+      await moderation.sanctionner(p.id, "temporaire", args.slice(2).join(" "), jours);
+      return ok(`Compte de ${p.display_name} suspendu ${jours} jour${jours > 1 ? "s" : ""}.`);
+    }
+    case "lever": {
+      if (!args[0]) return ko("Usage : /lever PSEUDO");
+      const p = await compte(args.join(" "));
+      const actives = (await moderation.sanctions({ user_id: p.id }, 20)).filter((x) => !x.levee_at && ["temporaire", "definitif", "ip"].includes(x.genre));
+      if (!actives.length) return info(`${p.display_name} n'a pas de sanction en cours.`);
+      for (const x of actives) await moderation.leverSanction(x.id);
+      return ok(`Sanction${actives.length > 1 ? "s" : ""} de ${p.display_name} lev\xE9e${actives.length > 1 ? "s" : ""}.`);
     }
     case "supprimer": {
       if (!args.length) return ko("Usage : /supprimer PSEUDO");
@@ -34652,18 +34823,16 @@ async function verifier2() {
   if (!etat.utilisateur || !ban || ban.lu || enCours) return;
   enCours = true;
   try {
+    const mort = ban.genre === "mort";
     await ouvrirModale({
-      titre: "Votre personnage a \xE9t\xE9 banni",
+      titre: mort ? "Votre personnage est mort" : "Votre personnage a \xE9t\xE9 banni",
       corps: () => el(
         "div.bannissement",
-        el("div.bannissement__sceau", icone("bouclier", 28)),
-        el(
-          "p.bannissement__texte",
-          "La mod\xE9ration a mis fin \xE0 votre personnage. Votre compte, lui, reste ouvert."
-        ),
+        el("div.bannissement__sceau", icone(mort ? "croix" : "bouclier", 28)),
+        el("p.bannissement__texte", mort ? "Votre personnage a trouv\xE9 la mort. Votre compte, lui, reste ouvert." : "La mod\xE9ration a mis fin \xE0 votre personnage. Votre compte, lui, reste ouvert."),
         el(
           "div.bannissement__raison",
-          el("span.bannissement__etiquette", "Raison"),
+          el("span.bannissement__etiquette", mort ? "Circonstances" : "Raison"),
           el("p", ban.raison || "\u2014")
         ),
         el(
@@ -34682,6 +34851,60 @@ async function verifier2() {
   } finally {
     enCours = false;
   }
+}
+
+// src/features/acces.js
+init_dom();
+init_store();
+init_data();
+init_icons();
+init_session();
+var ecran = null;
+function surveillerAcces() {
+  verifier3();
+  observer(["utilisateur"], () => verifier3());
+  setInterval(() => {
+    if (document.visibilityState === "visible") verifier3();
+  }, 9e4);
+}
+async function verifier3() {
+  let r = null;
+  try {
+    r = await profils.monAcces();
+  } catch {
+    return;
+  }
+  if (!r?.bloque) return;
+  afficher(r);
+  if (etat.utilisateur) {
+    try {
+      await deconnecter();
+    } catch {
+    }
+  }
+}
+function afficher(r) {
+  ecran?.remove();
+  const quand = r.jusqua ? new Date(r.jusqua).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }) : null;
+  const titre = r.genre === "temporaire" ? "Compte suspendu" : r.genre === "ip" ? "Acc\xE8s bloqu\xE9" : "Compte banni";
+  const phrase = r.genre === "temporaire" ? `Votre compte est suspendu jusqu'au ${quand}.` : r.genre === "ip" ? "Votre compte et cette connexion sont bannis d\xE9finitivement." : "Votre compte est banni d\xE9finitivement.";
+  ecran = el(
+    "div.acces-bloque",
+    { role: "alertdialog", "aria-modal": "true" },
+    el(
+      "div.acces-bloque__boite",
+      el("div.bannissement__sceau", icone("bouclier", 30)),
+      el("h2", titre),
+      el("p", phrase),
+      el("div.bannissement__raison", el("span.bannissement__etiquette", "Raison"), el("p", r.raison || "\u2014")),
+      r.genre === "temporaire" ? el("p.petit.faible", "Vous pourrez revenir \xE0 la fin de la suspension.") : el("p.petit.faible", "Si vous pensez qu'il s'agit d'une erreur, contactez l'administration du serveur."),
+      el("button.btn", { type: "button", onclick: () => {
+        ecran?.remove();
+        ecran = null;
+      } }, "Compris")
+    )
+  );
+  document.body.append(ecran);
 }
 
 // src/app.js
@@ -34728,7 +34951,7 @@ function declarerRaccourcis() {
   });
 }
 async function demarrer() {
-  const ecran = document.getElementById("ecran-chargement");
+  const ecran2 = document.getElementById("ecran-chargement");
   const hote = document.getElementById("application");
   try {
     restaurerInterface();
@@ -34743,6 +34966,7 @@ async function demarrer() {
     await chargerSession();
     surveillerRemises();
     surveillerBannissement();
+    surveillerAcces();
     hote.hidden = false;
     const vue = construireChassis(hote);
     monterCommandes(document.body);
@@ -34770,13 +34994,13 @@ async function demarrer() {
       if (document.visibilityState === "visible" && etat.utilisateur) rafraichirNotifications();
     }, 9e4);
     definir({ pret: true });
-    ecran?.remove();
+    ecran2?.remove();
     if (!etat.utilisateur && !location.hash.startsWith("#/connexion")) {
       aller("/connexion", true);
     }
   } catch (err) {
     console.error("[amor\xE7age]", err);
-    ecran?.remove();
+    ecran2?.remove();
     hote.hidden = false;
     render(hote, ecranPanne(err));
   }

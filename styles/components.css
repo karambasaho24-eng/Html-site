@@ -507,3 +507,15 @@ label.btn input[type="file"] { display: none; }
 }
 .bannissement__raison p { margin: 4px 0 0; white-space: pre-wrap; }
 .bannissement__etiquette { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }
+.acces-bloque {
+  position: fixed; inset: 0; z-index: 2000;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(8, 5, 3, .92);
+}
+.acces-bloque__boite {
+  width: min(460px, 100%); display: grid; gap: var(--e-3); text-align: center;
+  padding: var(--e-5); border-radius: var(--r-lg);
+  background: var(--surface-1, #201811); border: 1px solid rgba(180, 85, 78, .5);
+}
+.acces-bloque__boite h2 { margin: 0; }
+.acces-bloque__boite p { margin: 0; }

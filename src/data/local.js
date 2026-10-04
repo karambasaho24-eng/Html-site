@@ -224,6 +224,15 @@ function gardeRemisePapier(ancien, nouveau) {
   return nouveau;
 }
 
+/** La sanction de compte en vigueur (app_sanction_active, 0033). */
+function sanctionActive(cible) {
+  if (!cible) return null;
+  return charger("sanctions")
+    .filter((s) => s.user_id === cible && !s.levee_at
+      && (["definitif", "ip"].includes(s.genre) || (s.genre === "temporaire" && new Date(s.jusqua).getTime() > Date.now())))
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] || null;
+}
+
 const GARDES = {
   belongings: gardeDuLieu, notebooks: gardeDuLieu,
   profiles: gardeProfil, paper_handoffs: gardeRemisePapier
@@ -967,32 +976,64 @@ export async function creerPiloteLocal() {
       return ligne.role_key;
     },
 
-    /** Bannir le personnage (bannir_personnage, 0032). */
-    async bannir_personnage({ cible, raison }) {
+    /** Sanctionner (sanctionner, 0033). La démonstration n'a pas d'adresse IP : « ip » vaut « definitif ». */
+    async sanctionner({ cible, genre, raison, jours = null }) {
       const moi = monId();
       if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
-      if (cible === moi) throw new ErreurDonnees("On ne bannit pas son propre personnage.", "42501");
+      if (!["mort", "personnage", "temporaire", "definitif", "ip"].includes(genre)) throw new ErreurDonnees("Sanction inconnue.", "22023");
+      if (["definitif", "ip"].includes(genre) && !peutNommer()) {
+        throw new ErreurDonnees("Un bannissement définitif ou IP relève de l'administration.", "42501");
+      }
+      if (cible === moi) throw new ErreurDonnees("On ne se sanctionne pas soi-même.", "42501");
       const texte = String(raison || "").trim();
       if (!texte || texte.length > 600) throw new ErreurDonnees("Donnez une raison (600 caractères au plus).", "22023");
+      if (genre === "temporaire" && !(jours >= 1 && jours <= 365)) throw new ErreurDonnees("Une durée de 1 à 365 jours.", "22023");
       const p = await t("profiles").lire(cible);
       if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
       if (["moderator", "admin", "director"].includes(p.role_key) && !peutNommer()) {
-        throw new ErreurDonnees("Seule l'administration bannit un membre de l'encadrement.", "42501");
+        throw new ErreurDonnees("Seule l'administration sanctionne un membre de l'encadrement.", "42501");
       }
       if (p.role_key === "super_admin" && roleDe(moi) !== "super_admin") {
-        throw new ErreurDonnees("Seul un super administrateur bannit un super administrateur.", "42501");
+        throw new ErreurDonnees("Seul un super administrateur sanctionne un super administrateur.", "42501");
       }
-      const { avatar, ...prefs } = p.preferences || {};
-      void avatar;
-      const lignes = charger("profiles");
-      const i = lignes.findIndex((l) => l.id === cible);
-      lignes[i] = { ...lignes[i], titre: null, titre_libelle: null,
-        preferences: { ...prefs, bannissement: { raison: texte, le: new Date().toISOString(), lu: false } } };
-      sauver("profiles", lignes);
-      signaler("profiles", "UPDATE", lignes[i], p);
-      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: "Votre personnage a été banni", body: texte, read_at: null });
-      journaliser(moi, "personnage.banni", { cible, nom: p.display_name, raison: texte });
+      await t("sanctions").creer({
+        user_id: cible, nom: p.display_name, genre, raison: texte, par: moi, ip_hashes: [],
+        jusqua: genre === "temporaire" ? new Date(Date.now() + jours * 864e5).toISOString() : null,
+        levee_at: null, levee_par: null
+      });
+      if (genre !== "temporaire") {
+        const { avatar, ...prefs } = p.preferences || {};
+        void avatar;
+        const lignes = charger("profiles");
+        const i = lignes.findIndex((l) => l.id === cible);
+        lignes[i] = { ...lignes[i], titre: null, titre_libelle: null,
+          preferences: { ...prefs, bannissement: { genre, raison: texte, le: new Date().toISOString(), lu: false } } };
+        sauver("profiles", lignes);
+        signaler("profiles", "UPDATE", lignes[i], p);
+      }
+      const titres = { mort: "Votre personnage est mort", personnage: "Votre personnage a été banni", temporaire: "Votre compte est suspendu" };
+      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: titres[genre] || "Votre compte est banni", body: texte, read_at: null });
+      journaliser(moi, `sanction.${genre}`, { cible, nom: p.display_name, raison: texte, jours });
       return p.display_name;
+    },
+
+    async bannir_personnage({ cible, raison }) {
+      return procedures.sanctionner({ cible, genre: "personnage", raison });
+    },
+
+    async lever_sanction({ sanction }) {
+      const s = await t("sanctions").lire(sanction);
+      if (!s) throw new ErreurDonnees("Sanction introuvable.", "P0002");
+      if (!estModerateurLocal() || (["definitif", "ip"].includes(s.genre) && !peutNommer())) {
+        throw new ErreurDonnees("Vous ne pouvez pas lever cette sanction.", "42501");
+      }
+      await t("sanctions").majorer(sanction, { levee_at: new Date().toISOString(), levee_par: monId() });
+      journaliser(monId(), "sanction.levee", { cible: s.user_id, nom: s.nom, genre: s.genre });
+    },
+
+    async mon_acces() {
+      const s = sanctionActive(monId());
+      return s ? { bloque: true, genre: s.genre, raison: s.raison, jusqua: s.jusqua, ip_vue: false } : { bloque: false, ip_vue: false };
     },
 
     /** Supprimer un compte (supprimer_compte, 0031). */
@@ -1210,6 +1251,12 @@ export async function creerPiloteLocal() {
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {
           throw new ErreurDonnees("Invalid login credentials", "401");
+        }
+        const ban = sanctionActive(compte.id);
+        if (ban) {
+          throw new ErreurDonnees(ban.genre === "temporaire"
+            ? `Compte suspendu jusqu'au ${new Date(ban.jusqua).toLocaleString("fr-FR")}. Raison : ${ban.raison}`
+            : `Compte banni définitivement. Raison : ${ban.raison}`, "42501");
         }
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
         definirSession(session);

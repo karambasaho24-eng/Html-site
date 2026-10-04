@@ -55,6 +55,8 @@ export const profils = {
   utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
   /** Supprimer un compte, définitivement (0031) : l'administration seule. */
   supprimerCompte: (id) => pilote.rpc("supprimer_compte", { cible: id }),
+  /** L'accès est-il bloqué (compte suspendu, banni, connexion bannie) ? (0033) */
+  monAcces: () => pilote.rpc("mon_acces", {}),
   /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
   nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
   /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */
@@ -985,6 +987,20 @@ export const moderation = {
   comptes: (limite = 500) => T("profiles").liste({}, { ordre: "created_at", sens: "desc", limite }),
   fiches: (limite = 500) => T("rp_profiles").liste({}, { ordre: "updated_at", sens: "desc", limite }),
   supprimerFiche: (id) => T("rp_profiles").supprimer(id),
+  /**
+   * Sanctionner (0033) : mort, personnage, temporaire (jours), definitif, ip.
+   * Quand le personnage tombe, ses fiches sont retirées.
+   */
+  async sanctionner(id, genre, raison, jours = null) {
+    const nom = await pilote.rpc("sanctionner", { cible: id, genre, raison, jours });
+    if (genre !== "temporaire") {
+      const fiches = await T("rp_profiles").liste({ user_id: id }).catch(() => []);
+      for (const f of fiches) await T("rp_profiles").supprimer(f.id).catch(() => null);
+    }
+    return nom;
+  },
+  sanctions: (filtre = {}, limite = 200) => T("sanctions").liste(filtre, { ordre: "created_at", sens: "desc", limite }),
+  leverSanction: (id) => pilote.rpc("lever_sanction", { sanction: id }),
   /**
    * Bannir le personnage (0032) : son titre et son apparence tombent, un
    * message de fin l'attend ; puis ses fiches sont retirées.

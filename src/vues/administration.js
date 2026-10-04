@@ -72,6 +72,12 @@ const ACTIONS = {
   "compte.code_cree": "a créé un code de rôle",
   "compte.supprime": "a supprimé un compte",
   "personnage.banni": "a banni un personnage",
+  "sanction.mort": "a déclaré la mort d'un personnage",
+  "sanction.personnage": "a banni un personnage",
+  "sanction.temporaire": "a suspendu un compte",
+  "sanction.definitif": "a banni un compte",
+  "sanction.ip": "a banni un compte et son IP",
+  "sanction.levee": "a levé une sanction",
   "compte.code_utilise": "a utilisé un code de rôle",
   "compte.code_refuse": "a tapé un code de rôle invalide",
   "moderation.note": "a noté une remise",
@@ -89,7 +95,17 @@ const FAMILLES = [
   { cle: "cahier.", libelle: "Cahiers" },
   { cle: "compte.", libelle: "Comptes" },
   { cle: "moderation.", libelle: "Modération" },
+  { cle: "sanction.", libelle: "Sanctions" },
   { cle: "session.", libelle: "Séances" }
+];
+
+/* Les sanctions, de la plus douce à la plus dure (0033). */
+const GENRES_SANCTION = [
+  { cle: "mort", libelle: "Mort du personnage", fait: "Personnage mort" },
+  { cle: "personnage", libelle: "Bannir le personnage", fait: "Personnage banni" },
+  { cle: "temporaire", libelle: "Suspendre le compte (temporaire)", fait: "Compte suspendu" },
+  { cle: "definitif", libelle: "Bannir le compte (définitif)", fait: "Compte banni", admin: true },
+  { cle: "ip", libelle: "Bannir le compte et l'IP (définitif)", fait: "Compte et IP bannis", admin: true }
 ];
 
 const nomTitre = (cle) => TITRES.find((t) => t.cle === cle)?.libelle || cle;
@@ -139,6 +155,7 @@ export default async function vueAdministration() {
     { cle: "remises", libelle: "Remises" },
     { cle: "journal", libelle: "Journal" },
     { cle: "personnages", libelle: "Personnages" },
+    { cle: "sanctions", libelle: "Sanctions" },
     { cle: "annonce", libelle: "Annonces" },
     admin ? { cle: "comptes", libelle: "Comptes et rôles" } : null,
     admin ? { cle: "roles", libelle: "Permissions" } : null
@@ -159,6 +176,7 @@ export default async function vueAdministration() {
         remises: () => sectionRemises({ seulementSignalees: false }),
         journal: sectionJournal,
         personnages: sectionPersonnages,
+        sanctions: sectionSanctions,
         annonce: sectionAnnonces,
         comptes: sectionComptes,
         roles: sectionRoles
@@ -425,7 +443,7 @@ export default async function vueAdministration() {
       { titre: p.display_name },
       { libelle: "Lui écrire", icone: "papier", action: () => ecrireA(p) },
       nomme && p.id !== etat.utilisateur.id ? { libelle: "Titre du personnage…", icone: "drapeau", action: () => donnerTitre(p) } : null,
-      p.id !== etat.utilisateur.id ? { libelle: "Bannir le personnage…", icone: "croix", danger: true, action: () => bannir(p) } : null,
+      p.id !== etat.utilisateur.id ? { libelle: "Sanctionner…", icone: "croix", danger: true, action: () => sanctionner(p) } : null,
       ...fiches.map((f) => ({
         libelle: `Supprimer la fiche « ${f.name || "sans nom"} »`, icone: "corbeille", danger: true,
         action: async () => {
@@ -583,7 +601,7 @@ export default async function vueAdministration() {
       { libelle: "Nouveau mot de passe…", action: () => nouveauMotDePasse(profil) },
       { libelle: "Titre du personnage…", action: () => donnerTitre(profil) },
       { libelle: "Lui écrire…", action: () => ecrireA(profil) },
-      intouchable ? null : { libelle: "Bannir le personnage…", danger: true, action: () => bannir(profil) },
+      intouchable ? null : { libelle: "Sanctionner…", danger: true, action: () => sanctionner(profil) },
       intouchable ? null : { libelle: "Supprimer le compte…", danger: true, action: () => supprimerCompte(profil) },
       intouchable ? { titre: "Super administrateur — seul un super administrateur y touche" } : { titre: "Rôle" },
       ...(intouchable ? [] : roles.map(([cle, libelle]) => ({
@@ -609,21 +627,59 @@ export default async function vueAdministration() {
     ]);
   }
 
-  /* Bannir le personnage : le compte reste, le personnage part, la raison s'affiche au joueur. */
-  async function bannir(profil) {
+  /* Sanctionner : de la mort du personnage au bannissement IP. */
+  async function sanctionner(profil) {
+    const genres = GENRES_SANCTION.filter((g) => !g.admin || nomme);
     const sortie = await formulaire({
-      titre: `Bannir le personnage de ${profil.display_name}`,
-      note: "Son titre, son apparence et ses fiches de personnage disparaissent ; son compte reste. "
-        + "À sa prochaine visite, il lit la raison et doit recommencer un nouveau personnage. Inscrit au journal.",
-      champs: [{ cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }],
-      libelle: "Bannir le personnage"
+      titre: `Sanctionner ${profil.display_name}`,
+      note: "Le joueur lit la raison. Mort ou bannissement du personnage : il garde son compte et recommence "
+        + "un personnage. Suspension : il ne peut plus entrer jusqu'à la date. Définitif, IP : il ne peut plus entrer ; "
+        + "l'IP bloque aussi ses connexions (nouveau compte compris). Inscrit au journal ; une sanction se lève.",
+      champs: [
+        { cle: "genre", label: "Sanction", type: "select", valeur: "personnage",
+          options: genres.map((g) => ({ valeur: g.cle, libelle: g.libelle })) },
+        { cle: "jours", label: "Durée en jours (suspension seulement)", type: "number", valeur: 3 },
+        { cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }
+      ],
+      libelle: "Appliquer la sanction"
     });
     if (!sortie) return;
     try {
-      await moderation.bannir(profil.id, sortie.raison);
-      succes("Personnage banni", profil.display_name);
+      await moderation.sanctionner(profil.id, sortie.genre, sortie.raison,
+        sortie.genre === "temporaire" ? Number(sortie.jours) || 1 : null);
+      succes(GENRES_SANCTION.find((g) => g.cle === sortie.genre)?.fait || "Sanction appliquée", profil.display_name);
       await peindre();
-    } catch (err) { erreur("Bannissement impossible", messageErreur(err)); }
+    } catch (err) { erreur("Sanction impossible", messageErreur(err)); }
+  }
+
+  async function sectionSanctions() {
+    const liste = await moderation.sanctions({}, 300);
+    const enCours = (x) => !x.levee_at && (x.genre !== "temporaire" || new Date(x.jusqua).getTime() > Date.now());
+    if (!liste.length) return blocVide("Aucune sanction", "Personne n'a été sanctionné pour l'instant.");
+    return el("div.moderation__liste", liste.map((x) => {
+      const g = GENRES_SANCTION.find((y) => y.cle === x.genre);
+      const actif = enCours(x) && ["temporaire", "definitif", "ip"].includes(x.genre);
+      return el("article.moderation__carte",
+        el("div.moderation__tete",
+          el("span.etiq", { class: actif ? "etiq--alerte" : "" }, g?.libelle || x.genre),
+          x.levee_at ? el("span.etiq.etiq--ok", "Levée") : null,
+          el("strong", x.nom || "?"),
+          el("span.pousse"),
+          el("span.petit.faible", `${dateCourte(x.created_at)} ${heure(x.created_at)}`)),
+        el("p", { style: { margin: 0 } }, x.raison),
+        x.jusqua ? el("p.petit.faible", { style: { margin: 0 } }, `Jusqu'au ${dateCourte(x.jusqua)} ${heure(x.jusqua)}`) : null,
+        actif && (nomme || x.genre === "temporaire")
+          ? el("div.moderation__actions", el("button.btn.btn--petit", {
+              type: "button",
+              onclick: async () => {
+                const ok = await confirmer({ titre: "Lever la sanction", message: `${x.nom} pourra de nouveau entrer.`, libelle: "Lever" });
+                if (!ok) return;
+                try { await moderation.leverSanction(x.id); succes("Sanction levée"); await peindre(); }
+                catch (err) { erreur("Impossible", messageErreur(err)); }
+              }
+            }, "Lever la sanction"))
+          : null);
+    }));
   }
 
   /* Supprimer un compte : on retape son pseudo, pour ne pas se tromper de ligne. */
