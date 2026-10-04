@@ -82,7 +82,10 @@ export function formulaireNote({ bureau, classe, session, gens = [], nomDe, dest
       });
       await papiers.tendre({
         paper_id: papier.id, from_user: moiId, to_user: qui,
-        class_id: classe?.id || null, session_id: session?.id || null, attested: true
+        class_id: classe?.id || null, session_id: session?.id || null, attested: true,
+        // Une note passée en séance : la salle est le lieu, la séance la scène.
+        lieu: classe ? `Salle — ${classe.name}`.slice(0, 120) : null,
+        description: session ? `Note passée pendant « ${session.title} ».`.slice(0, 600) : null
       });
       // La feuille quitte la pile : une note écrite en est une de moins.
       const f = verdict.feuilles;

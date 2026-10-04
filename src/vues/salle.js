@@ -38,6 +38,7 @@ import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
 import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
 import { monAvatar } from "../features/apparence.js";
 import { ecouter } from "../core/bus.js";
+import { lectureCourante } from "../features/lecture.js";
 import { ecrireUneNote } from "../features/note-rapide.js";
 import { panneauDossiers } from "../features/dossiers.js";
 import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
@@ -2547,9 +2548,24 @@ export default async function vueSalle({ params }) {
       scene, statut: "present", horodatage: Date.now(),
       bureau: resumeBureau(), avatar: monAvatar(),
       place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: jEcris,
-      sacOuvert: Boolean(decor?.sacOuvert?.())
+      sacOuvert: Boolean(decor?.sacOuvert?.()),
+      lit: maLecture(), titre: etat.profil?.titre || null, titre_libelle: etat.profil?.titre_libelle || null
     });
   }, 250);
+
+  /**
+   * Ce que je lis, tel que les autres le voient : un papier qu'on m'a remis
+   * (la fenêtre de lecture est ouverte), ou mon cahier ouvert sans plume en
+   * main — avec une plume, j'écris, et cela se voit autrement.
+   */
+  function maLecture() {
+    const enCours = lectureCourante();
+    if (enCours) return enCours;
+    if (scene !== "moncahier" || jEcris) return null;
+    const tenu = bureau.enMain();
+    return tenu && ["plume", "crayon", "stylo-plume"].includes(tenu.kind) ? null : "cahier";
+  }
+  const lacherLecture = ecouter("lecture:change", () => { majPresence(); decor?.majClasse?.(); });
 
   /**
    * Ce que j'ai devant moi, tel que les autres le voient : le genre de chaque
@@ -2752,7 +2768,8 @@ export default async function vueSalle({ params }) {
           grade: maFiche()?.rank || null,
           role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now(),
           bureau: resumeBureau(), avatar: monAvatar(),
-          place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: false
+          place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: false,
+          lit: null, titre: etat.profil?.titre || null, titre_libelle: etat.profil?.titre_libelle || null
         },
         surMaj: (liste) => {
           const uniques = new Map();
@@ -2842,6 +2859,8 @@ export default async function vueSalle({ params }) {
     }
     peindreDock();
     peindreBandeau();
+    majPresence();
+    decor?.majClasse?.();
   }
 
   /** Ouvrir son cahier : s'il est dans le sac, on l'en sort d'abord. */
@@ -3182,6 +3201,7 @@ export default async function vueSalle({ params }) {
       definirStatut(null);
       lacherTaille?.();
       lacherAvatar();
+      lacherLecture();
       docFrappe?.removeEventListener("input", surFrappe, true);
       lacherFlottant();
       clearTimeout(finEcriture);

@@ -8,7 +8,7 @@ import { etat, observer, definir } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
-import { estEnseignant, estAdmin, encadreUneClasse } from "../core/permissions.js";
+import { estEnseignant, estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
 import { initiales } from "../core/util.js";
 import { menu } from "./modal.js";
 import { docHote, fenetreHote } from "../core/hote.js";
@@ -155,8 +155,9 @@ function peindreRail() {
     enseignant ? lienRail("/bibliotheque", "bibliotheque", "Bibliothèque", "livre") : null,
     enseignant ? lienRail("/modeles", "modeles", "Modèles", "cours") : null,
 
-    estAdmin() ? el("div.rail__titre", "Administration") : null,
-    estAdmin() ? lienRail("/administration", "administration", "Comptes et journaux", "bouclier") : null,
+    estModerateur() ? el("div.rail__titre", estAdmin() ? "Administration" : "Modération") : null,
+    estModerateur() ? lienRail("/administration", "administration",
+      estAdmin() ? "Comptes, modération, journal" : "Modération et journal", "bouclier") : null,
 
     el("div.rail__pied",
       etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: async () => {

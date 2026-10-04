@@ -10,6 +10,7 @@
  *
  * Toute action qui suppose une présence physique passe par ici.
  * ------------------------------------------------------------------------- */
+import { vignetteRemise } from "./scene-remise.js";
 import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { ouvrirModale } from "../ui/modal.js";
@@ -65,16 +66,19 @@ const FORMULES = {
  * @param {string} [options.detail]    Précision affichée (titre du papier, du cahier…).
  * @returns {Promise<boolean>} L'attestation a-t-elle été donnée.
  */
-export function exigerProximite({ motif = "cahier", cible = null, personnage = null, detail = null }) {
+export function exigerProximite({ motif = "cahier", cible = null, personnage = null, detail = null, scene = null }) {
   const f = FORMULES[motif] || FORMULES.cahier;
   const nom = cible ? nomAffiche(personnage, cible) : "—";
   const qui = nom === "—" ? "cette personne" : nom;
   let coche;
+  // On voit son personnage s'approcher de l'autre, et s'arrêter devant lui.
+  const vignette = scene ? vignetteRemise({ ...scene, vue: "de", phase: "approche" }) : null;
 
   return ouvrirModale({
     titre: f.titre,
+    surFermeture: () => vignette?.detruire(),
     corps: () => el("div.proximite",
-      el("div.proximite__scene", { "aria-hidden": "true" },
+      vignette ? vignette.noeud : el("div.proximite__scene", { "aria-hidden": "true" },
         el("span.proximite__silhouette.proximite__silhouette--soi"),
         el("span.proximite__onde"),
         el("span.proximite__silhouette.proximite__silhouette--autre")

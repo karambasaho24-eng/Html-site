@@ -65,6 +65,7 @@ function correspond(ligne, filtre) {
         : valeur.operateur === "lt" ? v < c
         : valeur.operateur === "lte" ? v <= c
         : valeur.operateur === "neq" ? v !== c
+        : valeur.operateur === "ilike" ? new RegExp(`^${String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "i").test(String(v ?? ""))
         : v === c;
       if (!ok) return false;
     }
@@ -157,7 +158,135 @@ function gardeDuLieu(ancien, nouveau) {
   return nouveau;
 }
 
-const GARDES = { belongings: gardeDuLieu, notebooks: gardeDuLieu };
+/* --- Qui nomme qui, la remise vérifiée, le journal (0029) -----------------
+   Les mêmes règles qu'en base, pour que la démonstration ne laisse pas
+   passer ce que le serveur refuse. */
+let quiSuisJe = () => null;
+const roleDe = (id) => charger("profiles").find((p) => p.id === id)?.role_key || null;
+const peutNommer = () => ["admin", "super_admin"].includes(roleDe(quiSuisJe()));
+const estModerateurLocal = () => ["moderator", "admin", "super_admin"].includes(roleDe(quiSuisJe()));
+const pareil = (a, b) => (a ?? null) === (b ?? null);
+
+function gardeProfil(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!moi) return nouveau;
+  if (!ancien) {
+    if (!peutNommer()) Object.assign(nouveau, { role_key: "student", titre: null, titre_libelle: null });
+    return nouveau;
+  }
+  if (!pareil(nouveau.role_key, ancien.role_key)) {
+    if (!peutNommer()) throw new ErreurDonnees("Seule l'administration change un rôle.", "42501");
+    if (ancien.id === moi) throw new ErreurDonnees("On ne change pas son propre rôle.", "42501");
+    if ((nouveau.role_key === "super_admin" || ancien.role_key === "super_admin") && roleDe(moi) !== "super_admin") {
+      throw new ErreurDonnees("Seul un super administrateur fait ou défait un super administrateur.", "42501");
+    }
+  }
+  if ((!pareil(nouveau.titre, ancien.titre) || !pareil(nouveau.titre_libelle, ancien.titre_libelle)) && !peutNommer()) {
+    throw new ErreurDonnees("Un titre est attribué par l'administration.", "42501");
+  }
+  return nouveau;
+}
+
+function gardeRemisePapier(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!ancien || !moi) return nouveau;
+  for (const c of ["paper_id", "from_user", "to_user", "lieu", "description", "attested", "created_at", "class_id", "session_id"]) {
+    if (!pareil(nouveau[c], ancien[c])) throw new ErreurDonnees("Une remise ne se réécrit pas.", "42501");
+  }
+  if (moi === ancien.to_user) {
+    if (ancien.presence != null && !pareil(nouveau.presence, ancien.presence)) {
+      throw new ErreurDonnees("Vous avez déjà répondu pour la présence.", "42501");
+    }
+    if (!pareil(nouveau.presence, ancien.presence)) nouveau.presence_at = new Date().toISOString();
+    if (nouveau.state === "withdrawn" && ancien.state !== "withdrawn") {
+      throw new ErreurDonnees("Seul l'émetteur retire une remise.", "42501");
+    }
+    if (["refused", "withdrawn"].includes(ancien.state) && nouveau.state !== ancien.state) {
+      throw new ErreurDonnees("Cette remise est close.", "42501");
+    }
+    if (nouveau.state === "accepted" && ancien.state !== "accepted" && nouveau.presence !== true) {
+      throw new ErreurDonnees("Confirmez d'abord que la personne est devant vous, en jeu.", "42501");
+    }
+    if (nouveau.presence === false && nouveau.state === "accepted") {
+      throw new ErreurDonnees("On ne garde pas un papier tendu par quelqu'un d'absent.", "42501");
+    }
+  } else if (moi === ancien.from_user) {
+    if (!pareil(nouveau.presence, ancien.presence) || !pareil(nouveau.lieu_reception, ancien.lieu_reception)
+        || !pareil(nouveau.presence_at, ancien.presence_at)) {
+      throw new ErreurDonnees("C'est au destinataire de répondre.", "42501");
+    }
+    if (nouveau.state !== ancien.state && !(ancien.state === "offered" && nouveau.state === "withdrawn")) {
+      throw new ErreurDonnees("Vous ne pouvez que retirer une remise en attente.", "42501");
+    }
+  }
+  return nouveau;
+}
+
+const GARDES = {
+  belongings: gardeDuLieu, notebooks: gardeDuLieu,
+  profiles: gardeProfil, paper_handoffs: gardeRemisePapier
+};
+
+/** Une ligne au journal, comme app_journaliser. */
+function journaliser(qui, quoi, meta = {}, classe = null, seance = null) {
+  const lignes = charger("activity_logs");
+  const ligne = {
+    id: uid(), created_at: new Date().toISOString(),
+    class_id: classe || null, session_id: seance || null, user_id: qui || null, action: quoi, meta
+  };
+  lignes.push(ligne);
+  sauver("activity_logs", lignes);
+  signaler("activity_logs", "INSERT", ligne);
+}
+
+/* Ce que les déclencheurs inscrivent d'eux-mêmes. */
+const APRES = {
+  profiles(type, n, a) {
+    if (type !== "UPDATE") return;
+    if (!pareil(n.role_key, a.role_key)) {
+      journaliser(quiSuisJe() || n.id, "compte.role", { cible: n.id, nom: n.display_name, avant: a.role_key, apres: n.role_key });
+    }
+    if (!pareil(n.titre, a.titre) || !pareil(n.titre_libelle, a.titre_libelle)) {
+      journaliser(quiSuisJe() || n.id, "compte.titre",
+        { cible: n.id, nom: n.display_name, avant: a.titre || null, apres: n.titre || null, libelle: n.titre_libelle || null });
+    }
+  },
+  paper_handoffs(type, n, a) {
+    if (type === "DELETE") return;
+    const titre = charger("papers").find((p) => p.id === n.paper_id)?.title || null;
+    const base = { remise: n.id, papier: n.paper_id, titre, de: n.from_user, a: n.to_user,
+                   lieu: n.lieu || null, lieu_reception: n.lieu_reception || null };
+    if (type === "INSERT") {
+      journaliser(n.from_user, "papier.tendu",
+        { ...base, description: n.description || null, sans_description: !String(n.description || "").trim() },
+        n.class_id, n.session_id);
+      return;
+    }
+    if (!pareil(n.presence, a.presence)) {
+      journaliser(n.to_user, n.presence ? "papier.presence_confirmee" : "papier.presence_niee", base, n.class_id, n.session_id);
+    }
+    if (n.state !== a.state) {
+      journaliser(n.state === "withdrawn" ? n.from_user : n.to_user, `papier.${n.state}`, base, n.class_id, n.session_id);
+    }
+  },
+  belonging_handoffs(type, n, a) { journalRemiseObjet("objet", type, n, a); },
+  notebook_handoffs(type, n, a) { journalRemiseObjet("cahier", type, n, a); },
+  moderation_notes(type, n) {
+    if (type === "INSERT") journaliser(n.author_id, "moderation.note", { cible: n.target_id, genre: n.target_kind, verdict: n.verdict });
+  },
+  papers(type, n, a) {
+    const moi = quiSuisJe();
+    if (type === "DELETE" && moi && moi !== a.author_id) {
+      journaliser(moi, "moderation.papier_retire", { papier: a.id, titre: a.title, auteur: a.author_id });
+    }
+  }
+};
+function journalRemiseObjet(genre, type, n, a) {
+  if (type === "DELETE") return;
+  const base = { remise: n.id, de: n.from_user, a: n.to_user, mode: n.kind || null };
+  if (type === "INSERT") journaliser(n.from_user, `${genre}.tendu`, base, n.class_id, n.session_id);
+  else if (n.state !== a.state) journaliser(quiSuisJe() || n.to_user, `${genre}.${n.state}`, base, n.class_id, n.session_id);
+}
 
 /* --- Dépôt générique ------------------------------------------------------ */
 function depot(nom) {
@@ -223,6 +352,7 @@ function depot(nom) {
       lignes.push(ligne);
       sauver(nom, lignes);
       signaler(nom, "INSERT", ligne);
+      APRES[nom]?.("INSERT", ligne, null);
       return { ...ligne };
     },
     async creerPlusieurs(objets) {
@@ -239,6 +369,7 @@ function depot(nom) {
       lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
       sauver(nom, lignes);
       signaler(nom, "UPDATE", lignes[i], ancien);
+      APRES[nom]?.("UPDATE", lignes[i], ancien);
       return { ...lignes[i] };
     },
     async majorerOu(filtre, patch) {
@@ -247,11 +378,12 @@ function depot(nom) {
       for (let i = 0; i < lignes.length; i++) {
         if (!correspond(lignes[i], filtre)) continue;
         const ancien = { ...lignes[i] };
-        lignes[i] = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+        const fusion = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+        lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
         touchees.push({ nouveau: lignes[i], ancien });
       }
       sauver(nom, lignes);
-      for (const t of touchees) signaler(nom, "UPDATE", t.nouveau, t.ancien);
+      for (const t of touchees) { signaler(nom, "UPDATE", t.nouveau, t.ancien); APRES[nom]?.("UPDATE", t.nouveau, t.ancien); }
       return touchees.map((t) => ({ ...t.nouveau }));
     },
     async inserer(objet, conflit) {
@@ -270,6 +402,7 @@ function depot(nom) {
       const lignes = charger(nom);
       const i = lignes.findIndex((l) => l.id === id);
       if (i < 0) return true;
+      APRES[nom]?.("DELETE", null, lignes[i]);
       const [ancien] = lignes.splice(i, 1);
       sauver(nom, lignes);
       signaler(nom, "DELETE", null, ancien);
@@ -280,6 +413,7 @@ function depot(nom) {
       const restantes = [];
       const retirees = [];
       for (const l of lignes) (correspond(l, filtre) ? retirees : restantes).push(l);
+      for (const r of retirees) APRES[nom]?.("DELETE", null, r);
       sauver(nom, restantes);
       for (const r of retirees) signaler(nom, "DELETE", null, r);
       return true;
@@ -371,6 +505,7 @@ export async function creerPiloteLocal() {
   }
 
   const monId = () => sessionCourante()?.user?.id || null;
+  quiSuisJe = monId;
 
   /* --- Procédures métier (équivalents des fonctions SQL) ----------------- */
   const procedures = {
@@ -745,6 +880,51 @@ export async function creerPiloteLocal() {
       return maj;
     },
 
+    /** Une annonce à tous les comptes (annoncer_a_tous, 0029). */
+    async annoncer_a_tous({ titre, corps = null }) {
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      const t0 = String(titre || "").trim();
+      if (!t0 || t0.length > 120 || String(corps || "").length > 2000) {
+        throw new ErreurDonnees("Titre requis (120 caractères au plus), texte de 2000 caractères au plus.", "22023");
+      }
+      const tous = await t("profiles").liste();
+      for (const p of tous) {
+        await t("notifications").creer({ user_id: p.id, kind: "annonce", title: t0, body: String(corps || "").trim() || null, read_at: null });
+      }
+      journaliser(monId(), "moderation.annonce", { titre: t0, destinataires: tous.length });
+      return tous.length;
+    },
+
+    async message_de_moderation({ cible, titre, corps = null }) {
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      const t0 = String(titre || "").trim();
+      if (!t0 || t0.length > 120 || String(corps || "").length > 2000) {
+        throw new ErreurDonnees("Titre requis (120 caractères au plus), texte de 2000 caractères au plus.", "22023");
+      }
+      await t("notifications").creer({ user_id: cible, kind: "moderation", title: t0, body: String(corps || "").trim() || null, read_at: null });
+      journaliser(monId(), "moderation.message", { cible, titre: t0 });
+    },
+
+    /**
+     * Démonstration seulement : sans aucun administrateur, le compte ouvert
+     * le devient. En ligne, le premier administrateur est nommé depuis la
+     * console SQL — il n'y a pas d'équivalent, et c'est voulu.
+     */
+    async amorcer_admin_demo() {
+      const tous = await t("profiles").liste();
+      if (tous.some((p) => ["admin", "super_admin"].includes(p.role_key))) {
+        throw new ErreurDonnees("Il y a déjà une administration.", "42501");
+      }
+      const moi = monId();
+      const lignes = charger("profiles");
+      const i = lignes.findIndex((p) => p.id === moi);
+      if (i < 0) throw new ErreurDonnees("Compte introuvable", "P0002");
+      lignes[i] = { ...lignes[i], role_key: "super_admin" };
+      sauver("profiles", lignes);
+      signaler("profiles", "UPDATE", lignes[i], null);
+      return lignes[i];
+    },
+
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
       const membres = await t("class_members").liste({ class_id: target_class, status: "active" });
       let n = 0;
@@ -1073,11 +1253,21 @@ export async function creerPiloteLocal() {
 
 /* --- Référentiel RBAC minimal en mode démonstration ----------------------- */
 async function amorcerRbac(t) {
-  if ((await t("roles").liste()).length) return;
+  const existants = await t("roles").liste();
+  if (existants.length) {
+    // Une démonstration ouverte avant l'arrivée de la modération.
+    if (!existants.some((r) => r.key === "moderator")) {
+      await t("roles").creer({ id: "moderator", key: "moderator", label: "Modérateur", rank: 70 });
+      for (const p of ["MODERATE", "VIEW_LOGS", "MANAGE_PAPERS"]) {
+        await t("role_permissions").creer({ role_key: "moderator", permission_key: p });
+      }
+    }
+    return;
+  }
 
   const roles = [
     ["super_admin", "Super administrateur", 100], ["admin", "Administrateur", 90],
-    ["director", "Directeur", 80], ["teacher", "Professeur", 60],
+    ["director", "Directeur", 80], ["moderator", "Modérateur", 70], ["teacher", "Professeur", 60],
     ["instructor", "Formateur", 50], ["student", "Membre", 20], ["observer", "Observateur", 10]
   ];
   for (const [key, label, rank] of roles) await t("roles").creer({ id: key, key, label, rank });
@@ -1101,7 +1291,7 @@ async function amorcerRbac(t) {
     "TAKE_ATTENDANCE", "PUBLISH_ANNOUNCEMENT", "RUN_POLL"
   ];
   const permsObs = ["READ_SHARED_NOTEBOOK", "VIEW_BOARD", "VIEW_DOCUMENT", "VIEW_ARCHIVES"];
-  const toutes = [...new Set([...permsProf, ...permsEleve, "MANAGE_USERS", "MODERATE"])];
+  const toutes = [...new Set([...permsProf, ...permsEleve, "MANAGE_USERS", "MODERATE", "MANAGE_PAPERS"])];
 
   for (const key of toutes) await t("permissions").creer({ id: key, key, label: key, category: "general" });
 
@@ -1111,6 +1301,7 @@ async function amorcerRbac(t) {
   await attribuer("super_admin", toutes);
   await attribuer("admin", toutes);
   await attribuer("director", toutes.filter((p) => p !== "MANAGE_USERS"));
+  await attribuer("moderator", ["MODERATE", "VIEW_LOGS", "MANAGE_PAPERS"]);
   await attribuer("teacher", permsProf);
   await attribuer("instructor", permsProf);
   await attribuer("student", permsEleve);

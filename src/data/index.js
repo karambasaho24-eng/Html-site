@@ -36,6 +36,19 @@ export const profils = {
   lire: (id) => T("profiles").lire(id),
   parIds: (ids) => ids.length ? T("profiles").liste({ id: ids }) : Promise.resolve([]),
   majorer: (id, patch) => T("profiles").majorer(id, patch),
+  /** Retrouver quelqu'un par son pseudo : on le croise dans la rue, on ne partage aucun espace. */
+  chercher(texte, limite = 8) {
+    const propre = String(texte || "").trim().replace(/[%_\\]/g, "");
+    if (propre.length < 2) return Promise.resolve([]);
+    return T("profiles").liste({ display_name: { operateur: "ilike", valeur: `%${propre}%` } },
+      { ordre: "display_name", limite });
+  },
+  /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
+  nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
+  /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */
+  titrer: (id, titre, libelle = null) => T("profiles").majorer(id, {
+    titre: titre || null, titre_libelle: String(libelle || "").trim() || null
+  }),
   async assurer(utilisateur) {
     const existant = await T("profiles").lire(utilisateur.id);
     if (existant) return existant;
@@ -891,9 +904,22 @@ export const papiers = {
     return T("paper_handoffs").liste({ from_user: utilisateurId }, { ordre: "created_at", sens: "desc" });
   },
 
-  repondre: (remiseId, etat) => T("paper_handoffs").majorer(remiseId, {
-    state: etat, settled_at: new Date().toISOString()
+  repondre: (remiseId, etat, extra = {}) => T("paper_handoffs").majorer(remiseId, {
+    ...extra, state: etat, settled_at: new Date().toISOString()
   }),
+
+  /**
+   * « Cette personne est-elle bien devant vous ? » La réponse ne se reprend
+   * pas. Non : la remise est close, et la modération le verra.
+   */
+  confirmerPresence: (remiseId, { present, lieu = null }) => T("paper_handoffs").majorer(remiseId, {
+    presence: Boolean(present),
+    lieu_reception: String(lieu || "").trim().slice(0, 120) || null,
+    ...(present ? {} : { state: "refused", settled_at: new Date().toISOString() })
+  }),
+
+  /** Retirer un papier : son auteur, ou la modération (inscrit au journal). */
+  retirer: (id) => T("papers").supprimer(id),
 
   /**
    * Ce qui circule, pour la modération. La base filtre : seul un modérateur
@@ -910,13 +936,45 @@ export const papiers = {
       remises.flatMap((r) => [r.from_user, r.to_user]))]);
     const parId = new Map(gens.map((p) => [p.id, p]));
 
+    const avis = await moderation.notes("paper_handoff", remises.map((r) => r.id)).catch(() => []);
+    const parRemise = new Map();
+    for (const n of avis) {
+      if (!parRemise.has(n.target_id)) parRemise.set(n.target_id, []);
+      parRemise.get(n.target_id).push(n);
+    }
+
     return remises.map((r) => ({
       ...r,
       papier: parPapier.get(r.paper_id) || null,
       expediteur: parId.get(r.from_user) || null,
-      destinataire: parId.get(r.to_user) || null
+      destinataire: parId.get(r.to_user) || null,
+      notes: parRemise.get(r.id) || []
     }));
   }
+};
+
+/* ===========================================================================
+   Modération
+   La base tranche (0029) : un modérateur lit le journal, les remises, les
+   papiers et les fiches ; il note, il annonce, il retire. Il ne change ni un
+   rôle ni un titre — c'est l'administration.
+   ========================================================================= */
+export const moderation = {
+  notes: (genre, ids) => ids.length
+    ? T("moderation_notes").liste({ target_kind: genre, target_id: ids }, { ordre: "created_at", sens: "desc" })
+    : Promise.resolve([]),
+  noter: ({ genre, cible, verdict = "note", texte = null, auteur }) => T("moderation_notes").creer({
+    target_kind: genre, target_id: cible, verdict,
+    body: String(texte || "").trim().slice(0, 1000) || null, author_id: auteur
+  }),
+  oublierNote: (id) => T("moderation_notes").supprimer(id),
+  annoncer: (titre, corps = null) => pilote.rpc("annoncer_a_tous", { titre, corps }),
+  ecrire: (cible, titre, corps = null) => pilote.rpc("message_de_moderation", { cible, titre, corps }),
+  comptes: (limite = 500) => T("profiles").liste({}, { ordre: "created_at", sens: "desc", limite }),
+  fiches: (limite = 500) => T("rp_profiles").liste({}, { ordre: "updated_at", sens: "desc", limite }),
+  supprimerFiche: (id) => T("rp_profiles").supprimer(id),
+  journal: (filtre = {}, limite = 300) =>
+    T("activity_logs").liste(filtre, { ordre: "created_at", sens: "desc", limite })
 };
 
 /* ===========================================================================

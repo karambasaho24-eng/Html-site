@@ -28,6 +28,7 @@ import { imageDetouree } from "./affaires.js";
 import { GABARIT, FACES, NOMS_TENUES, ficheTenue, toilesTenue, toileCape } from "./tenues.js";
 import { COIFFURES, COULEURS_CHEVEUX, TEINTS, construireCoiffure, toileCheveux } from "./coiffures.js";
 import { creerAtelier } from "./objets-3d.js";
+import { ficheTitre } from "./titres.js";
 
 const THREE_LOCAL = new URL("../../vendor/three.module.min.js", import.meta.url).href;
 const THREE_CDN = "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js";
@@ -251,6 +252,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     chignon: new THREE.SphereGeometry(0.32, 14, 10),
     plan: new THREE.PlaneGeometry(1, 1),
     cape: new THREE.PlaneGeometry(2.2, 2.7),
+    manteau: new THREE.PlaneGeometry(3.3, 3.9),
     pied: new THREE.CylinderGeometry(0.06, 0.06, 1, 8)
   };
   const PARTAGEES = new Set(Object.values(GEO));
@@ -346,6 +348,122 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return cacheCapes.get(tenue);
   }
 
+  /* --- Ce que portent les titres ------------------------------------------- */
+  let royal = null;
+  function matieresRoyales() {
+    if (royal) return royal;
+    const velours = texturePeinte(256, 512, (g, l, h) => {
+      // Un velours cramoisi : plus sombre dans les plis, quelques reflets.
+      g.fillStyle = "#7d0f1c"; g.fillRect(0, 0, l, h);
+      for (let x = 0; x < l; x += 2) {
+        const v = Math.sin(x / 19) * 0.5 + Math.sin(x / 7.3) * 0.2;
+        g.fillStyle = v > 0 ? `rgba(255,120,120,${v * 0.12})` : `rgba(20,0,4,${-v * 0.35})`;
+        g.fillRect(x, 0, 2, h);
+      }
+      g.strokeStyle = "#c9a24e"; g.lineWidth = 10; g.strokeRect(5, 5, l - 10, h - 10);
+    });
+    const hermine = texturePeinte(256, 128, (g, l, h) => {
+      // L'hermine : blanc cassé, mouchetée de petites queues noires.
+      g.fillStyle = "#f4f0e6"; g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 2600; i++) {
+        g.fillStyle = `rgba(150,140,120,${Math.random() * .08})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+      g.fillStyle = "#151313";
+      for (let y = 18; y < h; y += 42) for (let x = (y / 42) % 2 ? 10 : 34; x < l; x += 48) {
+        g.beginPath(); g.moveTo(x, y - 9); g.lineTo(x + 5, y + 7); g.lineTo(x - 5, y + 7); g.fill();
+      }
+    }, [2, 1]);
+    royal = {
+      velours: new THREE.MeshStandardMaterial({ map: velours, roughness: .78, side: THREE.DoubleSide }),
+      hermine: new THREE.MeshStandardMaterial({ map: hermine, roughness: .95 }),
+      or: matDe("#d4a93a", { metalness: .85, roughness: .26 }),
+      rubis: matDe("#b3142a", { metalness: .2, roughness: .15 }),
+      saphir: matDe("#1f4fb3", { metalness: .2, roughness: .15 })
+    };
+    return royal;
+  }
+  /** Une couronne d'or (cinq fleurons, des pierres) ou un simple diadème. */
+  function couronne(genre) {
+    const m = matieresRoyales();
+    const g = new THREE.Group();
+    const diademe = genre === "diademe";
+    const bande = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.68, diademe ? 0.14 : 0.34, 32, 1, true), m.or);
+    bande.material.side = THREE.DoubleSide;
+    g.add(bande);
+    if (!diademe) {
+      const coiffe = new THREE.Mesh(new THREE.SphereGeometry(0.64, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), m.velours);
+      coiffe.position.y = 0.05;
+      g.add(coiffe);
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const fleuron = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.34, 4), m.or);
+        fleuron.position.set(Math.sin(a) * 0.69, 0.32, -Math.cos(a) * 0.69);
+        const perle = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), m.or);
+        perle.position.set(Math.sin(a) * 0.69, 0.52, -Math.cos(a) * 0.69);
+        const pierre = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), i % 2 ? m.saphir : m.rubis);
+        pierre.position.set(Math.sin(a + 0.63) * 0.71, 0, -Math.cos(a + 0.63) * 0.71);
+        g.add(fleuron, perle, pierre);
+      }
+      const croix = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), m.or);
+      croix.position.y = 0.72;
+      g.add(croix);
+    } else {
+      const pierre = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), m.saphir);
+      pierre.position.set(0, 0.04, -0.72);
+      g.add(pierre);
+    }
+    g.position.y = 1.18;
+    ombrer(g);
+    return g;
+  }
+
+  /* --- Ce qu'on lit, tenu à deux mains ------------------------------------ */
+  let texPage = null;
+  function pageEcrite() {
+    texPage ??= texturePeinte(256, 340, (g, l, h) => {
+      g.fillStyle = "#f3ecd9"; g.fillRect(0, 0, l, h);
+      g.fillStyle = "rgba(120,90,50,.08)";
+      for (let i = 0; i < 1800; i++) g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      g.fillStyle = "#2a2622"; g.fillRect(40, 34, 120, 7);
+      for (let y = 66; y < h - 30; y += 17) {
+        g.fillStyle = "rgba(40,36,32,.72)";
+        g.fillRect(26, y, l - 52 - (y * 37 % 60), 3);
+      }
+      g.strokeStyle = "rgba(140,30,30,.6)"; g.lineWidth = 3;
+      g.beginPath(); g.arc(l - 56, h - 46, 20, 0, 7); g.stroke();
+    });
+    return texPage;
+  }
+  /**
+   * Un papier, un cahier ouvert, un livre ouvert. Le groupe regarde vers +z
+   * (vers celui qui lit) ; on le penche vers son visage.
+   */
+  function objetLecture(kind) {
+    const g = new THREE.Group();
+    const page = new THREE.MeshStandardMaterial({ map: pageEcrite(), roughness: .9, side: THREE.DoubleSide });
+    if (kind === "papier") {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.5), page);
+      g.add(f);
+    } else {
+      const livre = kind === "livre";
+      const couv = matDe(livre ? "#5a2418" : "#2f4a3a", { roughness: .7 });
+      for (const sens of [-1, 1]) {
+        const feuille = new THREE.Group();
+        const f = new THREE.Mesh(new THREE.PlaneGeometry(0.82, 1.15), page);
+        f.position.x = sens * 0.41;
+        const dos = new THREE.Mesh(new THREE.BoxGeometry(0.86, 1.2, livre ? 0.12 : 0.03), couv);
+        dos.position.set(sens * 0.43, 0, -(livre ? 0.07 : 0.025));
+        feuille.add(f, dos);
+        feuille.rotation.y = sens * 0.28;           // ouvert en V, comme on le tient
+        g.add(feuille);
+      }
+    }
+    g.rotation.x = -0.63;
+    ombrer(g);
+    return g;
+  }
+
   /* --- Un personnage : la silhouette classique de Roblox -------------------
      Une tête cylindrique aux bords adoucis, un torse carré, deux bras et deux
      jambes d'un seul bloc. Pas de visage : ni yeux, ni sourire. Un costume
@@ -387,6 +505,24 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       m.rotation.x = 0.06;
       bassin.add(m);
     }
+    // Le titre se porte : la couronne, le manteau de velours bordé d'hermine.
+    const titre = ficheTitre(avatar?.titre);
+    let manteau = null;
+    if (titre?.manteau) {
+      manteau = new THREE.Group();
+      const velours = new THREE.Mesh(GEO.manteau, matieresRoyales().velours);
+      velours.position.set(0, -1.95, 0);
+      const bord = new THREE.Mesh(new THREE.BoxGeometry(3.32, 0.3, 0.16), matieresRoyales().hermine);
+      bord.position.set(0, -3.9, 0.02);
+      manteau.add(velours, bord);
+      manteau.position.set(0, 2.05, 0.6);
+      bassin.add(manteau);
+      // Le col d'hermine, sur les épaules.
+      const col = new THREE.Mesh(boiteRonde(3.3, 0.42, 1.35, 0.16), matieresRoyales().hermine);
+      col.position.set(0, 2.06, 0.02);
+      bassin.add(col);
+    }
+    if (titre?.couronne) tete.add(couronne(titre.couronne));
 
     /* Un membre d'un seul bloc, pendu à son articulation. Le « bout » est un
        repère au bas du bloc : c'est là que la main tient le crayon. */
@@ -412,10 +548,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
     ombrer(racine);
 
-    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null };
+    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null, manteau, lecture: null };
 
     p.poser = (pose) => {
       p.pose = pose;
+      // Debout, le manteau tombe jusqu'aux talons ; assis, il s'étale derrière soi.
+      if (manteau) {
+        manteau.scale.y = pose === "debout" ? 1 : 0.6;
+        manteau.rotation.x = pose === "debout" ? 0.04 : -0.12;
+      }
       for (const m of [brasG, brasD, jambeG, jambeD]) {
         m.epaule.rotation.set(0, 0, 0); m.coude.rotation.set(0, 0, 0);
         m.epaule.rotation.order = "XYZ";
@@ -664,6 +805,54 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     }
     return true;
   }
+  /* --- Lire : on prend la chose à deux mains, on la lève, on lit ----------
+     kind : "papier", "cahier", "livre" — ou rien, et on la repose. Vrai tant
+     que les bras sont occupés à lire (ou à reposer). */
+  const DUREE_LECTURE = 650;
+  function gererLecture(p, kind, t) {
+    const l = p.lecture;
+    if (kind && l && l.kind !== kind) { retirerLecture(p); }
+    if (kind && !p.lecture) {
+      const g = objetLecture(kind);
+      p.bassin.add(g);
+      p.lecture = { kind, g, t0: t, u0: 0, sens: 1, outil: p.outil?.userData.kind || null };
+      p.tenir(null);
+    } else if (kind && p.lecture.sens < 0) {
+      Object.assign(p.lecture, { u0: p.lecture.u, t0: t, sens: 1 });
+    } else if (!kind && p.lecture && p.lecture.sens > 0) {
+      Object.assign(p.lecture, { u0: p.lecture.u, t0: t, sens: -1 });
+    }
+    const L = p.lecture;
+    if (!L) return false;
+    L.u = Math.max(0, Math.min(1, L.u0 + L.sens * (t - L.t0) / DUREE_LECTURE));
+    const e = L.u * L.u * (3 - 2 * L.u);
+    poseLecture(p, e);
+    // On la prend plus bas, devant soi, et on la monte à hauteur des yeux.
+    L.g.scale.setScalar(0.35 + 0.65 * e);
+    L.g.position.set(0, 0.55 + 0.9 * e, -0.95 - 0.67 * e);
+    if (L.sens < 0 && L.u <= 0) {
+      const outil = L.outil;
+      retirerLecture(p);
+      p.poser(p.pose);
+      p.tenir(outil);
+      return false;
+    }
+    return true;
+  }
+  function poseLecture(p, e) {
+    const assis = p.pose !== "debout";
+    const bx = assis ? 0.32 : 0, bz = assis ? 0.05 : 0;
+    p.brasG.epaule.rotation.set(bx + (1.25 - bx) * e, 0, -bz + (0.42 + bz) * e);
+    p.brasD.epaule.rotation.set(bx + (1.25 - bx) * e, 0, bz + (-0.42 - bz) * e);
+    p.tete.rotation.x = 0.3 * e;
+  }
+  function retirerLecture(p) {
+    if (!p.lecture) return;
+    p.bassin.remove(p.lecture.g);
+    p.lecture.g.traverse((m) => { if (m.isMesh) m.geometry.dispose(); });
+    p.lecture = null;
+  }
+
   /** Couper court : on change de place, ou trop de choses ont bougé d'un coup. */
   function interrompreGeste(x) {
     if (x.geste) { lacher(x, x.geste); x.p.bassin.rotation.z = 0; x.p.poser(x.p.pose); }
@@ -1588,6 +1777,553 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return { sieges: autres, tete, R, fond };
   }
 
+  /* --- Les lumières par défaut : chaque décor règle les siennes ------------ */
+  function lumieresParDefaut() {
+    scene.background = new THREE.Color("#171a1d");
+    scene.fog = null;
+    ciel.color.set("#fff4e4"); ciel.groundColor.set("#3a2c22"); ciel.intensity = 1.1;
+    soleil.color.set("#ffe9cc"); soleil.intensity = 2.4;
+    plafonnier.intensity = 18;
+  }
+
+  /* --- Le palais : la salle du trône ---------------------------------------
+     Un sol de marbre, des colonnes, des bannières, un tapis rouge qui mène à
+     l'estrade. Le souverain siège au fond, sur son trône. Sa cour se tient
+     debout devant lui, en arc de cercle ; ceux qui ne tiennent plus dans
+     l'arc s'assoient sur les bancs, de part et d'autre. */
+  const TEX_PALAIS = {};
+  function texPalais() {
+    if (TEX_PALAIS.marbre) return TEX_PALAIS;
+    TEX_PALAIS.marbre = texturePeinte(512, 512, (g, l, h) => {
+      const c = l / 4;
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        g.fillStyle = (i + j) % 2 ? "#d9d2c3" : "#5a5550";
+        g.fillRect(i * c, j * c, c, c);
+        for (let k = 0; k < 7; k++) {
+          g.strokeStyle = (i + j) % 2 ? "rgba(120,110,95,.18)" : "rgba(230,225,215,.12)";
+          g.lineWidth = 1 + Math.random() * 1.5;
+          g.beginPath();
+          let x = i * c + Math.random() * c, y = j * c;
+          g.moveTo(x, y);
+          for (let n = 0; n < 6; n++) { x += (Math.random() - .5) * 30; y += c / 6; g.lineTo(x, y); }
+          g.stroke();
+        }
+      }
+      g.fillStyle = "rgba(0,0,0,.25)";
+      for (let i = 0; i <= 4; i++) { g.fillRect(i * c - 1, 0, 2, h); g.fillRect(0, i * c - 1, l, 2); }
+    }, [7, 8]);
+    TEX_PALAIS.pierre = texturePeinte(512, 512, (g, l, h) => {
+      g.fillStyle = "#a59c8c"; g.fillRect(0, 0, l, h);
+      const rangs = 8;
+      for (let r = 0; r < rangs; r++) {
+        const y = r * h / rangs, decal = r % 2 ? 64 : 0;
+        for (let x = -decal; x < l; x += 128) {
+          const v = 150 + Math.floor(Math.random() * 30);
+          g.fillStyle = `rgb(${v},${v - 8},${v - 22})`;
+          g.fillRect(x + 2, y + 2, 124, h / rangs - 4);
+        }
+      }
+      for (let i = 0; i < 9000; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "40,35,30"},${Math.random() * .06})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+    }, [5, 3]);
+    TEX_PALAIS.banniere = texturePeinte(256, 640, (g, l, h) => {
+      g.fillStyle = "#7d0f1c"; g.fillRect(0, 0, l, h);
+      g.strokeStyle = "#d4a93a"; g.lineWidth = 10; g.strokeRect(14, 14, l - 28, h - 80);
+      // La pointe, en bas.
+      g.clearRect(0, h - 60, l, 60);
+      g.fillStyle = "#7d0f1c";
+      g.beginPath(); g.moveTo(0, h - 60); g.lineTo(l / 2, h); g.lineTo(l, h - 60); g.fill();
+      // Les armes du royaume : un écu, une couronne, deux épées croisées.
+      const cx = l / 2, cy = h * 0.42;
+      g.strokeStyle = "#d4a93a"; g.lineWidth = 8;
+      for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx - 70 * s, cy + 90); g.lineTo(cx + 70 * s, cy - 90); g.stroke(); }
+      g.fillStyle = "#d4a93a";
+      g.beginPath(); g.moveTo(cx - 52, cy - 50); g.lineTo(cx + 52, cy - 50); g.lineTo(cx + 52, cy + 20);
+      g.quadraticCurveTo(cx, cy + 90, cx - 52, cy + 20); g.fill();
+      g.fillStyle = "#7d0f1c";
+      g.beginPath(); g.moveTo(cx - 32, cy - 30); g.lineTo(cx + 32, cy - 30); g.lineTo(cx + 32, cy + 12);
+      g.quadraticCurveTo(cx, cy + 58, cx - 32, cy + 12); g.fill();
+      g.fillStyle = "#d4a93a";
+      g.beginPath(); g.moveTo(cx - 40, cy - 96); g.lineTo(cx - 40, cy - 62); g.lineTo(cx + 40, cy - 62); g.lineTo(cx + 40, cy - 96);
+      g.lineTo(cx + 20, cy - 78); g.lineTo(cx, cy - 104); g.lineTo(cx - 20, cy - 78); g.fill();
+    });
+    TEX_PALAIS.tapis = texturePeinte(128, 512, (g, l, h) => {
+      g.fillStyle = "#8f1322"; g.fillRect(0, 0, l, h);
+      g.fillStyle = "#d4a93a"; g.fillRect(0, 0, 10, h); g.fillRect(l - 10, 0, 10, h);
+      g.fillStyle = "rgba(0,0,0,.12)";
+      for (let i = 0; i < 2600; i++) g.fillRect(Math.random() * l, Math.random() * h, 1.5, 1.5);
+    }, [1, 6]);
+    return TEX_PALAIS;
+  }
+
+  function construireTrone(total) {
+    lumieresParDefaut();
+    const T = texPalais();
+    const fond = -16, avant = 16, largeur = 26;
+    scene.background = new THREE.Color("#120d0b");
+    ciel.color.set("#f2dcc0"); ciel.groundColor.set("#2a1a12"); ciel.intensity = 0.75;
+    soleil.intensity = 1.3;
+    plafonnier.intensity = 0;
+    soleil.position.set(-largeur / 2 + 2, 22, 4);
+    soleil.target.position.set(0, 0, -4);
+    Object.assign(soleil.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 70 });
+    soleil.shadow.camera.updateProjectionMatrix();
+
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(largeur, avant - fond),
+      new THREE.MeshStandardMaterial({ map: T.marbre, roughness: .35, metalness: .05 }));
+    sol.rotation.x = -Math.PI / 2;
+    sol.position.set(0, 0, (fond + avant) / 2);
+    sol.receiveShadow = true;
+    decor.add(sol);
+    const matPierre = new THREE.MeshStandardMaterial({ map: T.pierre, roughness: .92 });
+    const H = 17;
+    const mur = (l, x, z, ry) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(l, H), matPierre);
+      m.position.set(x, H / 2, z); m.rotation.y = ry; m.receiveShadow = true;
+      decor.add(m);
+    };
+    mur(largeur, 0, fond, 0);
+    mur(avant - fond, -largeur / 2, (fond + avant) / 2, Math.PI / 2);
+    mur(avant - fond, largeur / 2, (fond + avant) / 2, -Math.PI / 2);
+
+    // Les colonnes, leurs chapiteaux, et une bannière entre chacune.
+    const matColonne = matDe("#d8d0c0", { roughness: .5 });
+    const or = matieresRoyales().or;
+    const matBanniere = new THREE.MeshStandardMaterial({ map: T.banniere, roughness: .85, side: THREE.DoubleSide, transparent: true, alphaTest: .5 });
+    for (const cote of [-1, 1]) {
+      for (let z = fond + 4; z < avant - 2; z += 6) {
+        const x = cote * (largeur / 2 - 2);
+        const fut = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.62, 13, 20), matColonne);
+        fut.position.set(x, 6.5, z);
+        const base = new THREE.Mesh(boiteRonde(1.7, 0.6, 1.7, 0.08), matColonne);
+        base.position.set(x, 0.3, z);
+        const chap = new THREE.Mesh(boiteRonde(1.8, 0.7, 1.8, 0.1), matColonne);
+        chap.position.set(x, 13.2, z);
+        decor.add(fut, base, chap);
+        if (z + 3 < avant - 2) {
+          const b = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 6), matBanniere);
+          b.position.set(cote * (largeur / 2 - 0.12), 8.5, z + 3);
+          b.rotation.y = -cote * Math.PI / 2;
+          decor.add(b);
+        }
+      }
+    }
+    // La grande bannière, derrière le trône.
+    const grande = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 10.5), matBanniere);
+    grande.position.set(0, 9.2, fond + 0.1);
+    decor.add(grande);
+
+    // L'estrade : trois marches, la dernière bordée d'or.
+    const zTrone = fond + 3.4;
+    const marbreClair = new THREE.MeshStandardMaterial({ map: T.marbre, roughness: .3 });
+    const marches = [[11, 6.6], [8.6, 5.2], [6.4, 3.8]];
+    marches.forEach(([l, p], i) => {
+      const m = new THREE.Mesh(boiteRonde(l, 0.36, p, 0.04), marbreClair);
+      m.position.set(0, 0.18 + i * 0.36, zTrone - 0.2 + (marches.length - 1 - i) * 0.0);
+      m.receiveShadow = m.castShadow = true;
+      decor.add(m);
+    });
+    const yEstrade = marches.length * 0.36;
+    const tapisEstrade = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.2), new THREE.MeshStandardMaterial({ map: T.tapis, roughness: 1 }));
+    tapisEstrade.rotation.x = -Math.PI / 2;
+    tapisEstrade.position.set(0, yEstrade + 0.01, zTrone - 0.1);
+    decor.add(tapisEstrade);
+    // Le tapis rouge, de l'entrée au pied de l'estrade.
+    const tapis = new THREE.Mesh(new THREE.PlaneGeometry(3.4, avant - zTrone - 3.2),
+      new THREE.MeshStandardMaterial({ map: T.tapis, roughness: 1 }));
+    tapis.rotation.x = -Math.PI / 2;
+    tapis.position.set(0, 0.012, (zTrone + 3.2 + avant) / 2);
+    tapis.receiveShadow = true;
+    decor.add(tapis);
+
+    // Le trône : un siège de velours rouge, un haut dossier doré, des accoudoirs.
+    const trone = new THREE.Group();
+    const velours = matieresRoyales().velours;
+    const boisFonce = matDe("#3b2414", { roughness: .45 });
+    const socle = new THREE.Mesh(boiteRonde(2.5, 0.85, 2.1, 0.08), boisFonce);
+    socle.position.set(0, 0.43, 0);
+    const coussin = new THREE.Mesh(boiteRonde(2.1, 0.22, 1.9, 0.1), velours);
+    coussin.position.set(0, 0.96, 0.05);
+    const dossier = new THREE.Mesh(boiteRonde(2.6, 4.8, 0.4, 0.1), or);
+    dossier.position.set(0, 2.9, -1.05);
+    const panneau = new THREE.Mesh(boiteRonde(2.0, 3.9, 0.1, 0.05), velours);
+    panneau.position.set(0, 2.75, -0.82);
+    trone.add(socle, coussin, dossier, panneau);
+    for (const x of [-1.2, 1.2]) {
+      const acc = new THREE.Mesh(boiteRonde(0.3, 0.22, 1.9, 0.08), or);
+      acc.position.set(x, 1.62, 0);
+      const montantA = new THREE.Mesh(boiteRonde(0.26, 0.75, 0.26, 0.06), or);
+      montantA.position.set(x, 1.2, 0.8);
+      const pomme = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), or);
+      pomme.position.set(x, 1.78, 0.9);
+      const fleuron = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), or);
+      fleuron.position.set(x * 1.08, 5.45, -1.05);
+      trone.add(acc, montantA, pomme, fleuron);
+    }
+    const cimier = couronne("couronne");
+    cimier.scale.setScalar(1.25);
+    cimier.position.set(0, 5.55, -1.05);
+    trone.add(cimier);
+    trone.position.set(0, yEstrade, zTrone);
+    ombrer(trone);
+    decor.add(trone);
+
+    // Une petite table près du trône : ce que le souverain a sorti y est posé.
+    const gueridon = new THREE.Group();
+    const plateau = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.1, 24), boisFonce);
+    plateau.position.y = 1.95;
+    const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.18, 1.9, 12), or);
+    pied.position.y = 0.95;
+    gueridon.add(plateau, pied);
+    gueridon.position.set(2.35, yEstrade, zTrone + 0.6);
+    ombrer(gueridon);
+    decor.add(gueridon);
+    const objetsTrone = new THREE.Group();
+    objetsTrone.position.set(2.35, yEstrade + 2.02, zTrone + 0.6);
+    objetsTrone.rotation.y = Math.PI;
+    decor.add(objetsTrone);
+
+    // Des candélabres de part et d'autre, et leur lumière chaude.
+    const laiton = matDe("#9c7a3c", { metalness: .75, roughness: .3 });
+    for (const x of [-3.6, 3.6]) {
+      const c = new THREE.Group();
+      const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 3.4, 12), laiton);
+      tige.position.y = 1.7;
+      const piedC = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.15, 20), laiton);
+      const coupe = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.25, 0.14, 20), laiton);
+      coupe.position.y = 3.45;
+      c.add(tige, piedC, coupe);
+      for (const dx of [-0.25, 0, 0.25]) bougie(c, dx, 3.5, dx ? 0.5 : 0.65);
+      c.position.set(x, yEstrade, zTrone + 0.4);
+      ombrer(c);
+      decor.add(c);
+      const lueur = new THREE.PointLight("#ffb866", 16, 16, 2);
+      lueur.position.set(x, yEstrade + 4.4, zTrone + 0.6);
+      decor.add(lueur);
+      bougies.push({ lumiere: lueur, base: 16, phase: x });
+    }
+    // Des torches sur les colonnes, le long de la salle.
+    for (const cote of [-1, 1]) {
+      for (let z = fond + 10; z < avant - 2; z += 12) {
+        const l = new THREE.PointLight("#ffa850", 10, 14, 2);
+        l.position.set(cote * (largeur / 2 - 3), 6, z);
+        decor.add(l);
+        bougies.push({ lumiere: l, base: 10, phase: z * 0.7 + cote });
+      }
+    }
+
+    // La cour : debout en arc de cercle devant l'estrade, puis assise sur les bancs.
+    const sieges = [];
+    const R = 6.6;
+    const nArc = Math.min(Math.max(5, total), 9);
+    for (let i = 0; i < nArc; i++) {
+      const a = nArc === 1 ? 0 : -0.95 + (1.9 * i) / (nArc - 1);
+      const objets = new THREE.Group();
+      objets.visible = false;
+      sieges.push({ x: Math.sin(a) * R, z: zTrone + Math.cos(a) * R, angle: a, objets, debout: true });
+    }
+    const bancs = Math.max(0, total - nArc);
+    const parBanc = 4, pas = 2.1;
+    for (const cote of [-1, 1]) {
+      const n = Math.max(1, Math.ceil(bancs / 2 / parBanc));
+      for (let b = 0; b < n; b++) {
+        const z0 = zTrone + 6.5 + b * (parBanc * pas + 1.5);
+        const banc = new THREE.Mesh(boiteRonde(1.4, 0.18, parBanc * pas, 0.05), boisFonce);
+        banc.position.set(cote * 8.6, 0.95, z0 + (parBanc - 1) * pas / 2);
+        const dosBanc = new THREE.Mesh(boiteRonde(0.16, 1.3, parBanc * pas, 0.05), boisFonce);
+        dosBanc.position.set(cote * 9.3, 1.8, z0 + (parBanc - 1) * pas / 2);
+        for (const dz of [-1, 1]) {
+          const pieds = new THREE.Mesh(boiteRonde(1.3, 0.9, 0.16, 0.04), boisFonce);
+          pieds.position.set(cote * 8.6, 0.45, z0 + (parBanc - 1) * pas / 2 + dz * (parBanc * pas / 2 - 0.3));
+          decor.add(pieds);
+        }
+        ombrer(banc); ombrer(dosBanc);
+        decor.add(banc, dosBanc);
+        for (let k = 0; k < parBanc; k++) {
+          const objets = new THREE.Group();
+          objets.visible = false;
+          sieges.push({ x: cote * 8.55, z: z0 + k * pas, angle: cote * Math.PI / 2, objets });
+        }
+      }
+    }
+    return { sieges, tete: { x: 0, z: zTrone + 0.05, y: yEstrade, angle: Math.PI, objets: objetsTrone }, fond, zTrone };
+  }
+
+  /* --- Dehors : une place de district ---------------------------------------
+     Des pavés, des maisons à colombages, un puits, des lanternes ; et au loin,
+     barrant l'horizon, le Mur. On s'y tient debout, en cercle. */
+  const TEX_RUE = {};
+  function texRue() {
+    if (TEX_RUE.paves) return TEX_RUE;
+    TEX_RUE.paves = texturePeinte(512, 512, (g, l, h) => {
+      g.fillStyle = "#6d655b"; g.fillRect(0, 0, l, h);
+      const c = 42;
+      for (let y = 0; y < h + c; y += c * 0.8) {
+        for (let x = ((y / (c * 0.8)) % 2) * c / 2 - c; x < l + c; x += c) {
+          const v = 120 + Math.floor(Math.random() * 45);
+          g.fillStyle = `rgb(${v},${v - 6},${v - 16})`;
+          g.beginPath(); g.ellipse(x + c / 2, y + c * 0.4, c * 0.46, c * 0.36, Math.random() * 0.3, 0, 7); g.fill();
+          g.fillStyle = "rgba(255,255,255,.06)";
+          g.beginPath(); g.ellipse(x + c / 2 - 4, y + c * 0.32, c * 0.2, c * 0.12, 0, 0, 7); g.fill();
+        }
+      }
+    }, [14, 14]);
+    TEX_RUE.facade = texturePeinte(256, 256, (g, l, h) => {
+      g.fillStyle = "#d9c9a8"; g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 5000; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "90,70,45"},${Math.random() * .06})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+      g.fillStyle = "#4a3222";
+      for (const x of [0, l / 2 - 6, l - 12]) g.fillRect(x, 0, 12, h);
+      g.fillRect(0, 0, l, 12); g.fillRect(0, h / 2 - 6, l, 12); g.fillRect(0, h - 12, l, 12);
+      g.save(); g.lineWidth = 9; g.strokeStyle = "#4a3222";
+      g.beginPath(); g.moveTo(12, h / 2); g.lineTo(l / 2 - 6, h - 12); g.moveTo(l - 12, h / 2); g.lineTo(l / 2 + 6, h - 12); g.stroke();
+      g.restore();
+    }, [2, 1]);
+    TEX_RUE.toit = texturePeinte(256, 256, (g, l, h) => {
+      g.fillStyle = "#7c3520"; g.fillRect(0, 0, l, h);
+      for (let y = 0; y < h; y += 16) for (let x = (y / 16) % 2 ? 0 : 12; x < l; x += 24) {
+        g.fillStyle = `rgba(0,0,0,${0.1 + Math.random() * 0.15})`; g.fillRect(x, y + 12, 22, 4);
+        g.fillStyle = `rgba(255,170,120,${Math.random() * .1})`; g.fillRect(x, y, 22, 10);
+      }
+    }, [3, 2]);
+    TEX_RUE.mur = texturePeinte(1024, 256, (g, l, h) => {
+      g.fillStyle = "#b5ab97"; g.fillRect(0, 0, l, h);
+      g.fillStyle = "rgba(70,60,45,.22)";
+      for (let x = 0; x < l; x += 64) g.fillRect(x, 0, 3, h);
+      for (let y = 0; y < h; y += 22) g.fillRect(0, y, l, 2);
+      for (let i = 0; i < 9000; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "50,45,35"},${Math.random() * .07})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 3, 3);
+      }
+      g.fillStyle = "#e3dccd"; g.fillRect(0, 0, l, 10);
+    }, [6, 1]);
+    return TEX_RUE;
+  }
+
+  function maison(x, z, l, h, angle) {
+    const T = texRue();
+    const g = new THREE.Group();
+    const corps = new THREE.Mesh(new THREE.BoxGeometry(l, h, 6), new THREE.MeshStandardMaterial({ map: T.facade, roughness: .95 }));
+    corps.position.y = h / 2;
+    const forme = new THREE.Shape();
+    forme.moveTo(-l / 2 - 0.4, 0); forme.lineTo(0, 3.2); forme.lineTo(l / 2 + 0.4, 0); forme.lineTo(-l / 2 - 0.4, 0);
+    const toit = new THREE.Mesh(new THREE.ExtrudeGeometry(forme, { depth: 6.8, bevelEnabled: false }),
+      new THREE.MeshStandardMaterial({ map: T.toit, roughness: .85 }));
+    toit.position.set(0, h, -3.4);
+    g.add(corps, toit);
+    const sombre = matDe("#2b2622", { roughness: .4 });
+    const volet = matDe(["#3f5a46", "#6b3a2a", "#3a4a66"][Math.abs(Math.round(x)) % 3], { roughness: .8 });
+    for (const fx of [-l / 4, l / 4]) {
+      for (const fy of [h * 0.35, h * 0.75]) {
+        if (fy < h * 0.5 && Math.abs(fx) < 0.1) continue;
+        const f = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.5), sombre);
+        f.position.set(fx, fy, 3.01);
+        const v1 = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 1.5), volet);
+        v1.position.set(fx - 0.85, fy, 3.02);
+        const v2 = v1.clone(); v2.position.x = fx + 0.85;
+        g.add(f, v1, v2);
+      }
+    }
+    const porte = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.6), matDe("#4a2c1a", { roughness: .7 }));
+    porte.position.set(0, 1.3, 3.02);
+    g.add(porte);
+    g.position.set(x, 0, z);
+    g.rotation.y = angle;
+    ombrer(g);
+    decor.add(g);
+  }
+
+  function construireRue(total, { petit = false } = {}) {
+    lumieresParDefaut();
+    const T = texRue();
+    scene.background = new THREE.Color("#a9c6e2");
+    scene.fog = new THREE.Fog("#c7d6e2", 45, 190);
+    ciel.color.set("#dfeeff"); ciel.groundColor.set("#6b5a45"); ciel.intensity = 1.25;
+    soleil.intensity = 2.9;
+    plafonnier.intensity = 0;
+    soleil.position.set(-14, 26, 12);
+    soleil.target.position.set(0, 0, -2);
+    Object.assign(soleil.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
+    soleil.shadow.camera.updateProjectionMatrix();
+
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({ map: T.paves, roughness: .95 }));
+    sol.rotation.x = -Math.PI / 2;
+    sol.receiveShadow = true;
+    decor.add(sol);
+    // Les maisons : au fond, et de part et d'autre de la place.
+    for (let i = -4; i <= 4; i++) maison(i * 8.4, -16, 7.6, 6 + ((i * 7 + 9) % 3), 0);
+    for (const cote of [-1, 1]) {
+      for (let i = 0; i < 4; i++) maison(cote * 19, -9 + i * 8.4, 7.6, 6 + ((i * 5 + 4) % 3), -cote * Math.PI / 2);
+    }
+    // Le Mur, au loin.
+    const leMur = new THREE.Mesh(new THREE.BoxGeometry(600, 50, 6), new THREE.MeshStandardMaterial({ map: T.mur, roughness: 1 }));
+    leMur.position.set(0, 25, -150);
+    decor.add(leMur);
+    // Le puits, au milieu de la place.
+    const pierre = new THREE.MeshStandardMaterial({ map: texPalais().pierre, roughness: .95 });
+    const puits = new THREE.Group();
+    const margelle = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.4, 1.2, 24, 1, true), pierre);
+    margelle.material.side = THREE.DoubleSide;
+    margelle.position.y = 0.6;
+    const eau = new THREE.Mesh(new THREE.CircleGeometry(1.25, 24), matDe("#2a3a44", { roughness: .1, metalness: .3 }));
+    eau.rotation.x = -Math.PI / 2; eau.position.y = 0.7;
+    const bois = matDe("#4a3222", { roughness: .7 });
+    for (const sx of [-1, 1]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.2), bois);
+      m.position.set(sx * 1.2, 1.9, 0);
+      puits.add(m);
+    }
+    const traverse = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 8), bois);
+    traverse.rotation.z = Math.PI / 2; traverse.position.y = 3.0;
+    const abri = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.0, 4), new THREE.MeshStandardMaterial({ map: T.toit, roughness: .85 }));
+    abri.position.y = 3.6; abri.rotation.y = Math.PI / 4;
+    puits.add(margelle, eau, traverse, abri);
+    puits.position.set(petit ? 2.5 : 0, 0, petit ? -7 : -8.5);
+    ombrer(puits);
+    decor.add(puits);
+    // Des lanternes, des tonneaux, des caisses.
+    for (const [x, z] of [[-9, -10], [9, -10], [-9, 6], [9, 6]]) {
+      const lanterne = new THREE.Group();
+      const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 5, 8), matMetal);
+      mat.position.y = 2.5;
+      const cage = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.5), matDe("#f5d48a", { emissive: "#f0b050", emissiveIntensity: .35 }));
+      cage.position.y = 5.2;
+      lanterne.add(mat, cage);
+      lanterne.position.set(x, 0, z);
+      ombrer(lanterne);
+      decor.add(lanterne);
+    }
+    for (const [x, z, k] of [[-12, -12, 0], [-11, -12.6, 1], [12.5, -11.5, 0], [13.2, 2, 1], [-13, 4, 0]]) {
+      const o = k
+        ? new THREE.Mesh(boiteRonde(1.2, 1.2, 1.2, 0.05), matDe("#8a6a42", { roughness: .8 }))
+        : new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.5, 1.3, 16), matDe("#5a3a22", { roughness: .7 }));
+      o.position.set(x, 0.62, z);
+      o.castShadow = o.receiveShadow = true;
+      decor.add(o);
+    }
+
+    // Les places : debout, en cercle autour du centre de la place.
+    const R = Math.max(3.2, total * 2.1 / (2 * Math.PI));
+    const sieges = [];
+    for (let i = 0; i < total; i++) {
+      const a = Math.PI / 2 + (i * 2 * Math.PI) / total;
+      const x = Math.cos(a) * R, z = Math.sin(a) * R + (petit ? 0 : 1.6);
+      const objets = new THREE.Group();
+      objets.visible = false;
+      sieges.push({ x, z, angle: Math.PI / 2 - a, objets, i, debout: true });
+    }
+    const tete = sieges[Math.floor(total / 2)];
+    const autres = sieges.filter((s) => s.i !== 0 && s !== tete).sort((a, b) => a.z - b.z);
+    return { sieges: autres, tete, R, fond: -16 };
+  }
+
+  /* --- La remise, dans la rue : l'un s'approche et tend, l'autre prend ---- */
+  let acteurs = null;                  // { de, a, etiquettes, phase, t0, papier }
+  function construireRemise() {
+    construireRue(2, { petit: true });
+    return { sieges: [], fond: -16 };
+  }
+  function oublierActeurs() {
+    if (!acteurs) return;
+    for (const q of [acteurs.de, acteurs.a]) { retirerLecture(q); retirer(q.racine); }
+    for (const e of acteurs.etiquettes) e.remove();
+    acteurs = null;
+  }
+  /** Le papier tenu à bout de bras : une feuille debout, qui prolonge la main. */
+  function papierEnMain() {
+    const g = new THREE.Group();
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.0),
+      new THREE.MeshStandardMaterial({ map: pageEcrite(), roughness: .9, side: THREE.DoubleSide }));
+    f.rotation.y = Math.PI / 2;
+    f.position.set(0, -0.45, -0.1);
+    f.castShadow = true;
+    g.add(f);
+    return g;
+  }
+  function monterActeurs(r) {
+    const sig = JSON.stringify([r.de, r.a, r.objet]);
+    if (acteurs?.sig === sig) return;
+    oublierActeurs();
+    const de = personnage(`remise:de:${r.de?.nom || ""}`, r.de?.avatar || {});
+    const a = personnage(`remise:a:${r.a?.nom || ""}`, r.a?.avatar || {});
+    for (const q of [de, a]) { q.poser("debout"); q.racine.scale.setScalar(0.72); scene.add(q.racine); }
+    // Face à face : celui qui tend à gauche, celui qui reçoit à droite.
+    de.racine.position.set(-1.35, 0.05, 0); de.racine.rotation.y = -Math.PI / 2;
+    a.racine.position.set(1.35, 0.05, 0); a.racine.rotation.y = Math.PI / 2;
+    acteurs = {
+      sig, de, a, objet: r.objet || "papier", phase: "pose", t0: performance.now(), papier: null,
+      etiquettes: [
+        etiquette(r.de?.nom || "", r.de?.moi ? "classe3d__nom--moi" : "classe3d__nom--prof"),
+        etiquette(r.a?.nom || "", r.a?.moi ? "classe3d__nom--moi" : "")
+      ]
+    };
+  }
+  /** Un pas de la scène de remise. */
+  function animerRemise(t) {
+    const A = acteurs;
+    if (!A) return;
+    const { de, a } = A;
+    const dt = t - A.t0;
+    const doux = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
+    const marcher = (q, u) => {
+      const b = u > 0 && u < 1 ? Math.sin(t / 95) * 0.55 : 0;
+      q.jambeG.epaule.rotation.x = b; q.jambeD.epaule.rotation.x = -b;
+      q.brasG.epaule.rotation.x = -b * 0.7;
+      if (!A.papier || A.papier.parent !== q.brasD.bout) q.brasD.epaule.rotation.x = b * 0.7;
+    };
+    const tenirPapier = (bras) => {
+      if (!A.papier) A.papier = papierEnMain();
+      if (A.papier.parent !== bras.bout) { A.papier.parent?.remove(A.papier); bras.bout.add(A.papier); }
+    };
+    const lacherPapier = () => { A.papier?.parent?.remove(A.papier); };
+    for (const q of [de, a]) q.torse.scale.y = 1 + Math.sin(t / 620 + (q === a ? 1 : 0)) * 0.012;
+    a.tete.rotation.y = Math.sin(t / 2100) * 0.12;
+
+    if (A.phase === "approche") {
+      // Il arrive de loin, et s'arrête à portée de main.
+      const u = Math.min(1, dt / 2300);
+      de.racine.position.x = -6.5 + (6.5 - 1.35) * doux(u);
+      marcher(de, u);
+      if (u >= 1) { A.phase = "pose"; }
+    } else if (A.phase === "tend") {
+      de.racine.position.x = -1.35;
+      tenirPapier(de.brasD);
+      const u = doux(dt / 700);
+      de.brasD.epaule.rotation.set(1.4 * u, 0, -0.18 * u);
+      de.tete.rotation.x = 0.1 * u;
+    } else if (A.phase === "prend") {
+      de.racine.position.x = -1.35;
+      // L'autre tend la main gauche, saisit le papier, puis le lève pour le lire.
+      const u = doux(dt / 520);
+      if (dt < 640) {
+        tenirPapier(de.brasD);
+        de.brasD.epaule.rotation.set(1.4, 0, -0.18);
+        a.brasG.epaule.rotation.set(1.4 * u, 0, 0.18 * u);
+      } else {
+        if (A.papier?.parent === de.brasD.bout) tenirPapier(a.brasG);
+        const v = doux((dt - 640) / 600);
+        de.brasD.epaule.rotation.set(1.4 * (1 - v), 0, -0.18 * (1 - v));
+        if (dt > 900) {
+          lacherPapier();
+          gererLecture(a, A.objet === "cahier" ? "cahier" : A.objet === "livre" ? "livre" : "papier", t);
+        } else {
+          a.brasG.epaule.rotation.set(1.4, 0, 0.18);
+        }
+      }
+    } else if (A.phase === "refuse") {
+      const u = doux(dt / 700);
+      de.brasD.epaule.rotation.set(1.4 * (1 - u), 0, -0.18 * (1 - u));
+      if (u >= 1) lacherPapier();
+      a.tete.rotation.y = Math.sin(dt / 160) * 0.35 * (1 - doux(dt / 1400));
+    } else if (A.phase === "lit") {
+      gererLecture(a, A.objet === "cahier" ? "cahier" : A.objet === "livre" ? "livre" : "papier", t);
+    }
+  }
+
   /* --- Les gens ------------------------------------------------------------ */
   const gens = new Map();              // id → { p, siege, etiquette, personne, sig }
   let prof = null;
@@ -1614,7 +2350,17 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       x.siege = siege; x.sig = null; x.arrive = 0;
       return;
     }
-    const pose = dispo.reunion ? "assis"
+    if (siege.debout) {
+      // Dehors, au palais : on se tient debout, tourné vers les autres.
+      p.poser("debout");
+      p.racine.position.set(siege.x, 0.05, siege.z);
+      p.racine.rotation.y = siege.angle;
+      p.racine.scale.setScalar(0.72);
+      x.siege = siege;
+      x.sig = null;
+      return;
+    }
+    const pose = dispo.reunion || dispo.trone ? "assis"
       : choisir(graine(`pose:${x.personne.id}`), ["assis", "assis", "tailleur", "assis"]);
     p.poser(pose);
     p.racine.position.set(siege.x, 1.31 + (pose === "tailleur" ? 0.05 : 0), siege.z);
@@ -1633,7 +2379,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const cols = colonnesPour(places);
     const maison = etat.mode === "maison";
     const portrait = etat.mode === "portrait";
-    const cle = portrait ? "portrait" : maison ? "maison" : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(places / cols))}`;
+    const trone = etat.mode === "trone", rue = etat.mode === "rue", remise = etat.mode === "remise";
+    const cle = portrait ? "portrait" : maison ? "maison" : remise ? "remise"
+      : trone ? `trone:${n}` : rue ? `rue:${total}`
+      : reunion ? `reunion:${total}` : `classe:${cols}x${Math.max(2, Math.ceil(places / cols))}`;
     if (cle === dispo.cle) return;
     for (const o of [...decor.children]) {
       decor.remove(o);
@@ -1642,8 +2391,13 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     ardoise = null;
     objetsProf = null;
     bougies = [];
+    lumieresParDefaut();
+    if (!remise) oublierActeurs();
     dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() }
       : maison ? { cle, reunion: false, maison: true, ...construireMaison() }
+      : remise ? { cle, reunion: false, remise: true, ...construireRemise() }
+      : trone ? { cle, reunion: false, trone: true, ...construireTrone(n) }
+      : rue ? { cle, reunion: false, rue: true, ...construireRue(total) }
       : reunion ? { cle, reunion: true, ...construireReunion(total) }
       : { cle, reunion: false, ...construireClasse(places) };
     // Chaque place a son numéro, que l'on retrouve au clic.
@@ -1659,7 +2413,20 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   function placerProf() {
     const p = prof.p;
-    if (dispo.reunion) {
+    if (dispo.trone) {
+      // Le souverain, assis sur son trône, face à sa cour.
+      p.poser("assis");
+      p.racine.position.set(dispo.tete.x, dispo.tete.y + 1.31, dispo.tete.z);
+      p.racine.rotation.y = Math.PI;
+      p.racine.scale.setScalar(0.76);
+    } else if (dispo.rue) {
+      p.poser("debout");
+      p.racine.position.set(dispo.tete.x, 0.05, dispo.tete.z);
+      p.racine.rotation.y = dispo.tete.angle;
+      p.racine.scale.setScalar(0.72);
+    } else if (dispo.remise) {
+      p.racine.visible = false;
+    } else if (dispo.reunion) {
       // Le président est à la tête de la table, assis comme les autres.
       p.poser("assis");
       p.racine.position.set(dispo.tete.x, 1.31, dispo.tete.z);
@@ -1756,7 +2523,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
         x.sig = sig;
         const liste = (e.bureau || []).map((o) => ({ ...o }));
         // On voit la chose passer du sac à la table (ou l'inverse), s'il était déjà là.
-        if (!x.vise || !preparerGestes(x, x.vise, liste)) {
+        if (!x.vise || x.siege.debout || !preparerGestes(x, x.vise, liste)) {
           interrompreGeste(x);
           x.p.tenir(garnir(x.siege.objets, liste));
         }
@@ -1815,7 +2582,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
 
   function majProf() {
     const p = etat.prof;
-    if (!p.present) {
+    if (!p.present || dispo.remise) {
       if (prof) { retirer(prof.p.racine); prof.etiquette.remove(); prof = null; }
       if (objetsProf) garnir(objetsProf, []);
       if (dispo.tete) garnir(dispo.tete.objets, []);
@@ -1833,10 +2600,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const sig = JSON.stringify(p.bureau || []);
     if (sig !== prof.sig) {
       prof.sig = sig;
-      const cible = dispo.reunion ? dispo.tete.objets : objetsProf;
-      const tenu = garnir(cible, p.bureau || []);
+      const cible = dispo.reunion || dispo.trone || dispo.rue ? dispo.tete.objets : objetsProf;
+      const tenu = cible ? garnir(cible, p.bureau || []) : null;
       // Debout au tableau, le professeur tient sa craie ; assis, sa plume.
-      prof.p.tenir(dispo.reunion ? tenu : (tenu === "craie" ? "craie" : null));
+      if (!prof.p.lecture) prof.p.tenir(dispo.reunion || dispo.trone ? tenu : (tenu === "craie" ? "craie" : null));
     }
   }
 
@@ -1870,6 +2637,44 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       camera.updateProjectionMatrix();
       return;
     }
+    if (dispo.remise) {
+      // De trois quarts, du côté de celui qui reçoit (par-dessus son épaule) :
+      // on voit l'autre venir, tendre, et ce qu'on prend en main.
+      camera.fov = 40;
+      const t = 2 * Math.tan((camera.fov / 2) * Math.PI / 180);
+      const d = Math.max(1, 6.2 / (t * Math.max(0.45, camera.aspect)) / 7);
+      if (etat.remise?.vue === "de") {
+        camera.position.set(-5.4 * d, 4.6 * d, 6.4 * d);
+        regard.set(0.6, 2.2, 0);
+      } else {
+        camera.position.set(5.6 * d, 4.4 * d, 5.0 * d);
+        regard.set(-0.9, 2.3, 0);
+      }
+      suivre = false; cameraPosee = false;
+      camera.lookAt(regard);
+      camera.updateProjectionMatrix();
+      return;
+    }
+    if (dispo.trone) {
+      const t = 2 * Math.tan(((52 - k * 16) / 2) * Math.PI / 180);
+      camera.fov = 52 - k * 16;
+      const moi = [...gens.values()].find((x) => x.personne.moi);
+      if (etat.prof?.moi) {
+        // Le souverain voit sa cour : depuis l'estrade, à côté du trône.
+        camera.position.set(5.2, dispo.tete.y + 6.2, dispo.zTrone + 0.6);
+        regard.set(-0.8, 1.6, dispo.zTrone + 8.5);
+        void moi;
+      } else {
+        // Depuis l'entrée de la salle : le tapis rouge mène au trône.
+        const d = Math.max(17, 13 / (t * Math.max(0.5, camera.aspect)));
+        camera.position.set(0, 7.6, dispo.zTrone + d);
+        regard.set(0, 3.2, dispo.zTrone + 1);
+      }
+      suivre = false; cameraPosee = false;
+      camera.lookAt(regard);
+      camera.updateProjectionMatrix();
+      return;
+    }
     if (dispo.portrait) {
       // Qu'il tienne en entier, de la tête aux pieds, bras compris — même
       // dans un aperçu étroit.
@@ -1888,7 +2693,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       regardCible.set(-0.2, 2.7, dispo.fond + 1.4);
       if (!cameraPosee) { camera.position.copy(posCible); regard.copy(regardCible); }
       suivre = true; cameraPosee = true;
-    } else if (dispo.reunion) {
+    } else if (dispo.reunion || dispo.rue) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
       camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
@@ -2114,6 +2919,15 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       }
       if (b.lumiere) b.lumiere.intensity = b.base * (0.88 + v * 0.12);
     }
+    if (dispo.remise) {
+      animerRemise(maintenant);
+      renderer.render(scene, camera);
+      if (acteurs) {
+        placerEtiquette(acteurs.etiquettes[0], acteurs.de.tete, 1.3 * 0.72);
+        placerEtiquette(acteurs.etiquettes[1], acteurs.a.tete, 1.3 * 0.72);
+      }
+      return;
+    }
     for (const x of gens.values()) {
       const p = x.p;
       if (pas(x, maintenant)) {
@@ -2132,6 +2946,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       }
       // Il prend ou range quelque chose : le bras droit est à ce geste-là.
       if (animerGeste(x, maintenant)) { animerSac(x, maintenant); continue; }
+      // Il lit : à deux mains, la chose levée devant les yeux.
+      if (gererLecture(p, x.personne.lit || null, maintenant)) {
+        p.tete.rotation.y = Math.sin(k * 0.6) * 0.05;
+        continue;
+      }
       if (x.personne.main) {
         p.brasD.epaule.rotation.x += (2.95 - p.brasD.epaule.rotation.x) * 0.15;
         p.brasD.coude.rotation.x += (0.15 - p.brasD.coude.rotation.x) * 0.15;
@@ -2170,7 +2989,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     derniereCam = maintenant;
     if (prof) {
       const p = prof.p;
-      if (!dispo.reunion) {
+      const lit = gererLecture(p, etat.prof.lit || null, maintenant);
+      if (lit) {
+        // Il lit : rien d'autre ne bouge.
+      } else if (dispo.trone || dispo.rue) {
+        // Le souverain regarde sa cour, lentement, de l'un à l'autre.
+        p.tete.rotation.y = Math.sin(s * 0.22) * 0.38;
+        p.tete.rotation.x = 0.06;
+      } else if (!dispo.reunion) {
         const ecrit = Date.now() < ecritJusqua;
         const cibleY = ecrit ? 0.1 : Math.PI - 0.35 + Math.sin(s * 0.4) * 0.25;
         p.racine.rotation.y += (cibleY - p.racine.rotation.y) * 0.08;
@@ -2199,11 +3025,27 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
      * @param {Array} o.eleves  [{ id, nom, brut, bureau: [{ k, m }], main }]
      * @param {object} o.prof   { present, nom, bureau }
      */
-    maj({ mode = "classe", eleves = [], prof: p = { present: false }, vue = "eleve" } = {}) {
-      etat = { mode, eleves, prof: p, vue };
+    maj({ mode = "classe", eleves = [], prof: p = { present: false }, vue = "eleve", remise = null } = {}) {
+      etat = { mode, eleves, prof: p, vue, remise };
       reconstruire();
+      if (dispo.remise && remise) monterActeurs(remise);
       majGens();
       majProf();
+    },
+    /**
+     * La scène de remise : « approche » (il arrive et s'arrête devant
+     * l'autre), « tend » (il tend le papier), « prend » (l'autre le prend et
+     * le lit), « refuse » (il baisse le bras), « lit ».
+     */
+    jouer(phase) {
+      if (!acteurs) return;
+      acteurs.phase = phase;
+      acteurs.t0 = performance.now();
+      if (phase === "approche") {
+        retirerLecture(acteurs.a); acteurs.a.poser("debout");
+        acteurs.de.poser("debout");
+        acteurs.papier?.parent?.remove(acteurs.papier);
+      }
     },
     /**
      * Ouvrir mon sac : on le prend, on le pose sur la table, on regarde dedans.
@@ -2255,6 +3097,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       horloge?.cancelAnimationFrame?.(anime);
       for (const x of gens.values()) { retirer(x.p.racine); if (x.sac) retirer(x.sac); }
       if (prof) retirer(prof.p.racine);
+      oublierActeurs();
       observateur?.disconnect();
       texture?.dispose();
       for (const x of textures.values()) x.tex?.dispose();

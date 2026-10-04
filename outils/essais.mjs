@@ -910,6 +910,45 @@ try {
   verifier("on rentre avec son pseudo (majuscules indifferentes) et le nouveau mot de passe",
     await cadet.locator('input[name="pseudo"]').count() === 0);
 
+  /* =======================================================================
+     15. La remise verifiee, la moderation
+     ===================================================================== */
+  journal.push("\n15. La remise verifiee");
+  const remise = await depot(maitre, `
+    const p = await d.papiers.creer({ author_id: etat.utilisateur.id, title: "Ordre", model: "ordre", body: "x" });
+    const r = await d.papiers.tendre({ paper_id: p.id, from_user: etat.utilisateur.id, to_user: "${idCadet}",
+      attested: true, lieu: "Trost — district" });
+    return r.id;
+  `);
+  const sansPresence = await depot(cadet, `
+    try { await d.papiers.repondre("${remise}", "accepted"); return "garde"; } catch (e) { return "bloque"; }
+  `);
+  verifier("on ne garde pas un papier sans dire que l'emetteur est devant soi", sansPresence === "bloque");
+  const usurpe = await depot(maitre, `
+    try { await d.papiers.confirmerPresence("${remise}", { present: true, lieu: "x" }); return "MAUVAIS"; } catch (e) { return "bloque"; }
+  `);
+  verifier("l'emetteur ne repond pas a la place du destinataire", usurpe === "bloque");
+  const garde = await depot(cadet, `
+    await d.papiers.confirmerPresence("${remise}", { present: true, lieu: "Trost — district" });
+    const r = await d.papiers.repondre("${remise}", "accepted");
+    return r.state;
+  `);
+  verifier("presence confirmee, le papier se garde", garde === "accepted");
+  const traces = await depot(cadet, `
+    const l = await d.journal.liste({}, 50);
+    return l.filter((e) => e.meta?.remise === "${remise}").map((e) => e.action).sort().join(",");
+  `);
+  verifier("la remise est inscrite au journal (tendu, presence, garde)",
+    traces === "papier.accepted,papier.presence_confirmee,papier.tendu", traces);
+  const promotion = await depot(cadet, `
+    try { await d.profils.nommer(etat.utilisateur.id, "admin"); return "MAUVAIS"; } catch (e) { return "bloque"; }
+  `);
+  verifier("on ne se nomme pas administrateur soi-meme", promotion === "bloque");
+  const titre = await depot(cadet, `
+    try { await d.profils.titrer(etat.utilisateur.id, "roi"); return "MAUVAIS"; } catch (e) { return "bloque"; }
+  `);
+  verifier("on ne se couronne pas soi-meme", titre === "bloque");
+
   verifier("aucune erreur de script", erreursPage.length === 0, erreursPage.slice(0, 3).join(" | "));
 
 } catch (err) {

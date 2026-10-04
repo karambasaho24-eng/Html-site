@@ -33,6 +33,19 @@ export const MODES = {
     // Un vote en réunion n'est pas un sondage de cours.
     motSondage: "Mise aux voix"
   },
+  audience: {
+    libelle: "Audience",
+    resume: "Au palais : le souverain siège sur son trône, sa cour se tient devant lui.",
+    icone: "reunion",
+    meneur: "Souverain",
+    // On demande audience ; le souverain l'accorde.
+    parole: { demander: "Demander audience", annuler: "Me retirer", file: "Audiences demandées" },
+    outils: {
+      tableau: false, cahierCommun: true, documents: true, exercices: false,
+      sondage: true, minuterie: true, papiers: true, cartable: false
+    },
+    motSondage: "Mise aux voix"
+  },
   mission: {
     libelle: "Mission",
     resume: "Un briefing : on écoute l'ordre, on reçoit ses papiers, on s'équipe.",

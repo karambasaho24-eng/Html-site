@@ -17,6 +17,7 @@ import { el, render } from "./ui/dom.js";
 import { ecouter } from "./core/bus.js";
 import { stockageLocal, stockageSession } from "./core/stockage.js";
 import { basculerFenetreFlottante } from "./features/fenetre-flottante.js";
+import { surveillerRemises } from "./features/remises-globales.js";
 
 /* --- Table de routage ------------------------------------------------------ */
 function declarerRoutes() {
@@ -87,6 +88,7 @@ async function demarrer() {
     }
 
     await chargerSession();
+    surveillerRemises();
 
     hote.hidden = false;
     const vue = construireChassis(hote);

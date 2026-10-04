@@ -52,6 +52,18 @@ export function estAdmin() {
 }
 
 /**
+ * Nommer : changer un rôle ou attribuer un titre. L'administrateur seul — le
+ * directeur administre ses espaces, pas les comptes. La base y veille (0029).
+ */
+export function peutNommer() {
+  return ["admin", "super_admin"].includes(etat.profil?.role_key);
+}
+
+export function estSuperAdmin() {
+  return etat.profil?.role_key === "super_admin";
+}
+
+/**
  * Modérateur : il veille sur les papiers qui circulent et sur les
  * signalements. Ce n'est pas un administrateur au rabais — il ne touche ni
  * aux comptes, ni aux cahiers, et il ne tranche jamais à la place d'un

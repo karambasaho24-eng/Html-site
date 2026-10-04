@@ -22,6 +22,8 @@ import { L } from "../core/lexique.js";
 import { creerClasse3D, webglDisponible } from "./classe-3d.js";
 import { monAvatar } from "./apparence.js";
 import { ecouter } from "../core/bus.js";
+import { lectureCourante } from "./lecture.js";
+import { libelleTitre, siegeSurLeTrone } from "./titres.js";
 
 /** Une rotation stable par objet : le même stylo reste de biais pareil. */
 function biais(id) {
@@ -68,7 +70,9 @@ export function creerScene({
   // Je clique MON cahier, en 3D : il vient dans l'interface, pour écrire.
   surMonCahier = null,
   // J'ouvre ou je referme mon sac (les autres le voient).
-  surSac = null
+  surSac = null,
+  // Ce que je lis en ce moment (un papier, mon cahier…), ou rien.
+  lecture = () => lectureCourante()
 }) {
   let etatScene = "bureau";           // bureau | sac | cahier | document | compact
   let sacOuvert = false;
@@ -556,7 +560,8 @@ export function creerScene({
       classe3d.maj({
         mode: "maison",
         eleves: [{
-          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: monAvatar(), moi: true,
+          id: String(etat.utilisateur?.id || "moi"), nom: "", brut: null, avatar: { ...(monAvatar() || {}), titre: etat.profil?.titre || null }, moi: true,
+          lit: lecture(),
           bureau: [
             ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier", ...(c.cover ? { c: c.cover } : {}) })),
             ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
@@ -579,22 +584,42 @@ export function creerScene({
       ...bureau.surLeBureau().filter((o) => !fiche(o.kind)?.contenant)
         .map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
     ].slice(0, 14);
+    // Le décor : la classe ; la table ronde ; le palais, quand un souverain
+    // préside (ou pour une audience) ; la place du district, pour un entretien.
+    const titreDe = (p) => (String(p.user_id) === moiId ? etat.profil?.titre : p.titre) || null;
+    const souverain = tous.find((p) => siegeSurLeTrone(titreDe(p)) && p.role !== "observer");
+    const decor3d = m === "audience" || (m === "reunion" && souverain) ? "trone"
+      : m === "entretien" ? "rue"
+      : m === "reunion" ? "reunion" : "classe";
+    // Au palais, le trône revient au souverain s'il est là ; sinon à celui qui mène.
+    const surLeTrone = decor3d === "trone" ? (souverain || responsable || null) : null;
+    const tenueDe = (p) => (classe?.settings?.tenue && decor3d === "classe" ? classe.settings.tenue : p.avatar?.tenue);
+    const avatarDe = (p) => ({ ...(p.avatar || {}), tenue: tenueDe(p), titre: titreDe(p) });
+    const prenom = (p) => {
+      const n = (nomDe(p) || "Participant").split(/\s+/)[0];
+      const t = libelleTitre({ titre: titreDe(p), titre_libelle: p.titre_libelle });
+      return t ? `${t} ${n}` : n;
+    };
+    const presidePas = (p) => surLeTrone
+      ? String(p.user_id) !== String(surLeTrone.user_id)
+      : p.role !== "teacher";
     classe3d.maj({
-      mode: ["reunion", "entretien"].includes(m) ? "reunion" : "classe",
+      mode: decor3d,
       // Le professeur regarde sa classe ; l'élève se voit, assis, de dos.
       vue: staff ? "prof" : "eleve",
       eleves: tous
-        .filter((p) => !["teacher", "observer"].includes(p.role))
+        .filter((p) => p.role !== "observer" && presidePas(p))
         .map((p) => {
           const id = String(p.user_id);
           const moi = id === moiId;
           const placee = Number.isInteger(fixe[id]) ? fixe[id] : null;
           return {
             id, moi,
-            nom: moi ? "Vous" : (nomDe(p) || "Participant").split(/\s+/)[0],
+            nom: moi ? "Vous" : prenom(p),
             brut: p,
             // La tenue de rigueur de la classe, s'il y en a une ; la coupe et le teint restent les siens.
-            avatar: classe?.settings?.tenue ? { ...(p.avatar || {}), tenue: classe.settings.tenue } : p.avatar || null,
+            avatar: avatarDe(p),
+            lit: moi ? lecture() : p.lit || null,
             bureau: moi ? monBureau : Array.isArray(p.bureau) ? p.bureau : [],
             main: levees.has(id),
             // Sa place : celle du plan du professeur, sinon celle qu'il a choisie.
@@ -604,11 +629,20 @@ export function creerScene({
             sacOuvert: Boolean(p.sacOuvert)
           };
         }),
-      prof: {
+      prof: surLeTrone ? {
+        present: true,
+        nom: String(surLeTrone.user_id) === moiId ? "Vous" : prenom(surLeTrone),
+        bureau: String(surLeTrone.user_id) === moiId ? monBureau : Array.isArray(surLeTrone.bureau) ? surLeTrone.bureau : [],
+        avatar: avatarDe(surLeTrone),
+        moi: String(surLeTrone.user_id) === moiId,
+        lit: String(surLeTrone.user_id) === moiId ? lecture() : surLeTrone.lit || null
+      } : {
         present: Boolean(estrade?.present),
         nom: estrade?.nom || (typeof meneur === "function" ? meneur() : meneur) || L("Professeur"),
         bureau: Array.isArray(responsable?.bureau) ? responsable.bureau : [],
-        avatar: responsable?.avatar || null
+        avatar: responsable ? avatarDe(responsable) : null,
+        moi: String(responsable?.user_id || "") === moiId,
+        lit: String(responsable?.user_id || "") === moiId ? lecture() : responsable?.lit || null
       }
     });
   }
@@ -642,7 +676,8 @@ export function creerScene({
       if (cible3d) c.deplacer(cible3d);
       maj3d();
       lacherAvatar?.();
-      lacherAvatar = ecouter("avatar:change", maj3d);
+      const l1 = ecouter("avatar:change", maj3d), l2 = ecouter("lecture:change", maj3d);
+      lacherAvatar = () => { l1(); l2(); };
     }).catch((err) => { montage = null; console.warn("[scene] vue 3D indisponible, on reste à plat", err); });
   }
   /** Animations éteintes : plus de 3D, la scène redevient plate. */
