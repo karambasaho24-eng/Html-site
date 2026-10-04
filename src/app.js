@@ -18,6 +18,7 @@ import { ecouter } from "./core/bus.js";
 import { stockageLocal, stockageSession } from "./core/stockage.js";
 import { basculerFenetreFlottante } from "./features/fenetre-flottante.js";
 import { surveillerRemises } from "./features/remises-globales.js";
+import { monterCommandes } from "./features/commandes.js";
 
 /* --- Table de routage ------------------------------------------------------ */
 function declarerRoutes() {
@@ -92,6 +93,7 @@ async function demarrer() {
 
     hote.hidden = false;
     const vue = construireChassis(hote);
+    monterCommandes(document.body);
 
     declarerRoutes();
     declarerRaccourcis();

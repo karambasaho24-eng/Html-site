@@ -43,6 +43,16 @@ export const profils = {
     return T("profiles").liste({ display_name: { operateur: "ilike", valeur: `%${propre}%` } },
       { ordre: "display_name", limite });
   },
+  /** Le compte qui porte exactement ce pseudo (majuscules indifférentes). */
+  async parPseudo(pseudo) {
+    const propre = String(pseudo || "").trim();
+    if (!propre) return null;
+    const trouves = await T("profiles").liste({ display_name: { operateur: "ilike", valeur: propre.replace(/[%\\]/g, "") } }, { limite: 10 });
+    return trouves.find((p) => p.display_name.toLowerCase() === propre.toLowerCase()) || null;
+  },
+  /** Un code de rôle (0030) : l'administration le crée, la personne le tape. */
+  creerCodeRole: (role) => pilote.rpc("creer_code_role", { role }),
+  utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
   /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
   nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
   /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */

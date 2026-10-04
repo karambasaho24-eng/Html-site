@@ -452,3 +452,47 @@ label.btn input[type="file"] { display: none; }
   font-variant-numeric: tabular-nums;
 }
 .releve__note small { font-size: var(--t-xs); color: var(--texte-faible); font-weight: 400; }
+
+/* --- La barre de commandes (en bas à gauche, touche ²) ----------------------- */
+.commandes {
+  position: fixed; left: 12px; bottom: 12px; z-index: 900;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+.commandes__bouton {
+  width: 38px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--ligne-forte); background: var(--surface-2, #2a2017);
+  color: var(--accent, #eac48c); font: inherit; font-size: 13px; cursor: pointer;
+  opacity: .75;
+}
+.commandes__bouton:hover, .commandes--ouverte .commandes__bouton { opacity: 1; }
+.commandes__panneau {
+  display: none;
+  width: min(560px, calc(100vw - 24px));
+  background: rgba(14, 10, 7, .96); border: 1px solid var(--ligne-forte);
+  border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+.commandes--ouverte .commandes__panneau { display: block; }
+.commandes__sortie {
+  max-height: 220px; overflow: auto; padding: 8px 10px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.commandes__ligne { display: flex; gap: 8px; align-items: baseline; color: var(--texte-doux); }
+.commandes__ligne--tape { color: var(--texte); }
+.commandes__ligne--ok { color: var(--vert, #8fcb86); }
+.commandes__ligne--erreur { color: var(--alerte); }
+.commandes__copier {
+  border: 1px solid var(--ligne-forte); background: transparent; color: var(--texte-doux);
+  border-radius: 4px; font: inherit; font-size: 11px; padding: 0 6px; cursor: pointer;
+}
+.commandes__ligne-saisie {
+  display: flex; align-items: center; gap: 6px;
+  border-top: 1px solid var(--ligne-forte); padding: 6px 10px;
+}
+.commandes__invite { color: var(--accent, #eac48c); }
+.commandes__saisie {
+  flex: 1; background: transparent; border: 0; outline: 0;
+  color: var(--texte); font: inherit; font-size: 13px;
+}
+@media (max-width: 560px) { .commandes { left: 8px; bottom: 74px; } }

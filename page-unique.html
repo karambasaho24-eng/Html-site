@@ -1116,6 +1116,50 @@ label.btn input[type="file"] { display: none; }
 }
 .releve__note small { font-size: var(--t-xs); color: var(--texte-faible); font-weight: 400; }
 
+/* --- La barre de commandes (en bas à gauche, touche ²) ----------------------- */
+.commandes {
+  position: fixed; left: 12px; bottom: 12px; z-index: 900;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+.commandes__bouton {
+  width: 38px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--ligne-forte); background: var(--surface-2, #2a2017);
+  color: var(--accent, #eac48c); font: inherit; font-size: 13px; cursor: pointer;
+  opacity: .75;
+}
+.commandes__bouton:hover, .commandes--ouverte .commandes__bouton { opacity: 1; }
+.commandes__panneau {
+  display: none;
+  width: min(560px, calc(100vw - 24px));
+  background: rgba(14, 10, 7, .96); border: 1px solid var(--ligne-forte);
+  border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  overflow: hidden;
+}
+.commandes--ouverte .commandes__panneau { display: block; }
+.commandes__sortie {
+  max-height: 220px; overflow: auto; padding: 8px 10px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.commandes__ligne { display: flex; gap: 8px; align-items: baseline; color: var(--texte-doux); }
+.commandes__ligne--tape { color: var(--texte); }
+.commandes__ligne--ok { color: var(--vert, #8fcb86); }
+.commandes__ligne--erreur { color: var(--alerte); }
+.commandes__copier {
+  border: 1px solid var(--ligne-forte); background: transparent; color: var(--texte-doux);
+  border-radius: 4px; font: inherit; font-size: 11px; padding: 0 6px; cursor: pointer;
+}
+.commandes__ligne-saisie {
+  display: flex; align-items: center; gap: 6px;
+  border-top: 1px solid var(--ligne-forte); padding: 6px 10px;
+}
+.commandes__invite { color: var(--accent, #eac48c); }
+.commandes__saisie {
+  flex: 1; background: transparent; border: 0; outline: 0;
+  color: var(--texte); font: inherit; font-size: 13px;
+}
+@media (max-width: 560px) { .commandes { left: 8px; bottom: 74px; } }
+
 /* ---- notebook.css ---- */
 /* ===========================================================================
    Cahier — surface de parchemin, reliure, pages
@@ -4952,15 +4996,15 @@ function persistant() {
   return Boolean(reelLocal);
 }
 function cles(entrepot = stockageLocal) {
-  const sortie = [];
+  const sortie2 = [];
   try {
     for (let i = 0; i < entrepot.length; i++) {
       const c = entrepot.key(i);
-      if (c != null) sortie.push(c);
+      if (c != null) sortie2.push(c);
     }
   } catch {
   }
-  return sortie;
+  return sortie2;
 }
 var reelLocal, reelSession, stockageLocal, stockageSession;
 var init_stockage = __esm({
@@ -5116,13 +5160,13 @@ function throttle(fn, intervalle = 60) {
   };
 }
 function grouper(liste, cle) {
-  const sortie = /* @__PURE__ */ new Map();
+  const sortie2 = /* @__PURE__ */ new Map();
   for (const item of liste) {
     const k = typeof cle === "function" ? cle(item) : item[cle];
-    if (!sortie.has(k)) sortie.set(k, []);
-    sortie.get(k).push(item);
+    if (!sortie2.has(k)) sortie2.set(k, []);
+    sortie2.get(k).push(item);
   }
-  return sortie;
+  return sortie2;
 }
 function trier(liste, cle, sens = 1) {
   const acces = typeof cle === "function" ? cle : (o) => o[cle];
@@ -5284,7 +5328,8 @@ var init_contrat = __esm({
       "belongings",
       "belonging_handoffs",
       "dossier_items",
-      "moderation_notes"
+      "moderation_notes",
+      "role_codes"
     ];
     ErreurDonnees = class extends Error {
       constructor(message, code = null, cause = null) {
@@ -5673,6 +5718,7 @@ function gardeDuLieu(ancien, nouveau) {
 function gardeProfil(ancien, nouveau) {
   const moi = quiSuisJe();
   if (!moi) return nouveau;
+  if (ancien && codeDeRole === ancien.id) return nouveau;
   if (!ancien) {
     if (!peutNommer()) Object.assign(nouveau, { role_key: "student", titre: null, titre_libelle: null });
     return nouveau;
@@ -5804,9 +5850,9 @@ function depot2(nom) {
       return { ...ligne };
     },
     async creerPlusieurs(objets) {
-      const sortie = [];
-      for (const o of objets) sortie.push(await this.creer(o));
-      return sortie;
+      const sortie2 = [];
+      for (const o of objets) sortie2.push(await this.creer(o));
+      return sortie2;
     },
     async majorer(id, patch) {
       const lignes = charger(nom);
@@ -6422,6 +6468,50 @@ async function creerPiloteLocal() {
       signaler("profiles", "UPDATE", lignes[i], null);
       return lignes[i];
     },
+    /** Un code de rôle à usage unique, valable 24 h (creer_code_role, 0030). */
+    async creer_code_role({ role }) {
+      if (!["moderator", "admin", "super_admin"].includes(role)) {
+        throw new ErreurDonnees("R\xF4le inconnu : moderator, admin ou super_admin.", "22023");
+      }
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration cr\xE9e un code.", "42501");
+      if (role === "super_admin" && roleDe(monId()) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur cr\xE9e un code de super administrateur.", "42501");
+      }
+      const brut = [...crypto.getRandomValues(new Uint8Array(6))].map((o) => o.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const code = `${brut.slice(0, 4)}-${brut.slice(4, 8)}-${brut.slice(8, 12)}`;
+      await t("role_codes").creer({
+        code_hash: await empreinte(code),
+        role_key: role,
+        created_by: monId(),
+        expires_at: new Date(Date.now() + 24 * 36e5).toISOString(),
+        used_by: null,
+        used_at: null
+      });
+      journaliser(monId(), "compte.code_cree", { role });
+      return code;
+    },
+    async utiliser_code_role({ code }) {
+      const moi = monId();
+      if (!moi) throw new ErreurDonnees("Connectez-vous d'abord.", "42501");
+      const h = await empreinte(String(code || "").trim().toUpperCase());
+      const ligne = (await t("role_codes").liste({ code_hash: h })).find((l) => !l.used_at && new Date(l.expires_at).getTime() > Date.now());
+      if (!ligne) {
+        journaliser(moi, "compte.code_refuse", {});
+        throw new ErreurDonnees("Code invalide, d\xE9j\xE0 utilis\xE9 ou expir\xE9.", "42501");
+      }
+      const rang = async (cle) => (await t("roles").liste({ key: cle }))[0]?.rank || 0;
+      const actuel = roleDe(moi);
+      await t("role_codes").majorer(ligne.id, { used_by: moi, used_at: (/* @__PURE__ */ new Date()).toISOString() });
+      if (await rang(actuel) >= await rang(ligne.role_key)) return actuel;
+      codeDeRole = moi;
+      try {
+        await t("profiles").majorer(moi, { role_key: ligne.role_key });
+      } finally {
+        codeDeRole = null;
+      }
+      journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
+      return ligne.role_key;
+    },
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
       const membres2 = await t("class_members").liste({ class_id: target_class, status: "active" });
       let n = 0;
@@ -6849,7 +6939,7 @@ async function amorcerRbac(t) {
   await attribuer("student", permsEleve);
   await attribuer("observer", permsObs);
 }
-var PREFIXE, CANAL, diffuseur, ecouteursLocaux, ONGLET, recuperationEnCours, quiSuisJe, roleDe, peutNommer, estModerateurLocal, pareil, GARDES, APRES, BASE_FICHIERS, basePromesse, CLE_SESSION, CLE_COMPTES;
+var PREFIXE, CANAL, diffuseur, ecouteursLocaux, ONGLET, recuperationEnCours, quiSuisJe, roleDe, peutNommer, estModerateurLocal, pareil, codeDeRole, GARDES, APRES, BASE_FICHIERS, basePromesse, CLE_SESSION, CLE_COMPTES;
 var init_local = __esm({
   "src/data/local.js"() {
     init_contrat();
@@ -6875,6 +6965,7 @@ var init_local = __esm({
     peutNommer = () => ["admin", "super_admin"].includes(roleDe(quiSuisJe()));
     estModerateurLocal = () => ["moderator", "admin", "super_admin"].includes(roleDe(quiSuisJe()));
     pareil = (a, b) => (a ?? null) === (b ?? null);
+    codeDeRole = null;
     GARDES = {
       belongings: gardeDuLieu,
       notebooks: gardeDuLieu,
@@ -7045,6 +7136,16 @@ var init_data = __esm({
           { ordre: "display_name", limite }
         );
       },
+      /** Le compte qui porte exactement ce pseudo (majuscules indifférentes). */
+      async parPseudo(pseudo) {
+        const propre = String(pseudo || "").trim();
+        if (!propre) return null;
+        const trouves = await T("profiles").liste({ display_name: { operateur: "ilike", valeur: propre.replace(/[%\\]/g, "") } }, { limite: 10 });
+        return trouves.find((p) => p.display_name.toLowerCase() === propre.toLowerCase()) || null;
+      },
+      /** Un code de rôle (0030) : l'administration le crée, la personne le tape. */
+      creerCodeRole: (role) => pilote.rpc("creer_code_role", { role }),
+      utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
       /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
       nommer: (id, role) => T("profiles").majorer(id, { role_key: role }),
       /** Le titre du personnage : roi, commandant… Il ne donne aucun droit. */
@@ -7091,8 +7192,8 @@ var init_data = __esm({
       supprimer: (id) => T("classes").supprimer(id),
       regenererCode: (id) => pilote.rpc("regenerate_class_code", { target_class: id }),
       async rejoindre(code) {
-        const sortie = await pilote.rpc("join_class", { join_code: code });
-        const ligne = Array.isArray(sortie) ? sortie[0] : sortie;
+        const sortie2 = await pilote.rpc("join_class", { join_code: code });
+        const ligne = Array.isArray(sortie2) ? sortie2[0] : sortie2;
         if (!ligne) throw new ErreurDonnees("Code de classe introuvable", "P0002");
         return ligne;
       },
@@ -8380,14 +8481,14 @@ async function resoudre() {
   try {
     const module = await route.vue();
     const vue = module.default || module.vue;
-    const sortie = await vue({ params, requete: requete() });
-    const noeud = sortie instanceof Node ? sortie : sortie?.noeud;
-    nettoyageVue = sortie?.nettoyer || null;
+    const sortie2 = await vue({ params, requete: requete() });
+    const noeud = sortie2 instanceof Node ? sortie2 : sortie2?.noeud;
+    nettoyageVue = sortie2?.nettoyer || null;
     if (rendu) rendu(noeud, route);
     else if (conteneur) conteneur.replaceChildren(noeud);
     conteneur?.scrollTo?.({ top: 0 });
     const enseigne = config.academyName || "Classe Parall\xE8le";
-    document.title = sortie?.titre ? `${sortie.titre} \u2014 ${enseigne}` : enseigne;
+    document.title = sortie2?.titre ? `${sortie2.titre} \u2014 ${enseigne}` : enseigne;
     emettre("route:apres", { nom: route.nom, params });
   } catch (err) {
     console.error("[routeur] vue", err);
@@ -9101,8 +9202,8 @@ function ouvrirModale({ titre, corps, actions: actions2, large = false, surFerme
     setTimeout(() => premier?.focus?.(), 30);
   });
 }
-function piegerFocus(event, racine) {
-  const focusables = racine.querySelectorAll(
+function piegerFocus(event, racine2) {
+  const focusables = racine2.querySelectorAll(
     'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
   );
   if (!focusables.length) return;
@@ -9170,7 +9271,7 @@ function formulaire({ titre, champs, libelle = "Enregistrer", large = false, not
         libelle,
         variante: "primaire",
         action: () => {
-          const sortie = {};
+          const sortie2 = {};
           for (const c of champs) {
             const noeud = refs2[c.cle];
             if (!noeud) continue;
@@ -9182,9 +9283,9 @@ function formulaire({ titre, champs, libelle = "Enregistrer", large = false, not
               noeud.classList.add("champ--erreur");
               return false;
             }
-            sortie[c.cle] = v;
+            sortie2[c.cle] = v;
           }
-          return sortie;
+          return sortie2;
         }
       }
     ]
@@ -9415,17 +9516,17 @@ function imageDetouree(kind) {
 function vitrine(contenant, dedans = [], { taille = 120, titre = true } = {}) {
   const scene = SCENES[contenant.kind];
   const plein = dedans.length > 0;
-  const racine = el("div.vitrine", {
+  const racine2 = el("div.vitrine", {
     class: plein ? "vitrine--pleine" : "vitrine--vide",
     style: { width: `${taille}px`, height: `${taille}px` },
     title: titre ? plein ? `${nomObjet(contenant)} : ${dedans.map(nomObjet).join(", ")}` : `${nomObjet(contenant)} \u2014 vide` : null
   });
   if (!plein || !scene) {
-    racine.appendChild(el("span.vitrine__fond", {
+    racine2.appendChild(el("span.vitrine__fond", {
       style: { backgroundImage: `url("${imageObjet(contenant.kind)}")` }
     }));
-    if (plein) racine.appendChild(el("span.vitrine__compte", String(dedans.length)));
-    return racine;
+    if (plein) racine2.appendChild(el("span.vitrine__compte", String(dedans.length)));
+    return racine2;
   }
   const montres = dedans.slice(0, 7);
   const pas = montres.length > 1 ? (scene.a - scene.de) / (montres.length - 1) : 0;
@@ -9452,12 +9553,12 @@ function vitrine(contenant, dedans = [], { taille = 120, titre = true } = {}) {
   const fond = el("span.vitrine__fond", {
     style: { backgroundImage: `url("${scene.mode === "fente" ? imageObjet(scene.ouvert) : imageDetouree(contenant.kind)}")` }
   });
-  if (scene.mode === "fente") racine.append(fond, objets);
-  else racine.append(objets, fond);
+  if (scene.mode === "fente") racine2.append(fond, objets);
+  else racine2.append(objets, fond);
   if (dedans.length > montres.length) {
-    racine.appendChild(el("span.vitrine__compte", `+${dedans.length - montres.length}`));
+    racine2.appendChild(el("span.vitrine__compte", `+${dedans.length - montres.length}`));
   }
-  return racine;
+  return racine2;
 }
 function vignetteObjet(objet, { moiId = null, compacte = false, figure = true } = {}) {
   const f = fiche(objet.kind) || {};
@@ -9832,18 +9933,18 @@ function contientHRP(texte) {
 function baliserHRP(texte) {
   const fragment = document.createDocumentFragment();
   const source = String(texte || "");
-  let curseur = 0;
+  let curseur2 = 0;
   MOTIF_HRP.lastIndex = 0;
   let trouve;
   while ((trouve = MOTIF_HRP.exec(source)) !== null) {
-    if (trouve.index > curseur) {
-      fragment.appendChild(document.createTextNode(source.slice(curseur, trouve.index)));
+    if (trouve.index > curseur2) {
+      fragment.appendChild(document.createTextNode(source.slice(curseur2, trouve.index)));
     }
     fragment.appendChild(el("span.hrp", { title: "Hors roleplay" }, trouve[1].trim()));
-    curseur = trouve.index + trouve[0].length;
+    curseur2 = trouve.index + trouve[0].length;
   }
-  if (curseur < source.length) {
-    fragment.appendChild(document.createTextNode(source.slice(curseur)));
+  if (curseur2 < source.length) {
+    fragment.appendChild(document.createTextNode(source.slice(curseur2)));
   }
   return fragment;
 }
@@ -10367,9 +10468,9 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
     return Boolean(dans) && estSurMoi(dans);
   }
   function supportsEmportes() {
-    const sortie = {};
-    for (const c of supportsLibres) if (supportSurMoi(c.id)) sortie[String(c.id)] = c.title || "";
-    return sortie;
+    const sortie2 = {};
+    for (const c of supportsLibres) if (supportSurMoi(c.id)) sortie2[String(c.id)] = c.title || "";
+    return sortie2;
   }
   let cible = premierContenantPorte();
   for (const [id] of emportes) {
@@ -10446,12 +10547,12 @@ async function preparerAffaires({ classe, session = null, surEnregistrement = nu
   }
   return enregistre === true;
   function declaration() {
-    const sortie = {};
+    const sortie2 = {};
     for (const o of utilisables) {
       if (!estSurMoi(o.id)) continue;
-      sortie[String(o.id)] = { kind: o.kind, label: nomObjet(o) };
+      sortie2[String(o.id)] = { kind: o.kind, label: nomObjet(o) };
     }
-    return sortie;
+    return sortie2;
   }
   async function enregistrer() {
     try {
@@ -11173,7 +11274,7 @@ function pictogramme(role = "") {
   svg.append(tete, corps);
   return svg;
 }
-function bandePersonnes({ personnes = [], nomDe, roleDe: roleDe2 = () => "", surChoix = null, choisi = null, legende = null }) {
+function bandePersonnes({ personnes = [], nomDe, roleDe: roleDe3 = () => "", surChoix = null, choisi = null, legende = null }) {
   const piste = el("div.bande__piste", { role: "list" });
   const n = personnes.length;
   render(piste, n ? personnes.map((p) => el("button.bande__personne", {
@@ -11188,7 +11289,7 @@ function bandePersonnes({ personnes = [], nomDe, roleDe: roleDe2 = () => "", sur
       }
       surChoix?.(p, e.currentTarget);
     }
-  }, pictogramme(roleDe2(p)), el("span.bande__nom", nomDe(p)))) : el("span.bande__vide", "Personne pour l'instant."));
+  }, pictogramme(roleDe3(p)), el("span.bande__nom", nomDe(p)))) : el("span.bande__vide", "Personne pour l'instant."));
   const defiler = (sens) => piste.scrollBy({ left: sens * Math.max(160, piste.clientWidth * 0.7), behavior: "smooth" });
   return el(
     "div.bande",
@@ -11945,8 +12046,8 @@ function dessinerHaut(g, t) {
 function dessinerCostumeTorse(g, t, c) {
   const [fx, fy] = FACES.torse.F;
   const bas = fy + 128;
-  const ouverte = Boolean(t.ouverte);
-  const creux = !t.veste ? 0 : ouverte ? 128 : t.gilet ? 88 : t.croise ? 62 : 72;
+  const ouverte2 = Boolean(t.ouverte);
+  const creux = !t.veste ? 0 : ouverte2 ? 128 : t.gilet ? 88 : t.croise ? 62 : 72;
   if (!t.veste && !t.pull) drap(g, FACES.torse.F, t.chemise, { ombreBas: 0.1 });
   forme(g, [[c - 24, fy], [c + 24, fy], [c + (t.veste ? 0 : 24), fy + (creux || 128)], [c - (t.veste ? 0 : 24), fy + (creux || 128)]], t.chemise);
   if (!t.veste && !t.pull) {
@@ -12043,13 +12144,13 @@ function dessinerCostumeTorse(g, t, c) {
     trait(g, [[bx + bl / 2, by + 60], [bx + bl / 2, by + 128]], t.bretelles, 6);
   }
   if (!t.veste) return;
-  const pan = ouverte ? 30 : t.croise ? -6 : 0;
+  const pan = ouverte2 ? 30 : t.croise ? -6 : 0;
   const x1 = c - 2 - pan, x2 = c + 2 + pan;
   forme(g, [[fx, fy], [c - 24, fy], [x1, fy + creux], [x1, bas], [fx, bas]], t.veste);
   forme(g, [[fx + 128, fy], [c + 24, fy], [x2, fy + creux], [x2, bas], [fx + 128, bas]], t.veste);
   drap(g, [fx, fy + creux - 2, x1 - fx, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false, chevron: t.chevron });
   drap(g, [x2, fy + creux - 2, fx + 128 - x2, bas - fy - creux + 2], t.veste, { rayure: t.rayure, bords: false, chevron: t.chevron });
-  const revers = teinte(t.veste, ouverte ? 0.78 : 1.22);
+  const revers = teinte(t.veste, ouverte2 ? 0.78 : 1.22);
   const ombreRevers = teinte(t.veste, 0.62);
   for (const s of [-1, 1]) {
     const xp = s < 0 ? x1 : x2;
@@ -12059,12 +12160,12 @@ function dessinerCostumeTorse(g, t, c) {
   }
   trait(g, [[x1, fy + creux], [x1, bas]], "rgba(0,0,0,.5)", 1.4);
   trait(g, [[x2, fy + creux], [x2, bas]], "rgba(0,0,0,.5)", 1.4);
-  if (!ouverte && !t.croise) {
+  if (!ouverte2 && !t.croise) {
     forme(g, [[c - 2, bas - 16], [c + 2, bas - 16], [c + 14, bas], [c - 14, bas]], t.pantalon);
     trait(g, [[c - 2, bas - 16], [c - 14, bas]], "rgba(0,0,0,.4)", 1);
     trait(g, [[c + 2, bas - 16], [c + 14, bas]], "rgba(0,0,0,.4)", 1);
   }
-  if (!ouverte) {
+  if (!ouverte2) {
     const cols = t.croise ? [c - 11, c + 11] : [c + 6];
     const lignes = t.croise ? [74, 92, 110] : [84, 104];
     for (const xx of cols) for (const yy of lignes) bouton(g, xx, fy + yy, teinte(t.veste, 0.9));
@@ -13860,9 +13961,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const peau = matDe(a.peau);
     const habit = matieresTenue(a.tenue);
     const cheveux = matiereCheveux(a.cheveux);
-    const racine = new THREE.Group();
+    const racine2 = new THREE.Group();
     const bassin = new THREE.Group();
-    racine.add(bassin);
+    racine2.add(bassin);
     const torse = new THREE.Mesh(GEO_TENUE.torse, habit.chemise);
     torse.position.y = 1;
     bassin.add(torse);
@@ -13919,8 +14020,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const jambeG = membre(-0.5, 0.1, GEO_TENUE.gauche, habit.pantalon);
     const jambeD = membre(0.5, 0.1, GEO_TENUE.droit, habit.pantalon);
     for (const m of [brasG, brasD, jambeG, jambeD]) bassin.add(m.epaule);
-    ombrer(racine);
-    const p = { racine, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null, manteau, lecture: null };
+    ombrer(racine2);
+    const p = { racine: racine2, bassin, tete, brasG, brasD, jambeG, jambeD, torse, alea, phase: alea() * 10, outil: null, manteau, lecture: null };
     p.poser = (pose) => {
       p.pose = pose;
       if (manteau) {
@@ -15924,9 +16025,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
     prof.sig = null;
   }
-  function retirer(racine) {
-    scene.remove(racine);
-    racine.traverse((m) => {
+  function retirer(racine2) {
+    scene.remove(racine2);
+    racine2.traverse((m) => {
       if (m.isMesh && m.userData.jetable) m.geometry.dispose();
     });
   }
@@ -16968,16 +17069,16 @@ function champLieu({ libelle = "O\xF9 \xEAtes-vous ?", valeur = "", requis = fal
 } } = {}) {
   const id = `lieux-${++compteur}`;
   const recents = lieuxRecents();
-  let saisie;
+  let saisie2;
   const choisir2 = (l) => {
-    saisie.value = l;
+    saisie2.value = l;
     surChange(l);
-    saisie.closest(".champ")?.classList.remove("champ--erreur");
+    saisie2.closest(".champ")?.classList.remove("champ--erreur");
   };
   const noeud = el(
     "label.champ.champ-lieu",
     el("span.champ__label", libelle, requis ? el("span.champ__requis", " *") : null),
-    saisie = el("input.saisie", {
+    saisie2 = el("input.saisie", {
       type: "text",
       value: valeur,
       maxlength: "120",
@@ -17004,7 +17105,7 @@ function champLieu({ libelle = "O\xF9 \xEAtes-vous ?", valeur = "", requis = fal
     aide ? el("span.champ__aide", aide) : null
   );
   if (valeur) surChange(valeur);
-  return { noeud, saisie, valeur: () => saisie.value.trim() };
+  return { noeud, saisie: saisie2, valeur: () => saisie2.value.trim() };
 }
 var LIEUX, TOUS, CLE_RECENTS, compteur;
 var init_lieux = __esm({
@@ -17210,7 +17311,7 @@ async function composerPapier({ classe = null, papier = null, modele: modele2 = 
   const apercu = el("div.papier-apercu");
   const fiche2 = classe ? await personnages.pour(classe.id, etat.utilisateur.id).catch(() => null) : null;
   let champTitre, champCorps, champCachet, zoneCachet;
-  const sortie = await ouvrirModale({
+  const sortie2 = await ouvrirModale({
     titre: papier ? "Reprendre le papier" : "R\xE9diger un papier",
     large: true,
     corps: () => {
@@ -17330,8 +17431,8 @@ async function composerPapier({ classe = null, papier = null, modele: modele2 = 
       { auteur: etat.profil, fiche: fiche2, classe }
     ));
   }
-  if (sortie) succes(papier ? "Papier repris" : "Papier r\xE9dig\xE9");
-  return sortie || null;
+  if (sortie2) succes(papier ? "Papier repris" : "Papier r\xE9dig\xE9");
+  return sortie2 || null;
 }
 async function tendrePapier({ papier, classe = null, session = null, candidats = [], fiches = /* @__PURE__ */ new Map() }) {
   const disponibles = candidats.filter((c) => c?.user_id && c.user_id !== etat.utilisateur.id);
@@ -19228,8 +19329,8 @@ async function vueAuth() {
     return el(
       "div.acces__onglets",
       { role: "tablist" },
-      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "connexion"), onclick: () => basculer("connexion") }, "Se connecter"),
-      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "inscription"), onclick: () => basculer("inscription") }, "Cr\xE9er mon compte")
+      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "connexion"), onclick: () => basculer2("connexion") }, "Se connecter"),
+      el("button", { type: "button", role: "tab", "aria-selected": String(mode2 === "inscription"), onclick: () => basculer2("inscription") }, "Cr\xE9er mon compte")
     );
   }
   function champPseudo(nouveau) {
@@ -19342,7 +19443,7 @@ async function vueAuth() {
     );
     boite.querySelector('input[name="pseudo"]')?.focus();
   }
-  function basculer(nouveau) {
+  function basculer2(nouveau) {
     mode2 = nouveau;
     peindre();
   }
@@ -20170,9 +20271,9 @@ function injecterHTML(hote, html) {
   hote.innerHTML = assainirHTML(html);
   return hote;
 }
-function nettoyerNoeud(racine) {
+function nettoyerNoeud(racine2) {
   const aRetirer = [];
-  const parcours = document.createTreeWalker(racine, NodeFilter.SHOW_ELEMENT);
+  const parcours = document.createTreeWalker(racine2, NodeFilter.SHOW_ELEMENT);
   while (parcours.nextNode()) {
     const noeud = parcours.currentNode;
     if (!BALISES.has(noeud.tagName)) {
@@ -20332,7 +20433,7 @@ function creerEditeurCahier(options) {
   const zoneFeuillet = el("div.feuillet__zone");
   const barreFeuillet = el("div.feuillet__barre");
   const etiquetteSauvegarde = el("span.petit.faible", "");
-  const racine = el(
+  const racine2 = el(
     "div.cahier",
     { class: compact ? "cahier--sans-tranche" : "" },
     compact ? null : el(
@@ -21063,7 +21164,7 @@ function creerEditeurCahier(options) {
   document.addEventListener("visibilitychange", surMasquage);
   charger2();
   return {
-    noeud: racine,
+    noeud: racine2,
     async rafraichir(idCible) {
       await charger2(idCible);
     },
@@ -21441,10 +21542,10 @@ function creerConsole({ panneaux, defaut = "bureau", avecBarre = true, enTete = 
       if (d) ouvrir2(d);
     }
   }) : null;
-  async function ouvrir2(cle, { basculer = false } = {}) {
+  async function ouvrir2(cle, { basculer: basculer2 = false } = {}) {
     const p = panneaux.find((x) => x.cle === cle);
     if (!p) return;
-    if (basculer && ouvert === cle && etat.taille === "mini") {
+    if (basculer2 && ouvert === cle && etat.taille === "mini") {
       fermer();
       return;
     }
@@ -21716,7 +21817,7 @@ function panneauNote({ bureau, classe = null, session = null, gens = () => [], n
 function panneauDocumentsConsole() {
   return async (zone) => render(zone, await panneauDocuments());
 }
-function panneauPersonnes({ gens = () => [], nomDe, roleDe: roleDe2 = () => "", gestes = () => [] }) {
+function panneauPersonnes({ gens = () => [], nomDe, roleDe: roleDe3 = () => "", gestes = () => [] }) {
   return (zone) => {
     const actions2 = el("div.console__gestes-personne");
     render(
@@ -21724,7 +21825,7 @@ function panneauPersonnes({ gens = () => [], nomDe, roleDe: roleDe2 = () => "", 
       bandePersonnes({
         personnes: gens(),
         nomDe,
-        roleDe: roleDe2,
+        roleDe: roleDe3,
         choisi: "",
         surChoix: (p) => render(
           actions2,
@@ -22268,13 +22369,13 @@ function rejoindre() {
     }
     bouton2.disabled = true;
     try {
-      const sortie = await classes.rejoindre(code);
+      const sortie2 = await classes.rejoindre(code);
       await rafraichirClasses();
-      if (sortie.member_status === "pending") {
-        succes("Demande envoy\xE9e", `Le ${L("professeur")} doit valider votre arriv\xE9e dans \xAB ${sortie.class_name} \xBB.`);
+      if (sortie2.member_status === "pending") {
+        succes("Demande envoy\xE9e", `Le ${L("professeur")} doit valider votre arriv\xE9e dans \xAB ${sortie2.class_name} \xBB.`);
       } else {
-        succes("Vous avez rejoint l'espace", sortie.class_name);
-        aller(`/classe/${sortie.class_id}`);
+        succes("Vous avez rejoint l'espace", sortie2.class_name);
+        aller(`/classe/${sortie2.class_id}`);
       }
       champ.value = "";
     } catch (err) {
@@ -22551,7 +22652,7 @@ async function vueCahiers() {
     ]);
   }
   async function creer() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Nouveau ${L("cahier")}`,
       champs: [
         {
@@ -22573,16 +22674,16 @@ async function vueCahiers() {
       ],
       libelle: "Cr\xE9er"
     });
-    if (!sortie) return;
-    const support = sortie.support || "cahier";
+    if (!sortie2) return;
+    const support = sortie2.support || "cahier";
     try {
       const cahier = await cahiers.creer({
         owner_id: etat.utilisateur.id,
         kind: "personal",
         class_id: null,
-        title: sortie.title,
-        subtitle: sortie.subtitle || null,
-        cover: sortie.cover,
+        title: sortie2.title,
+        subtitle: sortie2.subtitle || null,
+        cover: sortie2.cover,
         color: "olive",
         icon: "book",
         collaborative: false,
@@ -22640,7 +22741,7 @@ async function vueCahiers() {
     if (remise) await peindre();
   }
   async function modifier(cahier) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Modifier le cahier",
       champs: [
         { cle: "title", label: "Titre", valeur: cahier.title, requis: true },
@@ -22654,12 +22755,12 @@ async function vueCahiers() {
         }
       ]
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       await cahiers.majorer(cahier.id, {
-        title: sortie.title,
-        subtitle: sortie.subtitle || null,
-        cover: sortie.cover
+        title: sortie2.title,
+        subtitle: sortie2.subtitle || null,
+        cover: sortie2.cover
       });
       await peindre();
     } catch (err) {
@@ -23284,7 +23385,7 @@ async function vueAffaires() {
       el("div.affaires__liste", restes.map(({ genre, o }) => {
         const nom = genre === "cahier" ? o.title || "Cahier" : nomObjet(o);
         const classe = espaces.find((c) => String(c.id) === String(o.place_class));
-        const ouverte = Boolean(classe) && salles.ouverte(classe, seances.get(classe.id), moi);
+        const ouverte2 = Boolean(classe) && salles.ouverte(classe, seances.get(classe.id), moi);
         const surLeBureau = o.place === "bureau" && seances.get(o.place_class)?.id && String(seances.get(o.place_class).id) === String(o.place_session);
         return el(
           "div.affaire.affaire--reste",
@@ -23304,20 +23405,20 @@ async function vueAffaires() {
             el("span.pousse"),
             el(
               "span.etiq",
-              { class: ouverte ? "etiq--ok" : "etiq--attn" },
-              ouverte ? "Salle ouverte" : "Salle ferm\xE9e"
+              { class: ouverte2 ? "etiq--ok" : "etiq--attn" },
+              ouverte2 ? "Salle ouverte" : "Salle ferm\xE9e"
             ),
             el("button.btn.btn--petit", {
-              class: ouverte ? "btn--primaire" : "btn--fantome",
-              onclick: () => recuperer(genre, o, nom, classe, ouverte)
+              class: ouverte2 ? "btn--primaire" : "btn--fantome",
+              onclick: () => recuperer(genre, o, nom, classe, ouverte2)
             }, "R\xE9cup\xE9rer")
           )
         );
       }))
     );
   }
-  async function recuperer(genre, o, nom, classe, ouverte) {
-    if (!ouverte) {
+  async function recuperer(genre, o, nom, classe, ouverte2) {
+    if (!ouverte2) {
       toast("La salle est ferm\xE9e", {
         corps: `${nom} y reste. Attendez qu'elle rouvre, ou qu'un encadrant vous laisse entrer ou vous le rende.`,
         type: "attn",
@@ -23864,15 +23965,15 @@ async function vueClasses() {
     render(archivees, anciennes.map((c) => carteClasse(c, { code: false })));
   }
   async function rejoindre2() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Rejoindre une ${L("classe")}`,
       note: `Le ${L("professeur")} annonce un code au d\xE9but du cours.`,
       champs: [{ cle: "code", label: "Code de classe", placeholder: "K7F-29A", requis: true }],
       libelle: "Rejoindre"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      const resultat = await classes.rejoindre(normaliserCode(sortie.code));
+      const resultat = await classes.rejoindre(normaliserCode(sortie2.code));
       await peindre();
       if (resultat.member_status === "pending") {
         succes("Demande envoy\xE9e", "Votre inscription doit \xEAtre valid\xE9e.");
@@ -23885,7 +23986,7 @@ async function vueClasses() {
     }
   }
   async function creer() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Cr\xE9er une ${L("classe")}`,
       champs: [
         { cle: "name", label: "Nom", placeholder: "Certification juridique I", requis: true },
@@ -23896,14 +23997,14 @@ async function vueClasses() {
       ],
       libelle: "Cr\xE9er"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       const classe = await classes.creerAvecCahier({
-        name: sortie.name,
-        description: sortie.description || null,
-        subject: sortie.subject || null,
-        level: sortie.level || null,
-        color: sortie.color,
+        name: sortie2.name,
+        description: sortie2.description || null,
+        subject: sortie2.subject || null,
+        level: sortie2.level || null,
+        color: sortie2.color,
         icon: "balance",
         owner_id: etat.utilisateur.id,
         /* Entrée directe : qui tient le code entre, point. La validation
@@ -24163,23 +24264,23 @@ async function editerFiche({ classe, personnage, utilisateurId, profil }) {
       valeur: personnage?.bio || ""
     }
   ];
-  const sortie = await formulaire({
+  const sortie2 = await formulaire({
     titre: personnage ? "Modifier ma fiche" : "Ma fiche de personnage",
     large: true,
     note: `Visible des membres de cette ${L("classe")}. Votre compte, lui, reste priv\xE9.`,
     champs,
     libelle: "Enregistrer"
   });
-  if (!sortie) return null;
+  if (!sortie2) return null;
   try {
     const enregistree = await personnages.enregistrer(classe.id, utilisateurId, {
-      name: sortie.name,
-      rank: sortie.rank || null,
-      corps: sortie.corps || null,
-      promotion: sortie.promotion || null,
-      origin: sortie.origin || null,
-      born: sortie.born || null,
-      bio: sortie.bio || null
+      name: sortie2.name,
+      rank: sortie2.rank || null,
+      corps: sortie2.corps || null,
+      promotion: sortie2.promotion || null,
+      origin: sortie2.origin || null,
+      born: sortie2.born || null,
+      bio: sortie2.bio || null
     });
     succes("Fiche enregistr\xE9e", nomAffiche(enregistree, profil));
     return enregistree;
@@ -24320,29 +24421,29 @@ async function inscrireAuLivret({ classe, membres: membres2, auteurId, sessionId
     lignes: 3,
     aide: "R\xE9digez-le comme un rapport : c'est ce que liront les autres."
   });
-  const sortie = await formulaire({
+  const sortie2 = await formulaire({
     titre: g.libelle,
     note: g.aide,
     champs,
     libelle: "Inscrire",
     large: true
   });
-  if (!sortie) return null;
+  if (!sortie2) return null;
   const donnees = {
     class_id: classe.id,
-    user_id: sortie.user_id,
+    user_id: sortie2.user_id,
     author_id: auteurId,
     session_id: sessionId,
     kind: genre.kind,
-    label: genre.kind === "promotion" ? `\xC9lev\xE9 au grade de ${sortie.rank_to}` : sortie.label,
-    body: sortie.body || null,
-    score: genre.kind === "aptitude" ? Number(sortie.score) : null,
-    max_score: genre.kind === "aptitude" ? Number(sortie.max_score) : null,
-    rank_to: genre.kind === "promotion" ? sortie.rank_to : null
+    label: genre.kind === "promotion" ? `\xC9lev\xE9 au grade de ${sortie2.rank_to}` : sortie2.label,
+    body: sortie2.body || null,
+    score: genre.kind === "aptitude" ? Number(sortie2.score) : null,
+    max_score: genre.kind === "aptitude" ? Number(sortie2.max_score) : null,
+    rank_to: genre.kind === "promotion" ? sortie2.rank_to : null
   };
   try {
     const entree2 = await livret.creer(donnees);
-    const qui = membres2.find((m) => m.user_id === sortie.user_id)?.nom || "";
+    const qui = membres2.find((m) => m.user_id === sortie2.user_id)?.nom || "";
     succes(`${g.libelle} inscrite`, qui);
     return entree2;
   } catch (err) {
@@ -24410,7 +24511,7 @@ var init_livret = __esm({
 
 // src/features/bulletin.js
 async function porterUneNote({ classe, session = null, participant }) {
-  const sortie = await formulaire({
+  const sortie2 = await formulaire({
     titre: `Noter ${participant.nom || "ce cadet"}`,
     note: "La note et l'appr\xE9ciation lui seront visibles, et resteront \xE0 son relev\xE9.",
     champs: [
@@ -24439,9 +24540,9 @@ async function porterUneNote({ classe, session = null, participant }) {
     ],
     libelle: "Porter la note"
   });
-  if (!sortie) return null;
-  const max = Number(sortie.max_score) || 20;
-  const score = Number(sortie.score);
+  if (!sortie2) return null;
+  const max = Number(sortie2.max_score) || 20;
+  const score = Number(sortie2.score);
   if (!Number.isFinite(score) || score < 0 || score > max) {
     erreur("Note impossible", `Elle doit tenir entre 0 et ${max}.`);
     return null;
@@ -24452,13 +24553,13 @@ async function porterUneNote({ classe, session = null, participant }) {
       user_id: participant.user_id,
       session_id: session?.id || null,
       source_kind: "manual",
-      label: sortie.label.trim(),
+      label: sortie2.label.trim(),
       score,
       max_score: max,
-      comment: (sortie.comment || "").trim() || null,
+      comment: (sortie2.comment || "").trim() || null,
       graded_by: etat.utilisateur.id
     });
-    succes("Note port\xE9e", `${score}/${max} \u2014 ${sortie.label.trim()}`);
+    succes("Note port\xE9e", `${score}/${max} \u2014 ${sortie2.label.trim()}`);
     return ligne;
   } catch (err) {
     erreur("Note non enregistr\xE9e", messageErreur(err));
@@ -24512,7 +24613,7 @@ function releveDeNotes({ lignes, surEffacement = null, vide = "Aucune note pour 
 }
 function blocNotes({ classeId, utilisateurId, peutNoter = false }) {
   const zone = el("div");
-  const racine = el("div", zone);
+  const racine2 = el("div", zone);
   async function recharger() {
     let lignes = [];
     try {
@@ -24529,7 +24630,7 @@ function blocNotes({ classeId, utilisateurId, peutNoter = false }) {
     }));
   }
   recharger();
-  return { noeud: racine, recharger };
+  return { noeud: racine2, recharger };
 }
 var BAREMES;
 var init_bulletin = __esm({
@@ -24566,19 +24667,19 @@ async function ouvrirObjetsTrouves({ classe }) {
     }
     const seance = await sessions.enCours(classe.id).catch(() => null);
     const jusqua = classe.settings?.salle_ouverte_jusqua;
-    const ouverte = seance?.status === "live" || jusqua && new Date(jusqua).getTime() > Date.now();
+    const ouverte2 = seance?.status === "live" || jusqua && new Date(jusqua).getTime() > Date.now();
     render(
       zone,
       el(
         "div.trouves__porte",
         el(
           "span.etiq",
-          { class: ouverte ? "etiq--ok" : "etiq--attn" },
-          icone(ouverte ? "entree" : "bouclier", 12),
-          ouverte ? seance?.status === "live" ? " Ouverte : une s\xE9ance s'y tient" : ` Ouverte jusqu'\xE0 ${new Date(jusqua).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " Ferm\xE9e"
+          { class: ouverte2 ? "etiq--ok" : "etiq--attn" },
+          icone(ouverte2 ? "entree" : "bouclier", 12),
+          ouverte2 ? seance?.status === "live" ? " Ouverte : une s\xE9ance s'y tient" : ` Ouverte jusqu'\xE0 ${new Date(jusqua).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " Ferm\xE9e"
         ),
         el("span.pousse"),
-        seance?.status === "live" ? null : ouverte ? el(
+        seance?.status === "live" ? null : ouverte2 ? el(
           "button.btn.btn--petit",
           { onclick: () => agir(() => salles.fermer(classe), "Salle ferm\xE9e") },
           "Fermer la salle"
@@ -24601,7 +24702,7 @@ async function ouvrirObjetsTrouves({ classe }) {
           )
         ),
         el("span.pousse"),
-        ouverte ? null : el("button.btn.btn--petit.btn--fantome", {
+        ouverte2 ? null : el("button.btn.btn--petit.btn--fantome", {
           title: "Lui seul peut entrer, pendant 20 minutes",
           onclick: () => agir(
             () => salles.laissezPasser(classe, r.owner_id, 20),
@@ -25426,7 +25527,7 @@ async function vueClasse({ params, requete: requete2 }) {
     );
   }
   async function publierAnnonce() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Publier une annonce",
       champs: [
         { cle: "title", label: "Annonce", placeholder: "La certification aura lieu demain \xE0 18 h.", requis: true },
@@ -25439,20 +25540,20 @@ async function vueClasse({ params, requete: requete2 }) {
       ],
       libelle: "Publier"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       await annonces.creer({
         class_id: classe.id,
         session_id: null,
         author_id: etat.utilisateur.id,
-        title: sortie.title,
-        body: sortie.body || null,
-        level: sortie.level
+        title: sortie2.title,
+        body: sortie2.body || null,
+        level: sortie2.level
       });
       await notifications.diffuser(classe.id, {
         kind: "annonce",
         titre: `Annonce \u2014 ${classe.name}`,
-        corps: sortie.title,
+        corps: sortie2.title,
         lien: `/classe/${classe.id}?onglet=annonces`
       }).catch(() => {
       });
@@ -25575,7 +25676,7 @@ async function vueClasse({ params, requete: requete2 }) {
     );
   }
   async function demarrerSession() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Ouvrir une s\xE9ance",
       champs: [
         {
@@ -25595,10 +25696,10 @@ async function vueClasse({ params, requete: requete2 }) {
       ],
       libelle: "Ouvrir"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      await sessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
-      const nom = MODES2[sortie.mode]?.libelle || "Cours";
+      await sessions.demarrer(classe.id, sortie2.title || null, sortie2.mode || "cours");
+      const nom = MODES2[sortie2.mode]?.libelle || "Cours";
       await notifications.diffuser(classe.id, {
         kind: "session",
         titre: `${classe.name} \u2014 s\xE9ance ouverte`,
@@ -25698,7 +25799,7 @@ async function vueClasse({ params, requete: requete2 }) {
     }
   }
   async function modifierClasse() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Modifier la classe",
       champs: [
         { cle: "name", label: "Nom", valeur: classe.name, requis: true },
@@ -25715,9 +25816,9 @@ async function vueClasse({ params, requete: requete2 }) {
         ] }
       ]
     });
-    if (!sortie) return;
-    await classes.majorer(classe.id, sortie);
-    Object.assign(classe, sortie);
+    if (!sortie2) return;
+    await classes.majorer(classe.id, sortie2);
+    Object.assign(classe, sortie2);
     await rafraichirClasses();
     aller(`/classe/${classe.id}`);
     succes("Classe mise \xE0 jour");
@@ -26837,7 +26938,7 @@ var init_privation = __esm({
 function creerMarge({ peutAnnoter, auteurId, nomAuteur = "Vous", noms = /* @__PURE__ */ new Map() }) {
   const liste = el("div.marge__liste");
   const zoneSaisie = el("div");
-  const racine = el(
+  const racine2 = el(
     "aside.marge",
     el("span.controle-materiel__titre", icone("crayon", 12), " Dans la marge"),
     liste,
@@ -26910,7 +27011,7 @@ function creerMarge({ peutAnnoter, auteurId, nomAuteur = "Vous", noms = /* @__PU
     ));
   }
   render(liste, el("p.marge__vide", "Aucune page ouverte."));
-  return { noeud: racine, suivre };
+  return { noeud: racine2, suivre };
 }
 var ENCRES;
 var init_annotation = __esm({
@@ -26941,19 +27042,19 @@ async function rendreExerciceEnLigne({ exercice, classe, session, staff, surFerm
   return staff ? vueSuiviProfesseur({ exercice, questions: questions2, surFermeture }) : vueReponseEleve({ exercice, questions: questions2, classe, session });
 }
 async function vueReponseEleve({ exercice, questions: questions2, classe, session }) {
-  const racine = el("div.feuillet__zone", { style: { display: "block" } });
+  const racine2 = el("div.feuillet__zone", { style: { display: "block" } });
   const conteneur2 = el("div.exo");
-  render(racine, conteneur2);
+  render(racine2, conteneur2);
   if (exercice.status === "draft") {
     render(conteneur2, blocVide("Exercice non lanc\xE9", "Le professeur ne l'a pas encore ouvert."));
-    return racine;
+    return racine2;
   }
   let tentative;
   try {
     tentative = await exercices.commencer(exercice.id, etat.utilisateur.id);
   } catch (err) {
     render(conteneur2, blocVide("Impossible de commencer", messageErreur(err)));
-    return racine;
+    return racine2;
   }
   const reponsesExistantes = await exercices.reponses(tentative.id);
   const reponses = new Map(reponsesExistantes.map((r) => [r.question_id, r.response]));
@@ -27065,7 +27166,7 @@ async function vueReponseEleve({ exercice, questions: questions2, classe, sessio
     }
   }
   await rendre();
-  return racine;
+  return racine2;
 }
 function champReponse(question, valeur, surChangement, verrouille) {
   const options = Array.isArray(question.options) ? question.options : [];
@@ -27203,9 +27304,9 @@ function libelleType(cle) {
   return TYPES_QUESTION.find((t) => t.cle === cle)?.libelle || cle;
 }
 function vueSuiviProfesseur({ exercice, questions: questions2, surFermeture }) {
-  const racine = el("div.feuillet__zone", { style: { display: "block" } });
+  const racine2 = el("div.feuillet__zone", { style: { display: "block" } });
   const conteneur2 = el("div.exo");
-  render(racine, conteneur2);
+  render(racine2, conteneur2);
   let abonnement = null;
   async function peindre() {
     const tentatives = await exercices.tentatives(exercice.id);
@@ -27273,9 +27374,9 @@ function vueSuiviProfesseur({ exercice, questions: questions2, surFermeture }) {
     ],
     surChangement: () => peindre()
   });
-  racine.addEventListener("ojm:detruire", () => abonnement?.fermer());
+  racine2.addEventListener("ojm:detruire", () => abonnement?.fermer());
   peindre();
-  return racine;
+  return racine2;
 }
 function libelleStatut(statut) {
   return { draft: "brouillon", live: "en cours", closed: "ferm\xE9", graded: "corrig\xE9" }[statut] || statut;
@@ -28217,7 +28318,7 @@ async function vueSalle({ params }) {
     equipe = await membres.liste(classe.id);
     const eleves = equipe.filter((m) => m.status === "active" && m.role === "student");
     const autorises = new Set(Array.isArray(tableau.allowed) ? tableau.allowed : []);
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "\xC9l\xE8ves autoris\xE9s au tableau",
       note: "En mode \xAB \xE9l\xE8ves s\xE9lectionn\xE9s \xBB, seuls ces \xE9l\xE8ves peuvent \xE9crire.",
       champs: eleves.map((m) => ({
@@ -28228,8 +28329,8 @@ async function vueSalle({ params }) {
       })),
       libelle: "Enregistrer"
     });
-    if (!sortie) return;
-    const liste = Object.entries(sortie).filter(([, v]) => v).map(([k]) => k);
+    if (!sortie2) return;
+    const liste = Object.entries(sortie2).filter(([, v]) => v).map(([k]) => k);
     tableau = await tableaux.majorer(tableau.id, { allowed: liste, mode: "participative" });
     toast(`${pluriel(liste.length, "\xE9l\xE8ve")} autoris\xE9${liste.length > 1 ? "s" : ""} au tableau`);
     await peindreTableau();
@@ -28641,7 +28742,7 @@ async function vueSalle({ params }) {
     });
   }
   async function renvoyer(participant) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Renvoyer ${participant.nom || "ce membre"}`,
       note: "Le motif sera lu par l'int\xE9ress\xE9 et port\xE9 au registre de la s\xE9ance.",
       champs: [{
@@ -28653,7 +28754,7 @@ async function vueSalle({ params }) {
       }],
       libelle: "Continuer"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     const proche = await exigerProximite({
       motif: "renvoi",
       cible: participant.profil || participant,
@@ -28661,7 +28762,7 @@ async function vueSalle({ params }) {
     });
     if (!proche) return;
     try {
-      await renvois.renvoyer(session.id, participant.user_id, sortie.motif, true);
+      await renvois.renvoyer(session.id, participant.user_id, sortie2.motif, true);
       listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
       succes(`${participant.nom || "Le membre"} a \xE9t\xE9 pri\xE9 de sortir`);
       peindrePanneau();
@@ -28844,7 +28945,7 @@ async function vueSalle({ params }) {
       toast("Vous n'avez rien \xE0 tendre.", { corps: "Passez par Mes affaires pour vous \xE9quiper." });
       return;
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Lequel ?",
       champs: [{
         cle: "objet",
@@ -28855,8 +28956,8 @@ async function vueSalle({ params }) {
       }],
       libelle: "Continuer"
     });
-    if (!sortie?.objet) return;
-    const objet = disponibles.find((o) => String(o.id) === String(sortie.objet));
+    if (!sortie2?.objet) return;
+    const objet = disponibles.find((o) => String(o.id) === String(sortie2.objet));
     const fait = await tendreObjet({
       objet,
       classe,
@@ -28890,7 +28991,7 @@ async function vueSalle({ params }) {
       toast(`${participant.nom || "Ce membre"} n'a rien apport\xE9 : il n'y a rien \xE0 prendre.`);
       return;
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Confisquer",
       champs: [{
         cle: "objet",
@@ -28901,15 +29002,15 @@ async function vueSalle({ params }) {
       }],
       libelle: "Continuer"
     });
-    if (!sortie?.objet) return;
+    if (!sortie2?.objet) return;
     const proche = await exigerProximite({
       motif: "objet",
       cible: participant.profil || participant,
       personnage: fichesRP.get(participant.user_id),
-      detail: liste.find((o) => o.id === sortie.objet)?.label || null
+      detail: liste.find((o) => o.id === sortie2.objet)?.label || null
     });
     if (!proche) return;
-    const choisi = liste.find((o) => o.id === sortie.objet);
+    const choisi = liste.find((o) => o.id === sortie2.objet);
     const fait = await confisquerObjet({
       objet: { id: choisi.id, kind: choisi.kind, label: choisi.label },
       classe,
@@ -29141,7 +29242,7 @@ async function vueSalle({ params }) {
         icon: "book"
       });
     } else if (mesCahiers.length > 1) {
-      const sortie = await formulaire({
+      const sortie2 = await formulaire({
         titre: "Verser mes notes",
         champs: [{
           cle: "cahier",
@@ -29152,8 +29253,8 @@ async function vueSalle({ params }) {
         }],
         libelle: "Verser"
       });
-      if (!sortie) return;
-      cible = mesCahiers.find((c) => c.id === sortie.cahier);
+      if (!sortie2) return;
+      cible = mesCahiers.find((c) => c.id === sortie2.cahier);
     }
     const corps2 = texte.split("\n").map((l) => `<p>${l.replace(/[<>&]/g, "")}</p>`).join("");
     await pages.creer(cible.id, {
@@ -29206,7 +29307,7 @@ async function vueSalle({ params }) {
   }
   async function poserQuestion() {
     const rp = reglagesRP(classe);
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Poser une question",
       note: rp.hrpAutorise ? "Votre personnage l\xE8ve la main. Si la question vient de vous et non de lui, cochez \xAB hors-roleplay \xBB : elle sera marqu\xE9e comme telle et ne polluera pas la sc\xE8ne." : null,
       champs: [
@@ -29222,15 +29323,15 @@ async function vueSalle({ params }) {
       ],
       libelle: "Envoyer"
     });
-    if (!sortie?.body) return;
-    const texte = sortie.body;
+    if (!sortie2?.body) return;
+    const texte = sortie2.body;
     try {
       await questions.poser({
         session_id: session.id,
         user_id: etat.utilisateur.id,
         body: texte,
         context: contexteCourant(),
-        out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
+        out_of_character: Boolean(sortie2.hrp) || contientHRP(texte)
       });
       canalSession?.envoyer("question", { nom: monNom() });
       succes("Question envoy\xE9e", `Le ${L("professeur")} la verra dans son panneau.`);
@@ -29259,7 +29360,7 @@ async function vueSalle({ params }) {
     await rafraichirQuestions();
   }
   async function lancerSondage() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Lancer un sondage",
       champs: [
         { cle: "question", label: "Question", valeur: "Avez-vous compris ?", requis: true },
@@ -29274,8 +29375,8 @@ async function vueSalle({ params }) {
       ],
       libelle: "Lancer"
     });
-    if (!sortie) return;
-    const options = sortie.options.split("\n").map((o) => o.trim()).filter(Boolean);
+    if (!sortie2) return;
+    const options = sortie2.options.split("\n").map((o) => o.trim()).filter(Boolean);
     if (options.length < 2) {
       erreur("Deux r\xE9ponses minimum");
       return;
@@ -29284,7 +29385,7 @@ async function vueSalle({ params }) {
     await sondages.creer({
       session_id: session.id,
       author_id: etat.utilisateur.id,
-      question: sortie.question,
+      question: sortie2.question,
       options,
       kind: "poll"
     });
@@ -29321,7 +29422,7 @@ async function vueSalle({ params }) {
     peindreBandeau();
   }
   async function creerMinuterie() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Minuterie de s\xE9ance",
       champs: [
         { cle: "label", label: "Intitul\xE9", valeur: "Travail individuel", requis: true },
@@ -29333,12 +29434,12 @@ async function vueSalle({ params }) {
       ],
       libelle: "Lancer"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     minuterie = await minuteries.creer({
       session_id: session.id,
-      label: sortie.label,
-      kind: sortie.kind,
-      duration_sec: Math.max(60, (sortie.minutes || 10) * 60),
+      label: sortie2.label,
+      kind: sortie2.kind,
+      duration_sec: Math.max(60, (sortie2.minutes || 10) * 60),
       state: "running",
       started_at: (/* @__PURE__ */ new Date()).toISOString(),
       elapsed_sec: 0
@@ -29612,7 +29713,7 @@ async function vueSalle({ params }) {
       erreur("Aucun document", "Importez d'abord un document dans la biblioth\xE8que de la classe.");
       return;
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Afficher un document",
       champs: [{
         cle: "document",
@@ -29623,8 +29724,8 @@ async function vueSalle({ params }) {
       }],
       libelle: "Afficher"
     });
-    if (!sortie) return;
-    documentAffiche = liste.find((d) => d.id === sortie.document);
+    if (!sortie2) return;
+    documentAffiche = liste.find((d) => d.id === sortie2.document);
     if (!documentAffiche.shared) await documents.majorer(documentAffiche.id, { shared: true });
     scene = "document";
     await peindreScene();
@@ -29650,7 +29751,7 @@ async function vueSalle({ params }) {
       erreur("Aucun exercice", "Cr\xE9ez d'abord un exercice depuis l'espace professeur.");
       return;
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Lancer un exercice",
       champs: [{
         cle: "exercice",
@@ -29661,8 +29762,8 @@ async function vueSalle({ params }) {
       }],
       libelle: "Lancer"
     });
-    if (!sortie) return;
-    exerciceActif = await exercices.majorer(sortie.exercice, {
+    if (!sortie2) return;
+    exerciceActif = await exercices.majorer(sortie2.exercice, {
       status: "live",
       session_id: session.id,
       opened_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -29687,7 +29788,7 @@ async function vueSalle({ params }) {
   }
   async function publierAnnonceSession() {
     const rp = reglagesRP(classe);
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Annonce \xE0 la classe",
       champs: [
         {
@@ -29702,8 +29803,8 @@ async function vueSalle({ params }) {
       ],
       libelle: "Publier"
     });
-    if (!sortie?.title) return;
-    const texte = sortie.title;
+    if (!sortie2?.title) return;
+    const texte = sortie2.title;
     await annonces.creer({
       class_id: classe.id,
       session_id: session.id,
@@ -29711,7 +29812,7 @@ async function vueSalle({ params }) {
       title: texte,
       body: null,
       level: "important",
-      out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
+      out_of_character: Boolean(sortie2.hrp) || contientHRP(texte)
     });
     canalSession?.envoyer("annonce", { titre: texte });
     journal.ecrire({ class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id, action: "announcement" });
@@ -29758,9 +29859,9 @@ async function vueSalle({ params }) {
         options: ETATS4.map(([valeur, libelle]) => ({ valeur, libelle }))
       })),
       libelle: "Enregistrer"
-    }).then(async (sortie) => {
-      if (!sortie) return;
-      for (const [id, statut] of Object.entries(sortie)) {
+    }).then(async (sortie2) => {
+      if (!sortie2) return;
+      for (const [id, statut] of Object.entries(sortie2)) {
         const ligne = presences.find((p) => p.id === id);
         if (ligne && ligne.status !== statut) {
           await presence.majorer(id, { status: statut, manual: true });
@@ -30774,7 +30875,7 @@ async function vueDocuments({ requete: requete2 }) {
     }
     let champCahier = null;
     let champPages = null;
-    const sortie = await ouvrirModale({
+    const sortie2 = await ouvrirModale({
       titre: "Convertir en pages de cahier",
       corps: () => el(
         "div",
@@ -30806,13 +30907,13 @@ async function vueDocuments({ requete: requete2 }) {
         }) }
       ]
     });
-    if (!sortie) return;
-    const pagesVoulues = analyserIntervalle(sortie.pages, total);
+    if (!sortie2) return;
+    const pagesVoulues = analyserIntervalle(sortie2.pages, total);
     const fermer = toast("Conversion en cours\u2026", { duree: 0 });
     try {
       const { verserDansCahier: verserDansCahier2 } = await Promise.resolve().then(() => (init_import_document(), import_document_exports));
       const creees = await verserDansCahier2({
-        cahierId: sortie.cahier,
+        cahierId: sortie2.cahier,
         document: doc,
         fichier: fichier2,
         pagesVoulues,
@@ -30821,7 +30922,7 @@ async function vueDocuments({ requete: requete2 }) {
       });
       fermer();
       succes("Document converti", `${pluriel(creees.length, "page")} ajout\xE9e${creees.length > 1 ? "s" : ""}.`);
-      aller(`/cahier/${sortie.cahier}`);
+      aller(`/cahier/${sortie2.cahier}`);
     } catch (err) {
       fermer();
       erreur("Conversion impossible", messageErreur(err));
@@ -30829,20 +30930,20 @@ async function vueDocuments({ requete: requete2 }) {
   }
   function analyserIntervalle(expression, total) {
     if (!expression?.trim() || !total) return null;
-    const sortie = /* @__PURE__ */ new Set();
+    const sortie2 = /* @__PURE__ */ new Set();
     for (const bloc of expression.split(",")) {
       const morceau = bloc.trim();
       const intervalle = /^(\d+)\s*-\s*(\d+)$/.exec(morceau);
       if (intervalle) {
         for (let i = Number(intervalle[1]); i <= Number(intervalle[2]); i++) {
-          if (i >= 1 && i <= total) sortie.add(i);
+          if (i >= 1 && i <= total) sortie2.add(i);
         }
       } else if (/^\d+$/.test(morceau)) {
         const n = Number(morceau);
-        if (n >= 1 && n <= total) sortie.add(n);
+        if (n >= 1 && n <= total) sortie2.add(n);
       }
     }
-    return sortie.size ? [...sortie].sort((a, b) => a - b) : null;
+    return sortie2.size ? [...sortie2].sort((a, b) => a - b) : null;
   }
   async function ouvrir2(doc) {
     try {
@@ -31095,7 +31196,7 @@ async function vueExercices({ requete: requete2 }) {
     );
   }
   async function creer() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Nouvel exercice",
       champs: [
         { cle: "title", label: "Titre", placeholder: "Proc\xE9dure \u2014 d\xE9sertion", requis: true },
@@ -31117,16 +31218,16 @@ async function vueExercices({ requete: requete2 }) {
       ],
       libelle: "Cr\xE9er"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       const exercice = await exercices.creer({
-        class_id: sortie.class_id,
+        class_id: sortie2.class_id,
         author_id: etat.utilisateur.id,
-        title: sortie.title,
-        instructions: sortie.instructions || null,
+        title: sortie2.title,
+        instructions: sortie2.instructions || null,
         status: "draft",
-        exam_mode: Boolean(sortie.exam_mode),
-        duration_sec: sortie.minutes ? sortie.minutes * 60 : null,
+        exam_mode: Boolean(sortie2.exam_mode),
+        duration_sec: sortie2.minutes ? sortie2.minutes * 60 : null,
         settings: {}
       });
       succes("Exercice cr\xE9\xE9", "Ajoutez maintenant vos questions.");
@@ -31349,36 +31450,36 @@ async function vueExercice({ params }) {
         valeur: Array.isArray(modele2.solution) ? modele2.solution.join("\n") : ""
       });
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: id ? "Modifier la question" : `Nouvelle question \u2014 ${libelleType(modele2.kind)}`,
       champs,
       libelle: "Enregistrer",
       large: true
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     const donnees = {
       kind: modele2.kind,
-      prompt: sortie.prompt,
-      helper: sortie.helper || null,
-      points: Number(sortie.points) || 1,
+      prompt: sortie2.prompt,
+      helper: sortie2.helper || null,
+      points: Number(sortie2.points) || 1,
       options: [],
       solution: null
     };
     if (aOptions) {
-      const lignes = sortie.options.split("\n").map((l) => l.trim()).filter(Boolean);
+      const lignes = sortie2.options.split("\n").map((l) => l.trim()).filter(Boolean);
       donnees.options = modele2.kind === "matching" ? lignes.map((l) => {
         const [gauche, droite] = l.split("|").map((p) => p.trim());
         return { gauche, droite: droite || "" };
       }) : lignes;
     }
-    if (["single", "qcm"].includes(modele2.kind) && sortie.solution) {
-      donnees.solution = Number(sortie.solution) - 1;
-    } else if (modele2.kind === "multiple" && sortie.solution) {
-      donnees.solution = String(sortie.solution).split(",").map((n) => Number(n.trim()) - 1).filter((n) => n >= 0).sort((a, b) => a - b);
+    if (["single", "qcm"].includes(modele2.kind) && sortie2.solution) {
+      donnees.solution = Number(sortie2.solution) - 1;
+    } else if (modele2.kind === "multiple" && sortie2.solution) {
+      donnees.solution = String(sortie2.solution).split(",").map((n) => Number(n.trim()) - 1).filter((n) => n >= 0).sort((a, b) => a - b);
     } else if (aVraiFaux) {
-      donnees.solution = Number(sortie.solution);
-    } else if (modele2.kind === "fill" && sortie.solution) {
-      donnees.solution = sortie.solution.split("\n").map((l) => l.trim());
+      donnees.solution = Number(sortie2.solution);
+    } else if (modele2.kind === "fill" && sortie2.solution) {
+      donnees.solution = sortie2.solution.split("\n").map((l) => l.trim());
     } else if (modele2.kind === "ordering") {
       donnees.solution = donnees.options.map((_, i) => i);
     }
@@ -31444,18 +31545,18 @@ async function vueExercice({ params }) {
       valeur: tentative.feedback || "",
       lignes: 3
     });
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Copie de ${tentative.profil?.display_name || "l'\xE9l\xE8ve"}`,
       large: true,
       note: "Laissez un champ vide pour ne pas attribuer de point \xE0 la question.",
       champs,
       libelle: "Enregistrer la note"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     let total = 0, max = 0;
     for (const q of questions2) {
       max += Number(q.points || 0);
-      const valeur = sortie[q.id];
+      const valeur = sortie2[q.id];
       if (valeur == null || valeur === "") continue;
       total += Number(valeur);
       const reponse = parQuestion.get(q.id);
@@ -31470,7 +31571,7 @@ async function vueExercice({ params }) {
       score: total,
       max_score: max,
       status: "graded",
-      feedback: sortie.__feedback || null,
+      feedback: sortie2.__feedback || null,
       graded_by: etat.utilisateur.id,
       graded_at: (/* @__PURE__ */ new Date()).toISOString()
     });
@@ -31482,7 +31583,7 @@ async function vueExercice({ params }) {
       label: exercice.title,
       score: total,
       max_score: max,
-      comment: sortie.__feedback || null,
+      comment: sortie2.__feedback || null,
       graded_by: etat.utilisateur.id
     }).catch(() => {
     });
@@ -31529,7 +31630,7 @@ async function vueExercice({ params }) {
     menu(ancre, [
       { titre: exercice.title },
       { libelle: "Modifier l'intitul\xE9", icone: "crayon", action: async () => {
-        const sortie = await formulaire({
+        const sortie2 = await formulaire({
           titre: "Modifier l'exercice",
           champs: [
             { cle: "title", label: "Titre", valeur: exercice.title, requis: true },
@@ -31537,8 +31638,8 @@ async function vueExercice({ params }) {
             { cle: "exam_mode", label: "Mode examen", type: "checkbox", valeur: exercice.exam_mode }
           ]
         });
-        if (!sortie) return;
-        Object.assign(exercice, await exercices.majorer(exercice.id, sortie));
+        if (!sortie2) return;
+        Object.assign(exercice, await exercices.majorer(exercice.id, sortie2));
         aller(`/exercice/${exercice.id}`);
       } },
       { libelle: "Correction automatique de toutes les copies", icone: "coche", action: async () => {
@@ -31994,7 +32095,7 @@ async function vueProfesseur() {
     )
   );
   async function demarrer2(classe) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Ouvrir une s\xE9ance \u2014 ${classe.name}`,
       champs: [
         {
@@ -32014,9 +32115,9 @@ async function vueProfesseur() {
       ],
       libelle: "Ouvrir"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      await sessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
+      await sessions.demarrer(classe.id, sortie2.title || null, sortie2.mode || "cours");
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("D\xE9marrage impossible", messageErreur(err));
@@ -32185,7 +32286,7 @@ async function vueModeles() {
     await peindreDetail();
   }
   async function creerCours() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Nouveau cours",
       champs: [
         { cle: "title", label: "Titre", placeholder: "Certification I \u2014 s\xE9ance 1", requis: true },
@@ -32204,14 +32305,14 @@ async function vueModeles() {
       ],
       libelle: "Cr\xE9er"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       selection = await cours.creer({
         owner_id: etat.utilisateur.id,
-        class_id: sortie.class_id || null,
-        title: sortie.title,
-        description: sortie.description || null,
-        is_template: Boolean(sortie.is_template)
+        class_id: sortie2.class_id || null,
+        title: sortie2.title,
+        description: sortie2.description || null,
+        is_template: Boolean(sortie2.is_template)
       });
       await peindreListe();
       await peindreDetail();
@@ -32220,7 +32321,7 @@ async function vueModeles() {
     }
   }
   async function ajouterEtape(coursId) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Ajouter une \xE9tape",
       champs: [
         { cle: "title", label: "Intitul\xE9", placeholder: "Introduction", requis: true },
@@ -32235,16 +32336,16 @@ async function vueModeles() {
       ],
       libelle: "Ajouter"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     await cours.ajouterEtape(coursId, {
-      title: sortie.title,
-      kind: sortie.kind,
-      payload: { corps: sortie.corps || "" }
+      title: sortie2.title,
+      kind: sortie2.kind,
+      payload: { corps: sortie2.corps || "" }
     });
     await peindreDetail();
   }
   async function modifierEtape(etape) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Modifier l'\xE9tape",
       champs: [
         { cle: "title", label: "Intitul\xE9", valeur: etape.title, requis: true },
@@ -32252,11 +32353,11 @@ async function vueModeles() {
         { cle: "corps", label: "Contenu", type: "textarea", lignes: 6, valeur: etape.payload?.corps || "" }
       ]
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     await cours.majorerEtape(etape.id, {
-      title: sortie.title,
-      kind: sortie.kind,
-      payload: { ...etape.payload, corps: sortie.corps || "" }
+      title: sortie2.title,
+      kind: sortie2.kind,
+      payload: { ...etape.payload, corps: sortie2.corps || "" }
     });
     await peindreDetail();
   }
@@ -32276,17 +32377,17 @@ async function vueModeles() {
       erreur("Aucun cahier disponible");
       return;
     }
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Verser le cours dans un cahier",
       note: `${pluriel(etapes.length, "\xE9tape")} deviendront autant de pages, dans l'ordre.`,
       champs: [{ cle: "cahier", label: "Cahier", type: "select", valeur: cibles[0].valeur, options: cibles }],
       libelle: "Verser"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
       for (const etape of etapes) {
         const corps = String(etape.payload?.corps || "").split("\n").map((l) => `<p>${l.replace(/[<>&]/g, "")}</p>`).join("");
-        await pages.creer(sortie.cahier, {
+        await pages.creer(sortie2.cahier, {
           title: etape.title,
           body: corps,
           origin: "course",
@@ -32295,7 +32396,7 @@ async function vueModeles() {
         });
       }
       succes("Cours vers\xE9", `${pluriel(etapes.length, "page")} ajout\xE9e${etapes.length > 1 ? "s" : ""}.`);
-      aller(`/cahier/${sortie.cahier}`);
+      aller(`/cahier/${sortie2.cahier}`);
     } catch (err) {
       erreur("Versement impossible", messageErreur(err));
     }
@@ -32359,7 +32460,7 @@ var administration_exports = {};
 __export(administration_exports, {
   default: () => vueAdministration
 });
-function motDePasseAuHasard() {
+function motDePasseAuHasard2() {
   const mots = ["Rempart", "Plume", "Encrier", "Bougie", "Pupitre", "Muraille", "Craie", "Horloge", "Lanterne", "Cadet"];
   const n = new Uint32Array(3);
   crypto.getRandomValues(n);
@@ -32554,14 +32655,14 @@ async function vueAdministration() {
   async function noter(r, verdict) {
     let texte = "";
     if (verdict === "note" || verdict === "douteux" || verdict === "faux") {
-      const sortie = await formulaire({
+      const sortie2 = await formulaire({
         titre: `${VERDICTS[verdict].libelle} \u2014 \xAB ${r.papier?.title || "papier"} \xBB`,
         note: "Ce que vous avez constat\xE9 (lieu v\xE9rifi\xE9 en jeu, t\xE9moins, incoh\xE9rence\u2026). Visible de la mod\xE9ration seule.",
         champs: [{ cle: "texte", label: "Constat", type: "textarea", requis: verdict === "note", valeur: "" }],
         libelle: "Noter"
       });
-      if (!sortie) return;
-      texte = sortie.texte;
+      if (!sortie2) return;
+      texte = sortie2.texte;
     }
     try {
       await moderation.noter({ genre: "paper_handoff", cible: r.id, verdict, texte, auteur: etat.utilisateur.id });
@@ -32788,7 +32889,7 @@ async function vueAdministration() {
     ]);
   }
   async function donnerTitre(p) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Titre \u2014 ${p.display_name}`,
       note: "Un titre ne donne aucun droit sur le site : il change la mise en sc\xE8ne. Un roi ou une reine si\xE8ge sur le tr\xF4ne en audience, couronne en t\xEAte.",
       champs: [
@@ -32809,10 +32910,10 @@ async function vueAdministration() {
       ],
       libelle: "Attribuer"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      await profils.titrer(p.id, sortie.titre || null, sortie.titre ? sortie.libelle : null);
-      succes(sortie.titre ? `${p.display_name} : ${sortie.libelle || nomTitre(sortie.titre)}` : "Titre retir\xE9");
+      await profils.titrer(p.id, sortie2.titre || null, sortie2.titre ? sortie2.libelle : null);
+      succes(sortie2.titre ? `${p.display_name} : ${sortie2.libelle || nomTitre(sortie2.titre)}` : "Titre retir\xE9");
       await peindre();
     } catch (err) {
       erreur("Attribution impossible", messageErreur(err));
@@ -32820,7 +32921,7 @@ async function vueAdministration() {
   }
   async function ecrireA(p) {
     if (!p) return;
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `\xC9crire \xE0 ${p.display_name}`,
       note: "Le message arrive dans ses notifications, sign\xE9 de la mod\xE9ration. Il est inscrit au journal.",
       champs: [
@@ -32829,9 +32930,9 @@ async function vueAdministration() {
       ],
       libelle: "Envoyer"
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      await moderation.ecrire(p.id, sortie.titre, sortie.corps || null);
+      await moderation.ecrire(p.id, sortie2.titre, sortie2.corps || null);
       succes("Message envoy\xE9");
     } catch (err) {
       erreur("Envoi impossible", messageErreur(err));
@@ -32991,27 +33092,27 @@ async function vueAdministration() {
     ]);
   }
   async function nouveauMotDePasse(profil) {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: `Nouveau mot de passe \u2014 ${profil.display_name}`,
       note: "Transmettez-le au joueur en jeu ; il pourra le changer depuis son profil.",
       champs: [{
         cle: "mdp",
         label: "Mot de passe",
         type: "text",
-        valeur: motDePasseAuHasard(),
+        valeur: motDePasseAuHasard2(),
         requis: true,
         aide: "Huit caract\xE8res minimum."
       }],
       libelle: "Appliquer"
     });
-    if (!sortie) return;
-    if (sortie.mdp.length < 8) {
+    if (!sortie2) return;
+    if (sortie2.mdp.length < 8) {
       erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
       return;
     }
     try {
-      await auth.remettreMotDePasse(profil.id, sortie.mdp);
-      succes("Mot de passe chang\xE9", `${profil.display_name} peut entrer avec \xAB ${sortie.mdp} \xBB.`);
+      await auth.remettreMotDePasse(profil.id, sortie2.mdp);
+      succes("Mot de passe chang\xE9", `${profil.display_name} peut entrer avec \xAB ${sortie2.mdp} \xBB.`);
     } catch (err) {
       erreur("Changement impossible", messageErreur(err));
     }
@@ -33095,6 +33196,9 @@ var init_administration = __esm({
       "cahier.returned": "a rendu un cahier",
       "compte.role": "a chang\xE9 un r\xF4le",
       "compte.titre": "a attribu\xE9 un titre",
+      "compte.code_cree": "a cr\xE9\xE9 un code de r\xF4le",
+      "compte.code_utilise": "a utilis\xE9 un code de r\xF4le",
+      "compte.code_refuse": "a tap\xE9 un code de r\xF4le invalide",
       "moderation.note": "a not\xE9 une remise",
       "moderation.annonce": "a fait une annonce \xE0 tous",
       "moderation.message": "a \xE9crit \xE0 un joueur",
@@ -33429,7 +33533,7 @@ async function vueProfil() {
     )
   );
   async function modifier() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Modifier mon profil",
       // Le pseudo RP sert à se connecter : il ne se change pas ici.
       note: `Pseudo RP : ${profil.display_name} \u2014 c'est avec lui que vous vous connectez.`,
@@ -33444,9 +33548,9 @@ async function vueProfil() {
         { cle: "bio", label: "Pr\xE9sentation", type: "textarea", valeur: profil.bio || "" }
       ]
     });
-    if (!sortie) return;
+    if (!sortie2) return;
     try {
-      const maj = await profils.majorer(profil.id, sortie);
+      const maj = await profils.majorer(profil.id, sortie2);
       definir({ profil: maj });
       succes("Profil mis \xE0 jour");
       aller("/profil");
@@ -33455,7 +33559,7 @@ async function vueProfil() {
     }
   }
   async function changerMotDePasse() {
-    const sortie = await formulaire({
+    const sortie2 = await formulaire({
       titre: "Changer mon mot de passe",
       champs: [
         { cle: "mdp", label: "Nouveau mot de passe", type: "password", requis: true, aide: "Huit caract\xE8res minimum." },
@@ -33463,17 +33567,17 @@ async function vueProfil() {
       ],
       libelle: "Changer"
     });
-    if (!sortie) return;
-    if (sortie.mdp.length < 8) {
+    if (!sortie2) return;
+    if (sortie2.mdp.length < 8) {
       erreur("Mot de passe trop court", "Huit caract\xE8res au minimum.");
       return;
     }
-    if (sortie.mdp !== sortie.mdp2) {
+    if (sortie2.mdp !== sortie2.mdp2) {
       erreur("Les mots de passe diff\xE8rent", "Tapez deux fois le m\xEAme.");
       return;
     }
     try {
-      await auth.changerMotDePasse(sortie.mdp);
+      await auth.changerMotDePasse(sortie2.mdp);
       succes("Mot de passe chang\xE9");
     } catch (err) {
       erreur("Changement impossible", messageErreur(err));
@@ -33696,13 +33800,13 @@ async function vueReglages({ requete: requete2 }) {
                 el("button.btn.btn--fantome.btn--icone", {
                   "aria-label": "Modifier",
                   onclick: async () => {
-                    const sortie = await formulaire({
+                    const sortie2 = await formulaire({
                       titre: LIBELLES_ACTIONS[action] || action,
                       note: "S\xE9quence (\xAB g c \xBB) ou combinaison (\xAB mod+\\ \xBB, \xAB alt+ArrowRight \xBB).",
                       champs: [{ cle: "combinaison", label: "Raccourci", valeur: combinaison, requis: true }]
                     });
-                    if (!sortie) return;
-                    definirRaccourci(action, sortie.combinaison);
+                    if (!sortie2) return;
+                    definirRaccourci(action, sortie2.combinaison);
                     peindre();
                   }
                 }, icone("crayon", 14))
@@ -33753,14 +33857,14 @@ async function vueReglages({ requete: requete2 }) {
           ),
           el("button.btn", {
             onclick: async () => {
-              const sortie = await formulaire({
+              const sortie2 = await formulaire({
                 titre: "Vocabulaire RP",
                 large: true,
                 champs: ["Classe", "Classes", "Eleve", "Eleves", "Professeur", "Cours", "Cahier", "Tableau", "Session"].map((terme) => ({ cle: terme, label: terme, valeur: actuel[terme] || "" })),
                 libelle: "Appliquer"
               });
-              if (!sortie) return;
-              definirLexique(sortie);
+              if (!sortie2) return;
+              definirLexique(sortie2);
               succes("Vocabulaire mis \xE0 jour", "Rechargez pour l'appliquer partout.");
               peindre();
             }
@@ -34138,6 +34242,259 @@ async function ouvrir(remiseId) {
   emettre("remises:change", remise);
 }
 
+// src/features/commandes.js
+init_dom();
+init_store();
+init_router();
+init_session();
+init_data();
+init_permissions();
+init_titres();
+init_toast();
+var ROLES = {
+  membre: "student",
+  eleve: "student",
+  student: "student",
+  observateur: "observer",
+  observer: "observer",
+  professeur: "teacher",
+  teacher: "teacher",
+  formateur: "instructor",
+  moderateur: "moderator",
+  modo: "moderator",
+  moderator: "moderator",
+  directeur: "director",
+  director: "director",
+  admin: "admin",
+  administrateur: "admin",
+  superadmin: "super_admin",
+  super: "super_admin",
+  super_admin: "super_admin"
+};
+var sansAccent = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+var roleDe2 = (mot) => ROLES[sansAccent(mot).replace(/[\s-]/g, "")] || null;
+function motDePasseAuHasard() {
+  const mots = ["Rempart", "Plume", "Encrier", "Bougie", "Pupitre", "Muraille", "Craie", "Horloge", "Lanterne", "Cadet"];
+  const n = new Uint32Array(3);
+  crypto.getRandomValues(n);
+  return `${mots[n[0] % mots.length]}-${mots[n[1] % mots.length]}-${1e3 + n[2] % 9e3}`;
+}
+var COMMANDES = [
+  { nom: "aide", usage: "/aide", aide: "La liste des commandes." },
+  { nom: "moi", usage: "/moi", aide: "Votre pseudo, votre r\xF4le, votre titre." },
+  { nom: "role", usage: "/role CODE", aide: "Utiliser un code re\xE7u de l'administration (mod\xE9rateur, administrateur\u2026)." },
+  { nom: "code", usage: "/code moderateur|admin|superadmin", aide: "Cr\xE9er un code \xE0 usage unique, valable 24 h.", qui: "admin" },
+  { nom: "nommer", usage: "/nommer PSEUDO ROLE", aide: "Changer le r\xF4le d'un compte (membre, moderateur, admin\u2026).", qui: "admin" },
+  { nom: "titre", usage: "/titre PSEUDO roi|reine|commandant\u2026|aucun [libell\xE9]", aide: "Donner un titre de personnage.", qui: "admin" },
+  { nom: "mdp", usage: "/mdp PSEUDO", aide: "Donner un nouveau mot de passe \xE0 un joueur.", qui: "admin" },
+  { nom: "annonce", usage: "/annonce TITRE | TEXTE", aide: "Une annonce \xE0 tous les joueurs.", qui: "modo" },
+  { nom: "message", usage: "/message PSEUDO TEXTE", aide: "\xC9crire \xE0 un joueur, au nom de la mod\xE9ration.", qui: "modo" },
+  { nom: "moderation", usage: "/moderation", aide: "Ouvrir la mod\xE9ration (remises, journal\u2026).", qui: "modo" },
+  { nom: "effacer", usage: "/effacer", aide: "Vider cette fen\xEAtre." }
+];
+var autorise = (c) => !c.qui || (c.qui === "admin" ? peutNommer2() : estModerateur());
+async function executer(ligne) {
+  const brut = ligne.trim().replace(/^\//, "");
+  const [nomBrut, ...args] = brut.split(/\s+/);
+  const nom = sansAccent(nomBrut);
+  const reste = brut.slice(nomBrut.length).trim();
+  const ok = (texte) => [{ texte, genre: "ok" }];
+  const info = (texte) => [{ texte, genre: "info" }];
+  const ko = (texte) => [{ texte, genre: "erreur" }];
+  const commande = COMMANDES.find((c) => c.nom === nom);
+  if (!commande) return ko(`Commande inconnue : \xAB ${nomBrut} \xBB. Tapez /aide.`);
+  if (!autorise(commande)) return ko(`/${commande.nom} est r\xE9serv\xE9e \xE0 ${commande.qui === "admin" ? "l'administration" : "la mod\xE9ration"}.`);
+  if (!etat.utilisateur) return ko("Connectez-vous d'abord.");
+  const compte = async (pseudo) => {
+    const p = await profils.parPseudo(pseudo);
+    if (!p) throw new Error(`Aucun compte \xAB ${pseudo} \xBB.`);
+    return p;
+  };
+  switch (nom) {
+    case "aide":
+      return COMMANDES.filter(autorise).map((c) => ({ texte: `${c.usage} \u2014 ${c.aide}`, genre: "info" }));
+    case "moi": {
+      const p = etat.profil || {};
+      const titre = libelleTitre(p);
+      return info(`${p.display_name} \xB7 ${LIBELLES_ROLES[p.role_key] || p.role_key}${titre ? ` \xB7 ${titre}` : ""}`);
+    }
+    case "role": {
+      if (!args[0]) return ko("Usage : /role CODE");
+      const avant = etat.profil?.role_key;
+      const role = await profils.utiliserCodeRole(args[0]);
+      await chargerSession();
+      return role === avant ? info(`Code utilis\xE9, mais vous \xE9tiez d\xE9j\xE0 ${LIBELLES_ROLES[role] || role} (ou plus) : rien ne change.`) : ok(`Vous \xEAtes maintenant ${LIBELLES_ROLES[role] || role}.`);
+    }
+    case "code": {
+      const role = roleDe2(args[0] || "");
+      if (!["moderator", "admin", "super_admin"].includes(role)) return ko("Usage : /code moderateur|admin|superadmin");
+      const code = await profils.creerCodeRole(role);
+      return [
+        { texte: `Code ${LIBELLES_ROLES[role]} : ${code}`, genre: "ok", copier: code },
+        { texte: "\xC0 donner en main propre. Il sert une seule fois et expire dans 24 h. La personne tape : /role " + code, genre: "info" }
+      ];
+    }
+    case "nommer": {
+      if (args.length < 2) return ko("Usage : /nommer PSEUDO ROLE");
+      const role = roleDe2(args[args.length - 1]);
+      if (!role) return ko("R\xF4le inconnu. Exemples : membre, moderateur, admin, superadmin.");
+      const p = await compte(args.slice(0, -1).join(" "));
+      await profils.nommer(p.id, role);
+      return ok(`${p.display_name} est maintenant ${LIBELLES_ROLES[role]}.`);
+    }
+    case "titre": {
+      if (args.length < 2) return ko("Usage : /titre PSEUDO roi|reine|commandant\u2026|aucun [libell\xE9]");
+      const p = await compte(args[0]);
+      const cle = sansAccent(args[1]);
+      if (cle === "aucun") {
+        await profils.titrer(p.id, null);
+        return ok(`${p.display_name} n'a plus de titre.`);
+      }
+      const fiche2 = TITRES.find((t) => t.cle === cle || sansAccent(t.libelle) === cle);
+      if (!fiche2) return ko(`Titre inconnu. Titres : ${TITRES.map((t) => t.cle).join(", ")}.`);
+      const libelle = args.slice(2).join(" ") || null;
+      await profils.titrer(p.id, fiche2.cle, libelle);
+      return ok(`${p.display_name} : ${libelle || fiche2.libelle}.`);
+    }
+    case "mdp": {
+      if (!args[0]) return ko("Usage : /mdp PSEUDO");
+      const p = await compte(args.join(" "));
+      const mdp = motDePasseAuHasard();
+      await auth.remettreMotDePasse(p.id, mdp);
+      return [
+        { texte: `Nouveau mot de passe de ${p.display_name} : ${mdp}`, genre: "ok", copier: mdp },
+        { texte: "Transmettez-le en jeu ; il pourra le changer depuis son profil.", genre: "info" }
+      ];
+    }
+    case "annonce": {
+      if (!reste) return ko("Usage : /annonce TITRE | TEXTE");
+      const [titre, ...corps] = reste.split("|");
+      const n = await moderation.annoncer(titre.trim(), corps.join("|").trim() || null);
+      return ok(`Annonce envoy\xE9e \xE0 ${n} compte${n > 1 ? "s" : ""}.`);
+    }
+    case "message": {
+      if (args.length < 2) return ko("Usage : /message PSEUDO TEXTE");
+      const p = await compte(args[0]);
+      const texte = args.slice(1).join(" ");
+      await moderation.ecrire(p.id, "Message de la mod\xE9ration", texte);
+      return ok(`Message envoy\xE9 \xE0 ${p.display_name}.`);
+    }
+    case "moderation":
+      aller("/administration");
+      return info("Ouverture de la mod\xE9ration\u2026");
+    case "effacer":
+      return [{ effacer: true }];
+  }
+  return ko("Commande inconnue.");
+}
+var ouverte = false;
+var racine;
+var sortie;
+var saisie;
+var historique = [];
+var curseur = -1;
+function ecrire(lignes) {
+  for (const l of lignes) {
+    if (l.effacer) {
+      sortie.replaceChildren();
+      continue;
+    }
+    sortie.append(el(
+      "div.commandes__ligne",
+      { class: `commandes__ligne--${l.genre || "info"}` },
+      el("span", l.texte),
+      l.copier ? el("button.commandes__copier", {
+        type: "button",
+        title: "Copier",
+        onclick: (e) => {
+          navigator.clipboard?.writeText(l.copier).then(() => {
+            e.currentTarget.textContent = "copi\xE9";
+          }).catch(() => {
+          });
+        }
+      }, "copier") : null
+    ));
+  }
+  while (sortie.childElementCount > 60) sortie.firstElementChild.remove();
+  sortie.scrollTop = sortie.scrollHeight;
+}
+function basculer(force = !ouverte) {
+  ouverte = force;
+  racine.classList.toggle("commandes--ouverte", ouverte);
+  if (ouverte) setTimeout(() => saisie.focus(), 0);
+}
+function monterCommandes(hote = document.body) {
+  if (racine) return;
+  sortie = el("div.commandes__sortie", { role: "log", "aria-live": "polite" });
+  saisie = el("input.commandes__saisie", {
+    type: "text",
+    placeholder: "/aide",
+    spellcheck: "false",
+    autocomplete: "off",
+    "aria-label": "Commande",
+    onkeydown: async (e) => {
+      if (e.key === "Escape") {
+        basculer(false);
+        return;
+      }
+      if (e.key === "ArrowUp" && historique.length) {
+        curseur = Math.min(historique.length - 1, curseur + 1);
+        saisie.value = historique[historique.length - 1 - curseur];
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        curseur = Math.max(-1, curseur - 1);
+        saisie.value = curseur < 0 ? "" : historique[historique.length - 1 - curseur];
+        e.preventDefault();
+        return;
+      }
+      if (e.key !== "Enter") return;
+      const ligne = saisie.value.trim();
+      if (!ligne) return;
+      saisie.value = "";
+      curseur = -1;
+      historique.push(ligne);
+      ecrire([{ texte: /^\/?role\s/i.test(ligne) ? "/role \u2022\u2022\u2022\u2022-\u2022\u2022\u2022\u2022-\u2022\u2022\u2022\u2022" : ligne.startsWith("/") ? ligne : `/${ligne}`, genre: "tape" }]);
+      saisie.disabled = true;
+      try {
+        ecrire(await executer(ligne));
+      } catch (err) {
+        const m = String(err?.message || "");
+        const clair = /^[A-ZÀ-Ý«]/.test(m) && !/violates|duplicate key|JWT|fetch|syntax/i.test(m);
+        ecrire([{ texte: clair ? m : messageErreur(err) || m, genre: "erreur" }]);
+      } finally {
+        saisie.disabled = false;
+        saisie.focus();
+      }
+    }
+  });
+  racine = el(
+    "div.commandes",
+    el(
+      "div.commandes__panneau",
+      sortie,
+      el("label.commandes__ligne-saisie", el("span.commandes__invite", ">"), saisie)
+    ),
+    el("button.commandes__bouton", {
+      type: "button",
+      title: "Commandes (touche \xB2)",
+      "aria-label": "Commandes",
+      onclick: () => basculer()
+    }, ">_")
+  );
+  hote.append(racine);
+  ecrire([{ texte: "Tapez /aide pour la liste des commandes.", genre: "info" }]);
+  window.addEventListener("keydown", (e) => {
+    const cible = e.target;
+    const dansUnChamp = cible?.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(cible?.tagName);
+    if ((e.code === "Backquote" || e.key === "\xB2") && !e.ctrlKey && !e.metaKey && !e.altKey && etat.utilisateur && (!dansUnChamp || cible === saisie)) {
+      e.preventDefault();
+      basculer();
+    }
+  });
+}
+
 // src/app.js
 function declarerRoutes() {
   definirRoute("/connexion", { nom: "connexion", vue: () => Promise.resolve().then(() => (init_auth(), auth_exports)), publique: true });
@@ -34198,6 +34555,7 @@ async function demarrer() {
     surveillerRemises();
     hote.hidden = false;
     const vue = construireChassis(hote);
+    monterCommandes(document.body);
     declarerRoutes();
     declarerRaccourcis();
     activerRaccourcis();

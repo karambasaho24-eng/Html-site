@@ -167,9 +167,11 @@ const peutNommer = () => ["admin", "super_admin"].includes(roleDe(quiSuisJe()));
 const estModerateurLocal = () => ["moderator", "admin", "super_admin"].includes(roleDe(quiSuisJe()));
 const pareil = (a, b) => (a ?? null) === (b ?? null);
 
+let codeDeRole = null;                 // l'équivalent de app.code_de_role (0030)
 function gardeProfil(ancien, nouveau) {
   const moi = quiSuisJe();
   if (!moi) return nouveau;
+  if (ancien && codeDeRole === ancien.id) return nouveau;
   if (!ancien) {
     if (!peutNommer()) Object.assign(nouveau, { role_key: "student", titre: null, titre_libelle: null });
     return nouveau;
@@ -923,6 +925,46 @@ export async function creerPiloteLocal() {
       sauver("profiles", lignes);
       signaler("profiles", "UPDATE", lignes[i], null);
       return lignes[i];
+    },
+
+    /** Un code de rôle à usage unique, valable 24 h (creer_code_role, 0030). */
+    async creer_code_role({ role }) {
+      if (!["moderator", "admin", "super_admin"].includes(role)) {
+        throw new ErreurDonnees("Rôle inconnu : moderator, admin ou super_admin.", "22023");
+      }
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration crée un code.", "42501");
+      if (role === "super_admin" && roleDe(monId()) !== "super_admin") {
+        throw new ErreurDonnees("Seul un super administrateur crée un code de super administrateur.", "42501");
+      }
+      const brut = [...crypto.getRandomValues(new Uint8Array(6))].map((o) => o.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const code = `${brut.slice(0, 4)}-${brut.slice(4, 8)}-${brut.slice(8, 12)}`;
+      await t("role_codes").creer({
+        code_hash: await empreinte(code), role_key: role, created_by: monId(),
+        expires_at: new Date(Date.now() + 24 * 3600e3).toISOString(), used_by: null, used_at: null
+      });
+      journaliser(monId(), "compte.code_cree", { role });
+      return code;
+    },
+
+    async utiliser_code_role({ code }) {
+      const moi = monId();
+      if (!moi) throw new ErreurDonnees("Connectez-vous d'abord.", "42501");
+      const h = await empreinte(String(code || "").trim().toUpperCase());
+      const ligne = (await t("role_codes").liste({ code_hash: h }))
+        .find((l) => !l.used_at && new Date(l.expires_at).getTime() > Date.now());
+      if (!ligne) {
+        journaliser(moi, "compte.code_refuse", {});
+        throw new ErreurDonnees("Code invalide, déjà utilisé ou expiré.", "42501");
+      }
+      const rang = async (cle) => (await t("roles").liste({ key: cle }))[0]?.rank || 0;
+      const actuel = roleDe(moi);
+      await t("role_codes").majorer(ligne.id, { used_by: moi, used_at: new Date().toISOString() });
+      if (await rang(actuel) >= await rang(ligne.role_key)) return actuel;
+      codeDeRole = moi;
+      try { await t("profiles").majorer(moi, { role_key: ligne.role_key }); }
+      finally { codeDeRole = null; }
+      journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
+      return ligne.role_key;
     },
 
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
