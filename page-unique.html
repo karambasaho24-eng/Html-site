@@ -14608,9 +14608,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     sac.add(poignee);
     const rabat = new THREE.Group();
     rabat.position.set(0, H + 0.02, -P2 / 2);
-    const dessus = plaque(L2 + 0.05, P2 + 0.04, 0.16, 0.03, matCuir);
-    dessus.position.set(0, 0, P2 / 2 + 0.01);
-    rabat.add(dessus);
+    const dessus2 = plaque(L2 + 0.05, P2 + 0.04, 0.16, 0.03, matCuir);
+    dessus2.position.set(0, 0, P2 / 2 + 0.01);
+    rabat.add(dessus2);
     const devant2 = plaque(L2 + 0.05, H * 0.62, 0.2, 0.03, matCuir);
     devant2.geometry.rotateX(Math.PI / 2);
     devant2.position.set(0, -H * 0.31 + 0.03, P2 + 0.03);
@@ -15316,11 +15316,11 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     mur(largeur + 2, 0, avant, Math.PI);
     const porte = new THREE.Group();
     const matPorte = new THREE.MeshStandardMaterial({ map: T2.porte, roughness: 0.55 });
-    for (const cote of [-1, 1]) {
+    for (const cote2 of [-1, 1]) {
       const battant = new THREE.Mesh(new THREE.BoxGeometry(1.6, 6.4, 0.14), matPorte);
-      battant.position.set(cote * 0.81, 3.2, 0);
+      battant.position.set(cote2 * 0.81, 3.2, 0);
       const poignee = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), matDe("#b8933f", { metalness: 0.8, roughness: 0.3 }));
-      poignee.position.set(cote * 0.2, 3.1, -0.12);
+      poignee.position.set(cote2 * 0.2, 3.1, -0.12);
       porte.add(battant, poignee);
     }
     const matChambranle = matDe("#3a2a1e", { roughness: 0.6 });
@@ -16057,9 +16057,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     mur(largeur, 0, avant, Math.PI);
     const portes = new THREE.Group();
     const matPorteP = new THREE.MeshStandardMaterial({ map: texPiece().porte, roughness: 0.5, color: "#c9a27a" });
-    for (const cote of [-1, 1]) {
+    for (const cote2 of [-1, 1]) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(2.4, 9, 0.2), matPorteP);
-      b.position.set(cote * 1.22, 4.5, 0);
+      b.position.set(cote2 * 1.22, 4.5, 0);
       portes.add(b);
     }
     const arc = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 10, 32, Math.PI), matieresRoyales().or);
@@ -16086,9 +16086,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const matColonne = matDe("#d8d0c0", { roughness: 0.5 });
     const or = matieresRoyales().or;
     const matBanniere = new THREE.MeshStandardMaterial({ map: T2.banniere, roughness: 0.85, side: THREE.DoubleSide, transparent: true, alphaTest: 0.5 });
-    for (const cote of [-1, 1]) {
+    for (const cote2 of [-1, 1]) {
       for (let z = fond + 4; z < avant - 2; z += 6) {
-        const x = cote * (largeur / 2 - 2);
+        const x = cote2 * (largeur / 2 - 2);
         const fut = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.62, 13, 20), matColonne);
         fut.position.set(x, 6.5, z);
         const base2 = new THREE.Mesh(boiteRonde(1.7, 0.6, 1.7, 0.08), matColonne);
@@ -16098,8 +16098,8 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         decor.add(fut, base2, chap);
         if (z + 3 < avant - 2) {
           const b = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 6), matBanniere);
-          b.position.set(cote * (largeur / 2 - 0.12), 8.5, z + 3);
-          b.rotation.y = -cote * Math.PI / 2;
+          b.position.set(cote2 * (largeur / 2 - 0.12), 8.5, z + 3);
+          b.rotation.y = -cote2 * Math.PI / 2;
           decor.add(b);
         }
       }
@@ -16190,12 +16190,12 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       decor.add(lueur);
       bougies.push({ lumiere: lueur, base: 16, phase: x });
     }
-    for (const cote of [-1, 1]) {
+    for (const cote2 of [-1, 1]) {
       for (let z = fond + 10; z < avant - 2; z += 12) {
         const l = new THREE.PointLight("#ffa850", 10, 14, 2);
-        l.position.set(cote * (largeur / 2 - 3), 6, z);
+        l.position.set(cote2 * (largeur / 2 - 3), 6, z);
         decor.add(l);
-        bougies.push({ lumiere: l, base: 10, phase: z * 0.7 + cote });
+        bougies.push({ lumiere: l, base: 10, phase: z * 0.7 + cote2 });
       }
     }
     const sieges = [];
@@ -16209,17 +16209,17 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     }
     const bancs = Math.max(0, total - nArc);
     const parBanc = 4, pas2 = 2.1;
-    for (const cote of [-1, 1]) {
+    for (const cote2 of [-1, 1]) {
       const n = Math.max(1, Math.ceil(bancs / 2 / parBanc));
       for (let b = 0; b < n; b++) {
         const z0 = zTrone + 6.5 + b * (parBanc * pas2 + 1.5);
         const banc = new THREE.Mesh(boiteRonde(1.4, 0.18, parBanc * pas2, 0.05), boisFonce);
-        banc.position.set(cote * 8.6, 0.95, z0 + (parBanc - 1) * pas2 / 2);
+        banc.position.set(cote2 * 8.6, 0.95, z0 + (parBanc - 1) * pas2 / 2);
         const dosBanc = new THREE.Mesh(boiteRonde(0.16, 1.3, parBanc * pas2, 0.05), boisFonce);
-        dosBanc.position.set(cote * 9.3, 1.8, z0 + (parBanc - 1) * pas2 / 2);
+        dosBanc.position.set(cote2 * 9.3, 1.8, z0 + (parBanc - 1) * pas2 / 2);
         for (const dz of [-1, 1]) {
           const pieds = new THREE.Mesh(boiteRonde(1.3, 0.9, 0.16, 0.04), boisFonce);
-          pieds.position.set(cote * 8.6, 0.45, z0 + (parBanc - 1) * pas2 / 2 + dz * (parBanc * pas2 / 2 - 0.3));
+          pieds.position.set(cote2 * 8.6, 0.45, z0 + (parBanc - 1) * pas2 / 2 + dz * (parBanc * pas2 / 2 - 0.3));
           decor.add(pieds);
         }
         ombrer(banc);
@@ -16228,7 +16228,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
         for (let k = 0; k < parBanc; k++) {
           const objets = new THREE.Group();
           objets.visible = false;
-          sieges.push({ x: cote * 8.55, z: z0 + k * pas2, angle: cote * Math.PI / 2, objets });
+          sieges.push({ x: cote2 * 8.55, z: z0 + k * pas2, angle: cote2 * Math.PI / 2, objets });
         }
       }
     }
@@ -16385,9 +16385,9 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     const vol = [];
     for (let i = 0; i < n; i++) {
       const o = new THREE.Group();
-      const ailes = [-1, 1].map((cote) => {
+      const ailes = [-1, 1].map((cote2) => {
         const aile = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28), mat);
-        aile.geometry.translate(cote * 0.45, 0, 0);
+        aile.geometry.translate(cote2 * 0.45, 0, 0);
         o.add(aile);
         return aile;
       });
@@ -16453,14 +16453,14 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     soleil.target.position.set(0, 0, -2);
     Object.assign(soleil.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
     soleil.shadow.camera.updateProjectionMatrix();
-    bornes = { x: 16, zMin: -13, zMax: 24, y: 30 };
+    bornes = { x: 13.5, zMin: -11.5, zMax: 22, y: 30 };
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({ map: T2.paves, roughness: 0.95 }));
     sol.rotation.x = -Math.PI / 2;
     sol.receiveShadow = true;
     decor.add(sol);
     for (let i = -4; i <= 4; i++) maison(i * 8.4, -16, 7.6, 6 + (i * 7 + 9) % 3, 0);
-    for (const cote of [-1, 1]) {
-      for (let i = 0; i < 4; i++) maison(cote * 19, -9 + i * 8.4, 7.6, 6 + (i * 5 + 4) % 3, -cote * Math.PI / 2);
+    for (const cote2 of [-1, 1]) {
+      for (let i = 0; i < 4; i++) maison(cote2 * 19, -9 + i * 8.4, 7.6, 6 + (i * 5 + 4) % 3, -cote2 * Math.PI / 2);
     }
     for (let i = -4; i <= 4; i++) maison(i * 8.4, 28, 7.6, 6 + (i * 5 + 7) % 3, Math.PI);
     oiseaux(petit ? 4 : 7, 0, -6, 22);
@@ -16715,6 +16715,7 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
     bougies = [];
     animes = [];
     bornes = null;
+    boites = null;
     nuitDehors = false;
     lumieresParDefaut();
     if (!remise) oublierActeurs();
@@ -17175,8 +17176,50 @@ async function creerClasse3D({ hote, toile = () => null, surTableau = null, surP
       camera.position.copy(visee).addScaledVector(ecart2, t2);
     }
     camera.position.y = Math.max(0.7, camera.position.y);
+    if (entree2 || vueLibreModifiee()) {
+      ecart2.subVectors(camera.position, visee);
+      const loin = ecart2.length();
+      if (loin > 1.7) {
+        ecart2.multiplyScalar(1 / loin);
+        cote.crossVectors(ecart2, HAUT_Y).normalize();
+        dessus.crossVectors(cote, ecart2).normalize();
+        let d = loin;
+        for (const [a, b2] of [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.55], [0, -0.55]]) {
+          origine.copy(visee).addScaledVector(cote, a).addScaledVector(dessus, b2);
+          occlusion.set(origine, ecart2);
+          occlusion.far = d + 0.6;
+          const choc = occlusion.intersectObject(decor, true).find((h) => h.object.visible && !h.object.material?.transparent);
+          if (choc) d = Math.min(d, choc.distance - 0.6);
+        }
+        if (d < loin) camera.position.copy(visee).addScaledVector(ecart2, Math.max(1.5, d));
+        const boites2 = boitesDecor();
+        const libreIci = (pt) => !boites2.some((bx) => bx.containsPoint(pt));
+        let t2 = camera.position.distanceTo(visee);
+        for (let i = 0; i < 12 && t2 > 1.5 && !libreIci(camera.position); i++) {
+          t2 = Math.max(1.5, t2 - 0.45);
+          camera.position.copy(visee).addScaledVector(ecart2, t2);
+        }
+      }
+    }
     camera.lookAt(cible);
   }
+  const occlusion = new THREE.Raycaster();
+  let boites = null;
+  function boitesDecor() {
+    if (boites) return boites;
+    boites = [];
+    decor.updateMatrixWorld(true);
+    decor.traverse((m) => {
+      if (!m.isMesh || m.material?.transparent || !m.geometry) return;
+      const b = new THREE.Box3().setFromObject(m);
+      const t = b.getSize(new THREE.Vector3());
+      if (Math.min(t.x, t.y, t.z) < 0.05 && Math.max(t.x, t.y, t.z) > 6) return;
+      if (t.x > 30 || t.z > 30) return;
+      boites.push(b.expandByScalar(0.45));
+    });
+    return boites;
+  }
+  const cote = new THREE.Vector3(), dessus = new THREE.Vector3(), origine = new THREE.Vector3();
   const HAUT_Y = new THREE.Vector3(0, 1, 0);
   function jouerEntree(genre) {
     const E = {

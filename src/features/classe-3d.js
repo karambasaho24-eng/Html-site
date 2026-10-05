@@ -2710,7 +2710,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     Object.assign(soleil.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
     soleil.shadow.camera.updateProjectionMatrix();
 
-    bornes = { x: 16, zMin: -13, zMax: 24, y: 30 };
+    bornes = { x: 13.5, zMin: -11.5, zMax: 22, y: 30 };
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({ map: T.paves, roughness: .95 }));
     sol.rotation.x = -Math.PI / 2;
     sol.receiveShadow = true;
@@ -2964,6 +2964,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     bougies = [];
     animes = [];
     bornes = null;
+    boites = null;
     nuitDehors = false;
     lumieresParDefaut();
     if (!remise) oublierActeurs();
@@ -3464,8 +3465,57 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       camera.position.copy(visee).addScaledVector(ecart, t);
     }
     camera.position.y = Math.max(0.7, camera.position.y);
+    // Un meuble, un mur, un lampadaire entre la caméra et ce qu'elle regarde :
+    // elle passe devant (comme dans le jeu), plutôt que de s'y enfoncer.
+    if (entree || vueLibreModifiee()) {
+      ecart.subVectors(camera.position, visee);
+      const loin = ecart.length();
+      if (loin > 1.7) {
+        ecart.multiplyScalar(1 / loin);
+        // Cinq rayons : l'axe, et quatre autour (la caméra a une épaisseur).
+        cote.crossVectors(ecart, HAUT_Y).normalize();
+        dessus.crossVectors(cote, ecart).normalize();
+        let d = loin;
+        for (const [a, b] of [[0, 0], [0.7, 0], [-0.7, 0], [0, 0.55], [0, -0.55]]) {
+          origine.copy(visee).addScaledVector(cote, a).addScaledVector(dessus, b);
+          occlusion.set(origine, ecart);
+          occlusion.far = d + 0.6;
+          const choc = occlusion.intersectObject(decor, true).find((h) => h.object.visible && !h.object.material?.transparent);
+          if (choc) d = Math.min(d, choc.distance - 0.6);
+        }
+        if (d < loin) camera.position.copy(visee).addScaledVector(ecart, Math.max(1.5, d));
+        // Et pas collée à un objet sur le côté : on recule vers la cible
+        // jusqu'à être à distance de tout.
+        const boites = boitesDecor();
+        const libreIci = (pt) => !boites.some((bx) => bx.containsPoint(pt));
+        let t = camera.position.distanceTo(visee);
+        for (let i = 0; i < 12 && t > 1.5 && !libreIci(camera.position); i++) {
+          t = Math.max(1.5, t - 0.45);
+          camera.position.copy(visee).addScaledVector(ecart, t);
+        }
+      }
+    }
     camera.lookAt(cible);
   }
+  const occlusion = new THREE.Raycaster();
+  /** Les volumes du décor (un peu élargis), calculés une fois par lieu. */
+  let boites = null;
+  function boitesDecor() {
+    if (boites) return boites;
+    boites = [];
+    decor.updateMatrixWorld(true);
+    decor.traverse((m) => {
+      if (!m.isMesh || m.material?.transparent || !m.geometry) return;
+      const b = new THREE.Box3().setFromObject(m);
+      const t = b.getSize(new THREE.Vector3());
+      // Les murs, les sols, les plafonds : c'est le rôle des bornes.
+      if (Math.min(t.x, t.y, t.z) < 0.05 && Math.max(t.x, t.y, t.z) > 6) return;
+      if (t.x > 30 || t.z > 30) return;
+      boites.push(b.expandByScalar(0.45));
+    });
+    return boites;
+  }
+  const cote = new THREE.Vector3(), dessus = new THREE.Vector3(), origine = new THREE.Vector3();
   const HAUT_Y = new THREE.Vector3(0, 1, 0);
   /** On arrive dans une scène : la caméra y entre, chaque lieu à sa façon. */
   function jouerEntree(genre) {
