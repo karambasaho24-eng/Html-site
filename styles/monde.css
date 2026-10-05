@@ -704,3 +704,22 @@ body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8p
 .console[data-scene="1"][data-ouvert=""] .console__panneau { flex: 0 0 auto; }
 .console__scene .classe3d__refermer { bottom: 8px; }
 .chassis[data-taille="mini"] .console[data-scene="1"] .console__scene { min-height: 90px; }
+/* La vue libre : revenir à sa place, et le mode d'emploi au premier regard */
+.classe3d__recentrer {
+  position: absolute; top: 12px; right: 12px; z-index: 3;
+  padding: 7px 12px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(20, 17, 14, .72); color: #f3ead8; font: 500 12.5px/1 var(--f-texte, Inter, sans-serif);
+  backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.classe3d__recentrer:hover { background: rgba(35, 29, 23, .9); }
+.classe3d__recentrer[hidden] { display: none; }
+.classe3d__aide {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2;
+  padding: 6px 12px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+  background: rgba(20, 17, 14, .6); color: #efe6d4; font: 12px/1.2 var(--f-texte, Inter, sans-serif);
+  transition: opacity .8s;
+}
+.classe3d__aide--partie { opacity: 0; }
+.classe3d__aide[hidden] { display: none; }
+@media (max-width: 560px) { .classe3d__aide { white-space: normal; width: 86%; text-align: center; } }
+.classe3d__toile { touch-action: none; }

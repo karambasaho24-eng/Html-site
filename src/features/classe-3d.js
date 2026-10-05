@@ -121,6 +121,27 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   plafonnier.position.set(0, 9.5, -2);
   scene.add(plafonnier);
 
+  /* --- Les reflets ---------------------------------------------------------
+     Un environnement doux, calculé une fois : une pièce chaude, une fenêtre
+     claire, une lampe. Le bois verni, le métal, le marbre y prennent des
+     reflets — ce qui distingue une matière d'un aplat. */
+  {
+    const pm = new THREE.PMREMGenerator(renderer);
+    const es = new THREE.Scene();
+    const basique = (c, k = 1, side = THREE.FrontSide) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), side });
+    es.add(new THREE.Mesh(new THREE.BoxGeometry(24, 14, 24), basique("#8a735c", 1, THREE.BackSide)));
+    const fen = new THREE.Mesh(new THREE.PlaneGeometry(10, 6), basique("#dfe9ff", 5));
+    fen.position.set(-11.9, 2, 0); fen.rotation.y = Math.PI / 2;
+    const lampe = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basique("#ffe8c8", 3.5));
+    lampe.position.y = 6.9; lampe.rotation.x = Math.PI / 2;
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), basique("#4a3424"));
+    sol.position.y = -6.9; sol.rotation.x = -Math.PI / 2;
+    es.add(fen, lampe, sol);
+    scene.environment = pm.fromScene(es, 0.04).texture;
+    scene.environmentIntensity = 0.38;
+    pm.dispose();
+  }
+
   /* --- Matières ----------------------------------------------------------- */
   const cacheMat = new Map();
   const matDe = (c, extra = {}) => {
@@ -1211,62 +1232,134 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     for (let x = 0; x < W; x += 46) g.fillRect(x, hautMur, 2, basMur - hautMur);
     for (let y = hautMur + 14; y < basMur; y += 16) g.fillRect(0, y, W, 1.5);
     g.fillStyle = nuit ? "#454e60" : "#ddd5c4"; g.fillRect(0, hautMur - 6, W, 7);
-    // La ville : des rangs de maisons, plus grandes à mesure qu'elles approchent.
-    const toits = nuit ? ["#1c1f28", "#23252e", "#191c24"] : ["#8e3f28", "#6f3624", "#4f4b4c", "#9b4b30", "#5c3a2c"];
-    const murs = nuit ? ["#262b36", "#2d3240", "#22262f"] : ["#d8c8a6", "#c9b48f", "#bba98a", "#e0d2b4", "#a89478"];
-    const RANGS = 8;
+    // La ville : des rangs de maisons, plus grandes à mesure qu'elles
+    // approchent, de plus en plus nettes ; au loin, l'air les bleuit. Des
+    // bouquets d'arbres, un clocher de temps en temps.
+    const brume = nuit ? [16, 24, 38] : [186, 204, 220];
+    const melange = (hex, k) => {
+      const n = parseInt(hex.slice(1), 16);
+      const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(v + (brume[i] - v) * k));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    };
+    const toits = nuit ? ["#1c1f28", "#23252e", "#191c24"] : ["#8e3f28", "#7a3a26", "#5d5552", "#a24f31", "#6a4231", "#874a2e"];
+    const murs = nuit ? ["#262b36", "#2d3240", "#22262f"] : ["#e2d3b1", "#cdb894", "#c2ae8c", "#e8dcc0", "#b49f80", "#d9c7a2"];
+    const feuillage = nuit ? ["#0d1512", "#101a15"] : ["#3f5a2f", "#4d6b36", "#35502a", "#5a7d40", "#2f4726"];
+    const RANGS = 6;
     for (let rang = 0; rang < RANGS; rang++) {
       const k = rang / (RANGS - 1);
-      const echelle = 0.28 + k * k * 0.9;
-      const base = horizon + 22 + (H * 0.8 - horizon - 22) * k ** 1.5;
+      const air = (1 - k) * 0.62;                       // la part de brume
+      const echelle = 0.3 + k * k * 1.15;
+      const base = horizon + 18 + (H * 0.84 - horizon - 18) * k ** 1.45;
       for (let x = -40; x < W + 40; ) {
-        const l = (50 + hasard() * 60) * echelle, h = (30 + hasard() * 34) * echelle, pointe = (20 + hasard() * 20) * echelle;
-        g.fillStyle = murs[Math.floor(hasard() * murs.length)];
-        g.fillRect(x, base - h, l, h + 40 * echelle);
-        // Le pignon à l'ombre, les colombages : du relief, pas des cartons.
-        g.fillStyle = nuit ? "rgba(0,0,0,.25)" : "rgba(60,40,20,.22)";
-        g.fillRect(x + l * .62, base - h, l * .38, h + 40 * echelle);
-        if (!nuit && hasard() < .5) {
-          g.strokeStyle = "rgba(70,45,28,.55)"; g.lineWidth = Math.max(1, 2 * echelle);
-          g.strokeRect(x + 2, base - h + 2, l - 4, h * .5);
-          g.beginPath(); g.moveTo(x + l / 2, base - h); g.lineTo(x + l / 2, base - h * .5); g.stroke();
+        // Un bouquet d'arbres, parfois, à la place d'une maison.
+        if (hasard() < 0.18) {
+          const l = (60 + hasard() * 90) * echelle;
+          for (let i = 0; i < 6; i++) {
+            const r = (16 + hasard() * 18) * echelle;
+            g.fillStyle = melange(feuillage[Math.floor(hasard() * feuillage.length)], air);
+            g.beginPath(); g.arc(x + hasard() * l, base - r * (0.6 + hasard() * 0.8), r, 0, Math.PI * 2); g.fill();
+          }
+          x += l;
+          continue;
         }
-        // Les fenêtres : allumées la nuit, sombres le jour.
-        for (let fy = base - h + 10 * echelle; fy < base - 10 * echelle; fy += 22 * echelle) {
-          for (let fx = x + 8 * echelle; fx < x + l - 12 * echelle; fx += 20 * echelle) {
-            if (hasard() < (nuit ? .32 : .6)) {
-              g.fillStyle = nuit ? (hasard() < .6 ? "#f2b85a" : "#caa066") : "rgba(40,45,55,.55)";
-              g.fillRect(fx, fy, 7 * echelle, 10 * echelle);
+        const l = (54 + hasard() * 70) * echelle, h = (32 + hasard() * 40) * echelle, pointe = (18 + hasard() * 22) * echelle;
+        g.fillStyle = melange(murs[Math.floor(hasard() * murs.length)], air);
+        g.fillRect(x, base - h, l, h + 40 * echelle);
+        // Le pignon à l'ombre, les colombages.
+        g.fillStyle = nuit ? "rgba(0,0,0,.25)" : `rgba(60,40,20,${0.24 * (1 - air)})`;
+        g.fillRect(x + l * .64, base - h, l * .36, h + 40 * echelle);
+        if (!nuit && hasard() < .55 && echelle > .5) {
+          g.strokeStyle = `rgba(70,45,28,${.6 * (1 - air)})`; g.lineWidth = Math.max(1, 2.2 * echelle);
+          g.strokeRect(x + 2, base - h + 2, l - 4, h * .48);
+          g.beginPath(); g.moveTo(x + 2, base - h + 2); g.lineTo(x + l * .5, base - h * .52); g.lineTo(x + l - 2, base - h + 2); g.stroke();
+        }
+        // Quelques fenêtres, avec leur volet : allumées la nuit, sombres le jour.
+        const nbF = Math.max(1, Math.round(l / (34 * echelle)));
+        for (let fy = base - h + 12 * echelle; fy < base - 14 * echelle; fy += 26 * echelle) {
+          for (let i = 0; i < nbF; i++) {
+            if (hasard() < (nuit ? .3 : .75)) {
+              const fx = x + (i + .5) * l / nbF - 4 * echelle;
+              g.fillStyle = nuit ? (hasard() < .6 ? "#f2b85a" : "#caa066") : melange("#2e3440", air);
+              g.fillRect(fx, fy, 8 * echelle, 11 * echelle);
+              if (!nuit && echelle > .6) { g.fillStyle = melange("#4b5d3e", air); g.fillRect(fx - 4 * echelle, fy, 3 * echelle, 11 * echelle); }
             }
           }
         }
-        g.fillStyle = toits[Math.floor(hasard() * toits.length)];
+        // Le toit, ses rangs de tuiles, son versant à l'ombre.
+        const toit = toits[Math.floor(hasard() * toits.length)];
+        g.fillStyle = melange(toit, air);
         g.beginPath(); g.moveTo(x - 6 * echelle, base - h); g.lineTo(x + l / 2, base - h - pointe); g.lineTo(x + l + 6 * echelle, base - h); g.fill();
-        g.fillStyle = "rgba(0,0,0,.22)";           // le versant à l'ombre
-        g.beginPath(); g.moveTo(x + l / 2, base - h - pointe); g.lineTo(x + l + 6 * echelle, base - h); g.lineTo(x + l / 2, base - h); g.fill();
-        if (hasard() < .3) {   // une cheminée
-          g.fillStyle = nuit ? "#15171d" : "#6b4a3a";
-          g.fillRect(x + l * .7, base - h - pointe * .8, 8 * echelle, pointe * .6);
+        if (echelle > .55) {
+          g.strokeStyle = `rgba(40,20,10,${.25 * (1 - air)})`; g.lineWidth = 1;
+          for (let ty = base - h - pointe + 5 * echelle; ty < base - h; ty += 5 * echelle) {
+            const f = (ty - (base - h - pointe)) / pointe;
+            g.beginPath(); g.moveTo(x + l / 2 - (l / 2 + 6 * echelle) * f, ty); g.lineTo(x + l / 2 + (l / 2 + 6 * echelle) * f, ty); g.stroke();
+          }
         }
-        x += l + (hasard() * 10 - 2) * echelle;
-      }
-      // Un peu d'air entre les rangs : les plus lointains pâlissent.
-      if (rang < RANGS - 1) {
-        g.fillStyle = nuit ? "rgba(12,18,30,.1)" : "rgba(190,208,224,.08)";
-        g.fillRect(0, horizon + 4, W, base + 56 - horizon);
+        g.fillStyle = "rgba(0,0,0,.2)";
+        g.beginPath(); g.moveTo(x + l / 2, base - h - pointe); g.lineTo(x + l + 6 * echelle, base - h); g.lineTo(x + l / 2, base - h); g.fill();
+        if (hasard() < .35) {   // une cheminée
+          g.fillStyle = melange(nuit ? "#15171d" : "#6b4a3a", air);
+          g.fillRect(x + l * .7, base - h - pointe * .85, 8 * echelle, pointe * .6);
+        }
+        if (hasard() < .05 && rang > 0) {   // un clocher
+          const cl = 26 * echelle, ch = 110 * echelle;
+          g.fillStyle = melange(murs[0], air); g.fillRect(x + l * .3, base - h - ch, cl, ch);
+          g.fillStyle = melange("#4a4f5a", air);
+          g.beginPath(); g.moveTo(x + l * .3 - 4 * echelle, base - h - ch); g.lineTo(x + l * .3 + cl / 2, base - h - ch - 60 * echelle); g.lineTo(x + l * .3 + cl + 4 * echelle, base - h - ch); g.fill();
+        }
+        x += l + (hasard() * 12 - 2) * echelle;
       }
     }
-    // Au premier plan, la cime des arbres de la cour.
-    for (let i = 0; i < 70; i++) {
+    // Au premier plan, la cime des arbres de la cour, avec leur lumière.
+    for (let i = 0; i < 80; i++) {
       const x = hasard() * W, y = H * .9 + hasard() * H * .1, r = 30 + hasard() * 55;
-      g.fillStyle = nuit ? `rgba(10,16,14,${.8 + hasard() * .2})` : ["#3f5a2f", "#4d6b36", "#35502a", "#577a3d"][Math.floor(hasard() * 4)];
+      g.fillStyle = nuit ? `rgba(10,16,14,${.8 + hasard() * .2})` : feuillage[Math.floor(hasard() * feuillage.length)];
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      if (!nuit) {
+        g.fillStyle = "rgba(200,220,120,.12)";
+        g.beginPath(); g.arc(x - r * .3, y - r * .35, r * .55, 0, Math.PI * 2); g.fill();
+      }
     }
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     cacheDehors.set(nuit, t);
     return t;
+  }
+  /** Une couche de nuages qui glisse lentement (vitesse : tours de texture par seconde). */
+  let texNuages = null;
+  function coucheNuages(l, h, vitesse) {
+    if (!texNuages) {
+      const c = document.createElement("canvas"); c.width = 2048; c.height = 512;
+      const g = c.getContext("2d");
+      let gr = 11;
+      const hasard = () => ((gr = (gr * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 22; i++) {
+        const x = hasard() * 2048, y = 90 + hasard() * 300, l2 = 160 + hasard() * 320;
+        for (let k = 0; k < 16; k++) {
+          const cx = x + (hasard() - .5) * l2, cy = y + (hasard() - .5) * 40 - Math.abs(hasard() - .5) * 40, r = 34 + hasard() * 60;
+          for (const dx of [-2048, 0, 2048]) {
+            const d = g.createRadialGradient(cx + dx, cy, 0, cx + dx, cy, r);
+            d.addColorStop(0, "rgba(255,255,255,.62)"); d.addColorStop(.6, "rgba(250,250,252,.28)"); d.addColorStop(1, "rgba(255,255,255,0)");
+            g.fillStyle = d; g.fillRect(cx + dx - r, cy - r, r * 2, r * 2);
+          }
+          // Le dessous, un peu gris : du volume.
+          const d2 = g.createRadialGradient(cx, cy + r * .5, 0, cx, cy + r * .5, r * .8);
+          d2.addColorStop(0, "rgba(150,160,180,.12)"); d2.addColorStop(1, "rgba(150,160,180,0)");
+          g.fillStyle = d2; g.fillRect(cx - r, cy - r * .3, r * 2, r * 1.6);
+        }
+      }
+      texNuages = new THREE.CanvasTexture(c);
+      texNuages.colorSpace = THREE.SRGBColorSpace;
+      texNuages.wrapS = THREE.RepeatWrapping;
+    }
+    const t = texNuages.clone();
+    t.needsUpdate = true;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(l, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+    m.raycast = () => {};
+    animes.push((s) => { t.offset.x = (s * vitesse) % 1; });
+    return m;
   }
   /** Le verre : presque rien, un voile bleuté et deux reflets qui accrochent la lumière. */
   let texVitre = null;
@@ -1322,7 +1415,302 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     return g;
   }
 
-  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true, fenetresFond = [] }) {
+  /* --- Ce qui fait une vraie pièce ------------------------------------------
+     Un plafond à poutres, une corniche, le quatrième mur et sa porte, des
+     suspensions allumées, la carte des Murs ; le jour, des rayons de soleil
+     où danse la poussière. On peut tourner la vue : il n'y a plus de vide. */
+  const TEX_PIECE = {};
+  function texPiece() {
+    if (TEX_PIECE.plafond) return TEX_PIECE;
+    TEX_PIECE.plafond = texturePeinte(512, 512, (g, l, h) => {
+      g.fillStyle = "#e4dccb"; g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 7000; i++) {
+        g.fillStyle = `rgba(${Math.random() > .5 ? "255,255,255" : "90,75,55"},${Math.random() * .045})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 2, 2);
+      }
+    }, [4, 4]);
+    TEX_PIECE.porte = texturePeinte(256, 512, (g, l, h) => {
+      veines(g, l, h, 22, 22);
+      // Les panneaux moulurés : deux en haut, un grand en bas.
+      for (const [x, y, w, hh] of [[24, 24, 208, 170], [24, 224, 208, 264]]) {
+        g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(x, y, w, hh);
+        g.strokeStyle = "rgba(255,220,180,.18)"; g.lineWidth = 3; g.strokeRect(x + 4, y + 4, w - 8, hh - 8);
+        g.strokeStyle = "rgba(0,0,0,.45)"; g.lineWidth = 2; g.strokeRect(x, y, w, hh);
+      }
+    });
+    TEX_PIECE.carte = texturePeinte(1024, 768, (g, l, h) => {
+      // Un parchemin : les trois Murs, Maria, Rose, Sina, et leurs districts.
+      const fondP = g.createRadialGradient(l / 2, h / 2, 100, l / 2, h / 2, l * .7);
+      fondP.addColorStop(0, "#e9dcb8"); fondP.addColorStop(1, "#bfa676");
+      g.fillStyle = fondP; g.fillRect(0, 0, l, h);
+      for (let i = 0; i < 5000; i++) {
+        g.fillStyle = `rgba(90,60,30,${Math.random() * .06})`;
+        g.fillRect(Math.random() * l, Math.random() * h, 3, 3);
+      }
+      const cx = l / 2, cy = h / 2 + 10;
+      g.strokeStyle = "#5a3d22"; g.fillStyle = "rgba(120,140,80,.18)";
+      for (const [r, nom] of [[330, "MUR MARIA"], [220, "MUR ROSE"], [115, "MUR SINA"]]) {
+        g.lineWidth = 7;
+        g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.lineWidth = 1.5;
+        g.beginPath(); g.arc(cx, cy, r - 9, 0, Math.PI * 2); g.stroke();
+        // Les districts : quatre saillies, aux points cardinaux.
+        for (let k = 0; k < 4; k++) {
+          const a = k * Math.PI / 2;
+          g.beginPath(); g.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 26, a + Math.PI / 2, a - Math.PI / 2 + Math.PI * 2); g.lineWidth = 5; g.stroke();
+        }
+        g.fillStyle = "#4a3018"; g.font = "bold 22px Georgia, serif"; g.textAlign = "center";
+        g.fillText(nom, cx, cy - r + 34);
+        g.fillStyle = "rgba(120,140,80,.18)";
+      }
+      g.fillStyle = "#4a3018"; g.font = "italic 30px Georgia, serif"; g.textAlign = "center";
+      g.fillText("Les Murs de l'humanité", cx, 46);
+      // Les rivières.
+      g.strokeStyle = "rgba(60,95,130,.55)"; g.lineWidth = 4;
+      g.beginPath(); g.moveTo(40, 200); g.bezierCurveTo(260, 260, 380, 330, cx, cy); g.bezierCurveTo(640, 420, 820, 520, 990, 600); g.stroke();
+      g.strokeStyle = "rgba(60,40,20,.6)"; g.lineWidth = 10; g.strokeRect(8, 8, l - 16, h - 16);
+    });
+    TEX_PIECE.rayon = (() => {
+      const c = document.createElement("canvas"); c.width = 8; c.height = 256;
+      const g = c.getContext("2d");
+      const d = g.createLinearGradient(0, 0, 0, 256);
+      d.addColorStop(0, "rgba(255,236,200,.55)"); d.addColorStop(.6, "rgba(255,230,190,.22)"); d.addColorStop(1, "rgba(255,230,190,0)");
+      g.fillStyle = d; g.fillRect(0, 0, 8, 256);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    return TEX_PIECE;
+  }
+
+  /** Une suspension : la tige, l'abat-jour émaillé, l'ampoule qui brille. */
+  function suspension(x, y, z, haut) {
+    const g = new THREE.Group();
+    const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, haut, 6), matDe("#1e1c1a", { metalness: .5, roughness: .4 }));
+    tige.position.y = haut / 2;
+    const abat = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.55, 28, 1, true), matDe("#2f4a3c", { metalness: .3, roughness: .35, side: THREE.DoubleSide }));
+    abat.position.y = -0.2;
+    const dedans = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.52, 28, 1, true), new THREE.MeshBasicMaterial({ color: "#fff1d6", side: THREE.BackSide }));
+    dedans.position.y = -0.21;
+    const ampoule = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), new THREE.MeshBasicMaterial({ color: "#fff6e2" }));
+    ampoule.position.y = -0.48;
+    if (!halo) bougie(new THREE.Group(), 0, 0, 0);       // prépare la texture du halo
+    const lueur = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .55 }));
+    lueur.scale.set(2.2, 2.2, 1);
+    lueur.position.y = -0.5;
+    g.add(tige, abat, dedans, ampoule, lueur);
+    g.position.set(x, y, z);
+    return g;
+  }
+
+  /** Un tapis rond : bordeaux, une bordure claire, un médaillon. */
+  let texTapis = null;
+  function tapisRond(r) {
+    if (!texTapis) {
+      texTapis = texturePeinte(1024, 1024, (g, l) => {
+        const c = l / 2;
+        const anneaux = [[512, "#5e1f1c"], [490, "#c9a86a"], [470, "#3f1514"], [430, "#7a2a24"], [200, "#c9a86a"], [184, "#4a1917"], [90, "#c9a86a"], [74, "#7a2a24"]];
+        for (const [rr, col] of anneaux) { g.fillStyle = col; g.beginPath(); g.arc(c, c, rr, 0, Math.PI * 2); g.fill(); }
+        // Les rinceaux : des pétales tout autour du médaillon.
+        g.fillStyle = "rgba(201,168,106,.55)";
+        for (let i = 0; i < 24; i++) {
+          const a = i * Math.PI / 12;
+          g.beginPath(); g.ellipse(c + Math.cos(a) * 300, c + Math.sin(a) * 300, 46, 14, a, 0, Math.PI * 2); g.fill();
+        }
+        for (let i = 0; i < 48; i++) {
+          const a = i * Math.PI / 24;
+          g.beginPath(); g.arc(c + Math.cos(a) * 450, c + Math.sin(a) * 450, 7, 0, Math.PI * 2); g.fill();
+        }
+        // La laine : un grain fin.
+        for (let i = 0; i < 30000; i++) {
+          g.fillStyle = `rgba(${Math.random() > .5 ? "255,230,200" : "0,0,0"},${Math.random() * .06})`;
+          g.fillRect(Math.random() * l, Math.random() * l, 2, 2);
+        }
+      });
+      texTapis.wrapS = texTapis.wrapT = THREE.ClampToEdgeWrapping;
+    }
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 72), new THREE.MeshStandardMaterial({ map: texTapis, roughness: 1 }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.025;
+    m.receiveShadow = true;
+    return m;
+  }
+
+  /** Un lustre de fer forgé : une couronne, une chaîne, des bougies allumées. */
+  function lustre(x, y, z, r) {
+    const g = new THREE.Group();
+    const fer = matDe("#24201c", { metalness: .7, roughness: .45 });
+    const couronne = new THREE.Mesh(new THREE.TorusGeometry(r, 0.06, 8, 48), fer);
+    couronne.rotation.x = Math.PI / 2;
+    const petite = new THREE.Mesh(new THREE.TorusGeometry(r * 0.45, 0.04, 8, 32), fer);
+    petite.rotation.x = Math.PI / 2; petite.position.y = 0.5;
+    const chaine = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 13 - y, 6), fer);
+    chaine.position.y = (13 - y) / 2;
+    g.add(couronne, petite, chaine);
+    const n = 8;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const tige = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, Math.hypot(r * 0.55, 0.5), 5), fer);
+      tige.position.set(Math.cos(a) * r * 0.72, 0.25, Math.sin(a) * r * 0.72);
+      tige.lookAt(Math.cos(a) * r * 0.45, 0.5, Math.sin(a) * r * 0.45);
+      tige.rotateX(Math.PI / 2);
+      const bobeche = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.06, 0.06, 12), fer);
+      bobeche.position.set(Math.cos(a) * r, 0.04, Math.sin(a) * r);
+      const support = new THREE.Group();
+      support.position.set(Math.cos(a) * r, 0.06, Math.sin(a) * r);
+      bougie(support, 0, 0, 0.4 + (i % 3) * 0.05);
+      g.add(tige, bobeche, support);
+    }
+    const lumiere = new THREE.PointLight("#ffbf73", 9, 18, 2);
+    lumiere.position.y = 0.3;
+    g.add(lumiere);
+    bougies.push({ lumiere, base: 9, phase: 2.1 });
+    g.position.set(x, y, z);
+    g.traverse((m) => { m.raycast = () => {}; });
+    return g;
+  }
+
+  /** De lourds rideaux, de part et d'autre de chaque fenêtre du mur de gauche. */
+  function rideaux(xMur, fond, avant) {
+    const mat = new THREE.MeshStandardMaterial({ color: "#5a1d1b", roughness: .9, side: THREE.DoubleSide });
+    // Des plis : un plan ondulé.
+    const geo = new THREE.PlaneGeometry(1.4, 7.2, 14, 1);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 11) * 0.09);
+    geo.computeVertexNormals();
+    const tringle = matDe("#9c7a3c", { metalness: .75, roughness: .3 });
+    for (let z = fond + 5; z < avant - 1; z += 7) {
+      for (const dz of [-2.75, 2.75]) {
+        const r = new THREE.Mesh(geo, mat);
+        r.position.set(xMur + 0.35, 4.75, z + dz);
+        r.rotation.y = Math.PI / 2;
+        r.castShadow = true;
+        decor.add(r);
+      }
+      const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 7.4, 8), tringle);
+      t.rotation.x = Math.PI / 2;
+      t.position.set(xMur + 0.4, 8.4, z);
+      decor.add(t);
+    }
+  }
+
+  function habillerPiece({ largeur, fond, avant, profondeur, milieu, fenetres, mur, carte }) {
+    const T = texPiece();
+    const HAUT = 13;
+    // Le plafond et ses poutres.
+    const plafond = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 2, profondeur), new THREE.MeshStandardMaterial({ map: T.plafond, roughness: 1 }));
+    plafond.rotation.x = Math.PI / 2;
+    plafond.position.set(0, HAUT, milieu);
+    decor.add(plafond);
+    const matPoutre = new THREE.MeshStandardMaterial({ map: TEX.lambris, roughness: .75, color: "#a58a6c" });
+    for (let z = fond + 3; z < avant; z += 5) {
+      const poutre = new THREE.Mesh(new THREE.BoxGeometry(largeur, 0.7, 0.6), matPoutre);
+      poutre.position.set(0, HAUT - 0.35, z);
+      decor.add(poutre);
+    }
+    // La corniche, tout autour.
+    const matCorniche = matDe("#efe8d9", { roughness: .8 });
+    for (const [l, x, z, ry] of [[largeur + 2, 0, fond + 0.15, 0], [largeur + 2, 0, avant - 0.15, 0], [profondeur, -largeur / 2 + 0.15, milieu, Math.PI / 2], [profondeur, largeur / 2 - 0.15, milieu, Math.PI / 2]]) {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(l, 0.35, 0.3), matCorniche);
+      c.position.set(x, HAUT - 0.18, z); c.rotation.y = ry;
+      decor.add(c);
+    }
+    // Le quatrième mur, derrière soi, avec sa porte à deux battants.
+    mur(largeur + 2, 0, avant, Math.PI);
+    const porte = new THREE.Group();
+    const matPorte = new THREE.MeshStandardMaterial({ map: T.porte, roughness: .55 });
+    for (const cote of [-1, 1]) {
+      const battant = new THREE.Mesh(new THREE.BoxGeometry(1.6, 6.4, 0.14), matPorte);
+      battant.position.set(cote * 0.81, 3.2, 0);
+      const poignee = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), matDe("#b8933f", { metalness: .8, roughness: .3 }));
+      poignee.position.set(cote * 0.2, 3.1, -0.12);
+      porte.add(battant, poignee);
+    }
+    const matChambranle = matDe("#3a2a1e", { roughness: .6 });
+    for (const [x, y, l, h] of [[-1.75, 3.3, 0.28, 6.8], [1.75, 3.3, 0.28, 6.8], [0, 6.75, 3.78, 0.32]]) {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(l, h, 0.3), matChambranle);
+      c.position.set(x, y, 0);
+      porte.add(c);
+    }
+    porte.position.set(largeur / 2 - 4, 0, avant - 0.08);
+    ombrer(porte);
+    decor.add(porte);
+    // La carte des Murs, au mur de droite.
+    if (carte) {
+      const cadreC = new THREE.Mesh(boiteRonde(6.3, 4.8, 0.16, 0.04), matChambranle);
+      const toile = new THREE.Mesh(new THREE.PlaneGeometry(6, 4.5), new THREE.MeshStandardMaterial({ map: T.carte, roughness: .9 }));
+      toile.position.z = 0.09;
+      const c = new THREE.Group();
+      c.add(cadreC, toile);
+      c.position.set(largeur / 2 - 0.1, 6.2, milieu - 1);
+      c.rotation.y = -Math.PI / 2;
+      decor.add(c);
+    }
+    // Les suspensions, au-dessus de l'allée centrale.
+    for (let z = fond + 5.5; z < avant - 3; z += 7.5) {
+      for (const x of largeur > 22 ? [-largeur / 4, largeur / 4] : [0]) decor.add(suspension(x, 10.9, z, HAUT - 10.9));
+    }
+    // Le soleil entre par les fenêtres : un voile de lumière jusqu'au sol, et
+    // la poussière qui y flotte.
+    if (!nuitDehors && fenetres.length) rayonsDeSoleil(largeur, fenetres);
+  }
+
+  function rayonsDeSoleil(largeur, fenetres) {
+    const T = texPiece();
+    const dir = new THREE.Vector3(0.62, -0.62, -0.18).normalize();   // vers l'intérieur, vers le bas
+    const mat = new THREE.MeshBasicMaterial({ map: T.rayon, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, opacity: .3, toneMapped: false });
+    const poussiere = [];
+    for (const zf of fenetres) {
+      const x0 = -largeur / 2 + 0.1;
+      // Le haut et le bas de l'ouverture, projetés jusqu'au sol.
+      const coins = [[5.6 + 2.2, zf - 1.9], [5.6 + 2.2, zf + 1.9], [5.6 - 2.2, zf + 1.9], [5.6 - 2.2, zf - 1.9]];
+      const pos = [], uv = [];
+      for (const [y, z] of coins) {
+        const k = y / -dir.y;
+        pos.push(x0, y, z, x0 + dir.x * k, 0.02, z + dir.z * k);
+      }
+      // Quatre faces : chaque bord de la fenêtre balaie jusqu'au sol.
+      const idx = [];
+      for (let i = 0; i < 4; i++) {
+        const a = i * 2, b = ((i + 1) % 4) * 2;
+        idx.push(a, a + 1, b + 1, a, b + 1, b);
+      }
+      for (let i = 0; i < 4; i++) uv.push(0, 0, 0, 1);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+      geo.setIndex(idx);
+      const r = new THREE.Mesh(geo, mat);
+      r.raycast = () => {};
+      r.renderOrder = 3;
+      decor.add(r);
+      for (let i = 0; i < 60; i++) {
+        const y = 0.6 + Math.random() * 6.8, k = y / -dir.y;
+        const yHaut = 5.6 + (Math.random() - .5) * 4.2;
+        const kk = (yHaut - y) / -dir.y;
+        poussiere.push(x0 + dir.x * kk + (Math.random() - .5) * 0.6, y, zf + (Math.random() - .5) * 3.6 + dir.z * kk);
+        void k;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    const depart = new Float32Array(poussiere);
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(poussiere, 3));
+    const points = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#fff3da", size: 0.05, transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending }));
+    points.raycast = () => {};
+    decor.add(points);
+    animes.push((s) => {
+      const a = geo.attributes.position.array;
+      for (let i = 0; i < a.length; i += 3) {
+        const ph = i * 0.37;
+        a[i] = depart[i] + Math.sin(s * 0.21 + ph) * 0.25;
+        a[i + 1] = depart[i + 1] + Math.sin(s * 0.13 + ph * 1.7) * 0.35;
+        a[i + 2] = depart[i + 2] + Math.cos(s * 0.17 + ph) * 0.25;
+      }
+      geo.attributes.position.needsUpdate = true;
+    });
+  }
+
+  function piece({ largeur, fond, avant, papier = TEX.mur, horloge: avecHorloge = true, fenetresFond = [], carte = true }) {
     const profondeur = avant - fond + 4;
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 2, profondeur),
       new THREE.MeshStandardMaterial({ map: TEX.plancher, roughness: .78 }));
@@ -1377,18 +1765,26 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       b.position.set(f.x, f.y, fond);
       decor.add(b);
     }
-    // Le paysage, loin derrière les murs percés.
+    // Le paysage, loin derrière les murs percés ; devant lui, les nuages passent.
     if (fenetres.length) {
       const d = new THREE.Mesh(new THREE.PlaneGeometry(profondeur + 130, HAUT_DEHORS), new THREE.MeshBasicMaterial({ map: dehors(nuitDehors), toneMapped: false }));
       d.position.set(-largeur / 2 - LOIN_DEHORS, Y_DEHORS, milieu);
       d.rotation.y = Math.PI / 2;
       decor.add(d);
+      if (!nuitDehors) {
+        const n = coucheNuages(profondeur + 120, 26, 0.004);
+        n.position.set(-largeur / 2 - LOIN_DEHORS + 3, Y_HORIZON + 15, milieu);
+        n.rotation.y = Math.PI / 2;
+        decor.add(n);
+      }
     }
     if (fenetresFond.length) {
       const d = new THREE.Mesh(new THREE.PlaneGeometry(largeur + 130, HAUT_DEHORS), new THREE.MeshBasicMaterial({ map: dehors(nuitDehors), toneMapped: false }));
       d.position.set(0, Y_DEHORS, fond - LOIN_DEHORS);
       decor.add(d);
     }
+    bornes = { x: largeur / 2 - 0.8, zMin: fond + 0.8, zMax: avant - 0.8, y: 12.2 };
+    habillerPiece({ largeur, fond, avant, profondeur, milieu, fenetres, mur, carte });
     soleil.position.set(-largeur / 2 - 6, 16, (fond + avant) / 2 + 3);
     soleil.target.position.set(0, 0, (fond + avant) / 2 - 2);
     const demi = Math.max(largeur, profondeur) / 2 + 4;
@@ -1542,6 +1938,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /* Une bougie de cire, sa mèche, sa flamme et son halo, posée dans `groupe`. */
   let bougies = [];
   let halo = null;
+  // Ce qui bouge dans le décor (poussière, nuages, fumées) : une fonction par chose.
+  let animes = [];
   // Chez soi seulement : la nuit tombe dehors (la classe, elle, a cours de jour).
   let nuitDehors = false;
   function bougie(groupe, x, y, haut) {
@@ -1790,6 +2188,12 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     decor.add(lueurT);
     bougies.push({ lumiere: lueurT, base: 5, phase: 1.3 });
 
+    // Sous la table, un grand tapis ; au-dessus, un lustre de fer aux bougies allumées.
+    decor.add(tapisRond(R + 3.4));
+    decor.add(lustre(0, 10.6, 0, Math.min(2.2, R * 0.55)));
+    // Des rideaux lourds de part et d'autre des fenêtres.
+    rideaux(-Math.max(20, 2 * R + 12) / 2, fond, R + 9);
+
     const sieges = [];
     for (let i = 0; i < total; i++) {
       const a = Math.PI / 2 + (i * 2 * Math.PI) / total;
@@ -1817,6 +2221,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     ciel.color.set("#fff4e4"); ciel.groundColor.set("#3a2c22"); ciel.intensity = 1.1;
     soleil.color.set("#ffe9cc"); soleil.intensity = 2.4;
     plafonnier.intensity = 18;
+    scene.environmentIntensity = 0.38;
   }
 
   /* --- Le palais : la salle du trône ---------------------------------------
@@ -1921,6 +2326,36 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     mur(largeur, 0, fond, 0);
     mur(avant - fond, -largeur / 2, (fond + avant) / 2, Math.PI / 2);
     mur(avant - fond, largeur / 2, (fond + avant) / 2, -Math.PI / 2);
+    bornes = { x: largeur / 2 - 1, zMin: fond + 1, zMax: avant - 0.8, y: H - 1 };
+    // Le mur d'entrée et ses grandes portes ; un plafond à caissons ; deux lustres.
+    mur(largeur, 0, avant, Math.PI);
+    const portes = new THREE.Group();
+    const matPorteP = new THREE.MeshStandardMaterial({ map: texPiece().porte, roughness: .5, color: "#c9a27a" });
+    for (const cote of [-1, 1]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(2.4, 9, 0.2), matPorteP);
+      b.position.set(cote * 1.22, 4.5, 0);
+      portes.add(b);
+    }
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 10, 32, Math.PI), matieresRoyales().or);
+    arc.position.set(0, 9, 0.1);
+    const montantG = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 0.5), matieresRoyales().or);
+    montantG.position.set(-2.6, 4.5, 0.1);
+    const montantD = montantG.clone(); montantD.position.x = 2.6;
+    portes.add(arc, montantG, montantD);
+    portes.position.set(0, 0, avant - 0.1);
+    portes.rotation.y = Math.PI;
+    ombrer(portes);
+    decor.add(portes);
+    const plafondP = new THREE.Mesh(new THREE.PlaneGeometry(largeur, avant - fond), new THREE.MeshStandardMaterial({ map: T.pierre, roughness: .9, color: "#b8a890" }));
+    plafondP.rotation.x = Math.PI / 2;
+    plafondP.position.set(0, H, (fond + avant) / 2);
+    decor.add(plafondP);
+    for (let z = fond + 2; z < avant; z += 4) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(largeur, 0.8, 0.5), matDe("#3a2a1e", { roughness: .7 }));
+      p.position.set(0, H - 0.4, z);
+      decor.add(p);
+    }
+    decor.add(lustre(0, 12.5, 2, 2.2), lustre(0, 12.5, 10, 2.2));
 
     // Les colonnes, leurs chapiteaux, et une bannière entre chacune.
     const matColonne = matDe("#d8d0c0", { roughness: .5 });
@@ -2165,17 +2600,108 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const porte = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.6), matDe("#4a2c1a", { roughness: .7 }));
     porte.position.set(0, 1.3, 3.02);
     g.add(porte);
+    // Une cheminée sur le toit ; une maison sur deux fait du feu.
+    const chem = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.4, 0.8), matDe("#7a5a48", { roughness: .9 }));
+    chem.position.set(l * 0.22, h + 2.2, -1.2);
+    g.add(chem);
     g.position.set(x, 0, z);
     g.rotation.y = angle;
     ombrer(g);
     decor.add(g);
+    if ((Math.round(x * 7 + z * 3) & 1) === 0) {
+      g.updateMatrixWorld(true);
+      fumee(chem.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 1.3, 0)));
+    }
+  }
+
+  /** La fumée d'une cheminée : des bouffées qui montent, gonflent et se dissipent. */
+  let texFumee = null;
+  function fumee(o) {
+    if (!texFumee) {
+      const c = document.createElement("canvas"); c.width = c.height = 64;
+      const g = c.getContext("2d");
+      const d = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      d.addColorStop(0, "rgba(235,235,235,.75)"); d.addColorStop(.5, "rgba(220,220,225,.35)"); d.addColorStop(1, "rgba(220,220,225,0)");
+      g.fillStyle = d; g.fillRect(0, 0, 64, 64);
+      texFumee = new THREE.CanvasTexture(c);
+    }
+    const bouffees = [];
+    for (let i = 0; i < 7; i++) {
+      const b = new THREE.Sprite(new THREE.SpriteMaterial({ map: texFumee, transparent: true, depthWrite: false }));
+      b.raycast = () => {};
+      decor.add(b);
+      bouffees.push(b);
+    }
+    const phase = Math.random() * 10;
+    animes.push((s) => {
+      bouffees.forEach((b, i) => {
+        const a = ((s * 0.16 + phase + i / bouffees.length) % 1);
+        b.position.set(o.x + a * 2.2 + Math.sin(s + i) * 0.2, o.y + a * 6, o.z + a * 0.8);
+        b.scale.setScalar(0.8 + a * 3.2);
+        b.material.opacity = Math.min(1, a * 6) * (1 - a) * 0.8;
+      });
+    });
+  }
+
+  /** Des oiseaux qui tournent haut au-dessus de la place, ailes battantes. */
+  function oiseaux(n, cx, cz, y) {
+    const mat = matDe("#2a2622", { side: THREE.DoubleSide });
+    const vol = [];
+    for (let i = 0; i < n; i++) {
+      const o = new THREE.Group();
+      const ailes = [-1, 1].map((cote) => {
+        const aile = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28), mat);
+        aile.geometry.translate(cote * 0.45, 0, 0);
+        o.add(aile);
+        return aile;
+      });
+      const corps = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.35, 3, 6), mat);
+      corps.rotation.x = Math.PI / 2;
+      o.add(corps);
+      o.traverse((m) => { m.raycast = () => {}; });
+      decor.add(o);
+      vol.push({ o, ailes, r: 10 + Math.random() * 14, v: 0.12 + Math.random() * 0.1, ph: Math.random() * 6, h: y + Math.random() * 8 });
+    }
+    animes.push((s) => {
+      for (const b of vol) {
+        const a = s * b.v + b.ph;
+        b.o.position.set(cx + Math.cos(a) * b.r, b.h + Math.sin(s * 0.7 + b.ph) * 0.8, cz + Math.sin(a) * b.r);
+        b.o.rotation.y = -a;
+        const battement = Math.sin(s * 9 + b.ph * 3) * 0.6;
+        b.ailes[0].rotation.z = -battement; b.ailes[1].rotation.z = battement;
+      }
+    });
+  }
+
+  /** Le ciel, de jour : un dégradé, et des nuages qui passent au-dessus des toits. */
+  let texCiel = null;
+  function cielDeJour() {
+    if (!texCiel) {
+      const c = document.createElement("canvas"); c.width = 4; c.height = 256;
+      const g = c.getContext("2d");
+      const d = g.createLinearGradient(0, 0, 0, 256);
+      d.addColorStop(0, "#4f86c6"); d.addColorStop(.55, "#8fb6dd"); d.addColorStop(1, "#dfe9f0");
+      g.fillStyle = d; g.fillRect(0, 0, 4, 256);
+      texCiel = new THREE.CanvasTexture(c);
+      texCiel.colorSpace = THREE.SRGBColorSpace;
+    }
+    scene.background = texCiel;
+    const n = coucheNuages(900, 900, 0.0035);
+    n.material.map.repeat.set(3, 4);
+    n.material.map.wrapT = THREE.RepeatWrapping;
+    n.material.map.needsUpdate = true;
+    n.rotation.x = Math.PI / 2;
+    n.position.y = 70;
+    n.material.side = THREE.DoubleSide;
+    decor.add(n);
   }
 
   function construireRue(total, { petit = false } = {}) {
     lumieresParDefaut();
     const T = texRue();
-    scene.background = new THREE.Color("#a9c6e2");
+    cielDeJour();
     scene.fog = new THREE.Fog("#c7d6e2", 45, 190);
+    scene.environmentIntensity = 0.55;
     ciel.color.set("#dfeeff"); ciel.groundColor.set("#6b5a45"); ciel.intensity = 1.25;
     soleil.intensity = 2.9;
     plafonnier.intensity = 0;
@@ -2184,6 +2710,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     Object.assign(soleil.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 80 });
     soleil.shadow.camera.updateProjectionMatrix();
 
+    bornes = { x: 16, zMin: -13, zMax: 24, y: 30 };
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({ map: T.paves, roughness: .95 }));
     sol.rotation.x = -Math.PI / 2;
     sol.receiveShadow = true;
@@ -2193,6 +2720,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     for (const cote of [-1, 1]) {
       for (let i = 0; i < 4; i++) maison(cote * 19, -9 + i * 8.4, 7.6, 6 + ((i * 5 + 4) % 3), -cote * Math.PI / 2);
     }
+    // Et derrière soi : la place est fermée de tous côtés.
+    for (let i = -4; i <= 4; i++) maison(i * 8.4, 28, 7.6, 6 + ((i * 5 + 7) % 3), Math.PI);
+    oiseaux(petit ? 4 : 7, 0, -6, 22);
     // Le Mur, au loin.
     const leMur = new THREE.Mesh(new THREE.BoxGeometry(600, 50, 6), new THREE.MeshStandardMaterial({ map: T.mur, roughness: 1 }));
     leMur.position.set(0, 25, -150);
@@ -2432,6 +2962,9 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     ardoise = null;
     objetsProf = null;
     bougies = [];
+    animes = [];
+    bornes = null;
+    nuitDehors = false;
     lumieresParDefaut();
     if (!remise) oublierActeurs();
     dispo = portrait ? { cle, reunion: false, portrait: true, ...construirePortrait() }
@@ -2449,8 +2982,18 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     // Chacun reprendra sa place dans la nouvelle salle (majGens).
     for (const x of gens.values()) { x.siege = null; x.trajet = null; }
     if (prof) placerProf();
+    // Un autre lieu : la vue revient à sa place, et l'on y entre.
+    const genre = cle.split(":")[0];
+    if (genre !== sceneJouee) {
+      sceneJouee = genre;
+      recentrer();
+      jouerEntree(genre);
+    }
+    boutonVue.hidden = !vueLibreModifiee() || Boolean(dispo.portrait);
+    aideVue.hidden = Boolean(dispo.portrait || dispo.remise);
     cadrer();
   }
+  let sceneJouee = "";
 
   function placerProf() {
     const p = prof.p;
@@ -2574,20 +3117,82 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     cadrer();
   }
 
-  /* Changer de place : on se lève, on passe derrière les rangs, on
-     s'assoit. Les affaires suivent. */
+  /* Changer de place : on se lève, on passe par les allées (jamais à
+     travers les tables), on s'assoit. Les affaires suivent. */
   function marcher(x, siege) {
     interrompreGeste(x);
-    if (x.siege) garnir(x.siege.objets, []);
+    const ancien = x.siege;
+    if (ancien) garnir(ancien.objets, []);
     x.p.tenir(null);
-    const de = x.p.racine.position.clone();
-    const arrivee = new THREE.Vector3(siege.x, 0.05, siege.z + 1.7);
-    const distance = de.distanceTo(arrivee);
-    x.trajet = { de, arrivee, siege, t0: performance.now(), duree: 700 + distance * 330 };
+    const pts = chemin(x.p.racine.position.clone(), ancien, siege);
+    const cumul = [0];
+    for (let i = 1; i < pts.length; i++) cumul.push(cumul[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+    const total = cumul[cumul.length - 1];
+    x.trajet = { pts, cumul, total, de: pts[0], siege, t0: performance.now(), duree: 900 + total * 300 };
     x.p.poser("debout");
     x.siege = siege;
     x.sig = null;
   }
+
+  /** Le point où l'on se tient pour s'asseoir à une place : derrière sa chaise. */
+  function derriereDe(siege) {
+    if (siege.debout) return new THREE.Vector3(siege.x, 0.05, siege.z);
+    const a = siege.angle || 0;
+    return new THREE.Vector3(siege.x + Math.sin(a) * 1.7, 0.05, siege.z + Math.cos(a) * 1.7);
+  }
+
+  /* Le chemin d'une place à l'autre. En classe : on rejoint l'allée la plus
+     proche, on passe par l'avant ou le fond de la salle (le plus court), on
+     redescend l'allée de sa nouvelle place. En réunion : on fait le tour de
+     la table, à distance des chaises. Ailleurs (debout), tout droit. */
+  function chemin(de, ancien, siege) {
+    const arrivee = derriereDe(siege);
+    const pts = [de];
+    const depart = ancien && !ancien.debout ? derriereDe(ancien) : null;
+    if (depart) pts.push(depart);
+    const d0 = depart || de;
+    if (dispo.reunion && dispo.R) {
+      const ext = dispo.R + 3.1;               // derrière les dossiers des chaises
+      const a0 = Math.atan2(d0.z, d0.x), a1 = Math.atan2(arrivee.z, arrivee.x);
+      let da = a1 - a0;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      const n = Math.max(1, Math.ceil(Math.abs(da) / 0.22));
+      for (let i = 0; i <= n; i++) {
+        const a = a0 + (da * i) / n;
+        pts.push(new THREE.Vector3(Math.cos(a) * ext, 0.05, Math.sin(a) * ext));
+      }
+    } else if (dispo.cols && !siege.debout) {
+      const pasX = 3.6;
+      const allees = Array.from({ length: dispo.cols + 1 }, (_, c) => (c - dispo.cols / 2) * pasX);
+      const proche = (xx, vers) => allees.reduce((m, a) => (Math.abs(a - xx) + Math.abs(a - vers) * 0.02 < Math.abs(m - xx) + Math.abs(m - vers) * 0.02 ? a : m));
+      const aA = proche(d0.x, arrivee.x), aB = proche(arrivee.x, d0.x);
+      pts.push(new THREE.Vector3(aA, 0.05, d0.z));
+      if (Math.abs(aA - aB) > 0.1) {
+        const zAvant = -6.1, zFond = (dispo.dernier ?? 0) + 3.6;
+        const viaAvant = Math.abs(d0.z - zAvant) + Math.abs(arrivee.z - zAvant);
+        const viaFond = Math.abs(d0.z - zFond) + Math.abs(arrivee.z - zFond);
+        const zc = viaAvant < viaFond ? zAvant : zFond;
+        pts.push(new THREE.Vector3(aA, 0.05, zc), new THREE.Vector3(aB, 0.05, zc));
+      }
+      pts.push(new THREE.Vector3(aB, 0.05, arrivee.z));
+    }
+    pts.push(arrivee);
+    // Pas de points en double (on est parfois déjà dans l'allée).
+    return pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z) > 0.05);
+  }
+
+  /** Où l'on en est sur le chemin, à une distance donnée depuis le départ. */
+  function surChemin(t, d, sortie) {
+    let i = 1;
+    while (i < t.cumul.length - 1 && t.cumul[i] < d) i++;
+    const a = t.pts[i - 1], b = t.pts[i];
+    const l = t.cumul[i] - t.cumul[i - 1] || 1;
+    const f = Math.max(0, Math.min(1, (d - t.cumul[i - 1]) / l));
+    sortie.set(a.x + (b.x - a.x) * f, 0, a.z + (b.z - a.z) * f);
+    return Math.atan2(-(b.x - a.x), -(b.z - a.z));
+  }
+  const surLeChemin = new THREE.Vector3();
 
   /* Un pas de la marche. Renvoie vrai tant qu'il marche. */
   function pas(x, maintenant) {
@@ -2596,20 +3201,24 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     const p = x.p;
     const a = Math.min(1, (maintenant - t.t0) / t.duree);
     // Se lever (les premiers instants), marcher, puis s'asseoir.
-    const lever = Math.min(1, a / 0.12);
-    const marche = Math.max(0, Math.min(1, (a - 0.12) / 0.8));
-    const doux = marche * marche * (3 - 2 * marche);
-    const x0 = t.de.x + (t.arrivee.x - t.de.x) * doux;
-    const z0 = t.de.z + (t.arrivee.z - t.de.z) * doux;
-    p.racine.position.set(x0, t.de.y + (0.05 - t.de.y) * lever, z0);
-    const dx = t.arrivee.x - t.de.x, dz = t.arrivee.z - t.de.z;
-    if (marche > 0 && marche < 1 && Math.hypot(dx, dz) > 0.01) {
-      const vise = Math.atan2(-dx, -dz);
-      p.racine.rotation.y += (vise - p.racine.rotation.y) * 0.2;
+    const lever = Math.min(1, a / 0.1);
+    const marche = Math.max(0, Math.min(1, (a - 0.1) / 0.84));
+    // On accélère en partant, on ralentit en arrivant ; entre les deux, le pas est régulier.
+    const doux = marche < 0.12 ? marche * marche / 0.24 : marche > 0.88 ? 1 - (1 - marche) * (1 - marche) / 0.24 : (marche - 0.06) / 0.88;
+    const cap = surChemin(t, doux * t.total, surLeChemin);
+    p.racine.position.set(surLeChemin.x, t.de.y + (0.05 - t.de.y) * lever, surLeChemin.z);
+    if (marche > 0 && marche < 1 && t.total > 0.01) {
+      let ecartCap = cap - p.racine.rotation.y;
+      while (ecartCap > Math.PI) ecartCap -= 2 * Math.PI;
+      while (ecartCap < -Math.PI) ecartCap += 2 * Math.PI;
+      p.racine.rotation.y += ecartCap * 0.22;
     }
-    const balan = marche > 0 && marche < 1 ? Math.sin(maintenant / 95) * 0.55 : 0;
+    const enMarche = marche > 0 && marche < 1;
+    const balan = enMarche ? Math.sin(maintenant / 95) * 0.55 : 0;
     p.jambeG.epaule.rotation.x = balan; p.jambeD.epaule.rotation.x = -balan;
     p.brasG.epaule.rotation.x = -balan * 0.7; p.brasD.epaule.rotation.x = balan * 0.7;
+    // Le corps monte et descend un peu, à chaque pas.
+    p.bassin.position.y = 1.9 + (enMarche ? Math.abs(Math.sin(maintenant / 95)) * 0.06 : 0);
     if (a >= 1) {
       x.trajet = null;
       asseoir(x, t.siege);
@@ -2652,7 +3261,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
      La caméra est à SA place : au fond de la classe, ou à son bord de la
      table. Le tableau et les autres doivent tenir dans l'image, quelle que
      soit la forme de la fenêtre. */
+  let viseSoi = false;
   function cadrer() {
+    const avaitSoi = surSoi;
+    viseSoi = false;
+    surSoi = false;
     const l = hote.clientWidth || 1, h = hote.clientHeight || 1;
     renderer.setSize(l, h, false);
     camera.aspect = l / h;
@@ -2685,14 +3298,14 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const t = 2 * Math.tan((camera.fov / 2) * Math.PI / 180);
       const d = Math.max(1, 6.2 / (t * Math.max(0.45, camera.aspect)) / 7);
       if (etat.remise?.vue === "de") {
-        camera.position.set(-5.4 * d, 4.6 * d, 6.4 * d);
+        base.set(-5.4 * d, 4.6 * d, 6.4 * d);
         regard.set(0.6, 2.2, 0);
       } else {
-        camera.position.set(5.6 * d, 4.4 * d, 5.0 * d);
+        base.set(5.6 * d, 4.4 * d, 5.0 * d);
         regard.set(-0.9, 2.3, 0);
       }
       suivre = false; cameraPosee = false;
-      camera.lookAt(regard);
+      poserCamera();
       camera.updateProjectionMatrix();
       return;
     }
@@ -2702,17 +3315,17 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       const moi = [...gens.values()].find((x) => x.personne.moi);
       if (etat.prof?.moi) {
         // Le souverain voit sa cour : depuis l'estrade, à côté du trône.
-        camera.position.set(5.2, dispo.tete.y + 6.2, dispo.zTrone + 0.6);
+        base.set(5.2, dispo.tete.y + 6.2, dispo.zTrone + 0.6);
         regard.set(-0.8, 1.6, dispo.zTrone + 8.5);
         void moi;
       } else {
         // Depuis l'entrée de la salle : le tapis rouge mène au trône.
         const d = Math.max(17, 13 / (t * Math.max(0.5, camera.aspect)));
-        camera.position.set(0, 7.6, dispo.zTrone + d);
+        base.set(0, 7.6, dispo.zTrone + d);
         regard.set(0, 3.2, dispo.zTrone + 1);
       }
       suivre = false; cameraPosee = false;
-      camera.lookAt(regard);
+      poserCamera();
       camera.updateProjectionMatrix();
       return;
     }
@@ -2722,7 +3335,7 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       camera.fov = 30;
       const t = 2 * Math.tan((camera.fov / 2) * Math.PI / 180);
       const d = Math.max(4.5 / t, 3.6 / (t * camera.aspect));
-      camera.position.set(0, 2.4, d);
+      base.set(0, 2.4, d);
       regard.set(0, 1.95, 0);
       suivre = false; cameraPosee = false;
     } else if (dispo.maison) {
@@ -2732,12 +3345,12 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       camera.fov = 46 - k * 16;
       posCible.set(2.8 - k * 1.2, 6.9 - k * 0.5, dispo.fond + 9.6 + k * 2);
       regardCible.set(-0.2, 2.7, dispo.fond + 1.4);
-      if (!cameraPosee) { camera.position.copy(posCible); regard.copy(regardCible); }
+      if (!cameraPosee) { base.copy(posCible); regard.copy(regardCible); }
       suivre = true; cameraPosee = true;
     } else if (dispo.reunion || dispo.rue) {
       const R = dispo.R;
       camera.fov = 58 - k * 20;
-      camera.position.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
+      base.set(0, 5.4 + R * 0.55 - k * 0.6, R + 3.4 + (1 - k) * 2.2);
       regard.set(0, 2.9 + k * 0.6, -R * 0.55);
       suivre = false; cameraPosee = false;
     } else {
@@ -2756,16 +3369,18 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       } else {
         const plus = Math.max(0, (dispo.rangs || 3) - 3);
         camera.fov = 56 - k * 24 + ((dispo.cols || 4) - 4) * 4;
-        camera.position.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
+        base.set(0.4, 10.2 - k * 2.4 + plus * 0.8, (dispo.dernier ?? 2) + 12.8 - k * 4);
         regard.set(0, 3.2 + k * 0.5, -7);
         suivre = false;
       }
       if (suivre && !cameraPosee) {
-        camera.position.copy(posCible); regard.copy(regardCible);
+        base.copy(posCible); regard.copy(regardCible); pivot.copy(pivotCible);
       }
       cameraPosee = suivre;
     }
-    camera.lookAt(regard);
+    if (viseSoi && !avaitSoi) pivot.copy(pivotCible);
+    surSoi = viseSoi;
+    poserCamera();
     camera.updateProjectionMatrix();
   }
   const sortants = new Set();
@@ -2779,6 +3394,107 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
   /* La caméra à la troisième personne : derrière soi, un peu au-dessus. */
   const posCible = new THREE.Vector3(), regardCible = new THREE.Vector3();
   let suivre = false, cameraPosee = false, derniereCam = 0;
+
+  /* --- La vue libre ---------------------------------------------------------
+     La caméra a sa place (ci-dessus) ; on peut en partir : glisser pour
+     tourner autour de ce qu'on regarde, molette (ou deux doigts) pour
+     approcher, clic droit ou Maj pour se déplacer. « Recentrer » y revient.
+     Elle reste dans la pièce : ni à travers les murs, ni sous le plancher. */
+  const base = new THREE.Vector3();
+  // Le point autour duquel on tourne : ce qu'on regarde, ou soi-même (l'élève
+  // à sa place tourne autour de son personnage, comme dans le jeu).
+  const pivot = new THREE.Vector3(), pivotCible = new THREE.Vector3();
+  let surSoi = false;
+  const visee = new THREE.Vector3(), ecart = new THREE.Vector3(), cible = new THREE.Vector3();
+  const spherique = new THREE.Spherical();
+  const libre = { lacet: 0, tangage: 0, zoom: 1, dx: 0, dz: 0 };
+  let bornes = null;          // { x, zMin, zMax, y } : l'intérieur de la pièce
+  let entree = null;          // le mouvement d'arrivée dans une scène
+  const animationsPermises = () => hote.dataset.fige !== "1"
+    && !fenetreDe().matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const vueBloquee = () => dispo.portrait || Boolean(sacMoi);
+  const vueLibreModifiee = () => Math.abs(libre.lacet) > 0.01 || Math.abs(libre.tangage) > 0.01
+    || Math.abs(libre.zoom - 1) > 0.01 || Math.abs(libre.dx) + Math.abs(libre.dz) > 0.05;
+  function poserCamera(t = performance.now()) {
+    if (vueBloquee()) {
+      camera.position.copy(base);
+      camera.lookAt(regard);
+      return;
+    }
+    let la = libre.lacet, ta = libre.tangage, zo = libre.zoom;
+    if (entree) {
+      const a = Math.min(1, (t - entree.t0) / entree.duree);
+      const r = Math.pow(1 - a, 3);                         // part qui reste à parcourir
+      la += entree.lacet * r; ta += entree.tangage * r; zo *= 1 + (entree.zoom - 1) * r;
+      if (a >= 1) entree = null;
+    }
+    const centre = surSoi ? pivot : regard;
+    visee.set(centre.x + libre.dx, centre.y, centre.z + libre.dz);
+    if (bornes) {
+      // On ne se déplace pas hors de la pièce.
+      visee.x = Math.max(-bornes.x, Math.min(bornes.x, visee.x));
+      visee.z = Math.max(Math.min(bornes.zMin, centre.z), Math.min(Math.max(bornes.zMax, centre.z), visee.z));
+    }
+    ecart.subVectors(base, centre);
+    spherique.setFromVector3(ecart);
+    spherique.theta += la;
+    spherique.phi = Math.min(1.5, Math.max(0.12, spherique.phi - ta));
+    spherique.radius = Math.min(48, Math.max(1.6, spherique.radius * zo));
+    camera.position.setFromSpherical(spherique).add(visee);
+    // Ce qu'on regarde tourne avec : autour de soi, on voit ce qu'il y a de l'autre côté.
+    if (surSoi) {
+      cible.subVectors(regard, centre).applyAxisAngle(HAUT_Y, la);
+      cible.add(visee);
+    } else cible.copy(visee);
+    const b = bornes;
+    if (b) {
+      // Hors de la pièce : on se rapproche de ce qu'on regarde jusqu'à y rentrer
+      // (on garde la direction : on ne se retrouve pas dans un meuble par côté).
+      const lx = Math.max(b.x, Math.abs(base.x)), z0 = Math.min(b.zMin, base.z), z1 = Math.max(b.zMax, base.z), y1 = Math.max(b.y, base.y);
+      ecart.subVectors(camera.position, visee);
+      let t = 1;
+      const borne = (v, o, lo, hi) => {
+        if (v + o * t > hi && o > 0) t = Math.min(t, (hi - v) / o);
+        if (v + o * t < lo && o < 0) t = Math.min(t, (lo - v) / o);
+      };
+      borne(visee.x, ecart.x, -lx, lx);
+      borne(visee.z, ecart.z, z0, z1);
+      borne(visee.y, ecart.y, -Infinity, y1);
+      t = Math.max(0, t);
+      camera.position.copy(visee).addScaledVector(ecart, t);
+    }
+    camera.position.y = Math.max(0.7, camera.position.y);
+    camera.lookAt(cible);
+  }
+  const HAUT_Y = new THREE.Vector3(0, 1, 0);
+  /** On arrive dans une scène : la caméra y entre, chaque lieu à sa façon. */
+  function jouerEntree(genre) {
+    const E = {
+      classe: { lacet: -0.75, tangage: 0.38, zoom: 1.55, duree: 2600 },
+      reunion: { lacet: 2.1, tangage: 0.3, zoom: 1.35, duree: 3400 },
+      rue: { lacet: -0.6, tangage: 0.75, zoom: 2.3, duree: 3200 },
+      trone: { lacet: 0, tangage: 0.12, zoom: 1.9, duree: 3000 },
+      maison: { lacet: 0.5, tangage: 0.2, zoom: 1.3, duree: 2200 }
+    }[genre];
+    entree = E && animationsPermises() ? { ...E, t0: performance.now() } : null;
+  }
+  function recentrer() {
+    Object.assign(libre, { lacet: 0, tangage: 0, zoom: 1, dx: 0, dz: 0 });
+    boutonVue.hidden = true;
+  }
+  const boutonVue = document.createElement("button");
+  boutonVue.type = "button";
+  boutonVue.className = "classe3d__recentrer";
+  boutonVue.textContent = "Recentrer la vue";
+  boutonVue.hidden = true;
+  boutonVue.addEventListener("click", recentrer);
+  const aideVue = document.createElement("div");
+  aideVue.className = "classe3d__aide";
+  aideVue.textContent = (hote.ownerDocument?.defaultView || window).matchMedia?.("(pointer: coarse)").matches
+    ? "Glissez pour regarder autour · pincez pour approcher"
+    : "Glissez pour regarder autour · molette pour approcher · clic droit pour vous déplacer";
+  hote.append(boutonVue, aideVue);
+  setTimeout(() => aideVue.classList.add("classe3d__aide--partie"), 6000);
   function viserDerriere(o) {
     // Fenêtre haute et étroite (flottante, au-dessus du jeu) : on recule et
     // on monte, pour se voir en entier à sa table, et le tableau au fond.
@@ -2787,6 +3503,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     // le tableau au fond.
     // Par-dessus l'épaule droite : la tête ne cache plus la table.
     posCible.set(o.x + 2.3, 6.1 + recul * 0.55, o.z + 2.2 + recul);
+    pivotCible.set(o.x, 3.0, o.z);
+    viseSoi = true;
     regardCible.set(o.x * 0.8 - 0.3, 2.0 - recul * 0.12, o.z - 3.4);
   }
   // La fenêtre qui montre la vue : la page, ou la fenêtre flottante posée
@@ -2839,19 +3557,74 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       survol = cible;
     }
   });
-  // Dans le portrait, on fait tourner le personnage en le glissant.
-  let tourPortrait = 0, glisse = null;
+  // Dans le portrait, on fait tourner le personnage en le glissant. Ailleurs,
+  // glisser fait tourner la vue (au-delà de quelques pixels : un clic reste un clic).
+  let tourPortrait = 0, glisse = null, aBouge = false;
   const fige = hote.dataset.fige === "1";
+  const doigts = new Map();
+  const devant = new THREE.Vector3();
+  const signalerVue = () => {
+    boutonVue.hidden = !vueLibreModifiee();
+    aideVue.classList.add("classe3d__aide--partie");
+  };
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
   canvas.addEventListener("pointerdown", (e) => {
-    if (!dispo.portrait) return;
-    glisse = { x: e.clientX, depart: tourPortrait };
-    canvas.setPointerCapture(e.pointerId);
+    doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    aBouge = false;
+    if (dispo.portrait) {
+      glisse = { portrait: true, x: e.clientX, depart: tourPortrait };
+    } else if (!vueBloquee()) {
+      glisse = { x: e.clientX, y: e.clientY, deplacer: e.button === 2 || e.shiftKey, bouge: false };
+    } else return;
+    canvas.setPointerCapture?.(e.pointerId);
   });
   canvas.addEventListener("pointermove", (e) => {
-    if (glisse) tourPortrait = glisse.depart + (e.clientX - glisse.x) / 80;
+    const avant = doigts.get(e.pointerId);
+    if (avant) doigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!glisse) return;
+    if (glisse.portrait) { tourPortrait = glisse.depart + (e.clientX - glisse.x) / 80; return; }
+    // Deux doigts : on pince pour approcher, on écarte pour reculer.
+    if (doigts.size === 2 && avant) {
+      const [a, b] = [...doigts.values()];
+      const autre = a === doigts.get(e.pointerId) ? b : a;
+      const dAvant = Math.hypot(avant.x - autre.x, avant.y - autre.y);
+      const dApres = Math.hypot(e.clientX - autre.x, e.clientY - autre.y);
+      if (dAvant > 10 && dApres > 10) libre.zoom = Math.min(2.4, Math.max(0.3, libre.zoom * dAvant / dApres));
+      glisse.bouge = aBouge = true; entree = null;
+      signalerVue();
+      return;
+    }
+    const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
+    if (!glisse.bouge && Math.hypot(dx, dy) < 6) return;
+    glisse.bouge = aBouge = true;
+    entree = null;
+    if (glisse.deplacer || e.shiftKey) {
+      // Se déplacer : la scène suit la main, à plat sur le sol.
+      camera.getWorldDirection(devant);
+      devant.y = 0; devant.normalize();
+      const k = camera.position.distanceTo(visee) * 0.0016;
+      libre.dx = Math.max(-12, Math.min(12, libre.dx - (-devant.z * dx - devant.x * dy) * k));
+      libre.dz = Math.max(-12, Math.min(12, libre.dz - (devant.x * dx - devant.z * dy) * k));
+    } else {
+      libre.lacet -= dx * 0.0065;
+      libre.tangage = Math.max(-0.9, Math.min(1.15, libre.tangage + dy * 0.0045));
+    }
+    glisse.x = e.clientX; glisse.y = e.clientY;
+    signalerVue();
   });
-  canvas.addEventListener("pointerup", () => { glisse = null; });
+  const lacherVue = (e) => { doigts.delete(e.pointerId); if (!doigts.size) glisse = null; };
+  canvas.addEventListener("pointerup", lacherVue);
+  canvas.addEventListener("pointercancel", lacherVue);
+  canvas.addEventListener("wheel", (e) => {
+    if (vueBloquee()) return;
+    e.preventDefault();
+    entree = null;
+    libre.zoom = Math.min(2.4, Math.max(0.3, libre.zoom * Math.exp(e.deltaY * 0.0011)));
+    signalerVue();
+  }, { passive: false });
   canvas.addEventListener("click", (e) => {
+    // On vient de faire tourner la vue : ce n'était pas un clic.
+    if (aBouge) { aBouge = false; return; }
     const o = viser(e);
     if (o?.userData.contenu && sacMoi) {
       o.userData.sort = performance.now();
@@ -2960,8 +3733,10 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       }
       if (b.lumiere) b.lumiere.intensity = b.base * (0.88 + v * 0.12);
     }
+    for (const f of animes) f(s);
     if (dispo.remise) {
       animerRemise(maintenant);
+      poserCamera(maintenant);
       renderer.render(scene, camera);
       if (acteurs) {
         placerEtiquette(acteurs.etiquettes[0], acteurs.de.tete, 1.3 * 0.72);
@@ -3038,10 +3813,11 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
     if (suivre) {
       // Au temps, pas à l'image : le même glissé, que l'ordinateur soit rapide ou non.
       const f = 1 - Math.exp(-(maintenant - (derniereCam || maintenant)) / 220);
-      camera.position.lerp(posCible, f);
+      base.lerp(posCible, f);
       regard.lerp(regardCible, f);
-      camera.lookAt(regard);
+      pivot.lerp(pivotCible, f);
     }
+    poserCamera(maintenant);
     derniereCam = maintenant;
     if (prof) {
       const p = prof.p;
@@ -3133,12 +3909,19 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       fin?.();
     },
     sacOuvert: () => Boolean(sacMoi),
+    /** Pour les essais : où en est la vue. */
+    rejouerEntree: () => jouerEntree(sceneJouee),
+    /** Tourner la vue (comme en glissant) : { lacet, tangage, zoom, dx, dz }. */
+    regarder(o = {}) { entree = null; Object.assign(libre, o); boutonVue.hidden = !vueLibreModifiee(); },
+    etatVue: () => ({ entree: entree && { ...entree }, libre: { ...libre }, scene: sceneJouee, camera: camera.position.toArray(),
+      trajets: [...gens.entries()].filter(([, x]) => x.trajet).map(([id, x]) => ({ id, pts: x.trajet.pts.map((v) => [+v.x.toFixed(2), +v.z.toFixed(2)]) })),
+      sieges: dispo.sieges.map((t) => [+t.x.toFixed(2), +t.z.toFixed(2)]) }),
     /** Le professeur écrit : on le voit se tourner vers le tableau. */
     ecrit() { ecritJusqua = Date.now() + 2500; },
     /** Replacer le rendu ailleurs — dans la console, en petite fenêtre. */
     deplacer(nouvelHote) {
       if (hote === nouvelHote) return;
-      nouvelHote.append(canvas, etiquettes, boutonSac);
+      nouvelHote.append(canvas, etiquettes, boutonSac, boutonVue, aideVue);
       hote = nouvelHote;
       fenetreObservee = null;
       observerTaille();
@@ -3161,6 +3944,8 @@ export async function creerClasse3D({ hote, toile = () => null, surTableau = nul
       canvas.remove();
       etiquettes.remove();
       boutonSac.remove();
+      boutonVue.remove();
+      aideVue.remove();
     }
   };
   return api;

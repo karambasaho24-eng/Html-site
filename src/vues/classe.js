@@ -12,7 +12,7 @@ import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
 import { encadre, estAdmin, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
 import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
-import { MODES, LISTE_MODES } from "../features/modes.js";
+import { MODES, LISTE_MODES, modeSelonNom } from "../features/modes.js";
 import { personnages } from "../data/index.js";
 import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
 import { livret } from "../data/index.js";
@@ -832,7 +832,7 @@ export default async function vueClasse({ params, requete }) {
     const sortie = await formulaire({
       titre: "Ouvrir une séance",
       champs: [
-        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: "cours",
+        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: modeSelonNom(classe.name),
           options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
         { cle: "title", label: "Intitulé de la séance", valeur: "",
           placeholder: "Session 01 — Fondements du droit",

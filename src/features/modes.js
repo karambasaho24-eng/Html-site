@@ -91,3 +91,17 @@ export function mode(session) {
 export function offre(session, outil) {
   return mode(session).outils[outil] !== false;
 }
+
+/**
+ * Le mode que le nom de l'espace laisse attendre : un espace « Réunion »
+ * s'ouvre en réunion, une « Salle du trône » en audience. On peut toujours
+ * en choisir un autre.
+ */
+export function modeSelonNom(nom = "") {
+  const n = String(nom).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (/reunion|conseil|assemblee|etat-major|etat major/.test(n)) return "reunion";
+  if (/trone|audience|palais|cour royale/.test(n)) return "audience";
+  if (/entretien|rue|dehors|exterieur|place/.test(n)) return "entretien";
+  if (/mission|expedition/.test(n)) return "mission";
+  return "cours";
+}
