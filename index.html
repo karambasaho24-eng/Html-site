@@ -38,12 +38,21 @@
       <button class="chip" data-layer="dark" title="Fond sombre">🌙</button>
       <button class="chip" data-layer="streets" title="Plan">🗺️</button>
       <button class="chip" data-layer="sat" title="Satellite">🛰️</button>
+      <button class="chip gchip" id="googleBtn" title="Google Maps">G</button>
       <button class="chip" id="heatBtn" title="Carte de chaleur">🔥</button>
     </div>
     <div class="legend" id="legend"></div>
     <div class="map-hint" id="mapHint">Zoomez sur une ville pour charger tous ses lycées · clic droit / appui long = signaler à cet endroit</div>
     <div class="loading hidden" id="loading">Chargement des lycées…</div>
     <button class="fab" id="fabReport">＋ Signaler</button>
+    <div class="gview hidden" id="gview">
+      <iframe id="gviewFrame" title="Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <div class="gview-bar">
+        <button class="btn" id="gviewBack">⬅ Carte en direct</button>
+        <div class="seg" id="gviewSeg"><button data-t="m">Plan</button><button data-t="k" class="active">Satellite</button></div>
+        <a class="btn ghost" id="gviewOpen" target="_blank" rel="noopener">↗ Ouvrir Google Maps</a>
+      </div>
+    </div>
   </section>
 
   <aside class="panel" id="panel">
@@ -131,6 +140,13 @@
 <div class="sheet hidden" id="schoolSheet">
   <div class="sheet-card">
     <button class="close" data-close="schoolSheet">✕</button>
+    <div id="schoolHead"></div>
+    <div class="gmap"><iframe id="schoolMap" title="Google Maps du lycée" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+    <div class="seg" id="schoolMapSeg">
+      <button data-t="k" class="active">🛰️ Satellite</button><button data-t="m">🗺️ Plan</button>
+      <a class="btn ghost sm" id="schoolSV" target="_blank" rel="noopener">👁️ Street View</a>
+      <a class="btn ghost sm" id="schoolGM" target="_blank" rel="noopener">↗ Google Maps</a>
+    </div>
     <div id="schoolBody"></div>
   </div>
 </div>
@@ -174,6 +190,7 @@
 
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet.markercluster.js"></script>
+<script src="vendor/Leaflet.GoogleMutant.js"></script>
 <script src="vendor/leaflet-heat.js"></script>
 <script src="vendor/supabase.js"></script>
 <script src="data.js"></script>

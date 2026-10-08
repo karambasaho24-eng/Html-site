@@ -54,14 +54,48 @@ const bases = {
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 20, subdomains: "abcd" }),
   ]),
 };
-let baseName = store.get("base", "dark");
+const GKEY = (CFG.googleMapsKey || "").trim();
+if (GKEY && L.gridLayer.googleMutant) {
+  const sc = document.createElement("script");
+  sc.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GKEY)}&language=fr&v=weekly`;
+  sc.async = true; document.head.appendChild(sc);
+  bases.google = L.gridLayer.googleMutant({ type: "roadmap", maxZoom: 21, attribution: "© Google" });
+  bases.gsat = L.gridLayer.googleMutant({ type: "hybrid", maxZoom: 21, attribution: "© Google" });
+}
+let baseName = store.get("base", GKEY ? "google" : "dark");
+if (!bases[baseName]) baseName = "dark";
 bases[baseName].addTo(map);
 const setBase = (n) => {
   map.removeLayer(bases[baseName]); baseName = n; bases[n].addTo(map); store.set("base", n);
   $$(".map-tools [data-layer]").forEach((b) => b.classList.toggle("on", b.dataset.layer === n));
+  $("#googleBtn").classList.toggle("on", n === "google" || n === "gsat");
 };
 $$(".map-tools [data-layer]").forEach((b) => b.onclick = () => setBase(b.dataset.layer));
 setBase(baseName);
+
+/* Google Maps intégré (sans clé) : URL d'intégration publique de Google */
+const gEmbed = (lat, lng, z, t, q) => `https://maps.google.com/maps?q=${encodeURIComponent(q || `${lat},${lng}`)}&ll=${lat},${lng}&z=${z}&t=${t}&hl=fr&output=embed`;
+const gOpen = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+const gStreet = (lat, lng) => `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+let gviewT = "k";
+function showGView() {
+  const c = map.getCenter(), z = Math.min(20, Math.max(3, map.getZoom()));
+  $("#gviewFrame").src = gEmbed(c.lat.toFixed(6), c.lng.toFixed(6), z, gviewT, `${c.lat.toFixed(6)},${c.lng.toFixed(6)}`);
+  $("#gviewOpen").href = gOpen(c.lat.toFixed(6), c.lng.toFixed(6));
+  $$("#gviewSeg button").forEach((b) => b.classList.toggle("active", b.dataset.t === gviewT));
+  $("#gview").classList.remove("hidden"); $("#fabReport").classList.add("hidden"); document.body.classList.add("gview-on");
+  $("#googleBtn").classList.add("on");
+}
+function hideGView() {
+  $("#gview").classList.add("hidden"); $("#fabReport").classList.remove("hidden"); document.body.classList.remove("gview-on");
+  $("#googleBtn").classList.toggle("on", baseName === "google" || baseName === "gsat");
+}
+$("#googleBtn").onclick = () => {
+  if (bases.google) return setBase(baseName === "google" ? "gsat" : "google");
+  $("#gview").classList.contains("hidden") ? showGView() : hideGView();
+};
+$("#gviewBack").onclick = hideGView;
+$("#gviewSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (b) { gviewT = b.dataset.t; showGView(); } });
 
 const statusRank = { blocus: 6, partiel: 5, annule: 4, incident: 3, debloque: 2, calme: 1, none: 0 };
 const cluster = L.markerClusterGroup({
@@ -406,7 +440,7 @@ function renderAll() { renderStats(); renderFeed(); renderAlerts(); if ($("#tab-
 function openSheet(id) { $("#" + id).classList.remove("hidden"); }
 function closeSheet(id) {
   $("#" + id).classList.add("hidden");
-  if (id === "schoolSheet") { currentSchool = null; }
+  if (id === "schoolSheet") { currentSchool = null; $("#schoolMap").dataset.id = ""; }
 }
 $$(".sheet").forEach((s) => s.addEventListener("click", (e) => { if (e.target === s) closeSheet(s.id); }));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $$(".sheet:not(.hidden)").forEach((s) => closeSheet(s.id)); });
@@ -417,21 +451,24 @@ async function openSchool(id, silent = false) {
   if (!silent) { history.replaceState(null, "", "#l=" + encodeURIComponent(id)); }
   const st = statusOf(id), S = STATUS[st];
   const list = reports.filter((r) => r.school_id === id && +new Date(r.created_at) <= now()).slice(0, 30);
+  if ($("#schoolMap").dataset.id !== id) { $("#schoolMap").dataset.id = id; setSchoolMap(s.lat, s.lng, 18, null, s); }
   const render = () => {
     const gates = s.gates;
-    $("#schoolBody").innerHTML = `
+    $("#schoolHead").innerHTML = `
       <span class="status-pill" style="background:${S.color}">${S.label}</span>
       <h2 style="margin-top:8px">${esc(s.name)}</h2>
       <p class="muted">${esc(s.city || "")}${s.country ? " · " + esc(s.country) : ""} ${s.web ? `· <a href="${esc(s.web)}" target="_blank" rel="noopener">site</a>` : ""}</p>
+      <p class="verdict" style="color:${S.color}">${verdict(id)}</p>
       <div class="school-actions">
         <button class="btn" id="sReport">＋ Signaler</button>
         <button class="btn ghost" id="sFav">${favs.has(id) ? "⭐ Favori" : "☆ Ajouter aux favoris"}</button>
         <button class="btn ghost" id="sChat">💬 Chat du lycée</button>
         <button class="btn ghost" id="sShare">🔗 Partager</button>
         <a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}">🧭 Itinéraire</a>
-      </div>
+      </div>`;
+    $("#schoolBody").innerHTML = `
       <h3>🚪 Portails & entrées</h3>
-      ${gates == null ? `<p class="muted">Recherche des portails…</p>` : gates.length ? `<div class="gates">${gates.map((g) => { const k = gateState(s, g.label); return `<span style="border-color:${k ? KINDS[k].color : "var(--line)"}">${k ? KINDS[k].icon : "🚪"} ${esc(g.label)}${g.src === "user" ? " ✍️" : ""}</span>`; }).join("")}</div><p class="muted small">Touche un portail sur la carte pour signaler son état. ✍️ = ajouté par la communauté.</p>` : `<p class="muted small">Aucun portail connu sur OpenStreetMap. Fais un appui long / clic droit sur la carte à l'emplacement d'une entrée pour l'ajouter.</p>`}
+      ${gates == null ? `<p class="muted">Recherche des portails…</p>` : gates.length ? `<div class="gates">${gates.map((g, i) => { const k = gateState(s, g.label); return `<span data-gate="${i}" title="Voir ce portail sur Google Maps" style="border-color:${k ? KINDS[k].color : "var(--line)"}">${k ? KINDS[k].icon : "🚪"} ${esc(g.label)}${g.src === "user" ? " ✍️" : ""}</span>`; }).join("")}</div><p class="muted small">Touche un portail pour le voir sur Google Maps juste au-dessus (ou sur la carte pour signaler son état). ✍️ = ajouté par la communauté.</p>` : `<p class="muted small">Aucun portail connu sur OpenStreetMap. Fais un appui long / clic droit sur la carte à l'emplacement d'une entrée pour l'ajouter.</p>`}
       ${bestGate(s)}
       <h3>📰 Derniers signalements</h3>
       <div class="list">${list.map((r) => reportCard(r)).join("") || `<div class="empty">Rien de signalé ici récemment.</div>`}</div>`;
@@ -439,6 +476,11 @@ async function openSchool(id, silent = false) {
     $("#sFav").onclick = () => { favs.has(id) ? favs.delete(id) : favs.add(id); store.set("favs", [...favs]); refreshSchool(id); render(); fillRooms(); };
     $("#sChat").onclick = () => { closeSheet("schoolSheet"); currentSchool = s; fillRooms(); switchRoom("s:" + id); showTab("chat"); };
     $("#sShare").onclick = () => share(s);
+    $$("#schoolBody [data-gate]").forEach((el) => el.onclick = () => {
+      const g = s.gates[+el.dataset.gate];
+      setSchoolMap(g.lat, g.lng, 20, g.label, s);
+      $("#schoolMap").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   };
   render();
   openSheet("schoolSheet");
@@ -446,6 +488,19 @@ async function openSchool(id, silent = false) {
   if (!s.gates) { await loadGates(s); if (currentSchool === s) render(); }
   drawGates(s);
 }
+let schoolMapT = "k", schoolMapAt = null;
+function setSchoolMap(lat, lng, z, label, s) {
+  schoolMapAt = { lat, lng, z, label, s };
+  const la = (+lat).toFixed(6), ln = (+lng).toFixed(6);
+  $("#schoolMap").src = gEmbed(la, ln, z, schoolMapT, `${la},${ln}`);
+  $("#schoolSV").href = gStreet(la, ln);
+  $("#schoolGM").href = gOpen(la, ln);
+  $$("#schoolMapSeg [data-t]").forEach((b) => b.classList.toggle("active", b.dataset.t === schoolMapT));
+}
+$("#schoolMapSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-t]"); if (!b || !schoolMapAt) return;
+  schoolMapT = b.dataset.t; const a = schoolMapAt; setSchoolMap(a.lat, a.lng, a.z, a.label, a.s);
+});
 function bestGate(s) {
   if (!s.gates?.length) return "";
   const ok = s.gates.filter((g) => ["debloque", "calme"].includes(gateState(s, g.label)));
