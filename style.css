@@ -201,3 +201,16 @@ a{color:inherit}
 @media (max-width:860px){ .gmap{height:200px} .gview{z-index:690} .gview-bar{top:10px;bottom:auto} .gview-bar .btn{padding:8px 10px;font-size:12px} }
 .school-actions a{text-decoration:none}
 body.gview-on .leaflet-control-container,body.gview-on .map-tools [data-layer],body.gview-on #heatBtn{visibility:hidden}
+
+/* Checkpoints & menu au toucher */
+.cp{position:relative;width:30px;height:30px;border-radius:9px;background:#0b0d12;border:3px solid;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #000a}
+.cp.hot{animation:pulse-r 1.3s infinite}
+.cp i{position:absolute;right:-9px;top:-9px;font-style:normal;font-size:12px;background:#0b0d12;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center}
+.cp-lbl{left:34px;top:6px}
+.map-wrap .leaflet-container:not(.show-labels) .cp-lbl{display:none}
+.qp-wrap .leaflet-popup-content{margin:12px 14px}
+.qp{display:flex;flex-direction:column;gap:6px;min-width:190px;font-family:Inter,system-ui,sans-serif}
+.qp b{font-size:14px}.qp small{color:var(--mut);font-size:11px;line-height:1.35}
+.qp .status-pill{align-self:flex-start}
+.qp .btn{text-decoration:none;text-align:center;color:var(--txt)}
+#cpKinds button.active{border-color:var(--blue);box-shadow:inset 0 0 0 2px var(--blue);background:#0b0d12}

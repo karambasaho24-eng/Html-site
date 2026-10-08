@@ -2,7 +2,7 @@
 (() => {
 "use strict";
 
-const CFG = window.BA_CONFIG, KINDS = window.BA_KINDS, STATUS = window.BA_STATUS;
+const CFG = window.BA_CONFIG, KINDS = window.BA_KINDS, STATUS = window.BA_STATUS, CPK = window.BA_CP_KINDS;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -39,6 +39,7 @@ const modes = Object.assign({ fiable: false, discret: false, sound: false, notif
 const schools = new Map();       // id -> école
 const reports = [];              // signalements récents (48 h)
 const byId = new Map();
+const checkpoints = new Map();   // id -> checkpoint
 let timeShift = 0;               // mode "remonter le temps" (ms dans le passé)
 let feedFilter = "all", rankSort = "blocus", rankRows = [];
 let currentSchool = null, myPos = null, chatRoom = "global";
@@ -110,6 +111,7 @@ const cluster = L.markerClusterGroup({
 const eventLayer = L.layerGroup().addTo(map);
 const gateLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
+const cpLayer = L.layerGroup().addTo(map);
 let heatLayer = null;
 
 map.on("moveend", () => {
@@ -148,6 +150,7 @@ function addSchool(s) {
   let e = schools.get(s.id);
   if (e) { Object.assign(e, Object.fromEntries(Object.entries(s).filter(([, v]) => v != null))); return e; }
   e = s; schools.set(s.id, e);
+  if (s.id.startsWith("cp:")) return e; // lieu indépendant : affiché via son checkpoint
   const st = statusOf(s.id);
   e.marker = L.marker([s.lat, s.lng], { icon: schoolIcon(s, st), st, zIndexOffset: statusRank[st] * 100 })
     .on("click", () => openSchool(s.id));
@@ -155,7 +158,7 @@ function addSchool(s) {
   return e;
 }
 function refreshSchool(id, batch = false) {
-  const s = schools.get(id); if (!s) return;
+  const s = schools.get(id); if (!s?.marker) return;
   const st = statusOf(id);
   if (batch && st === s.marker.options.st && st === "none" && !favs.has(id)) return;
   s.marker.options.st = st;
@@ -236,6 +239,9 @@ async function loadGates(s) {
   for (const r of reports) {
     if (r.school_id === s.id && r.gate_label && !gates.some((g) => g.label === r.gate_label)) gates.push({ label: r.gate_label, lat: r.lat, lng: r.lng, src: "user" });
   }
+  for (const cp of checkpoints.values()) {
+    if (cp.school_id === s.id && !gates.some((g) => g.label === cp.name)) gates.push(cpGate(cp));
+  }
   s.gates = gates;
   return gates;
 }
@@ -246,6 +252,7 @@ function gateState(s, label) {
 function drawGates(s) {
   gateLayer.clearLayers();
   for (const g of s.gates || []) {
+    if (g.src === "cp") continue; // déjà sur la carte (calque checkpoints)
     const st = gateState(s, g.label);
     const color = st ? KINDS[st].color : g.src === "user" ? "#ffd166" : "#ffffff";
     L.marker([g.lat, g.lng], {
@@ -255,8 +262,111 @@ function drawGates(s) {
   }
 }
 
+/* ---------------- Checkpoints ---------------- */
+const cpGate = (cp) => ({ label: cp.name, lat: cp.lat, lng: cp.lng, src: "cp", kind: cp.kind });
+function cpSchool(cp) {
+  return schools.get(cp.school_id) || addSchool({ id: cp.school_id, name: cp.school_name, lat: cp.lat, lng: cp.lng, src: "zone", gates: [] });
+}
+function addCheckpoint(cp) {
+  checkpoints.set(cp.id, cp);
+  const s = schools.get(cp.school_id);
+  if (s?.gates && !s.gates.some((g) => g.label === cp.name)) s.gates.push(cpGate(cp));
+}
+async function loadCheckpoints() {
+  const { data } = await sb.from("ba_checkpoints").select("*").order("id", { ascending: false }).limit(5000);
+  (data || []).forEach(addCheckpoint);
+  drawCheckpoints();
+}
+function cpState(cp) { return recentFor(cp.school_id).find((r) => r.gate_label === cp.name) || null; }
+function drawCheckpoints() {
+  cpLayer.clearLayers();
+  if (map.getZoom() < 13) return;
+  const b = map.getBounds().pad(0.2);
+  for (const cp of checkpoints.values()) {
+    if (!b.contains([cp.lat, cp.lng])) continue;
+    const last = cpState(cp), K = last ? KINDS[last.kind] : null;
+    const color = K ? K.color : "#4da3ff";
+    L.marker([cp.lat, cp.lng], {
+      icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15],
+        html: `<div class="cp${K && K.sev >= 2 ? " hot" : ""}" style="border-color:${color};color:${color}">${(CPK[cp.kind] || CPK.autre).icon}${K ? `<i>${K.icon}</i>` : ""}</div><div class="mk-lbl cp-lbl" style="color:${K ? color : "#cfe3ff"}">${esc(cp.name)}</div>` }),
+      zIndexOffset: 2500,
+    }).bindPopup(() => cpPopup(cp), { className: "qp-wrap" }).addTo(cpLayer);
+  }
+}
+function cpPopup(cp) {
+  const last = cpState(cp), K = last ? KINDS[last.kind] : null, T = CPK[cp.kind] || CPK.autre;
+  return `<div class="qp"><b>${T.icon} ${esc(cp.name)}</b>
+    <small>${T.label}${cp.school_id.startsWith("cp:") ? "" : " · " + esc(cp.school_name)}</small>
+    <span class="status-pill" style="background:${K ? K.color : "#6b7686"}">${K ? K.icon + " " + esc(K.label) : "Pas d'info récente"}</span>
+    ${last ? `<small>${ago(last.created_at)} · par ${esc(last.author)}${last.message ? ` — « ${esc(last.message)} »` : ""}</small>` : ""}
+    <button class="btn sm" data-cp-report="${cp.id}">📢 Signaler son état</button>
+    <a class="btn ghost sm" target="_blank" rel="noopener" href="${gStreet(cp.lat, cp.lng)}">👁️ Street View</a>
+    <small class="muted">Créé par ${esc(cp.author)} · ${ago(cp.created_at)}</small></div>`;
+}
+
+/* Toucher la carte : petit menu « signaler ici / créer un checkpoint » */
+let closedAt = 0, quickAt = null;
+map.on("popupclose", () => (closedAt = Date.now()));
+map.on("click", (e) => {
+  if (pickMode) { pickMode = false; map.getContainer().style.cursor = ""; return reportAt(e.latlng); }
+  if (Date.now() - closedAt < 350) return; // ce toucher servait juste à fermer la bulle
+  quickAt = e.latlng;
+  const s = nearestSchool(e.latlng.lat, e.latlng.lng, 0.4);
+  L.popup({ className: "qp-wrap", offset: [0, -4] }).setLatLng(e.latlng).setContent(
+    `<div class="qp"><b>📍 Cet endroit</b>${s ? `<small>près de ${esc(s.name)}</small>` : ""}
+      <button class="btn sm" data-qp="report">📢 Signaler ici</button>
+      <button class="btn ghost sm" data-qp="cp">➕ Créer un checkpoint</button></div>`).openOn(map);
+});
+map.on("contextmenu", (e) => reportAt(e.latlng));
+document.addEventListener("click", (e) => {
+  const q = e.target.closest("[data-qp]");
+  if (q) { map.closePopup(); return q.dataset.qp === "report" ? reportAt(quickAt) : openCheckpointForm(quickAt); }
+  const r = e.target.closest("[data-cp-report]");
+  if (r) { const cp = checkpoints.get(+r.dataset.cpReport); if (cp) { map.closePopup(); openReport(cpSchool(cp), cpGate(cp)); } }
+});
+
+let cpKind = "portail", cpAt = null, cpNear = [];
+$("#cpKinds").innerHTML = Object.entries(CPK).map(([k, K]) => `<button type="button" data-cpk="${k}"><span>${K.icon}</span>${K.label}</button>`).join("");
+$("#cpKinds").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-cpk]"); if (!b) return;
+  cpKind = b.dataset.cpk; $$("#cpKinds button").forEach((x) => x.classList.toggle("active", x === b));
+});
+function openCheckpointForm(latlng) {
+  cpAt = latlng;
+  cpNear = [...schools.values()].filter((s) => !s.id.startsWith("cp:") && s.src !== "zone")
+    .map((s) => [s, distKm(latlng.lat, latlng.lng, s.lat, s.lng)]).filter(([, d]) => d < 0.8).sort((a, b) => a[1] - b[1]).slice(0, 6);
+  $("#cpSchool").innerHTML = cpNear.map(([s, d], i) => `<option value="${i}">🏫 ${esc(s.name)} (${Math.round(d * 1000)} m)</option>`).join("") +
+    `<option value="none" ${cpNear.length ? "" : "selected"}>📍 Aucun — lieu indépendant</option>`;
+  cpKind = cpNear.length && cpNear[0][1] < 0.15 ? "portail" : "carrefour";
+  $$("#cpKinds button").forEach((x) => x.classList.toggle("active", x.dataset.cpk === cpKind));
+  $("#cpName").value = "";
+  openSheet("cpSheet");
+  setTimeout(() => $("#cpName").focus(), 50);
+}
+$("#cpForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("#cpName").value.trim();
+  if (name.length < 2) return toast("Donne un nom au checkpoint");
+  const v = $("#cpSchool").value;
+  const s = v === "none" ? null : cpNear[+v][0];
+  const school_id = s ? s.id : `cp:${cpAt.lat.toFixed(5)},${cpAt.lng.toFixed(5)}`;
+  const school_name = s ? s.name : name;
+  const btn = $("#cpSubmit"); btn.disabled = true;
+  const { data: id, error } = await sb.rpc("ba_add_checkpoint", {
+    p_token: session?.token || null, p_school_id: school_id, p_school_name: school_name,
+    p_name: name, p_kind: cpKind, p_lat: cpAt.lat, p_lng: cpAt.lng,
+  });
+  btn.disabled = false;
+  if (error) return toast("❌ " + error.message);
+  const cp = { id, school_id, school_name, name, kind: cpKind, lat: cpAt.lat, lng: cpAt.lng, author: session?.pseudo || "Anonyme", created_at: new Date().toISOString() };
+  addCheckpoint(cp); drawCheckpoints();
+  closeSheet("cpSheet"); toast("✅ Checkpoint créé — dis maintenant ce qui s'y passe");
+  openReport(cpSchool(cp), cpGate(cp));
+});
+
 /* ---------------- Signalements sur la carte ---------------- */
 function renderEvents() {
+  drawCheckpoints();
   eventLayer.clearLayers();
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
   const t = now();
@@ -311,6 +421,7 @@ const channel = sb.channel("blocus-live", { config: { presence: { key: guestId +
     ingest(r, false); refreshSchool(r.school_id); renderAll();
   })
   .on("postgres_changes", { event: "INSERT", schema: "public", table: "ba_chat" }, ({ new: m }) => onChat(m))
+  .on("postgres_changes", { event: "INSERT", schema: "public", table: "ba_checkpoints" }, ({ new: cp }) => { addCheckpoint(cp); drawCheckpoints(); })
   .on("presence", { event: "sync" }, () => {
     const n = Object.keys(channel.presenceState()).length;
     $("#liveCount").textContent = `EN DIRECT · ${n} en ligne`;
@@ -530,10 +641,11 @@ async function openReport(s, gate, point) {
   pending = { s, point };
   $("#reportTarget").innerHTML = `<b>${esc(s.name)}</b>${s.city ? " · " + esc(s.city) : ""}`;
   const sel = $("#reportGate");
-  const gates = s.gates || (s.src !== "zone" ? await loadGates(s) : []);
+  const gates = s.gates || (s.src !== "zone" ? await loadGates(s) : (s.gates = []));
+  if (gate && !gates.some((g) => g.label === gate.label)) gates.push(gate);
   sel.innerHTML = `<option value="">🏫 Le lycée en général</option>` +
     (point ? `<option value="__point" selected>📍 Point choisi sur la carte</option>` : "") +
-    gates.map((g, i) => `<option value="${i}" ${gate && g.label === gate.label ? "selected" : ""}>🚪 ${esc(g.label)}</option>`).join("") +
+    gates.map((g, i) => `<option value="${i}" ${gate && g.label === gate.label ? "selected" : ""}>${g.src === "cp" ? (CPK[g.kind] || CPK.autre).icon : "🚪"} ${esc(g.label)}</option>`).join("") +
     `<option value="__new">➕ Autre entrée / lieu précis…</option>`;
   selKind = null; $$("#kindGrid button").forEach((x) => x.classList.remove("active"));
   $("#reportMsg").value = "";
@@ -580,8 +692,6 @@ function reportAt(latlng) {
   }
   openReport(s, null, [lat, lng]);
 }
-map.on("contextmenu", (e) => reportAt(e.latlng));
-map.on("click", (e) => { if (pickMode) { pickMode = false; map.getContainer().style.cursor = ""; reportAt(e.latlng); } });
 $("#fabReport").onclick = () => {
   if (currentSchool) return openReport(currentSchool);
   pickMode = true; map.getContainer().style.cursor = "crosshair";
@@ -837,6 +947,7 @@ loadReports().then(() => {
   if (m) { const id = decodeURIComponent(m[1]); if (schools.has(id)) openSchool(id); }
 });
 loadRanking();
+loadCheckpoints();
 scheduleOSM();
 if (modes.wake && favs.size) { showTab("modes"); openMode = "wake"; renderModes(); }
 if (modes.radar) locate(() => {});

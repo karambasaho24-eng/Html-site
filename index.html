@@ -42,7 +42,7 @@
       <button class="chip" id="heatBtn" title="Carte de chaleur">🔥</button>
     </div>
     <div class="legend" id="legend"></div>
-    <div class="map-hint" id="mapHint">Zoomez sur une ville pour charger tous ses lycées · clic droit / appui long = signaler à cet endroit</div>
+    <div class="map-hint" id="mapHint">👆 Touche la carte pour signaler ou créer un checkpoint · zoome sur une ville pour voir tous ses lycées</div>
     <div class="loading hidden" id="loading">Chargement des lycées…</div>
     <button class="fab" id="fabReport">＋ Signaler</button>
     <div class="gview hidden" id="gview">
@@ -173,6 +173,24 @@
       <textarea id="reportMsg" maxlength="500" rows="3" placeholder="Ex : portail principal fermé par des poubelles, entrée par la rue arrière possible"></textarea>
       <p class="muted small" id="reportAs"></p>
       <button class="btn big" id="reportSubmit">Publier le signalement</button>
+    </form>
+  </div>
+</div>
+
+<!-- Nouveau checkpoint -->
+<div class="sheet hidden" id="cpSheet">
+  <div class="sheet-card narrow">
+    <button class="close" data-close="cpSheet">✕</button>
+    <h2>➕ Nouveau checkpoint</h2>
+    <p class="muted">Un endroit fixe (portail, carrefour, arrêt…) visible par tout le monde. Chacun pourra ensuite dire s'il est bloqué ou ouvert.</p>
+    <form id="cpForm">
+      <label class="lbl">Type</label>
+      <div class="kinds" id="cpKinds"></div>
+      <label class="lbl">Nom</label>
+      <input class="field" id="cpName" maxlength="80" required minlength="2" placeholder="Ex : Portail rue Victor-Hugo">
+      <label class="lbl">Rattaché au lycée</label>
+      <select id="cpSchool"></select>
+      <button class="btn big" id="cpSubmit">Créer et signaler son état</button>
     </form>
   </div>
 </div>

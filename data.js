@@ -83,6 +83,18 @@ window.BA_KINDS = {
   info:      { label: "Info générale",       icon: "ℹ️", color: "#9aa4b2", sev: 0 },
 };
 
+// Types de checkpoints (lieux fixes créés par les utilisateurs)
+window.BA_CP_KINDS = {
+  portail:       { label: "Portail",               icon: "🚪" },
+  entree:        { label: "Entrée du lycée",       icon: "🏫" },
+  carrefour:     { label: "Carrefour",             icon: "🔀" },
+  arret:         { label: "Arrêt bus / tram",      icon: "🚏" },
+  rondpoint:     { label: "Rond-point",            icon: "⭕" },
+  parking:       { label: "Parking",               icon: "🅿️" },
+  rassemblement: { label: "Point de rassemblement", icon: "👥" },
+  autre:         { label: "Autre lieu",            icon: "📍" },
+};
+
 window.BA_STATUS = {
   blocus:   { label: "BLOQUÉ",         color: "#ff2d4b" },
   partiel:  { label: "PARTIEL",        color: "#ff8a1f" },
