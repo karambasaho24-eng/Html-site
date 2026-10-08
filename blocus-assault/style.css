@@ -183,3 +183,21 @@ a{color:inherit}
 .marker-cluster div{width:36px;height:36px;margin:2px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px}
 .search{min-width:0}
 @media (max-width:480px){ .brand b{font-size:12px;letter-spacing:.03em} .brand b span{display:block;margin:0} .top-actions .btn{padding:9px 10px} }
+
+/* Google Maps */
+.gchip{font-weight:900;font-size:18px;background:#fff!important;color:#4285f4!important}
+.gchip.on{box-shadow:0 0 0 2px #4285f4}
+.gmap{border-radius:12px;overflow:hidden;border:1px solid var(--line);height:260px;margin:12px 0 8px;background:#0e1118}
+.gmap iframe,.gview iframe{width:100%;height:100%;border:0;display:block}
+.gview{position:absolute;inset:0;z-index:650;background:#0e1118}
+.gview-bar{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100% - 20px)}
+.gview-bar .seg{margin:0;background:#12151dee;border-radius:999px;padding:3px}
+.gview-bar .btn{text-decoration:none;box-shadow:0 4px 18px #0008}
+#schoolMapSeg{align-items:center}
+#schoolMapSeg a{text-decoration:none}
+.verdict{font-weight:700;margin:6px 0 0;font-size:15px}
+.gates span[data-gate]{cursor:pointer}
+.gates span[data-gate]:hover{border-color:var(--txt)}
+@media (max-width:860px){ .gmap{height:200px} .gview{z-index:690} .gview-bar{top:10px;bottom:auto} .gview-bar .btn{padding:8px 10px;font-size:12px} }
+.school-actions a{text-decoration:none}
+body.gview-on .leaflet-control-container,body.gview-on .map-tools [data-layer],body.gview-on #heatBtn{visibility:hidden}

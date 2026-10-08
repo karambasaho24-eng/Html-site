@@ -6,6 +6,10 @@ window.BA_CONFIG = {
   supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjeG5ub210aGF3b3NuY3dvZW16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5NzMwMDQsImV4cCI6MjEwMDU0OTAwNH0.SkUiClpJMigMDVjJ9X9wjjLf9Hy1Pi0uKolMBE2O1Sw",
   overpass: ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"],
   statusWindowHours: 6,
+  // Clé Google Maps JavaScript API (facultative). Si elle est renseignée, la carte
+  // en direct s'affiche sur le fond Google Maps (plan / satellite) avec tous les
+  // signalements par-dessus. Sans clé, le bouton « G » ouvre Google Maps intégré.
+  googleMapsKey: "",
 };
 
 // [id, nom, ville, pays, lat, lng]
