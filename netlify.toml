@@ -7,3 +7,9 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(self), camera=(), microphone=()"
+
+# Le schéma SQL sert à installer la base, pas à être servi en ligne.
+[[redirects]]
+  from = "/supabase/*"
+  to = "/index.html"
+  status = 404
