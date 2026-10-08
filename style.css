@@ -214,3 +214,50 @@ body.gview-on .leaflet-control-container,body.gview-on .map-tools [data-layer],b
 .qp .status-pill{align-self:flex-start}
 .qp .btn{text-decoration:none;text-align:center;color:var(--txt)}
 #cpKinds button.active{border-color:var(--blue);box-shadow:inset 0 0 0 2px var(--blue);background:#0b0d12}
+
+/* Barre des villes */
+.citybar{position:absolute;top:10px;left:10px;right:62px;z-index:600;display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px}
+.citybar::-webkit-scrollbar{display:none}
+.cb-label{background:var(--red);color:#fff;font-weight:900;padding:9px 11px;border-radius:10px;white-space:nowrap;font-size:12px;letter-spacing:.04em;box-shadow:0 4px 14px #0006}
+.cb{background:#12151dee;border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;white-space:nowrap;font-weight:800;font-size:13px;color:var(--txt);box-shadow:0 4px 14px #0006}
+.cb small{font-weight:600;color:var(--mut);margin-left:4px;font-size:11px}
+.cb.on{background:#fff;color:#0b0d12;border-color:#fff;box-shadow:0 0 0 2px var(--red),0 4px 14px #0006}
+.cb.on small{color:#555}
+.cb.soon{opacity:.6;cursor:default}
+.leaflet-top.leaflet-left{top:52px}
+body.gview-on .citybar,body.gview-on .fab-cp{display:none}
+
+/* Choix de la ville */
+.city-choices{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.city-choice{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:2px solid var(--line);border-radius:14px;padding:16px;font-size:20px;font-weight:900;cursor:pointer;color:var(--txt);text-align:left}
+.city-choice:not(:disabled):hover{border-color:var(--red)}
+.city-choice small{font-size:12px;color:var(--mut);font-weight:600}
+.city-choice:disabled{opacity:.5;cursor:default}
+
+/* Bouton checkpoint */
+.fab-cp{bottom:86px;background:#3c8dff;box-shadow:0 8px 30px #3c8dff66;padding:12px 18px;font-size:14px}
+.fab-cp.on{background:#fff;color:#0b4fa8;box-shadow:0 0 0 3px #3c8dff}
+
+/* Onglet Lycées */
+.lyc-title{margin:0 0 6px;font-size:16px}
+.lyc-sum{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.lyc-sum span{background:var(--bg3);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700}
+#lycSearch{margin-bottom:6px}
+.lyc{list-style:none;margin:0;padding:0}
+.lyc li{display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer}
+.lyc li:hover{background:var(--bg3)}
+.lyc .dot{width:12px;height:12px;border-radius:50%;flex:none;box-shadow:0 0 0 2px #fff2}
+.lyc .n{flex:1;min-width:0}
+.lyc .n b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lyc .n small{color:var(--mut);font-size:11px}
+.lyc .status-pill{font-size:10px;padding:3px 8px;flex:none}
+
+/* Noms lisibles sur le plan clair comme sur le fond sombre */
+.mk-lbl{text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
+
+@media (max-width:860px){
+  .citybar{top:8px;left:8px;right:58px}
+  .cb-label{display:none}
+  .fab-cp{bottom:calc(46% + 72px)}
+  body.panel-collapsed .fab-cp{bottom:168px}
+}

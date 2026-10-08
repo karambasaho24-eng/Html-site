@@ -3,6 +3,7 @@
 "use strict";
 
 const CFG = window.BA_CONFIG, KINDS = window.BA_KINDS, STATUS = window.BA_STATUS, CPK = window.BA_CP_KINDS;
+const CITIES = window.BA_CITIES || [];
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -43,13 +44,16 @@ const checkpoints = new Map();   // id -> checkpoint
 let timeShift = 0;               // mode "remonter le temps" (ms dans le passé)
 let feedFilter = "all", rankSort = "blocus", rankRows = [];
 let currentSchool = null, myPos = null, chatRoom = "global";
-let pending = null, pickMode = false;
+let pending = null, pickMode = false, cpPickMode = false;
+// Ville affichée (null = toutes les villes)
+let city = CITIES.find((c) => !c.soon && c.id === store.get("city", CITIES.find((x) => !x.soon)?.id)) || null;
 
 /* ---------------- Carte ---------------- */
-const map = L.map("map", { zoomControl: true, worldCopyJump: true, minZoom: 2 }).setView(store.get("view", [46.6, 2.4]), store.get("zoom", 6));
+const map = L.map("map", { zoomControl: true, worldCopyJump: true, minZoom: 2 })
+  .setView(city ? [city.lat, city.lng] : store.get("view", [46.6, 2.4]), city ? city.zoom : store.get("zoom", 6));
 const bases = {
   dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 20, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }),
-  streets: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }),
+  plan: L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 20, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }),
   sat: L.layerGroup([
     L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, attribution: "© Esri" }),
     L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png", { maxZoom: 20, subdomains: "abcd" }),
@@ -63,11 +67,12 @@ if (GKEY && L.gridLayer.googleMutant) {
   bases.google = L.gridLayer.googleMutant({ type: "roadmap", maxZoom: 21, attribution: "© Google" });
   bases.gsat = L.gridLayer.googleMutant({ type: "hybrid", maxZoom: 21, attribution: "© Google" });
 }
-let baseName = store.get("base", GKEY ? "google" : "dark");
-if (!bases[baseName]) baseName = "dark";
+// Par défaut : Google Maps si une clé est fournie, sinon le plan clair façon Google Maps
+let baseName = store.get("base2", GKEY ? "google" : "plan");
+if (!bases[baseName]) baseName = GKEY ? "google" : "plan";
 bases[baseName].addTo(map);
 const setBase = (n) => {
-  map.removeLayer(bases[baseName]); baseName = n; bases[n].addTo(map); store.set("base", n);
+  map.removeLayer(bases[baseName]); baseName = n; bases[n].addTo(map); store.set("base2", n);
   $$(".map-tools [data-layer]").forEach((b) => b.classList.toggle("on", b.dataset.layer === n));
   $("#googleBtn").classList.toggle("on", n === "google" || n === "gsat");
 };
@@ -143,7 +148,7 @@ function schoolIcon(s, st) {
   const star = favs.has(s.id) ? "⭐ " : "";
   return L.divIcon({
     className: "", iconSize: [24, 24], iconAnchor: [12, 12],
-    html: `<div class="mk${big ? " big" : ""}${pulse}" style="background:${c};color:${c}"></div><div class="mk-lbl" style="color:${big ? c : "#cfd6e2"}">${star}${esc(s.name)}</div>`,
+    html: `<div class="mk${big ? " big" : ""}${pulse}" style="background:${c};color:${c}"></div><div class="mk-lbl" style="color:${big ? c : "#1d2330"}">${star}${esc(s.name)}</div>`,
   });
 }
 function addSchool(s) {
@@ -184,15 +189,20 @@ async function overpass(q) {
   throw new Error("Overpass indisponible");
 }
 function scheduleOSM() { clearTimeout(osmTimer); osmTimer = setTimeout(loadOSM, 700); }
-async function loadOSM() {
-  const hint = $("#mapHint");
-  if (map.getZoom() < 12) { hint.classList.remove("hidden"); return; }
-  hint.classList.add("hidden");
+function loadOSM() {
+  if (map.getZoom() < 12) return;
   const b = map.getBounds().pad(0.25);
-  const box = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
-  const all = modes.allSchools;
-  if (loadedBoxes.some((x) => x[4] === all && x[0] <= box[0] && x[1] <= box[1] && x[2] >= box[2] && x[3] >= box[3])) return;
-  if (osmBusy) return scheduleOSM();
+  return fetchSchools([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], modes.allSchools);
+}
+// Les requêtes OpenStreetMap passent une par une (le service public limite le débit)
+let osmQueue = Promise.resolve();
+function fetchSchools(box, all) {
+  const run = osmQueue.then(() => doFetchSchools(box, all));
+  osmQueue = run.catch(() => {});
+  return run;
+}
+async function doFetchSchools(box, all) {
+  if (loadedBoxes.some((x) => x[4] === all && x[0] <= box[0] && x[1] <= box[1] && x[2] >= box[2] && x[3] >= box[3])) return true;
   osmBusy = true; $("#loading").classList.remove("hidden");
   const bb = box.map((v) => v.toFixed(5)).join(",");
   const q = all
@@ -207,9 +217,64 @@ async function loadOSM() {
       addSchool({ id: `osm:${el.type}/${el.id}`, name: t.name, city: t["addr:city"] || t["is_in:city"] || null, lat, lng, src: "osm", osmType: el.type, osmId: el.id, web: t.website || null });
     }
     loadedBoxes.push([...box, all]);
-  } catch (e) { toast("⚠️ Impossible de charger les lycées (OpenStreetMap saturé), réessai bientôt"); }
-  osmBusy = false; $("#loading").classList.add("hidden");
+    return true;
+  } catch (e) { toast("⚠️ Impossible de charger les lycées (OpenStreetMap saturé), réessai bientôt"); return false; }
+  finally { osmBusy = false; $("#loading").classList.add("hidden"); }
 }
+
+/* ---------------- Villes ---------------- */
+const inCity = (lat, lng) => !city || distKm(city.lat, city.lng, lat, lng) <= city.radiusKm;
+let cityLoad = "idle";
+async function loadCityLycees(c) {
+  if (!c) return;
+  cityLoad = "loading"; renderLycees();
+  const dLat = c.radiusKm / 111, dLng = c.radiusKm / (111 * Math.cos((c.lat * Math.PI) / 180));
+  const ok = await fetchSchools([c.lat - dLat, c.lng - dLng, c.lat + dLat, c.lng + dLng], false);
+  if (city !== c) return;
+  cityLoad = ok ? "ok" : "error"; renderLycees(); renderStats();
+}
+function renderCityBar() {
+  $("#cityBar").innerHTML = `<span class="cb-label">📍 Ville</span>` +
+    CITIES.map((c) => c.soon
+      ? `<button class="cb soon" disabled>${esc(c.name)} <small>bientôt</small></button>`
+      : `<button class="cb${city?.id === c.id ? " on" : ""}" data-city="${c.id}">${esc(c.name)} <small>${esc(c.sub || "")}</small></button>`).join("") +
+    `<button class="cb${city ? "" : " on"}" data-city="all">🌍 Tout voir</button>`;
+  $("#cityChoices").innerHTML = CITIES.map((c) => `<button class="city-choice" ${c.soon ? "disabled" : `data-city="${c.id}"`}>${esc(c.name)} <small>${c.soon ? "bientôt" : esc(c.sub || "")}</small></button>`).join("");
+}
+function selectCity(id) {
+  city = id === "all" ? null : CITIES.find((c) => c.id === id && !c.soon) || null;
+  store.set("city", id); store.set("cityChosen", true);
+  closeSheet("citySheet");
+  if (city) { map.flyTo([city.lat, city.lng], city.zoom, { duration: 0.8 }); loadCityLycees(city); }
+  else map.flyTo([46.6, 2.4], 6, { duration: 0.8 });
+  renderCityBar(); renderAll(); renderRank();
+}
+document.addEventListener("click", (e) => { const c = e.target.closest("[data-city]"); if (c) selectCity(c.dataset.city); });
+
+/* Onglet « Lycées » : l'état de chaque lycée de la ville, en direct */
+function renderLycees() {
+  const q = norm($("#lycSearch").value.trim());
+  const all = [...schools.values()].filter((s) => !s.id.startsWith("cp:") && s.src !== "zone" &&
+    (city ? inCity(s.lat, s.lng) : statusOf(s.id) !== "none" || favs.has(s.id)));
+  const rows = all.map((s) => ({ s, st: statusOf(s.id), last: recentFor(s.id)[0] }))
+    .sort((a, b) => statusRank[b.st] - statusRank[a.st] || favs.has(b.s.id) - favs.has(a.s.id) || a.s.name.localeCompare(b.s.name, "fr"));
+  const n = (f) => rows.filter((r) => f.includes(r.st)).length;
+  $("#lycTitle").textContent = city ? `🏫 Lycées — ${city.name}` : "🏫 Lycées avec des infos";
+  $("#lycSummary").innerHTML = `<span style="color:${STATUS.blocus.color}">⛔ ${n(["blocus", "partiel"])} bloqués</span>` +
+    `<span style="color:${STATUS.incident.color}">⚠️ ${n(["incident", "annule"])} incidents / fermés</span>` +
+    `<span style="color:${STATUS.debloque.color}">✅ ${n(["debloque", "calme"])} accès OK</span>` +
+    `<span class="muted">❔ ${n(["none"])} sans info</span>`;
+  const list = rows.filter((r) => !q || norm(r.s.name + " " + (r.s.city || "")).includes(q));
+  $("#lycList").innerHTML = list.map(({ s, st, last }) => `<li data-school="${esc(s.id)}">
+      <span class="dot" style="background:${STATUS[st].color}"></span>
+      <div class="n"><b>${favs.has(s.id) ? "⭐ " : ""}${esc(s.name)}</b><small>${last ? `${KINDS[last.kind]?.icon || ""} ${esc(KINDS[last.kind]?.label || "")} · ${ago(last.created_at)}` : "Pas d'info récente — touche pour signaler"}</small></div>
+      <span class="status-pill" style="background:${STATUS[st].color}">${STATUS[st].label}</span></li>`).join("") ||
+    `<div class="empty">${cityLoad === "loading" ? `Chargement des lycées${city ? " de " + esc(city.name) : ""}…`
+      : cityLoad === "error" ? `Impossible de charger les lycées pour l'instant.<br><button class="btn sm" id="lycRetry" style="margin-top:8px">Réessayer</button>`
+      : q ? "Aucun lycée ne correspond." : city ? "Aucun lycée trouvé ici." : "Aucun lycée signalé pour l'instant."}</div>`;
+  const rt = $("#lycRetry"); if (rt) rt.onclick = () => loadCityLycees(city);
+}
+$("#lycSearch").addEventListener("input", renderLycees);
 
 const cardinal = (s, lat, lng) => {
   const a = (Math.atan2(lat - s.lat, (lng - s.lng) * Math.cos(s.lat * Math.PI / 180)) * 180) / Math.PI;
@@ -288,7 +353,7 @@ function drawCheckpoints() {
     const color = K ? K.color : "#4da3ff";
     L.marker([cp.lat, cp.lng], {
       icon: L.divIcon({ className: "", iconSize: [30, 30], iconAnchor: [15, 15],
-        html: `<div class="cp${K && K.sev >= 2 ? " hot" : ""}" style="border-color:${color};color:${color}">${(CPK[cp.kind] || CPK.autre).icon}${K ? `<i>${K.icon}</i>` : ""}</div><div class="mk-lbl cp-lbl" style="color:${K ? color : "#cfe3ff"}">${esc(cp.name)}</div>` }),
+        html: `<div class="cp${K && K.sev >= 2 ? " hot" : ""}" style="border-color:${color};color:${color}">${(CPK[cp.kind] || CPK.autre).icon}${K ? `<i>${K.icon}</i>` : ""}</div><div class="mk-lbl cp-lbl" style="color:${K ? color : "#0b4fa8"}">${esc(cp.name)}</div>` }),
       zIndexOffset: 2500,
     }).bindPopup(() => cpPopup(cp), { className: "qp-wrap" }).addTo(cpLayer);
   }
@@ -309,6 +374,7 @@ let closedAt = 0, quickAt = null;
 map.on("popupclose", () => (closedAt = Date.now()));
 map.on("click", (e) => {
   if (pickMode) { pickMode = false; map.getContainer().style.cursor = ""; return reportAt(e.latlng); }
+  if (cpPickMode) { cpPickMode = false; map.getContainer().style.cursor = ""; $("#fabCp").classList.remove("on"); return openCheckpointForm(e.latlng); }
   if (Date.now() - closedAt < 350) return; // ce toucher servait juste à fermer la bulle
   quickAt = e.latlng;
   const s = nearestSchool(e.latlng.lat, e.latlng.lng, 0.4);
@@ -448,13 +514,13 @@ function notifyNew(r) {
   const K = KINDS[r.kind] || KINDS.info;
   const near = myPos && modes.radar && distKm(myPos[0], myPos[1], r.lat, r.lng) <= (store.get("radius", 3));
   const fav = favs.has(r.school_id);
-  if (K.urgent || fav || near) {
+  if ((K.urgent && inCity(r.lat, r.lng)) || fav || near) {
     if (K.urgent) beep();
     if (modes.notif && !modes.discret && "Notification" in window && Notification.permission === "granted" && (fav || near || K.urgent)) {
       try { new Notification(`${K.icon} ${K.label} — ${r.school_name}`, { body: r.message || (fav ? "Ton lycée favori" : "Près de toi"), tag: "ba" + r.id }); } catch {}
     }
   }
-  if (K.urgent) showBanner(r);
+  if (K.urgent && (inCity(r.lat, r.lng) || fav || near)) showBanner(r);
 }
 function showBanner(r) {
   if (modes.discret) return;
@@ -501,9 +567,9 @@ document.addEventListener("click", async (e) => {
 function renderStats() {
   const t = now(); const today = new Date(t); today.setHours(0, 0, 0, 0);
   let bloq = 0, inc = 0;
-  schools.forEach((s, id) => { const st = statusOf(id); if (st === "blocus" || st === "partiel") bloq++; if (st === "incident") inc++; });
-  const todayN = reports.filter((r) => new Date(r.created_at) >= today && +new Date(r.created_at) <= t).length;
-  const urg = reports.filter((r) => KINDS[r.kind]?.urgent && t - new Date(r.created_at) < CFG.statusWindowHours * HOUR && +new Date(r.created_at) <= t).length;
+  schools.forEach((s, id) => { if (!inCity(s.lat, s.lng)) return; const st = statusOf(id); if (st === "blocus" || st === "partiel") bloq++; if (st === "incident") inc++; });
+  const todayN = reports.filter((r) => inCity(r.lat, r.lng) && new Date(r.created_at) >= today && +new Date(r.created_at) <= t).length;
+  const urg = reports.filter((r) => inCity(r.lat, r.lng) && KINDS[r.kind]?.urgent && t - new Date(r.created_at) < CFG.statusWindowHours * HOUR && +new Date(r.created_at) <= t).length;
   $("#stats").innerHTML = [["⛔", bloq, "bloqués"], ["⚠️", inc, "incidents"], ["🚨", urg, "alertes"], ["📝", todayN, "auj."]]
     .map(([i, n, l]) => `<div class="stat"><b>${n}</b><span>${i} ${l}</span></div>`).join("");
 }
@@ -511,8 +577,8 @@ const FEED_FILTERS = { all: "Tout", status: "Blocus", incident: "Incidents", pol
 function renderFeed() {
   $("#feedFilters").innerHTML = Object.entries(FEED_FILTERS).map(([k, l]) => `<button data-ff="${k}" class="${k === feedFilter ? "active" : ""}">${l}</button>`).join("");
   const t = now();
-  let list = reports.filter((r) => +new Date(r.created_at) <= t && isTrusted(r));
   const f = feedFilter;
+  let list = reports.filter((r) => +new Date(r.created_at) <= t && isTrusted(r) && (f === "fav" || f === "near" || inCity(r.lat, r.lng)));
   if (f === "status") list = list.filter((r) => KINDS[r.kind]?.status);
   if (f === "incident") list = list.filter((r) => ["incendie", "portail", "intrusion", "lacrymo", "danger", "medical"].includes(r.kind));
   if (f === "police") list = list.filter((r) => r.kind === "police");
@@ -527,12 +593,12 @@ function renderFeed() {
 $("#feedFilters").addEventListener("click", (e) => { const b = e.target.closest("[data-ff]"); if (b) { feedFilter = b.dataset.ff; renderFeed(); } });
 function renderAlerts() {
   const t = now();
-  const list = reports.filter((r) => KINDS[r.kind]?.urgent && t - new Date(r.created_at) < CFG.statusWindowHours * HOUR && +new Date(r.created_at) <= t && !isContested(r));
+  const list = reports.filter((r) => inCity(r.lat, r.lng) && KINDS[r.kind]?.urgent && t - new Date(r.created_at) < CFG.statusWindowHours * HOUR && +new Date(r.created_at) <= t && !isContested(r));
   $("#alertList").innerHTML = list.map((r) => reportCard(r)).join("") || `<div class="empty">✅ Aucune alerte urgente en cours.</div>`;
   const b = $("#alertCount"); b.textContent = list.length; b.classList.toggle("hidden", !list.length);
 }
 function renderRank() {
-  const rows = [...rankRows].sort((a, b) => b[rankSort] - a[rankSort] || b.total - a.total).filter((r) => r[rankSort] > 0).slice(0, 100);
+  const rows = [...rankRows].filter((r) => inCity(r.lat, r.lng)).sort((a, b) => b[rankSort] - a[rankSort] || b.total - a.total).filter((r) => r[rankSort] > 0).slice(0, 100);
   const max = rows[0]?.[rankSort] || 1;
   $("#rankList").innerHTML = rows.map((r) => `<li data-school="${esc(r.school_id)}"><div class="n"><b>${esc(r.school_name)}</b><span class="muted small">${esc(r.city || "")} · ${r.total} signalements · dernier ${ago(r.last_at)}</span><div class="bar"><i style="width:${(r[rankSort] / max) * 100}%"></i></div></div><span class="v">${r[rankSort]}</span></li>`).join("")
     || `<div class="empty">Le classement des 30 derniers jours apparaîtra dès les premiers signalements.</div>`;
@@ -545,7 +611,7 @@ $("#rankSort").addEventListener("click", (e) => {
 function renderLegend() {
   $("#legend").innerHTML = Object.entries(STATUS).filter(([k]) => k !== "calme").map(([, s]) => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join("");
 }
-function renderAll() { renderStats(); renderFeed(); renderAlerts(); if ($("#tab-modes").classList.contains("active")) renderModeOutput(); }
+function renderAll() { renderStats(); renderFeed(); renderAlerts(); renderLycees(); if ($("#tab-modes").classList.contains("active")) renderModeOutput(); }
 
 /* ---------------- Fiche lycée ---------------- */
 function openSheet(id) { $("#" + id).classList.remove("hidden"); }
@@ -692,7 +758,14 @@ function reportAt(latlng) {
   }
   openReport(s, null, [lat, lng]);
 }
+$("#fabCp").onclick = () => {
+  cpPickMode = !cpPickMode; pickMode = false;
+  map.getContainer().style.cursor = cpPickMode ? "crosshair" : "";
+  $("#fabCp").classList.toggle("on", cpPickMode);
+  if (cpPickMode) toast("📍 Touche l'endroit exact du checkpoint sur la carte (portail, carrefour, arrêt…)", 4000);
+};
 $("#fabReport").onclick = () => {
+  cpPickMode = false; $("#fabCp").classList.remove("on");
   if (currentSchool) return openReport(currentSchool);
   pickMode = true; map.getContainer().style.cursor = "crosshair";
   toast("👆 Touche l'endroit exact sur la carte (portail, rue, lycée…)", 4000);
@@ -910,7 +983,7 @@ function renderModeOutput() {
     };
   } else if (openMode === "brief") {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const tr = reports.filter((r) => new Date(r.created_at) >= today);
+    const tr = reports.filter((r) => new Date(r.created_at) >= today && inCity(r.lat, r.lng));
     const cities = {}; tr.forEach((r) => { if (r.city) cities[r.city] = (cities[r.city] || 0) + 1; });
     const kinds = {}; tr.forEach((r) => (kinds[r.kind] = (kinds[r.kind] || 0) + 1));
     const top = Object.entries(cities).sort((a, b) => b[1] - a[1]).slice(0, 8);
@@ -940,7 +1013,9 @@ $("#panelGrip").onclick = () => {
 };
 
 /* ---------------- Démarrage ---------------- */
-renderLegend(); updateAccount(); applyDiscret(); fillRooms(); renderAll();
+renderLegend(); renderCityBar(); updateAccount(); applyDiscret(); fillRooms(); renderAll();
+if (!store.get("cityChosen", false)) openSheet("citySheet");
+if (city) loadCityLycees(city);
 map.getContainer().classList.toggle("show-labels", map.getZoom() >= 14);
 loadReports().then(() => {
   const m = location.hash.match(/^#l=(.+)$/);

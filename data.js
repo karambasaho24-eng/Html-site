@@ -83,6 +83,14 @@ window.BA_KINDS = {
   info:      { label: "Info générale",       icon: "ℹ️", color: "#9aa4b2", sev: 0 },
 };
 
+// Villes couvertes. La première ville active est celle ouverte par défaut.
+// Pour ajouter une ville : copier la ligne du Mans, changer nom / centre / zoom,
+// et retirer « soon: true ».
+window.BA_CITIES = [
+  { id: "lemans", name: "Le Mans", sub: "72000 · 72100", lat: 47.995, lng: 0.2, zoom: 13, radiusKm: 10 },
+  { id: "idf", name: "Île-de-France", sub: "bientôt", soon: true },
+];
+
 // Types de checkpoints (lieux fixes créés par les utilisateurs)
 window.BA_CP_KINDS = {
   portail:       { label: "Portail",               icon: "🚪" },

@@ -36,14 +36,15 @@
     <div id="map"></div>
     <div class="map-tools">
       <button class="chip" data-layer="dark" title="Fond sombre">🌙</button>
-      <button class="chip" data-layer="streets" title="Plan">🗺️</button>
+      <button class="chip" data-layer="plan" title="Plan (style Google Maps)">🗺️</button>
       <button class="chip" data-layer="sat" title="Satellite">🛰️</button>
       <button class="chip gchip" id="googleBtn" title="Google Maps">G</button>
       <button class="chip" id="heatBtn" title="Carte de chaleur">🔥</button>
     </div>
     <div class="legend" id="legend"></div>
-    <div class="map-hint" id="mapHint">👆 Touche la carte pour signaler ou créer un checkpoint · zoome sur une ville pour voir tous ses lycées</div>
+    <div class="citybar" id="cityBar"></div>
     <div class="loading hidden" id="loading">Chargement des lycées…</div>
+    <button class="fab fab-cp" id="fabCp">📍 Checkpoint</button>
     <button class="fab" id="fabReport">＋ Signaler</button>
     <div class="gview hidden" id="gview">
       <iframe id="gviewFrame" title="Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
@@ -58,7 +59,8 @@
   <aside class="panel" id="panel">
     <div class="panel-grip" id="panelGrip"></div>
     <nav class="tabs" id="tabs">
-      <button data-tab="feed" class="active">📰 Actu</button>
+      <button data-tab="lycees" class="active">🏫 Lycées</button>
+      <button data-tab="feed">📰 Actu</button>
       <button data-tab="alerts">🚨 Alertes <i class="badge hidden" id="alertCount">0</i></button>
       <button data-tab="rank">🏆 Classement</button>
       <button data-tab="chat">💬 Chat</button>
@@ -66,7 +68,14 @@
       <button data-tab="guide">🛡️ Guide</button>
     </nav>
 
-    <div class="tab active" id="tab-feed">
+    <div class="tab active" id="tab-lycees">
+      <h3 class="lyc-title" id="lycTitle">🏫 Lycées</h3>
+      <div class="lyc-sum" id="lycSummary"></div>
+      <input class="field" id="lycSearch" type="search" placeholder="Filtrer les lycées…" autocomplete="off">
+      <ul class="lyc" id="lycList"></ul>
+    </div>
+
+    <div class="tab" id="tab-feed">
       <div class="stats" id="stats"></div>
       <div class="filters" id="feedFilters"></div>
       <div class="list" id="feedList"></div>
@@ -174,6 +183,20 @@
       <p class="muted small" id="reportAs"></p>
       <button class="btn big" id="reportSubmit">Publier le signalement</button>
     </form>
+  </div>
+</div>
+
+<!-- Choix de la ville (première visite) -->
+<div class="sheet hidden" id="citySheet">
+  <div class="sheet-card narrow">
+    <h2>📍 Choisis ta ville</h2>
+    <p class="muted">Blocus Assault montre en direct les blocus, les portails bloqués et les incidents autour des lycées de ta ville.</p>
+    <div class="city-choices" id="cityChoices"></div>
+    <ul class="muted small" style="padding-left:18px;line-height:1.6;margin:0">
+      <li>👆 Touche la carte pour <b>signaler</b> ou poser un <b>checkpoint</b> (portail, carrefour, arrêt…).</li>
+      <li>⭐ Mets ton lycée en favori pour voir son état chaque matin.</li>
+      <li>Tu peux changer de ville à tout moment avec la barre en haut de la carte.</li>
+    </ul>
   </div>
 </div>
 
