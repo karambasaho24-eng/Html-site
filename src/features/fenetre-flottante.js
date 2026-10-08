@@ -142,8 +142,11 @@ export async function ouvrirFenetreFlottante(forme = null) {
  * place dans la grande fenêtre mais supprimerait toute navigation dans une
  * fenêtre qui n'a que ça.
  */
-function appliquerDensiteFlottante(largeur) {
-  fenetre.document.documentElement.dataset.density = largeur < 820 ? "compact" : "moyen";
+function appliquerDensiteFlottante() {
+  // La taille de la fenêtre décide désormais du comportement (châssis
+  // data-taille : la console en petit). Les anciennes densités, qui
+  // réduisaient le rail, n'ont plus d'objet ici et cassaient la grille.
+  fenetre.document.documentElement.dataset.density = "grand";
 }
 
 /** Ramène l'interface dans la page d'origine. */

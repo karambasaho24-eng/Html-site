@@ -125,28 +125,35 @@ export async function creerPiloteSupabase(config) {
         const { data } = await sb.auth.getUser();
         return data.user;
       },
-      async inscrire({ email, motDePasse, nom, role }) {
-        const { data, error } = await sb.auth.signUp({
-          email, password: motDePasse,
-          options: { data: { display_name: nom, role_key: role || "student" } }
-        });
+      /* On s'inscrit avec son pseudo RP et un mot de passe : le serveur crée
+         le compte, déjà confirmé (voir 0028_inscription_pseudo.sql), et l'on
+         entre aussitôt. Le rôle ne se choisit pas : tout nouveau compte est
+         élève. */
+      async inscrire({ pseudo, motDePasse }) {
+        const { data: adresse, error } = await sb.rpc("inscrire_pseudo", { pseudo, mot_de_passe: motDePasse });
         if (error) throw new ErreurDonnees(error.message, error.code, error);
-        if (data?.session) return data;
-
-        /* Pas de session : le projet exige encore une confirmation par
-           courriel. On tente quand même l'ouverture directe — si le réglage
-           « Confirm email » a été levé côté Supabase, elle passe et
-           l'inscription devient un geste unique. Sinon on rend la sortie
-           telle quelle et l'écran d'accès expliquera la suite. */
-        const { data: ouverture } = await sb.auth.signInWithPassword({
-          email, password: motDePasse
-        });
-        return ouverture?.session ? ouverture : data;
-      },
-      async connecter({ email, motDePasse }) {
-        const { data, error } = await sb.auth.signInWithPassword({ email, password: motDePasse });
-        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        const { data, error: e2 } = await sb.auth.signInWithPassword({ email: adresse, password: motDePasse });
+        if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
         return data;
+      },
+      async connecter({ pseudo, motDePasse }) {
+        const { data: adresse, error } = await sb.rpc("courriel_du_pseudo", { pseudo });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        const { data, error: e2 } = await sb.auth.signInWithPassword({ email: adresse, password: motDePasse });
+        if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
+        return data;
+      },
+      async changerMotDePasse(nouveau) {
+        const { error } = await sb.auth.updateUser({ password: nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
+      },
+      /* Plus de courriel pour se dépanner seul : l'administration donne un
+         nouveau mot de passe au joueur qui a oublié le sien. */
+      async remettreMotDePasse(cible, nouveau) {
+        const { error } = await sb.rpc("admin_mot_de_passe", { cible, nouveau });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
       },
       async lienMagique(email) {
         const { error } = await sb.auth.signInWithOtp({

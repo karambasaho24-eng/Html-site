@@ -11,12 +11,15 @@
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
-import { papiers, personnages } from "../data/index.js";
+import { papiers, personnages, profils } from "../data/index.js";
 import { ouvrirModale, confirmer } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 import { exigerProximite } from "./proximite.js";
 import { dateRP, heureRP, reglagesRP, nomAffiche, identiteComplete, universDe } from "../core/rp.js";
 import { dateCourte, heure } from "../core/util.js";
+import { champLieu, retenirLieu } from "./lieux.js";
+import { vignetteRemise, apparenceDe } from "./scene-remise.js";
+import { enLisant } from "./lecture.js";
 
 /* ===========================================================================
    Les modèles
@@ -325,56 +328,123 @@ export async function composerPapier({ classe = null, papier = null, modele = nu
  * Tendre un papier. La proximité est exigée avant le geste, et l'attestation
  * est conservée avec la remise : si quelqu'un conteste plus tard, la trace
  * dit qui a déclaré quoi.
+ *
+ * On dit aussi OÙ l'on est, et l'on peut décrire la scène. Sans description,
+ * la remise remonte dans la liste de la modération : pas pour punir, pour
+ * qu'on puisse vérifier.
+ *
+ * Les candidats sont ceux qu'on croise dans ses espaces ; on peut aussi
+ * chercher quelqu'un par son pseudo — on se croise aussi dans la rue.
  */
 export async function tendrePapier({ papier, classe = null, session = null, candidats = [], fiches = new Map() }) {
   const disponibles = candidats.filter((c) => c?.user_id && c.user_id !== etat.utilisateur.id);
-  if (!disponibles.length) {
-    toast("Personne à qui le tendre pour l'instant.");
-    return false;
+  const choisis = new Map();            // user_id → { user_id, profil, nom }
+  let exemplaires = 1;
+  let description = "";
+  const liste = el("div.remise__liste");
+  const resultats = el("span.remise__resultats");
+  // Une seule personne à portée : c'est sans doute elle.
+  if (disponibles.length === 1) choisis.set(disponibles[0].user_id, disponibles[0]);
+  const lieu = champLieu({
+    libelle: "Où êtes-vous, en jeu ?", requis: true,
+    valeur: classe && session ? `Salle — ${classe.name}` : ""
+  });
+
+  const nomDe = (c) => nomAffiche(fiches.get(c.user_id), c.profil || c) || c.nom || "Quelqu'un";
+  const ligne = (c) => el("label.case.remise__ligne",
+    el("input", {
+      type: "checkbox", checked: choisis.has(c.user_id),
+      onchange: (e) => { if (e.currentTarget.checked) choisis.set(c.user_id, c); else choisis.delete(c.user_id); }
+    }),
+    el("span", nomDe(c)),
+    c.espace ? el("span.petit.faible", ` · ${c.espace.name}`) : null);
+
+  function peindreListe() {
+    const tous = [...disponibles, ...[...choisis.values()].filter((c) => !disponibles.some((d) => d.user_id === c.user_id))];
+    liste.replaceChildren(...(tous.length ? tous.map(ligne)
+      : [el("p.petit.faible", "Personne dans vos espaces : cherchez la personne par son pseudo.")]));
   }
 
-  const choisis = new Set();
-  let exemplaires = 1;
+  let delai = null;
+  async function chercher(texte) {
+    clearTimeout(delai);
+    delai = setTimeout(async () => {
+      const trouves = (await profils.chercher(texte).catch(() => []))
+        .filter((p) => p.id !== etat.utilisateur.id);
+      resultats.replaceChildren(...trouves.map((p) => el("button.puce", {
+        type: "button",
+        onclick: () => {
+          choisis.set(p.id, { user_id: p.id, profil: p, nom: p.display_name });
+          resultats.replaceChildren();
+          peindreListe();
+        }
+      }, "+ ", p.display_name)));
+      if (texte.trim().length >= 2 && !trouves.length) resultats.append(el("span.petit.faible", "Aucun pseudo ne correspond."));
+    }, 220);
+  }
 
+  peindreListe();
   const valide = await ouvrirModale({
     titre: "Tendre le papier",
-    corps: () => el("div",
+    corps: () => el("div.remise-form",
       el("p.petit.faible",
-        "Choisissez qui se tient devant vous. Un exemplaire part par destinataire ; "
+        "À qui le tendez-vous ? Un exemplaire part par destinataire ; "
         + "au-delà, les copies restent dans votre sacoche."),
-      el("div.remise__liste", disponibles.map((c) => el("label.case.remise__ligne",
-        el("input", {
-          type: "checkbox",
-          onchange: (e) => {
-            if (e.currentTarget.checked) choisis.add(c.user_id); else choisis.delete(c.user_id);
-          }
+      liste,
+      el("label.champ",
+        el("span.champ__label", "Quelqu'un d'autre ? Son pseudo"),
+        el("input.saisie", {
+          type: "search", placeholder: "Pseudo du joueur…", autocomplete: "off",
+          oninput: (e) => chercher(e.currentTarget.value)
         }),
-        el("span", nomAffiche(fiches.get(c.user_id), c.profil || c) || c.nom || "Participant")
-      ))),
+        resultats),
+      lieu.noeud,
+      el("label.champ",
+        el("span.champ__label", "La scène, en quelques mots"),
+        el("textarea.zone", {
+          rows: "2", maxlength: "600",
+          placeholder: "Je le lui glisse à la sortie de la taverne, à l'abri des regards…",
+          oninput: (e) => { description = e.currentTarget.value; }
+        }),
+        el("span.champ__aide",
+          "Facultatif. Sans description, la remise est signalée à la modération, qui vérifiera.")),
       el("label.champ",
         el("span.champ__label", "Exemplaires par destinataire"),
         el("input.saisie", {
           type: "number", min: "1", max: "10", value: "1",
           oninput: (e) => { exemplaires = Math.max(1, Math.min(10, Number(e.currentTarget.value) || 1)); }
-        }),
-        el("span.champ__aide", "Un ordre affiché en plusieurs endroits, par exemple."))
+        }))
     ),
     actions: [
       { libelle: "Annuler", valeur: false },
       {
         libelle: "Continuer", variante: "primaire",
-        action: () => choisis.size > 0 || (toast("Choisissez au moins une personne."), false)
+        action: () => {
+          if (!choisis.size) { toast("Choisissez au moins une personne."); return false; }
+          if (!lieu.valeur()) {
+            lieu.saisie.classList.add("champ--erreur");
+            lieu.saisie.focus();
+            toast("Dites où vous êtes", { corps: "Le lieu de la remise est demandé.", type: "attn" });
+            return false;
+          }
+          return true;
+        }
       }
     ]
   });
   if (!valide) return false;
 
-  const premier = disponibles.find((c) => choisis.has(c.user_id));
+  const premier = [...choisis.values()][0];
   const proche = await exigerProximite({
     motif: "papier",
     cible: premier?.profil || premier,
     personnage: fiches.get(premier?.user_id),
-    detail: `« ${papier.title} » — ${choisis.size} destinataire${choisis.size > 1 ? "s" : ""}`
+    detail: `« ${papier.title} » — ${choisis.size} destinataire${choisis.size > 1 ? "s" : ""} · ${lieu.valeur()}`,
+    scene: {
+      de: { nom: "Vous", avatar: apparenceDe(etat.profil ? { ...etat.profil, id: etat.utilisateur.id } : null), moi: true },
+      a: { nom: nomDe(premier), avatar: apparenceDe(premier?.profil) },
+      objet: "papier"
+    }
   });
   if (!proche) return false;
 
@@ -382,34 +452,143 @@ export async function tendrePapier({ papier, classe = null, session = null, cand
     const copies = exemplaires > 1
       ? [papier, ...(await papiers.dupliquer(papier.id, exemplaires - 1))]
       : [papier];
-
-    for (const destinataire of choisis) {
+    const ou = lieu.valeur();
+    const scene = description.trim() || null;
+    for (const c of choisis.values()) {
       for (const copie of copies) {
         await papiers.tendre({
-          paper_id: copie.id, from_user: etat.utilisateur.id, to_user: destinataire,
-          class_id: classe?.id || null, session_id: session?.id || null, attested: true
+          paper_id: copie.id, from_user: etat.utilisateur.id, to_user: c.user_id,
+          // L'espace où l'on se croise, s'il y en a un ; dans la rue, aucun.
+          class_id: c.espace?.id || (disponibles.some((d) => d.user_id === c.user_id) ? classe?.id || null : null),
+          session_id: session?.id || null, attested: true,
+          lieu: ou, description: scene
         });
       }
     }
-    succes(`Papier tendu à ${choisis.size} personne${choisis.size > 1 ? "s" : ""}`);
-    return true;
+    retenirLieu(ou);
   } catch (err) {
     erreur("Remise impossible", messageErreur(err));
     return false;
   }
+
+  // Le geste : on tend le papier. L'autre doit maintenant dire qu'on est bien là.
+  const vignette = vignetteRemise({
+    de: { nom: "Vous", avatar: apparenceDe({ ...etat.profil, id: etat.utilisateur.id }), moi: true },
+    a: { nom: nomDe(premier), avatar: apparenceDe(premier?.profil) },
+    objet: "papier", vue: "de", phase: "tend"
+  });
+  await ouvrirModale({
+    titre: "Papier tendu",
+    surFermeture: () => vignette.detruire(),
+    corps: () => el("div.reception",
+      vignette.noeud,
+      el("p",
+        "Vous tendez « ", el("strong", papier.title), " » à ",
+        el("strong", [...choisis.values()].map(nomDe).join(", ")), "."),
+      el("p.petit.faible",
+        "Restez près de lui en jeu : il reçoit une notification et doit confirmer, de son côté, "
+        + "que vous êtes bien devant lui. Tant qu'il n'a pas répondu, le papier reste en attente."),
+      avertissement("Cette remise est enregistrée — qui, à qui, où et quand. La modération peut la vérifier.")),
+    actions: [{ libelle: "Compris", variante: "primaire", valeur: true }]
+  });
+  return true;
+}
+
+/** Le bandeau qui prévient : ce qui est dit ici est enregistré. */
+export function avertissement(texte) {
+  return el("div.avertissement", { role: "note" },
+    icone("bouclier", 15),
+    el("p", el("strong", "Attention. "), texte));
 }
 
 /**
- * Recevoir. Le destinataire lit d'abord, décide ensuite : on ne refuse pas un
- * papier sans l'avoir regardé, mais on n'est jamais forcé de le garder.
+ * Recevoir. D'abord la question qui fonde tout : la personne qui me tend ce
+ * papier est-elle devant moi, en jeu ? Puis où je suis. Ensuite seulement, on
+ * prend le papier, on le lit, on le garde ou on le refuse.
+ *
+ * Non : la remise est refusée, et cela reste au registre.
  */
 export async function recevoirPapier(remise, { classe = null, fiche = null } = {}) {
-  const decision = await ouvrirModale({
-    titre: "On vous tend un papier",
+  const auteur = nomAffiche(fiche, remise.auteur);
+  const de = { nom: auteur, avatar: apparenceDe(remise.auteur) };
+  const moi = { nom: "Vous", avatar: apparenceDe({ ...etat.profil, id: etat.utilisateur.id }), moi: true };
+
+  // Un papier déjà tranché : on le relit, c'est tout.
+  if (remise.state !== "offered") {
+    await enLisant("papier", ouvrirModale({
+      titre: remise.papier?.title || "Papier",
+      large: true,
+      corps: () => el("div.reception",
+        el("div.reception__main", rendrePapier(remise.papier, { auteur: remise.auteur, fiche, classe }))),
+      actions: [{ libelle: "Refermer", variante: "primaire", valeur: true }]
+    }));
+    return null;
+  }
+
+  // 1. Est-il bien devant moi ?
+  if (remise.presence == null) {
+    const vignette = vignetteRemise({ de, a: moi, objet: "papier", vue: "a", phase: "approche" });
+    setTimeout(() => vignette.jouer("tend"), 2500);
+    const lieu = champLieu({
+      libelle: "Où êtes-vous, en jeu ?", requis: true,
+      aide: remise.lieu ? `${auteur} dit être : ${remise.lieu}.` : null
+    });
+    const reponse = await ouvrirModale({
+      titre: "On vous tend un papier",
+      surFermeture: () => vignette.detruire(),
+      corps: () => el("div.reception",
+        vignette.noeud,
+        el("p.reception__qui",
+          el("strong", auteur), " vous tend « ", el("strong", remise.papier?.title || "un papier"), " »",
+          remise.lieu ? ` — ${remise.lieu}` : "", "."),
+        remise.description ? el("blockquote.reception__scene", remise.description) : null,
+        el("p.reception__question", "Cette personne est-elle bien devant vous, en jeu ?"),
+        lieu.noeud,
+        avertissement("Votre réponse et cette remise sont enregistrées. Les modérateurs vérifient "
+          + "que les informations sont exactes : qui, où, quand.")),
+      actions: [
+        { libelle: "Plus tard", valeur: null },
+        { libelle: "Non, pas devant moi", variante: "danger", valeur: "non" },
+        {
+          libelle: "Oui, devant moi", variante: "primaire",
+          action: () => {
+            if (lieu.valeur()) return "oui";
+            lieu.saisie.classList.add("champ--erreur");
+            lieu.saisie.focus();
+            return false;
+          }
+        }
+      ]
+    });
+    if (!reponse) return null;
+    try {
+      await papiers.confirmerPresence(remise.id, { present: reponse === "oui", lieu: lieu.valeur() });
+      if (lieu.valeur()) retenirLieu(lieu.valeur());
+    } catch (err) {
+      erreur("Réponse non enregistrée", messageErreur(err));
+      return null;
+    }
+    if (reponse === "non") {
+      toast("Remise refusée", {
+        corps: `Vous avez indiqué que ${auteur} n'était pas devant vous. C'est inscrit au registre.`,
+        type: "attn", duree: 8000
+      });
+      return "refused";
+    }
+    remise = { ...remise, presence: true, lieu_reception: lieu.valeur() };
+  }
+
+  // 2. On prend le papier, on le lit, on décide.
+  const vignette = vignetteRemise({ de, a: moi, objet: "papier", vue: "a", phase: "tend" });
+  setTimeout(() => vignette.jouer("prend"), 450);
+  const decision = await enLisant("papier", ouvrirModale({
+    titre: "Vous prenez le papier",
     large: true,
+    surFermeture: () => vignette.detruire(),
     corps: () => el("div.reception",
-      el("p.petit.faible",
-        nomAffiche(fiche, remise.auteur), " vous tend ce document."),
+      vignette.noeud,
+      el("p.petit.faible", auteur, " vous a remis ce document",
+        remise.lieu_reception ? ` — ${remise.lieu_reception}` : "", "."),
       el("div.reception__main", rendrePapier(remise.papier, {
         auteur: remise.auteur, fiche, classe
       })),
@@ -422,7 +601,7 @@ export async function recevoirPapier(remise, { classe = null, fiche = null } = {
       { libelle: "Refuser", variante: "danger", valeur: "refused" },
       { libelle: "Le garder", variante: "primaire", valeur: "accepted" }
     ]
-  });
+  }));
   if (!decision) return null;
 
   try {

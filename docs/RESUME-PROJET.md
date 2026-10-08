@@ -219,6 +219,40 @@ L'instrument de calcul est une **règle à calcul** (et un boulier en second) :
 réglette coulissante, curseur, graduations. Aucun écran, aucune pile — rien qui
 n'existerait pas dans cet univers.
 
+### 4.4 bis Les objets conditionnent les actions (migration 0019)
+
+Posséder ne suffit pas : il faut avoir l'objet **devant soi**.
+
+- **Lieu** de chaque objet et cahier : `range` (chez soi ou dans un contenant), `bureau` (sorti pendant une activité), `salle` (laissé derrière soi). `src/features/portee.js` répond à « où est-il, pour moi, maintenant ? » et « puis-je faire ceci ? ».
+- **Actions et outils** : écrire → crayon / plume / stylo-plume (+ encrier) ; effacer → gomme ; tracer → règle, équerre, compas ; calculer → règle à calcul, boulier ; tableau (professeur) → craie. Sans l'outil, rien ne s'écrit : le cahier se verrouille avec « Vous n'avez aucun outil d'écriture ».
+- **Bureau de séance** (`src/features/bureau.js`) : on ouvre son sac et on sort ce qu'on veut. En séance, seul ce qui est sur le bureau sert. En quittant la salle ou à la fin de la séance, ce qui est resté sur le bureau reste **dans la salle**.
+- **Contenance** : chaque contenant a une capacité, chaque objet un volume (petit, moyen, encombrant). L'établi affiche `occupé/capacité` et refuse ce qui ne rentre pas ; les cahiers se rangent dans un contenant comme le reste.
+- **Oublis** : « Mes affaires » affiche la section *Laissé ailleurs* (❌ indisponible, 📍 dernière position). Récupérer exige que la salle soit ouverte (séance en cours, ouverture par l'encadrement, laissez-passer) et une attestation de présence. Un cahier oublié ne s'ouvre pas.
+- **Encadrement** : menu *Objets trouvés* (classe et salle) → autoriser l'accès 30 min, laisser entrer une personne 20 min, restituer un objet. Rien ne revient tout seul.
+- **Professeur** : reçoit une fois une sacoche avec craie, crayon, gomme, feuilles et un dossier de professeur — pas « tous les objets ».
+- **Dossiers** : onglet *Dossiers* de la sacoche. Un dossier est un objet nommé par le joueur ; on y classe des papiers ; oublié, il n'est plus accessible, ni son contenu.
+
+### 4.4 ter La scène : le bureau devant soi (la salle, depuis le 27 septembre)
+
+La salle ne s'ouvre plus sur une interface de site mais sur **ce que le personnage a devant lui** (`src/features/scene-bureau.js`, `styles/scene.css`) :
+
+- au fond, le **tableau** (le vrai tableau de la séance, vivant, en petit — un clic l'agrandit) et l'**estrade** : le professeur déclare « Je suis devant la classe » d'un geste, les élèves le voient aussitôt (colonne `class_sessions.estrade`, migration 0020) ;
+- le **pupitre** en perspective, les affaires posées dessus en photo détourée, avec ombre et biais ; on les déplace à la main (la place est retenue), on les renvoie au sac en les glissant dessus ;
+- le **sac** par terre : fermé, puis ouvert sur son intérieur (une poche par contenant) ; un clic sur un objet le fait voler jusqu'au bureau ;
+- le **cahier** s'ouvre en livre sur le bureau ; un rail « à portée de main » montre les outils posés. **On écrit seulement avec un outil EN MAIN** : sinon « Aucun outil d'écriture disponible » ou « Prenez votre crayon ».
+- le **dock** en bas : sac, cahier, stylo, note, reçus, document, dossiers, tableau, main levée, personnes — des objets, pas des menus.
+- **note rapide** (`src/features/note-rapide.js`) : écrire → toucher la personne → tendre. Il faut un outil et une feuille sur le bureau ; la feuille quitte la pile. Le destinataire voit « 📄 Une note vous a été remise. »
+- **fenêtres** : compacte (le dock seul), bureau, cahier, sac, document, étendue (l'ancienne interface complète). Le bouton « détacher » pose la fenêtre au-dessus de Roblox (Document Picture-in-Picture, Chrome/Edge).
+
+### 4.4 quater L'application autour du bureau (voir docs/INTERFACE.md)
+
+- **Plus de tableau de bord.** Une ligne de contexte en haut (où je suis, présence du responsable, `👥 n`, notifications, « au-dessus du jeu », ⋯) ; la vue ; la **barre des gestes** en bas : Bureau · Sac · Cahier · Note · Documents · Personnes. Le reste (espaces, cahiers, archives, encadrement, réglages) est dans le tiroir ⋯.
+- **Chez moi** remplace l'accueil : le même pupitre que la salle, dans la chambre ; le sac à côté ; au mur, une plaque encadrée d'argent avec ce qui se passe en ce moment (séance ouverte → « Y aller », papiers remis, notifications, rejoindre un espace). On prépare son sac physiquement.
+- **La taille décide du comportement** (`chassis[data-taille]` : grand / moyen / compact / mini). En compact et mini — dont la fenêtre posée au-dessus de Roblox —, la scène laisse place à la **console** (`src/features/console.js`) : un panneau à la fois (bureau, sac, cahier, note, documents, personnes ; en salle aussi tableau et ⋯), la barre en dessous ; en mini, le panneau s'ouvre par-dessus.
+- **Personnes** : pictogrammes et noms sur une bande défilante (`src/features/personnes.js`), jamais de gros profils. **Présence** : une pastille « ● Professeur présent / ○ absent » — le mot dépend du contexte (président de séance, chef de mission, hôte…).
+- **Contextes** : cours, réunion, mission, entretien, distribution (migration 0021).
+- **Design** : graphite, argent brossé pour les commandes et les cadres, bois et papier pour les objets.
+
 ### 4.5 Les objets qui circulent
 
 **Le principe, partout le même : un objet n'est jamais à deux endroits.**
@@ -300,23 +334,23 @@ permissions (RBAC en base), modérateurs, recherche, notifications.
 
 *Cette section est la plus importante pour qui reprend le projet.*
 
-### 5.1 Le déploiement n'est pas automatique
+### 5.1 Le déploiement est automatique (depuis le 27 septembre)
 
-**Le projet Netlify n'est relié à aucun dépôt.** Pousser sur GitHub ne publie
-rien. Chaque mise en ligne exige de lancer `deployer.ps1` à la main sur la
-machine du propriétaire.
+**classe-parallele est relié au dépôt GitHub.** Chaque poussée sur la branche de
+production déclenche une construction Netlify
+(`node outils/config-depuis-env.mjs`, publication de `.`), et le site est en
+ligne une minute plus tard.
 
-Cela a déjà causé plusieurs fois la même méprise : des fonctionnalités
-livrées, poussées et testées, mais invisibles en ligne pendant des heures — et
-la conclusion légitime, côté utilisateur, que « rien ne marche ».
+Ce n'était pas le cas avant, et c'est ce qui a fait croire pendant des jours que
+« rien ne marche » : le projet avait été créé par un envoi de fichiers, sans lien
+Git. Pire, le dossier local du propriétaire était relié par le CLI à un **ancien
+projet, `ojm-academy`**, hébergé sur un autre compte. Les modifications partaient
+donc bien quelque part, mais pas là où on les regardait. Le lien a été refait
+avec `netlify unlink`, `netlify link --id …` puis `netlify init`.
 
-**Le vrai correctif** : relier le dépôt dans Netlify (*Project configuration →
-Build & deploy → Link repository*), branche `main`, build
-`node outils/config-depuis-env.mjs`, publish `.`. Les variables d'environnement
-Supabase sont déjà en place.
-
-Tant que ce n'est pas fait : `deployer.ps1` après chaque changement. Le jeton
-de publication expire en quelques heures et doit être régénéré.
+Pour vérifier qu'une publication vient bien de GitHub : dans *Deploys*, elle
+porte un nom de branche et un commit. « Deploy triggered by upload » signifie un
+envoi manuel.
 
 ### 5.2 Les jetons de déploiement expirent
 

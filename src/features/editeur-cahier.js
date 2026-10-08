@@ -42,7 +42,14 @@ export function creerEditeurCahier(options) {
     compact = false,
     tempsReel = false,
     actionsSupplementaires = null,
-    rp = REGLAGES_RP_DEFAUT
+    rp = REGLAGES_RP_DEFAUT,
+    // La garde : une fonction (action) → { ok, message, conseil }. Quand elle
+    // est fournie, les objets gouvernent les gestes — effacer demande une
+    // gomme, calculer un instrument. Sans elle, le cahier est libre.
+    garde = null,
+    // Pourquoi on ne peut pas écrire, quand c'est faute d'outil. Affiché au
+    // clic : le joueur doit savoir quoi jouer, pas seulement que c'est fermé.
+    manqueEcriture = null
   } = options;
 
   let corps = null;
@@ -59,6 +66,10 @@ export function creerEditeurCahier(options) {
   let reglure = local.lire(`ojm.reglure.${cahier.id}`, "reglure");
   let abonnement = null;
   let enEdition = false;
+  // Ce qui était écrit à l'ouverture ou au dernier enregistrement. Tant que
+  // l'encre n'est pas sèche — ce qui vient d'être tapé — on peut se reprendre
+  // sans gomme. Au-delà, effacer demande de quoi effacer.
+  let longueurSeche = 0;
 
   const trancheListe = el("div.tranche__pages");
   const zoneFeuillet = el("div.feuillet__zone");
@@ -133,6 +144,7 @@ export function creerEditeurCahier(options) {
         if (memePatch(enAttente.get(pageId), patch)) {
           enAttente.delete(pageId);
           brouillonRetirer(pageId);
+          if (pageCourante?.id === pageId) longueurSeche = texteBrut(patch.body).length;
         }
         const quand = maj?.updated_at || new Date().toISOString();
         const i = listePages.findIndex((p) => p.id === pageId);
@@ -310,6 +322,7 @@ export function creerEditeurCahier(options) {
       ecrireBientot();
     }
 
+    longueurSeche = texteBrut(pageCourante.body || "").length;
     peindreTranche();
     peindreBarre();
 
@@ -384,8 +397,13 @@ export function creerEditeurCahier(options) {
           ].filter(Boolean))
         }, icone("drapeau", 15)),
         outil("Annuler", "annuler", commande("undo")),
-        outil("Refaire", "refaire", commande("redo"))
-      ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
+        outil("Refaire", "refaire", commande("redo")),
+        garde ? sep() : null,
+        garde ? outil("Faire un calcul", "grille", calculer, "×÷") : null
+      ) : (manqueEcriture && !manqueEcriture.discret
+            ? el("span.etiq.etiq--attn", { title: manqueEcriture.conseil || "" },
+                icone("crayon", 13), manqueEcriture.message)
+            : manqueEcriture?.discret ? null : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule")),
 
       el("span.pousse"),
       actionsSupplementaires ? actionsSupplementaires(pageCourante) : null,
@@ -450,6 +468,16 @@ export function creerEditeurCahier(options) {
       spellcheck: "true",
       role: "textbox", "aria-multiline": "true", "aria-label": "Contenu de la page",
       oninput: capturerCorps,
+      onbeforeinput: (e) => {
+        if (!garde || !String(e.inputType).startsWith("delete")) return;
+        // L'encre fraîche se reprend ; l'écrit d'hier, non.
+        if (texteBrut(corps.innerHTML).length > longueurSeche) return;
+        const verdict = garde("effacer");
+        if (verdict.ok) return;
+        e.preventDefault();
+        signalerManque(verdict);
+      },
+      onclick: () => { if (!peutEcrire && manqueEcriture) signalerManque(manqueEcriture); },
       onfocus: () => { enEdition = true; },
       onblur: () => { enEdition = false; viderMaintenant(); },
       onpaste: (e) => {
@@ -625,13 +653,15 @@ export function creerEditeurCahier(options) {
         noeud.style.left = `${x * 100}%`;
         noeud.style.top = `${y * 100}%`;
       };
+      // La fenêtre du cahier : en fenêtre flottante, ce n'est pas `window`.
+      const fen = noeud.ownerDocument?.defaultView || window;
       const surRelache = () => {
-        window.removeEventListener("pointermove", surMouvement);
-        window.removeEventListener("pointerup", surRelache);
+        fen.removeEventListener("pointermove", surMouvement);
+        fen.removeEventListener("pointerup", surRelache);
         if (bouge) enregistrer({ x: mot.x, y: mot.y });
       };
-      window.addEventListener("pointermove", surMouvement);
-      window.addEventListener("pointerup", surRelache);
+      fen.addEventListener("pointermove", surMouvement);
+      fen.addEventListener("pointerup", surRelache);
     });
   }
 
@@ -654,6 +684,43 @@ export function creerEditeurCahier(options) {
     } catch (err) {
       erreur("Pense-bête non collé", messageErreur(err));
     }
+  }
+
+  /** On dit ce qui manque, une fois toutes les quelques secondes — pas à
+   *  chaque frappe. */
+  let dernierSignal = 0;
+  function signalerManque(verdict) {
+    if (Date.now() - dernierSignal < 2500) return;
+    dernierSignal = Date.now();
+    toast(verdict.message || "Impossible", { corps: verdict.conseil || "", type: "attn", duree: 6000 });
+  }
+
+  /**
+   * Faire un calcul. Il faut un instrument — règle à calcul, boulier — et de
+   * quoi écrire le résultat. Le calcul lui-même est exact ; c'est le geste qui
+   * demande l'objet.
+   */
+  async function calculer() {
+    const verdict = garde?.("calculer");
+    if (verdict && !verdict.ok) { signalerManque(verdict); return; }
+    const expression = await demander({
+      titre: "Faire un calcul", label: "Opération", placeholder: "12 × 7 + 3",
+      aide: "Chiffres, + − × ÷, parenthèses. Le résultat s'écrira dans la page."
+    });
+    if (!expression) return;
+    const normale = expression.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/,/g, ".");
+    if (!/^[\d\s+\-*/().]+$/.test(normale)) {
+      toast("Ce n'est pas une opération", { type: "attn" });
+      return;
+    }
+    let resultat;
+    try { resultat = Function(`"use strict"; return (${normale});`)(); }
+    catch { toast("Opération illisible", { type: "attn" }); return; }
+    if (!Number.isFinite(resultat)) { toast("Résultat impossible", { type: "attn" }); return; }
+    const arrondi = Math.round(resultat * 1e6) / 1e6;
+    corps?.focus();
+    document.execCommand("insertText", false, `${expression.trim()} = ${String(arrondi).replace(".", ",")}`);
+    capturerCorps();
   }
 
   function capturerCorps() {

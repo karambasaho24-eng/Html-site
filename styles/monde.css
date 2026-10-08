@@ -1,0 +1,725 @@
+/* ===========================================================================
+   LE MONDE — châssis, ligne de contexte, barre des gestes, tiroir, console
+   Épure : un graphite mat, des libellés lisibles, les gestes essentiels
+   toujours visibles. La matière (bois, cuir, papier) reste aux objets.
+   ========================================================================= */
+
+/* --- Châssis ------------------------------------------------------------- */
+.chassis.chassis--monde {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "contexte" "vue" "actions";
+  background: var(--fond);
+}
+.chassis--monde.chassis--sans-actions { grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "contexte" "vue"; }
+.chassis--monde.chassis--immersif {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "contexte" "vue";
+}
+.chassis--monde.chassis--immersif > .contexte { display: flex; }
+
+/* --- La ligne de contexte : où je suis ----------------------------------- */
+.contexte {
+  grid-area: contexte;
+  position: relative; z-index: 30;
+  display: flex; align-items: center; gap: 12px;
+  height: 48px; padding: 0 10px 0 12px;
+  background: var(--fond);
+  border-bottom: 1px solid var(--ligne);
+}
+.contexte__sceau {
+  flex: 0 0 auto;
+  width: 28px; height: 28px; border-radius: 9px;
+  display: grid; place-items: center;
+  color: var(--texte-doux); background: transparent;
+  border: 0; cursor: pointer;
+}
+.contexte__sceau:hover { color: var(--texte); background: var(--surface-2); }
+.contexte__lieu { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
+.contexte__nom {
+  font-size: 14px; font-weight: 600;
+  color: var(--texte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.contexte__precision {
+  font-size: 12.5px; color: var(--texte-faible);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.contexte__direct {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: #ffb3ab; background: rgba(229,96,84,.12);
+}
+.contexte__direct::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #e56054; animation: pouls 2s ease-in-out infinite; }
+@keyframes pouls { 50% { opacity: .35; } }
+.contexte__statut { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.contexte__outils { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.contexte__bouton {
+  position: relative;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center;
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.contexte__bouton:hover { color: var(--texte); background: var(--surface-2); }
+.contexte__bouton[aria-pressed="true"] { color: var(--texte); background: var(--surface-3); }
+.contexte__pastille {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 9px; font-weight: 700; color: #22170c; background: var(--accent);
+}
+.contexte__reseau { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--texte-faible); margin-right: 6px; }
+.contexte__voyant { width: 6px; height: 6px; border-radius: 50%; background: var(--attn); }
+.contexte__reseau[data-etat="rompu"] .contexte__voyant { background: var(--alerte); }
+
+/* Présence du responsable : un voyant et trois mots. */
+.presence {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 28px; padding: 0 12px; border-radius: 999px;
+  font-size: 12px; color: var(--texte-doux); white-space: nowrap;
+  background: var(--surface-1); border: 0;
+  box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.presence::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--texte-faible); }
+.presence--oui { color: var(--texte); }
+.presence--oui::before { background: var(--vert); box-shadow: 0 0 0 3px rgba(127,197,138,.18); }
+button.presence { cursor: pointer; font: inherit; font-size: 12px; }
+button.presence:hover { background: var(--surface-2); }
+
+/* « 👥 6 » */
+.compteur-personnes {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 11px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--texte-doux);
+  background: var(--surface-1); border: 0; box-shadow: inset 0 0 0 1px var(--ligne); cursor: pointer;
+}
+.compteur-personnes:hover { color: var(--texte); background: var(--surface-2); }
+.compteur-personnes .picto-personne { width: 10px; height: 14px; fill: currentColor; }
+
+/* --- La barre des gestes -------------------------------------------------- */
+.actions {
+  grid-area: actions;
+  position: relative; z-index: 30;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 70px; padding: 5px 10px;
+  background: var(--surface-0);
+  border-top: 1px solid var(--ligne);
+}
+.actions[hidden] { display: none; }
+.actions__geste {
+  position: relative;
+  flex: 0 1 86px; min-width: 52px; height: 58px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  padding: 0 4px; border-radius: 14px;
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.actions__geste:hover { background: var(--surface-2); color: var(--texte); }
+.actions__geste[aria-current="true"], .actions__geste[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); }
+.actions__objet { height: 30px; display: grid; place-items: center; }
+.actions__objet img {
+  max-width: 44px; max-height: 30px; object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.5));
+  transition: transform .2s var(--courbe);
+}
+.actions__geste:hover .actions__objet img { transform: translateY(-2px); }
+.actions__objet svg { width: 26px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.actions__objet .picto-personne { width: 15px; height: 21px; fill: currentColor; stroke: none; }
+.actions__mot { font-size: 11px; font-weight: 500; line-height: 1; }
+.actions__pastille {
+  position: absolute; top: 4px; right: 14px;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; color: #22170c; background: var(--accent);
+}
+
+/* --- Le tiroir « ⋯ » : tout ce qui n'est pas un geste ------------------- */
+.chassis--monde > .rail.tiroir {
+  position: fixed; top: 0; right: 0; bottom: 0; left: auto; z-index: 60;
+  width: min(300px, 88vw);
+  grid-area: auto;
+  transform: translateX(104%);
+  transition: transform .24s var(--courbe);
+  background: var(--surface-1);
+  border-left: 1px solid var(--ligne);
+  box-shadow: -20px 0 50px rgba(0,0,0,.5);
+  padding: 0 0 12px;
+  display: flex;
+}
+body.tiroir-ouvert .chassis--monde > .rail.tiroir { transform: none; }
+body.tiroir-ouvert::after { content: ""; position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.5); animation: apparait .2s; }
+.tiroir__entete { display: flex; align-items: center; gap: 10px; padding: 16px 12px 14px 18px; border-bottom: 1px solid var(--ligne); }
+.tiroir__qui { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.tiroir__nom { font-size: 14px; font-weight: 600; color: var(--texte); }
+.tiroir__mail { font-size: 11.5px; color: var(--texte-faible); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiroir .rail__titre { color: var(--texte-faible); font-size: 11px; letter-spacing: .08em; }
+.tiroir .rail__lien {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--texte-doux); background: none; border: 0; border-radius: 10px;
+  margin: 1px 8px; width: calc(100% - 16px); padding: 9px 10px;
+  font: inherit; font-size: 13.5px; cursor: pointer; text-align: left;
+}
+.tiroir .rail__lien:hover { color: var(--texte); background: var(--surface-2); }
+.tiroir .rail__lien[aria-current="page"] { color: var(--texte); background: var(--surface-3); }
+.tiroir .rail__lien span { display: inline !important; }
+.tiroir .rail__lien--danger { color: #e48c84; }
+
+/* --- Les bandes de personnes --------------------------------------------- */
+.bande { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.bande__piste {
+  display: flex; gap: 2px; overflow-x: auto; scroll-snap-type: x proximity;
+  scrollbar-width: none; min-width: 0; flex: 1; padding: 2px;
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.bande__piste::-webkit-scrollbar { display: none; }
+.bande__personne {
+  flex: 0 0 auto; scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 66px; padding: 8px 2px 6px; border-radius: 12px;
+  border: 0; background: none; color: var(--texte-doux); cursor: pointer;
+}
+.bande__personne:hover { background: var(--surface-2); color: var(--texte); }
+.bande__personne[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); }
+.bande__personne .picto-personne { width: 14px; height: 19px; fill: currentColor; }
+.picto-personne[data-role="responsable"] { fill: var(--accent) !important; }
+.bande__nom { font-size: 11px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bande__fleche {
+  flex: 0 0 auto; width: 26px; height: 40px; border-radius: 8px;
+  display: grid; place-items: center; border: 0; background: none; color: var(--texte-faible); cursor: pointer;
+}
+.bande__fleche:hover { color: var(--texte); background: var(--surface-2); }
+.bande__compte { flex: 0 0 auto; font-size: 11px; color: var(--texte-faible); padding: 0 6px; white-space: nowrap; }
+.bande__vide { font-size: 12.5px; color: var(--texte-faible); padding: 10px; }
+.bande-flottante {
+  position: fixed; z-index: 70;
+  width: min(560px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 20px 44px rgba(0,0,0,.55);
+  animation: surgit .18s var(--courbe);
+}
+@keyframes surgit { from { opacity: 0; transform: translateY(6px); } }
+@keyframes apparait { from { opacity: 0; } }
+
+/* --- La note : « À », puis le papier ------------------------------------ */
+.note-rapide__a {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 4px 4px 12px; border-radius: 12px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.note-rapide__label { font-size: 13px; font-weight: 600; color: var(--texte-doux); }
+.note-rapide__outil { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texte-faible); margin: 0; }
+.note-rapide__outil img { height: 16px; }
+
+/* --- Documents sous la main ----------------------------------------------- */
+.documents-rapides { display: grid; gap: 14px; }
+.doc-titre { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); margin: 0 0 6px; }
+.doc-compte { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 8px; font-size: 9.5px; color: #22170c; background: var(--accent); margin-left: 4px; }
+.doc-ligne {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border-radius: 10px; border: 0;
+  background: none; color: var(--texte); font: inherit; text-align: left; cursor: pointer;
+}
+.doc-ligne:hover { background: var(--surface-2); }
+.doc-ligne__feuille {
+  flex: 0 0 auto; width: 18px; height: 23px; border-radius: 2px;
+  background: #efe6d3; box-shadow: 0 2px 4px rgba(0,0,0,.4);
+}
+.doc-ligne__titre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-ligne__meta, .doc-ligne__date { font-size: 11.5px; color: var(--texte-faible); white-space: nowrap; }
+.doc-actions { display: flex; gap: 8px; justify-content: space-between; }
+
+/* --- Modales et menus ----------------------------------------------------- */
+.modale {
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: var(--surface-1) !important;
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 30px 70px rgba(0,0,0,.6) !important;
+}
+.modale__entete { border-bottom: 1px solid var(--ligne) !important; }
+.modale__titre { font-size: 16px; font-weight: 600; color: var(--texte); }
+
+/* --- Tailles : moins de choses, pas seulement plus petites --------------- */
+.chassis[data-taille="compact"] .contexte__precision,
+.chassis[data-taille="mini"] .contexte__precision,
+.chassis[data-taille="mini"] .contexte__statut .presence span.presence__long { display: none; }
+.chassis[data-taille="compact"] .actions { height: 62px; }
+.chassis[data-taille="compact"] .actions__geste { height: 52px; }
+.chassis[data-taille="compact"] .actions__objet { height: 26px; }
+.chassis[data-taille="compact"] .actions__objet img { max-height: 26px; max-width: 38px; }
+.chassis[data-taille="mini"] .contexte { height: 40px; gap: 6px; }
+.chassis[data-taille="mini"] .contexte__sceau { width: 24px; height: 24px; font-size: 8px; }
+.chassis[data-taille="mini"] .contexte__nom { font-size: 13px; }
+.chassis[data-taille="mini"] .actions { height: 50px; padding: 3px 4px; }
+.chassis[data-taille="mini"] .actions__geste { height: 42px; }
+.chassis[data-taille="mini"] .actions__mot { display: none; }
+.chassis[data-taille="mini"] .actions__objet { height: 28px; }
+.chassis[data-taille="mini"] .actions__pastille { right: 6px; }
+.chassis--monde.chassis--immersif > .rail.tiroir { display: flex; }
+
+/* ===========================================================================
+   Chez moi
+   ========================================================================= */
+.chez-moi { position: relative; height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.chez-moi > .scene { display: grid; height: 100%; grid-template-rows: auto minmax(0, 1fr); }
+.chez-moi > .console { display: none; }
+.chassis[data-taille="compact"] .chez-moi > .scene,
+.chassis[data-taille="mini"] .chez-moi > .scene { display: none; }
+.chassis[data-taille="compact"] .chez-moi > .console,
+.chassis[data-taille="mini"] .chez-moi > .console { display: flex; }
+
+/* L'accueil : un bonjour, ce qui vous attend, et c'est tout. */
+.scene__avant--mur { display: block; padding: 22px 4% 4px; }
+.mur { width: 100%; max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; animation: apparait .35s var(--courbe); }
+.mur__entete { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.mur__bonjour { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mur__date { font-size: 12.5px; color: var(--texte-faible); text-transform: capitalize; }
+.mur__titre { margin: 0; font-size: clamp(20px, 2.4vw, 28px); font-weight: 600; letter-spacing: -.015em; color: var(--texte); }
+.mur__lignes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.mur__ligne {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 6px 6px 6px 14px; border-radius: 14px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+  animation: surgit .3s var(--courbe) both;
+}
+.mur__ligne:nth-child(2) { animation-delay: 40ms; }
+.mur__ligne:nth-child(3) { animation-delay: 80ms; }
+.mur__ligne--direct { background: rgba(127,197,138,.08); box-shadow: inset 0 0 0 1px rgba(127,197,138,.3); }
+.mur__ligne--calme { background: none; box-shadow: none; padding-left: 0; color: var(--texte-faible); font-size: 13.5px; }
+.mur__texte { min-width: 0; font-size: 13.5px; color: var(--texte-doux); }
+.mur__texte b { color: var(--texte); font-weight: 600; }
+.mur__voyant { width: 8px; height: 8px; border-radius: 50%; background: var(--vert); box-shadow: 0 0 0 4px rgba(127,197,138,.18); flex: 0 0 auto; animation: pouls 2s ease-in-out infinite; }
+.mur__objet { width: 22px; height: 26px; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
+.mur__cloche { color: var(--texte-doux); display: grid; }
+.mur__pied { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mur__espaces { display: flex; gap: 6px; flex-wrap: wrap; }
+.mur__espace {
+  display: inline-flex; align-items: center; height: 30px;
+  font-size: 12.5px; color: var(--texte-doux); padding: 0 12px; border-radius: 999px;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.mur__espace:hover { text-decoration: none; color: var(--texte); background: var(--surface-2); }
+.mur__rejoindre { display: flex; gap: 6px; }
+.mur__rejoindre .saisie--code {
+  width: 118px; height: 34px; min-height: 34px; padding: 0 12px;
+  font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+  background: var(--surface-1); border: 0; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--ligne-forte);
+  color: var(--texte);
+}
+.mur__rejoindre .btn { height: 34px; border-radius: 10px; }
+
+/* ===========================================================================
+   La console : un panneau à la fois (fenêtre au-dessus du jeu)
+   ========================================================================= */
+.console {
+  position: relative;
+  flex-direction: column; min-height: 0; height: 100%;
+  background: var(--fond);
+}
+.console__entete { padding: 8px 10px 0; }
+.console__direct {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border-radius: 14px; font: inherit; font-size: 13px; text-align: left;
+  color: var(--texte); background: rgba(127,197,138,.08); border: 0; box-shadow: inset 0 0 0 1px rgba(127,197,138,.3); cursor: pointer;
+}
+.console__direct span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console__aller { font-size: 12px; font-weight: 600; color: var(--vert); }
+.console__calme { display: block; font-size: 12.5px; color: var(--texte-faible); padding: 2px; }
+.console__panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.console__contenu { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: surgit .18s var(--courbe); }
+.console__titre {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px 6px;
+  font-size: 13px; font-weight: 600; color: var(--texte);
+}
+.console__replier { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; border: 0; background: none; color: var(--texte-faible); cursor: pointer; }
+.console__replier:hover { color: var(--texte); background: var(--surface-2); }
+.console__corps { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 10px; }
+.console__barre {
+  display: flex; align-items: center; justify-content: space-around; gap: 2px;
+  height: 62px; padding: 4px; position: relative;
+  background: var(--surface-0); border-top: 1px solid var(--ligne);
+}
+.console__barre .actions__geste { flex: 1 1 0; min-width: 0; height: 52px; }
+
+/* Les objets, en petit mais en vrai. */
+.console__objets { display: flex; flex-wrap: wrap; gap: 4px; }
+.console__objet { position: relative; width: 84px; }
+.console__objet--part { opacity: .2; transition: opacity .2s; }
+.console__prise {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 2px 6px; border-radius: 12px; border: 0; background: none;
+  color: var(--texte-doux); font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.console__prise img { width: 60px; height: 40px; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0,0,0,.45)); transition: transform .2s var(--courbe); }
+.console__prise span { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.console__prise:hover { background: var(--surface-2); color: var(--texte); }
+.console__prise:hover img { transform: translateY(-2px); }
+.console__objet--main .console__prise { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); color: var(--texte); }
+.console__objet--main .console__prise img { transform: rotate(-10deg) translateY(-3px); }
+.console__ranger {
+  position: absolute; top: 3px; right: 5px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; border: 0; box-shadow: inset 0 0 0 1px var(--ligne-forte);
+  background: var(--surface-2); color: var(--texte-doux); cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+.console__objet:hover .console__ranger, .console__objet:focus-within .console__ranger { opacity: 1; }
+.console__main { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--texte-doux); }
+.console__main img { height: 22px; transform: rotate(-12deg); }
+.console__vide { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; color: var(--texte-faible); font-size: 13px; margin: 6px 2px; }
+.console__vide p { margin: 0; }
+.console__poche { padding: 8px; border-radius: 12px; background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne); }
+.console__poche-nom { display: block; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); margin: 0 0 4px 4px; }
+
+/* Écrire : ce qui manque, et le geste qui le règle. */
+.console__pret {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px 8px 10px; border-radius: 12px;
+  background: var(--accent-fond); box-shadow: inset 0 0 0 1px rgba(232,200,150,.35);
+  animation: surgit .2s var(--courbe);
+}
+.console__pret img { width: 36px; height: 26px; object-fit: contain; }
+.console__pret span { flex: 1; min-width: 0; font-size: 12.5px; color: var(--texte); }
+.console__pret--ok { background: rgba(127,197,138,.08); box-shadow: inset 0 0 0 1px rgba(127,197,138,.28); }
+.console__pret--ok span { color: var(--texte-doux); }
+
+/* Le cahier en petit. */
+.console__onglets { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.console__onglet { flex: 0 0 auto; height: 28px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; color: var(--texte-doux); background: var(--surface-1); border: 0; box-shadow: inset 0 0 0 1px var(--ligne); cursor: pointer; }
+.console__onglet[aria-pressed="true"] { color: #22170c; background: var(--accent); box-shadow: none; }
+.console__outils { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.console__outil { width: 50px; height: 38px; border-radius: 10px; display: grid; place-items: center; border: 0; background: none; cursor: pointer; }
+.console__outil:hover { background: var(--surface-2); }
+.console__outil img { max-width: 42px; max-height: 28px; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0,0,0,.45)); }
+.console__outil[aria-pressed="true"] { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
+.console__outil[aria-pressed="true"] img { transform: rotate(-12deg) translateY(-2px); }
+.console__outil--appel { animation: appel 1.8s ease-in-out infinite; }
+.console__conseil { font-size: 12px; color: var(--texte-faible); margin-left: 4px; }
+.console__page { flex: 1; min-height: 240px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
+.console__page .cahier { flex: 1; background: #f3ebd9; }
+.console__page .feuillet { background: #f4ecdb; }
+.console__page .feuillet__barre { background: #ece3d0; border-bottom-color: rgba(60,40,20,.12); }
+.console__page .feuillet__barre .btn { color: #3a3226; background: rgba(255,255,255,.5); border-color: rgba(60,40,20,.18); }
+.console__page .feuillet__zone { background: transparent; padding: 8px; }
+.console__page .parchemin { box-shadow: none; }
+
+.console__gestes-personne { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px; }
+.console__qui { font-size: 13.5px; font-weight: 600; color: var(--texte); margin-right: 4px; }
+
+/* Toute petite fenêtre : la barre seule, le panneau par-dessus. */
+.chassis[data-taille="mini"] .console__entete { display: none; }
+.chassis[data-taille="mini"] .console__panneau {
+  position: absolute; left: 4px; right: 4px; bottom: 54px; z-index: 5;
+  max-height: calc(100% - 60px); flex: none;
+  border-radius: 16px; overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne-forte), 0 -10px 30px rgba(0,0,0,.5);
+}
+.chassis[data-taille="mini"] .console[data-ouvert=""] .console__panneau { display: none; }
+.chassis[data-taille="mini"] .console__barre { height: 48px; }
+.chassis[data-taille="mini"] .console__barre .actions__geste { height: 40px; }
+.chassis[data-taille="mini"] .console__barre .actions__mot { display: none; }
+.chassis[data-taille="mini"] .chez-moi > .console { justify-content: flex-end; }
+
+/* Formulaire de note, posé dans le panneau. */
+.note-rapide__pied { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.note-rapide--impossible { padding: 8px 0; }
+.note-rapide__manque { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 13px; color: var(--texte-doux); }
+.note-rapide__manque b { color: var(--texte); }
+.console .note-rapide__papier { padding: 10px 12px; }
+.console .note-rapide__papier textarea { min-height: 90px; font-size: 19px; }
+
+/* ===========================================================================
+   La salle en petite fenêtre : la console remplace la scène
+   ========================================================================= */
+.salle > .console { display: none; }
+.chassis[data-taille="compact"] .salle,
+.chassis[data-taille="mini"] .salle { grid-template-rows: auto minmax(0, 1fr) !important; }
+.chassis[data-taille="compact"] .salle > :is(.bandeau, .salle__corps, .scene, .dock),
+.chassis[data-taille="mini"] .salle > :is(.bandeau, .salle__corps, .scene, .dock) { display: none !important; }
+.chassis[data-taille="compact"] .salle > .console,
+.chassis[data-taille="mini"] .salle > .console { display: flex; }
+.chassis[data-taille="mini"] .salle > .console { justify-content: flex-end; }
+.console__corps--plein { padding: 0; }
+.console__corps--plein > .salle__scene { flex: 1; min-height: 0; }
+.console__corps--plein .tableau__barre { flex-wrap: wrap; gap: 2px; padding: 4px; }
+.console__corps--plein .mon-cahier__gestes { padding: 4px 8px; }
+.console__corps--plein .inspection--annotable { grid-template-columns: 1fr; }
+.console__corps--plein .inspection--annotable > .marge { display: none; }
+.console .console__barre .actions__objet svg:not(.picto-personne):not(.picto-bureau) { width: 22px; height: 22px; stroke: currentColor; }
+.chassis[data-taille="moyen"] .scene__estrade { display: none; }
+.scene__estrade .presence { position: relative; z-index: 1; }
+
+/* Petites fenêtres : réglages fins. */
+.chassis[data-taille="mini"] .contexte__direct,
+.chassis[data-taille="mini"] .contexte__reseau,
+.chassis[data-taille="compact"] .contexte__reseau span:not(.contexte__voyant) { display: none; }
+.chassis[data-taille="mini"] .presence { padding: 0 9px; }
+.chassis[data-taille="mini"] .presence .presence__long { display: none; }
+.console .outils-texte { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.console .outils-texte::-webkit-scrollbar { display: none; }
+.console .feuillet__barre { flex-wrap: nowrap; overflow-x: auto; }
+
+/* ===========================================================================
+   Les autres écrans : même langue
+   ========================================================================= */
+.page__entete { border-bottom: 1px solid var(--ligne); }
+.page__titre h1 { font-weight: 600; letter-spacing: -.01em; color: var(--texte); }
+.page__surtitre { color: var(--texte-faible); letter-spacing: .08em; }
+.carte, .panneau {
+  background: var(--surface-1);
+  border: 0; box-shadow: inset 0 0 0 1px var(--ligne);
+  border-radius: 14px;
+}
+.carte--cliquable { transition: background var(--transition), transform var(--transition); }
+.carte--cliquable:hover { background: var(--surface-2); transform: translateY(-1px); }
+.panneau__entete { background: none; border-bottom: 1px solid var(--ligne); }
+.panneau__titre { color: var(--texte-faible); }
+.onglet[aria-selected="true"] { color: var(--texte); border-bottom-color: var(--accent); }
+.menu {
+  background: var(--surface-1);
+  border: 0; box-shadow: 0 0 0 1px var(--ligne-forte), 0 18px 40px rgba(0,0,0,.55);
+  border-radius: 14px;
+}
+.saisie { border-radius: 10px; }
+.saisie:focus, .saisie:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-fond); }
+:focus-visible { outline-color: var(--accent); }
+.toast { border-radius: 14px; background: var(--surface-1); border: 0; box-shadow: 0 0 0 1px var(--ligne-forte), 0 16px 40px rgba(0,0,0,.5); }
+.btn { border-radius: 10px; font-weight: 500; }
+.btn--primaire { background: var(--accent); border-color: var(--accent); color: #22170c; }
+.btn--primaire:hover { background: #f3d3a4; border-color: #f3d3a4; color: #22170c; }
+.chassis[data-taille="compact"] .page, .chassis[data-taille="mini"] .page { padding: 12px 12px 20px; }
+.chassis[data-taille="compact"] .colonnes, .chassis[data-taille="mini"] .colonnes { grid-template-columns: 1fr; }
+
+/* ===========================================================================
+   Fenêtre posée au-dessus du jeu, écran d'accès : la grille du monde prime
+   sur les règles de l'ancien châssis (rail, densités, console d'à-côté).
+   ========================================================================= */
+body.est-flottant .chassis.chassis--monde,
+body.avec-console .chassis.chassis--monde {
+  border: 0; border-radius: 0; box-shadow: none;
+  height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "contexte" "vue" "actions";
+}
+body.est-flottant .chassis.chassis--monde.chassis--sans-actions,
+body.est-flottant .chassis.chassis--monde.chassis--immersif {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "contexte" "vue";
+}
+:root[data-density] body .chassis.chassis--monde { grid-template-columns: minmax(0, 1fr); }
+body.hors-session .chassis.chassis--monde {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "vue";
+}
+body.hors-session .chassis--monde > .contexte,
+body.hors-session .chassis--monde > .actions { display: none; }
+.chassis--monde > .console-hote { display: none !important; }
+@media (max-width: 460px) {
+  .actions__mot { font-size: 10px; }
+  .actions__geste { padding-left: 1px; padding-right: 1px; }
+}
+.console__porte-bandeau:empty { display: none; }
+.console__corps--plein > .console__porte-bandeau { padding: 6px 8px 4px; }
+
+/* Toasts : sobres, et jamais sur les gestes en petite fenêtre. */
+.toast { border-left: 0 !important; padding: 12px 14px; gap: 10px; font-size: 12.5px; }
+body[data-taille="compact"] .calque-toasts,
+body[data-taille="mini"] .calque-toasts,
+body.est-flottant .calque-toasts { top: 52px; bottom: auto; left: 8px; right: 8px; max-width: none; }
+.zone-roblox { display: none !important; }
+
+/* Mes affaires : ce qui est resté là-bas, en image. */
+.affaires__section--restes { border-left: 0 !important; padding-left: 0 !important; }
+.affaire--reste { border-radius: 14px; background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne); border: 0; }
+.affaire--reste .affaire__ligne { align-items: center; gap: 12px; padding: 8px 10px; }
+.affaire__vignette { width: 44px; height: 34px; object-fit: contain; filter: drop-shadow(0 4px 4px rgba(0,0,0,.45)); }
+.affaire__quoi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.affaire--reste .affaire__nom { font-weight: 600; }
+.affaire--reste .affaire__lieu { color: var(--texte-faible); }
+
+/* Petite fenêtre : le lieu d'abord, les voyants sans leurs mots. */
+.chassis[data-taille="compact"] .contexte__lieu { min-width: 90px; }
+.chassis[data-taille="compact"] .presence .presence__long,
+.chassis[data-taille="compact"] .contexte__direct { font-size: 0; gap: 0; padding: 0 8px; }
+.chassis[data-taille="compact"] .presence { padding: 0 9px; gap: 0; }
+
+/* « Au-dessus du jeu » : dit en toutes lettres, c'est le geste qui compte. */
+.contexte__action {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px; margin-right: 4px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 500; color: var(--texte);
+  background: var(--surface-2); border: 0; box-shadow: inset 0 0 0 1px var(--ligne-forte); cursor: pointer;
+}
+.contexte__action:hover { background: var(--surface-3); }
+.chassis[data-taille="compact"] .contexte__action span,
+.chassis[data-taille="mini"] .contexte__action span { display: none; }
+.chassis[data-taille="compact"] .contexte__action,
+.chassis[data-taille="mini"] .contexte__action { padding: 0 9px; }
+
+/* Petite fenêtre : l'ancienne bande « Mon sac » fait doublon avec la console. */
+.chassis[data-taille="compact"] .salle .bureau,
+.chassis[data-taille="mini"] .salle .bureau { display: none !important; }
+.chassis[data-taille="compact"] .presence .presence__long,
+.chassis[data-taille="mini"] .presence .presence__long { display: none; }
+.chassis[data-taille="compact"] .presence, .chassis[data-taille="mini"] .presence { width: 28px; padding: 0; justify-content: center; }
+.chassis[data-taille="compact"] .contexte__direct { width: 20px; padding: 0; justify-content: center; }
+/* Les libellés de la console ne se chevauchent pas. */
+.console__barre .actions__geste { padding: 0 1px; }
+.console__barre .actions__mot {
+  display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 10px;
+}
+
+/* La salle en 3D, dans la console au-dessus du jeu. */
+.console__classe3d { position: relative; flex: 1; min-height: 220px; overflow: hidden; border-radius: 12px; margin: 0 8px 8px; }
+.console__classe3d .classe3d__toile { display: block; width: 100%; height: 100%; }
+.console__classe3d .classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* Chez moi, en 3D : la chambre et son bureau, sous le bonjour. */
+.chez-moi > .scene.scene--3d { grid-template-rows: minmax(0, 1fr) auto; }
+.chez-moi .scene--3d .scene__avant--mur { padding: 18px 4% 0; display: flex; flex-direction: column; gap: 0; }
+.chez-moi .scene--3d .scene__avant--mur .mur { width: 100%; max-width: none; }
+.chez-moi .scene--3d .scene__avant--mur { min-height: 0; }
+.chez-moi .scene--3d .scene__avant--mur .scene__classe3d {
+  height: auto; min-height: clamp(260px, 44vh, 620px); margin-top: 12px; flex: 1 1 auto;
+}
+.chez-moi .scene--3d .scene__pupitre { margin-top: 14px; }
+.classe3d__nom:empty { display: none; }
+
+/* --- Mon personnage ------------------------------------------------------- */
+.classe3d__habiller {
+  position: absolute; right: 12px; top: 12px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 13px; border-radius: 999px; border: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 500; color: #22170c; background: var(--accent);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.classe3d__habiller:hover { background: #f3d3a4; }
+.apparence { display: grid; grid-template-columns: minmax(240px, 34%) 1fr; gap: 18px; min-height: 0; }
+.apparence__gauche { display: flex; flex-direction: column; gap: 8px; }
+.apparence__apercu { position: relative; height: min(56vh, 460px); border-radius: 16px; overflow: hidden; background: #2a2d31; }
+.apparence__apercu .classe3d__toile { cursor: grab; }
+.apparence__aide { margin: 0; font-size: 12px; color: var(--texte-faible); text-align: center; }
+.apparence__choix { display: flex; flex-direction: column; gap: 16px; max-height: min(62vh, 540px); overflow: auto; padding-right: 4px; }
+.apparence__titre { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-faible); }
+.apparence__sous-titre { margin: 8px 0 6px; font-size: 12px; color: var(--texte-doux); }
+.apparence__tenues { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.apparence__tenue, .apparence__coupe {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 12px; border: 0; cursor: pointer; text-align: left;
+  font: inherit; font-size: 12.5px; color: var(--texte-doux);
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--ligne);
+  transition: background .15s, color .15s;
+}
+.apparence__tenue:hover, .apparence__coupe:hover { background: var(--surface-3); color: var(--texte); }
+.apparence__tenue[aria-pressed="true"], .apparence__coupe[aria-pressed="true"] { color: var(--texte); background: var(--accent-fond); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.apparence__nuancier { display: flex; flex: 0 0 auto; }
+.apparence__nuancier span { width: 14px; height: 22px; border-radius: 4px; margin-right: -4px; box-shadow: 0 0 0 1.5px var(--surface-2); }
+.apparence__coupes { display: flex; flex-wrap: wrap; gap: 6px; }
+.apparence__pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.apparence__pastille { width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
+.apparence__pastille[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
+@media (max-width: 720px) {
+  .apparence { grid-template-columns: 1fr; }
+  .apparence__apercu { height: 260px; }
+}
+.apparence__rigueur { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-fond); color: var(--texte-doux); font-size: 12.5px; line-height: 1.45; }
+.apparence__rigueur b { color: var(--texte); font-weight: 600; }
+/* Soi-même, dans la salle en 3D */
+.classe3d__nom--moi { background: var(--accent); color: #1b1712; font-weight: 600; }
+/* Le sac ouvert, en 3D : de quoi le refermer */
+.classe3d__refermer {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 3;
+  padding: 8px 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(20, 17, 14, .78); color: #f3ead8; font: 500 13px/1 var(--f-texte, Inter, sans-serif);
+  backdrop-filter: blur(6px); box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.classe3d__refermer:hover { background: rgba(35, 29, 23, .9); }
+.classe3d__refermer[hidden] { display: none; }
+.sac__contenu--3d { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* --- L'accès : pseudo RP, mot de passe --------------------------------- */
+.acces { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--fond); }
+.acces__colonne { width: min(400px, 100%); display: grid; gap: 10px; }
+.acces__titre { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: -.01em; color: var(--texte); text-align: center; }
+.acces__sous-titre { margin: 0 0 14px; text-align: center; color: var(--texte-faible); font-size: 14px; }
+.acces__carte { background: var(--surface-1); border: 1px solid var(--ligne); border-radius: 18px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.28); }
+.acces__onglets { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 16px; border-radius: 12px; background: var(--surface-0); }
+.acces__onglets button { border: 0; border-radius: 9px; padding: 9px 8px; background: transparent; color: var(--texte-doux); font: inherit; font-size: 14px; cursor: pointer; }
+.acces__onglets button[aria-selected="true"] { background: var(--surface-2); color: var(--texte); font-weight: 600; }
+.acces__formulaire { display: grid; gap: 4px; }
+.acces__aide { margin: 12px 0 0; font-size: 12.5px; color: var(--texte-faible); text-align: center; }
+
+/* --- Chez moi : les deux raccourcis du mur ---------------------------------- */
+.mur__raccourcis { display: flex; gap: 6px; }
+
+/* --- Mes cahiers -------------------------------------------------------------- */
+.mes-cahiers { display: flex; flex-direction: column; gap: 18px; }
+.mes-cahiers__liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.mes-cahiers__cahier { display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: var(--surface-2); }
+.mes-cahiers__infos { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mes-cahiers__infos b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mes-cahiers__couv {
+  position: relative; flex: 0 0 auto; width: 54px; height: 72px; border-radius: 3px 7px 7px 3px;
+  box-shadow: inset 5px 0 0 rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.28);
+  display: grid; place-items: center;
+}
+.mes-cahiers__couv--grand { width: 120px; height: 160px; }
+.mes-cahiers__etiquette {
+  max-width: 78%; padding: 3px 5px; border-radius: 2px; background: #efe6d2; color: #2b241b;
+  font: 600 9px/1.2 var(--f-titre, serif); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mes-cahiers__couv--grand .mes-cahiers__etiquette { font-size: 12px; padding: 5px 8px; }
+.mes-cahiers__neuf { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.mes-cahiers__formulaire { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 220px; }
+.mes-cahiers__supports { display: flex; flex-wrap: wrap; gap: 6px; }
+.mes-cahiers__nuancier { display: flex; gap: 6px; flex-wrap: wrap; }
+.mes-cahiers__teinte { width: 24px; height: 24px; border-radius: 6px; border: 0; cursor: pointer; box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--ligne-forte); }
+.mes-cahiers__teinte[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--accent); }
+.mes-cahiers__formulaire .btn { align-self: flex-start; }
+
+/* --- Console : soi, assis à son bureau, au-dessus de l'interface ------------- */
+.console__haut { display: flex; align-items: center; gap: 8px; padding: 6px 10px 4px; min-height: 34px; }
+.console__haut > :first-child { flex: 1; min-width: 0; }
+.console__haut > .console__entete { padding: 0; }
+.console__lieu { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--texte-doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.console__anim {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+  border: 0; border-radius: 999px; font: inherit; font-size: 11.5px; color: var(--texte-doux); cursor: pointer;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.console__anim:hover { color: var(--texte); background: var(--surface-2); }
+.console__anim-voyant { width: 8px; height: 8px; border-radius: 50%; background: var(--texte-faible); }
+.console__anim[aria-checked="true"] .console__anim-voyant { background: var(--vert); box-shadow: 0 0 6px var(--vert); }
+.console__scene { display: none; position: relative; }
+.console[data-scene="1"] .console__scene {
+  display: block; flex: 1 1 auto; min-height: 120px; margin: 0 10px 6px;
+  border-radius: 14px; overflow: hidden; background: #1d1f22;
+  box-shadow: 0 0 0 1px var(--ligne);
+}
+/* Un panneau ouvert (le cahier, le tableau…) : la scène se fait petite, en haut. */
+.console[data-scene="1"]:not([data-ouvert=""]) .console__scene { flex: 0 0 32%; min-height: 110px; }
+.console[data-scene="1"][data-ouvert=""] .console__panneau { flex: 0 0 auto; }
+.console__scene .classe3d__refermer { bottom: 8px; }
+.chassis[data-taille="mini"] .console[data-scene="1"] .console__scene { min-height: 90px; }
+/* La vue libre : revenir à sa place, et le mode d'emploi au premier regard */
+.classe3d__recentrer {
+  position: absolute; top: 12px; right: 12px; z-index: 3;
+  padding: 7px 12px; border-radius: 999px; border: 0; cursor: pointer;
+  background: rgba(20, 17, 14, .72); color: #f3ead8; font: 500 12.5px/1 var(--f-texte, Inter, sans-serif);
+  backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.classe3d__recentrer:hover { background: rgba(35, 29, 23, .9); }
+.classe3d__recentrer[hidden] { display: none; }
+.classe3d__aide {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2;
+  padding: 6px 12px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+  background: rgba(20, 17, 14, .6); color: #efe6d4; font: 12px/1.2 var(--f-texte, Inter, sans-serif);
+  transition: opacity .8s;
+}
+.classe3d__aide--partie { opacity: 0; }
+.classe3d__aide[hidden] { display: none; }
+@media (max-width: 560px) { .classe3d__aide { white-space: normal; width: 86%; text-align: center; } }
+.classe3d__toile { touch-action: none; }

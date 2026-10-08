@@ -4,6 +4,7 @@
 import { definir, etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { local } from "./util.js";
+import { stockageLocal } from "./stockage.js";
 import { majPreference } from "./session.js";
 
 export const DENSITES = [
@@ -33,6 +34,13 @@ export function appliquerTheme(theme, persister = true) {
   definir({ theme: valide });
   local.ecrire("ojm.theme", valide);
   if (persister && etat.profil) majPreference("theme", valide);
+}
+
+/** Animations allumées (la salle en 3D, soi assis) ou éteintes (tableaux et interface seuls). */
+export function definirAnimations(actives) {
+  const v = Boolean(actives);
+  try { stockageLocal.setItem("ojm.animations", String(v)); } catch { /* stockage refusé */ }
+  definir({ animations: v });
 }
 
 export function basculerTheme() {

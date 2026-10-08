@@ -4,6 +4,8 @@
  * ------------------------------------------------------------------------- */
 import { emettre } from "./bus.js";
 
+import { stockageLocal } from "./stockage.js";
+
 export const etat = {
   // Session utilisateur
   utilisateur: null,       // { id, email }
@@ -29,6 +31,9 @@ export const etat = {
   modeExamen: false,
   suitProfesseur: false,
   flottant: false,
+  // Les animations (la salle en 3D, soi assis à son bureau). Éteintes : les
+  // tableaux et l'interface, rien d'autre.
+  animations: (() => { try { return stockageLocal.getItem("ojm.animations") !== "false"; } catch { return true; } })(),
   // La console d'à-côté, demandée à la main. Dans la fenêtre flottante elle
   // s'impose d'elle-même.
   console: false,

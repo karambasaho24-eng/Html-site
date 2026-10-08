@@ -13,10 +13,11 @@ import { entete, blocVide } from "../ui/fragments.js";
 import { menu, confirmer } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { depuis } from "../core/util.js";
-import { L } from "../core/lexique.js";
+import { ecouter } from "../core/bus.js";
 import {
   rendrePapier, composerPapier, tendrePapier, recevoirPapier, MODELES
 } from "../features/papier.js";
+import { panneauDossiers, classerPapier } from "../features/dossiers.js";
 
 const ETATS = {
   offered:  { libelle: "En attente", etiq: "etiq--attn" },
@@ -61,12 +62,19 @@ export default async function vuePapiers() {
     const enAttente = recus.filter((r) => r.state === "offered").length;
     render(onglets,
       [{ cle: "recus", libelle: "Reçus", compteur: enAttente },
-       { cle: "mes", libelle: "Rédigés par moi", compteur: mesPapiers.length }]
+       { cle: "mes", libelle: "Rédigés par moi", compteur: mesPapiers.length },
+       { cle: "dossiers", libelle: "Dossiers" }]
         .map((o) => el("button.onglet", {
           role: "tab", "aria-selected": String(o.cle === onglet),
           onclick: () => { onglet = o.cle; peindre(); }
         }, o.libelle, o.compteur ? el("span.pastille-compteur", String(o.compteur)) : null)));
 
+    if (onglet === "dossiers") {
+      render(zone, el("p.petit.faible", "…"));
+      panneauDossiers({ moiId: etat.utilisateur.id, connus: papiersConnus() })
+        .then((n) => { if (onglet === "dossiers") render(zone, n); });
+      return;
+    }
     render(zone, onglet === "recus" ? panneauRecus() : panneauMes());
   }
 
@@ -74,7 +82,7 @@ export default async function vuePapiers() {
   function panneauRecus() {
     if (!recus.length) {
       return blocVide("Rien dans la sacoche",
-        "Personne ne vous a encore tendu de papier. Cela se fait en face à face, en séance.");
+        "Personne ne vous a encore tendu de papier. Cela se fait en face à face, en jeu.");
     }
     return el("div.grille.grille--2", recus.map((remise) => {
       const etatLu = ETATS[remise.state] || ETATS.offered;
@@ -131,8 +139,16 @@ export default async function vuePapiers() {
     )));
   }
 
+  /** Ce que j'ai en main : ce que j'ai écrit, et ce que j'ai gardé. */
+  function papiersConnus() {
+    return [...mesPapiers,
+      ...recus.filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)];
+  }
+
   function actions(ancre, papier) {
     menu(ancre, [
+      { libelle: "Le classer dans un dossier", icone: "sac",
+        action: () => classerPapier(papier, { moiId: etat.utilisateur.id, ancre }) },
       { libelle: "Le tendre à quelqu'un", icone: "main", action: () => remettre(papier) },
       { libelle: "Le reprendre", icone: "crayon", action: () => modifier(papier) },
       {
@@ -185,15 +201,9 @@ export default async function vuePapiers() {
    * l'espace d'origine du papier en tête s'il en a un.
    */
   async function remettre(papier) {
+    // On peut aussi tendre un papier à quelqu'un qu'on croise dans la rue,
+    // sans partager d'espace : on le cherche alors par son pseudo.
     const espaces = etat.classes.filter((c) => !c.archived);
-    if (!espaces.length) {
-      toast("Vous ne partagez aucun espace", {
-        corps: "On ne tend un papier qu'à quelqu'un qu'on croise. Rejoignez une "
-          + L("classe") + " avec son code.",
-        type: "attn", duree: 8000
-      });
-      return;
-    }
 
     // L'espace d'origine d'abord, puis les autres : un ordre de mission écrit
     // pour la 2e compagnie se remet d'abord à la 2e compagnie.
@@ -219,15 +229,11 @@ export default async function vuePapiers() {
     }
 
     const candidats = [...parPersonne.values()];
-    if (!candidats.length) {
-      toast("Personne d'autre dans vos espaces pour l'instant.");
-      return;
-    }
 
     // La remise porte l'espace de celui à qui on tend, pas celui du papier :
     // c'est là que la scène se joue, et c'est là que la modération regarde.
     const fait = await tendrePapier({
-      papier, classe: candidats[0].espace, candidats, fiches: index
+      papier, classe: null, candidats, fiches: index
     });
     if (fait) { await charger(); peindre(); }
   }
@@ -239,5 +245,7 @@ export default async function vuePapiers() {
 
   await charger();
   peindre();
-  return { noeud, titre: "Ma sacoche" };
+  // Une remise arrive, ou l'autre répond : la sacoche se met à jour.
+  const lacher = ecouter("remises:change", async () => { await charger(); peindre(); });
+  return { noeud, titre: "Ma sacoche", nettoyer: lacher };
 }

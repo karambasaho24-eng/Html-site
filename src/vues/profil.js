@@ -6,7 +6,7 @@ import { icone } from "../ui/icons.js";
 import { etat, definir } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
-import { profils, notes as depotNotes, presence, favoris, fichiers } from "../data/index.js";
+import { profils, notes as depotNotes, presence, favoris, fichiers, auth } from "../data/index.js";
 import { entete, avatar, statistique, jauge } from "../ui/fragments.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
@@ -123,7 +123,8 @@ export default async function vueProfil() {
         el("div.panneau",
           el("div.panneau__entete", el("span.panneau__titre", "Compte")),
           el("div.panneau__corps.pile",
-            el("span.petit.faible", etat.utilisateur.email || "—"),
+            el("span.petit.faible", `Pseudo RP : ${etat.profil?.display_name || "—"}`),
+            el("button.btn", { onclick: changerMotDePasse }, icone("cadenas", 15), "Changer mon mot de passe"),
             el("button.btn", { onclick: () => aller("/reglages") }, icone("reglages", 15), "Réglages"),
             el("button.btn.btn--danger", {
               onclick: async () => { await deconnecter(); aller("/connexion"); }
@@ -137,8 +138,9 @@ export default async function vueProfil() {
   async function modifier() {
     const sortie = await formulaire({
       titre: "Modifier mon profil",
+      // Le pseudo RP sert à se connecter : il ne se change pas ici.
+      note: `Pseudo RP : ${profil.display_name} — c'est avec lui que vous vous connectez.`,
       champs: [
-        { cle: "display_name", label: "Nom affiché", valeur: profil.display_name, requis: true },
         { cle: "roblox_name", label: "Identité en jeu", valeur: profil.roblox_name || "",
           aide: "Votre pseudo sur le serveur. Il sert à l'encadrement pour vous "
               + "retrouver en jeu, et n'apparaît jamais à la place de votre personnage." },
@@ -154,6 +156,26 @@ export default async function vueProfil() {
       aller("/profil");
     } catch (err) {
       erreur("Mise à jour impossible", messageErreur(err));
+    }
+  }
+
+  async function changerMotDePasse() {
+    const sortie = await formulaire({
+      titre: "Changer mon mot de passe",
+      champs: [
+        { cle: "mdp", label: "Nouveau mot de passe", type: "password", requis: true, aide: "Huit caractères minimum." },
+        { cle: "mdp2", label: "Encore une fois", type: "password", requis: true }
+      ],
+      libelle: "Changer"
+    });
+    if (!sortie) return;
+    if (sortie.mdp.length < 8) { erreur("Mot de passe trop court", "Huit caractères au minimum."); return; }
+    if (sortie.mdp !== sortie.mdp2) { erreur("Les mots de passe diffèrent", "Tapez deux fois le même."); return; }
+    try {
+      await auth.changerMotDePasse(sortie.mdp);
+      succes("Mot de passe changé");
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
     }
   }
 

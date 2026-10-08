@@ -46,72 +46,78 @@ export const CATEGORIES = [
    ========================================================================= */
 export const CATALOGUE = {
   /* --- Ce qui porte le reste --------------------------------------------- */
-  cartable:  { libelle: "Cartable",  categorie: "contenant", contenant: true,
+  cartable:  { volume: 12, capacite: 24, libelle: "Cartable",  categorie: "contenant", contenant: true,
                aide: "Cuir fauve, deux sangles, poignée rigide." },
-  sacoche:   { libelle: "Sacoche",   categorie: "contenant", contenant: true,
+  sacoche:   { volume: 8, capacite: 12, libelle: "Sacoche",   categorie: "contenant", contenant: true,
                aide: "En bandoulière, pour les papiers." },
-  musette:   { libelle: "Musette",   categorie: "contenant", contenant: true,
+  musette:   { volume: 10, capacite: 20, libelle: "Musette",   categorie: "contenant", contenant: true,
                aide: "Toile réglementaire, large ouverture." },
-  mallette:  { libelle: "Mallette",  categorie: "contenant", contenant: true,
+  mallette:  { volume: 12, capacite: 20, libelle: "Mallette",  categorie: "contenant", contenant: true,
                aide: "Rigide, fermoirs en laiton. Pour se présenter." },
-  trousse:   { libelle: "Trousse",   categorie: "contenant", contenant: true,
+  trousse:   { volume: 4, capacite: 8, libelle: "Trousse",   categorie: "contenant", contenant: true,
                aide: "Toile huilée olive. Elle se met dans le cartable." },
-  etui:      { libelle: "Étui",      categorie: "contenant", contenant: true,
+  etui:      { volume: 3, capacite: 6, libelle: "Étui",      categorie: "contenant", contenant: true,
                aide: "Long et étroit, pour les instruments." },
-  boite:     { libelle: "Boîte",     categorie: "contenant", contenant: true,
+  boite:     { volume: 10, capacite: 30, libelle: "Boîte",     categorie: "contenant", contenant: true,
                aide: "Se garde chez soi plus qu'on ne l'emporte." },
 
   /* --- Écrire ------------------------------------------------------------- */
-  plume:     { libelle: "Plume",     categorie: "ecriture", ecrit: true, encre: true,
+  plume:     { volume: 1, libelle: "Plume",     categorie: "ecriture", ecrit: true, encre: true,
                aide: "Bec d'acier, manche de bois. Sans encre, elle gratte." },
-  crayon:    { libelle: "Crayon",    categorie: "ecriture", ecrit: true,
+  "stylo-plume": { volume: 1, libelle: "Stylo plume", categorie: "ecriture", ecrit: true, encre: true,
+               aide: "Corps laqué, agrafe de laiton. Il boit à l'encrier comme la plume." },
+  crayon:    { volume: 1, libelle: "Crayon",    categorie: "ecriture", ecrit: true,
                aide: "Mine de graphite. Il écrit toujours." },
-  encrier:   { libelle: "Encrier",   categorie: "ecriture", consomme: true,
+  encrier:   { volume: 2, libelle: "Encrier",   categorie: "ecriture", consomme: true,
                aide: "C'est lui qui se vide quand on écrit à la plume." },
-  encre:     { libelle: "Flacon d'encre", categorie: "ecriture", consomme: true,
-               aide: "De quoi remplir l'encrier plusieurs fois." },
-  craie:     { libelle: "Craie",     categorie: "ecriture", ecrit: true, nombre: true,
+  encre:     { volume: 2, libelle: "Flacon d'encre", categorie: "ecriture", consomme: true,
+               aide: "De quoi remplir l'encrier quatre fois." },
+  craie:     { volume: 1, libelle: "Craie",     categorie: "ecriture", ecrit: true, nombre: true,
                aide: "Pour le tableau. Elle s'use." },
-  gomme:     { libelle: "Gomme",     categorie: "ecriture",
+  gomme:     { volume: 1, libelle: "Gomme",     categorie: "ecriture",
                aide: "Caoutchouc gris. Elle laisse des miettes." },
-  buvard:    { libelle: "Buvard",    categorie: "ecriture",
+  buvard:    { volume: 2, libelle: "Buvard",    categorie: "ecriture",
                aide: "On le pose sur l'encre fraîche avant de tourner la page." },
 
   /* --- Papier ------------------------------------------------------------- */
-  feuilles:  { libelle: "Feuilles",  categorie: "papier", nombre: true,
+  feuilles:  { volume: 2, libelle: "Feuilles",  categorie: "papier", nombre: true,
                aide: "Une pile de feuilles vierges." },
-  chemise:   { libelle: "Chemise",   categorie: "papier", contenant: true,
+  pochette:  { volume: 3, capacite: 6, libelle: "Pochette de documents", categorie: "papier", contenant: true,
+               aide: "Toile olive, rabat de cuir. On y glisse ses feuilles." },
+  dossier:   { volume: 3, capacite: 6, libelle: "Dossier",   categorie: "papier", contenant: true, papiers: true,
+               aide: "Carton rigide, cordon et bouton. On y classe ses papiers." },
+  chemise:   { volume: 2, capacite: 4, libelle: "Chemise",   categorie: "papier", contenant: true, papiers: true,
                aide: "Carton souple à rabats, pour tenir des papiers ensemble." },
 
   /* --- Calculer ----------------------------------------------------------- */
-  "regle-a-calcul": { libelle: "Règle à calcul", categorie: "mathematiques",
+  "regle-a-calcul": { volume: 3, libelle: "Règle à calcul", categorie: "mathematiques",
                aide: "Réglette coulissante et curseur. Aucune pile, aucun écran." },
-  boulier:   { libelle: "Boulier",   categorie: "mathematiques",
+  boulier:   { volume: 8, libelle: "Boulier",   categorie: "mathematiques",
                aide: "Cadre de bois, tringles d'acier, boules d'os." },
 
   /* --- Tracer ------------------------------------------------------------- */
-  regle:     { libelle: "Règle",     categorie: "geometrie",
+  regle:     { volume: 2, libelle: "Règle",     categorie: "geometrie",
                aide: "Buis gradué, arête de laiton." },
-  equerre:   { libelle: "Équerre",   categorie: "geometrie", aide: "Bois clair, angle droit." },
-  compas:    { libelle: "Compas",    categorie: "geometrie", aide: "Laiton et acier, vis de serrage." },
-  rapporteur:{ libelle: "Rapporteur",categorie: "geometrie", aide: "Demi-disque de corne graduée." },
+  equerre:   { volume: 2, libelle: "Équerre",   categorie: "geometrie", aide: "Bois clair, angle droit." },
+  compas:    { volume: 2, libelle: "Compas",    categorie: "geometrie", aide: "Laiton et acier, vis de serrage." },
+  rapporteur:{ volume: 2, libelle: "Rapporteur",categorie: "geometrie", aide: "Demi-disque de corne graduée." },
 
   /* --- Administrer -------------------------------------------------------- */
-  registre:  { libelle: "Registre",  categorie: "administratif",
+  registre:  { volume: 5, libelle: "Registre",  categorie: "administratif",
                aide: "Grand format relié. On y consigne, on n'y rature pas." },
-  cachet:    { libelle: "Cachet",    categorie: "administratif",
+  cachet:    { volume: 2, libelle: "Cachet",    categorie: "administratif",
                aide: "Tampon de laiton à manche de bois." },
 
   /* --- Servir ------------------------------------------------------------- */
-  carte:     { libelle: "Carte",     categorie: "mission", aide: "Pliée en huit, usée aux plis." },
-  boussole:  { libelle: "Boussole",  categorie: "mission", aide: "Boîtier de cuivre, couvercle à charnière." },
-  lorgnette: { libelle: "Lorgnette", categorie: "mission", aide: "Laiton et cuir, trois éléments." },
-  lanterne:  { libelle: "Lanterne",  categorie: "mission", consomme: true,
+  carte:     { volume: 1, libelle: "Carte",     categorie: "mission", aide: "Pliée en huit, usée aux plis." },
+  boussole:  { volume: 1, libelle: "Boussole",  categorie: "mission", aide: "Boîtier de cuivre, couvercle à charnière." },
+  lorgnette: { volume: 3, libelle: "Lorgnette", categorie: "mission", aide: "Laiton et cuir, trois éléments." },
+  lanterne:  { volume: 6, libelle: "Lanterne",  categorie: "mission", consomme: true,
                aide: "À huile. Elle éclaire tant qu'il en reste." },
 
   /* --- À soi -------------------------------------------------------------- */
-  montre:    { libelle: "Montre",    categorie: "personnel", aide: "À gousset, chaîne de laiton." },
-  gourde:    { libelle: "Gourde",    categorie: "personnel", consomme: true,
+  montre:    { volume: 1, libelle: "Montre",    categorie: "personnel", aide: "À gousset, chaîne de laiton." },
+  gourde:    { volume: 4, libelle: "Gourde",    categorie: "personnel", consomme: true,
                aide: "Fer-blanc gainé de feutre." }
 };
 
@@ -150,12 +156,31 @@ export function imageObjet(kind) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "autre";
 
-  // La page autonome n'a pas de fichiers a cote : elle transporte les dessins
+  // La page autonome n'a pas de fichiers a cote : elle transporte les images
   // avec elle, en data-uri. Ailleurs, on va les chercher normalement.
   const embarques = globalThis.__OJM_OBJETS__;
   if (embarques && embarques[cle]) return embarques[cle];
+
+  // Une photographie quand elle existe, le dessin sinon. Les photographies
+  // sont les objets eux-memes ; les dessins restent en repli, pour qu'un type
+  // ajoute au catalogue ne s'affiche jamais comme une case vide.
+  if (PHOTOS.has(cle)) return `assets/objets/photos/${cle}.jpg`;
   return `assets/objets/${cle}.svg`;
 }
+
+/**
+ * Les objets photographies. Tous sortent de la meme seance : meme fond
+ * (#0d1013), meme lumiere venue du haut-gauche, memes matieres. La liste est
+ * tenue a la main : un fichier absent ferait une case vide, et un navigateur
+ * ne dit pas qu'une image manque — il n'affiche rien.
+ */
+export const PHOTOS = new Set([
+  "boulier", "buvard", "cahier", "cahier-ouvert", "carnet", "cartable",
+  "cartable-ouvert", "compas", "craie", "crayon", "dossier", "encre",
+  "encrier", "equerre", "feuille", "feuilles", "gomme", "musette", "plume",
+  "pochette", "rapporteur", "regle", "regle-a-calcul", "sacoche",
+  "stylo-plume", "trousse", "trousse-ouverte"
+]);
 
 /* ===========================================================================
    La dotation de départ
@@ -173,7 +198,23 @@ export const DOTATION = [
   { kind: "gomme",   dans: "trousse" },
   { kind: "regle",   dans: "trousse" },
   { kind: "buvard",  dans: "cartable" },
-  { kind: "feuilles", dans: "cartable", quantity: 20 }
+  { kind: "feuilles", dans: "cartable", quantity: 20 },
+  // Le flacon reste à la maison : on y remplit son encrier.
+  { kind: "encre", level: 100 }
+];
+
+/**
+ * Le matériel du professeur : de quoi écrire au tableau et sur une copie, pas
+ * davantage. Il n'a pas « tous les objets » ; ce qu'il lui faut en plus, il se
+ * le procure comme n'importe qui.
+ */
+export const DOTATION_PROFESSEUR = [
+  { kind: "sacoche",  carried: true, label: "Sacoche du professeur" },
+  { kind: "craie",    dans: "sacoche", quantity: 12 },
+  { kind: "crayon",   dans: "sacoche" },
+  { kind: "gomme",    dans: "sacoche" },
+  { kind: "feuilles", dans: "sacoche", quantity: 20 },
+  { kind: "dossier",  dans: "sacoche", label: "Dossier de professeur" }
 ];
 
 /* ===========================================================================
@@ -318,17 +359,132 @@ export function figureObjet(kind, { taille = null } = {}) {
 }
 
 /**
+ * L'objet détouré : sa photographie sans le fond. C'est lui qu'on pose DANS un
+ * contenant — une vignette carrée noire collée sur la toile d'une trousse ne
+ * ferait pas illusion une seconde.
+ */
+export function imageDetouree(kind) {
+  const cle = String(kind || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "autre";
+  const embarques = globalThis.__OJM_OBJETS__;
+  if (embarques && embarques[`detoure:${cle}`]) return embarques[`detoure:${cle}`];
+  if (PHOTOS.has(cle)) return `assets/objets/detoures/${cle}.webp`;
+  if (embarques && embarques[`sans-fond:${cle}`]) return embarques[`sans-fond:${cle}`];
+  return `assets/objets/sans-fond/${cle}.svg`;
+}
+
+/* ===========================================================================
+   La vitrine : un contenant et ce qu'il contient VRAIMENT
+
+   Une trousse vide reste une trousse fermée, rien ne dépasse. Une trousse
+   garnie laisse voir ce qu'on y a mis — ces objets-là, pas ceux qu'il y avait
+   le jour de la photo. Le cartable s'ouvre, et ce qu'il contient se tient dans
+   ses compartiments, caché à mi-hauteur par le rabat avant.
+
+   Deux mises en scène, selon ce que la photographie permet :
+     · « fente »   — le contenant est ouvert ; les objets sont posés par-dessus
+                     puis découpés le long du bord avant, si bien qu'ils
+                     semblent plonger dedans ;
+     · « derrière » — le contenant est fermé ; les objets sont glissés
+                     derrière lui et dépassent par le haut, comme des crayons
+                     qui sortent d'une trousse trop pleine.
+   ========================================================================= */
+const SCENES = {
+  cartable: {
+    ouvert: "cartable-ouvert", mode: "fente",
+    // Le bord avant du cartable ouvert : ce qui passe sous cette ligne est
+    // dans le sac. Relevé en pourcentage de l'image.
+    fente: "polygon(15% 0, 85% 0, 85% 57%, 71.7% 55%, 17.5% 42.5%)",
+    de: 22, a: 76, bord: (x) => 42.5 + (x - 17.5) * (12.5 / 54.2), hauteur: 44
+  },
+  // « bord » : la hauteur (en %) du haut du contenant fermé. Ce qui dépasse
+  // au-dessus se voit ; le reste est caché derrière lui.
+  trousse:  { mode: "derriere", de: 20, a: 80, bord: () => 44, hauteur: 52 },
+  musette:  { mode: "derriere", de: 26, a: 74, bord: () => 36, hauteur: 46 },
+  sacoche:  { mode: "derriere", de: 30, a: 70, bord: () => 40, hauteur: 44 },
+  pochette: { mode: "derriere", de: 24, a: 76, bord: () => 26, hauteur: 42 },
+  mallette: { mode: "derriere", de: 24, a: 76, bord: () => 36, hauteur: 42 },
+  etui:     { mode: "derriere", de: 20, a: 80, bord: () => 44, hauteur: 40 },
+  boite:    { mode: "derriere", de: 26, a: 74, bord: () => 38, hauteur: 42 },
+  chemise:  { mode: "derriere", de: 24, a: 76, bord: () => 28, hauteur: 38 }
+};
+
+/** Les objets longs se tiennent debout ; on les fait pencher un peu, chacun
+ *  différemment, parce qu'un sac rempli à la règle n'a jamais existé. */
+const INCLINAISONS = [-9, 6, -3, 11, -13, 4, -6, 9];
+
+export function vitrine(contenant, dedans = [], { taille = 120, titre = true } = {}) {
+  const scene = SCENES[contenant.kind];
+  const plein = dedans.length > 0;
+  const racine = el("div.vitrine", {
+    class: plein ? "vitrine--pleine" : "vitrine--vide",
+    style: { width: `${taille}px`, height: `${taille}px` },
+    title: titre
+      ? (plein
+          ? `${nomObjet(contenant)} : ${dedans.map(nomObjet).join(", ")}`
+          : `${nomObjet(contenant)} — vide`)
+      : null
+  });
+
+  // Vide, ou sans mise en scène connue : l'objet tel quel, fermé.
+  if (!plein || !scene) {
+    racine.appendChild(el("span.vitrine__fond", {
+      style: { backgroundImage: `url("${imageObjet(contenant.kind)}")` } }));
+    if (plein) racine.appendChild(el("span.vitrine__compte", String(dedans.length)));
+    return racine;
+  }
+
+  // Sept objets au plus : au-delà on ne voit plus rien, on compte.
+  const montres = dedans.slice(0, 7);
+  const pas = montres.length > 1 ? (scene.a - scene.de) / (montres.length - 1) : 0;
+  const objets = el("span.vitrine__objets", {
+    style: scene.mode === "fente" ? { clipPath: scene.fente } : null
+  });
+  montres.forEach((o, i) => {
+    const x = montres.length > 1 ? scene.de + i * pas : (scene.de + scene.a) / 2;
+    const bord = scene.bord(x);
+    // Le pied de l'objet descend sous le bord : c'est ce qui le met DEDANS.
+    // Derrière un contenant fermé, on en laisse voir davantage — sinon rien ne
+    // dépasserait d'une trousse plate.
+    const haut = bord - scene.hauteur * (scene.mode === "fente" ? 0.62 : 0.72);
+    objets.appendChild(el("img.vitrine__objet", {
+      src: imageDetouree(o.kind), alt: "", draggable: false, loading: "lazy",
+      style: {
+        left: `${x}%`, top: `${haut}%`, height: `${scene.hauteur}%`,
+        transform: `translateX(-50%) rotate(${INCLINAISONS[i % INCLINAISONS.length]}deg)`
+      }
+    }));
+  });
+
+  // En « fente », la photographie entière sert de décor : les objets passent
+  // devant. En « derrière », il faut le contenant SANS son fond, sinon le
+  // carré sombre de la photo recouvrirait ce qui est censé dépasser.
+  const fond = el("span.vitrine__fond", {
+    style: { backgroundImage: `url("${scene.mode === "fente"
+      ? imageObjet(scene.ouvert)
+      : imageDetouree(contenant.kind)}")` } });
+
+  if (scene.mode === "fente") racine.append(fond, objets);
+  else racine.append(objets, fond);          // derrière : le contenant cache le pied
+  if (dedans.length > montres.length) {
+    racine.appendChild(el("span.vitrine__compte", `+${dedans.length - montres.length}`));
+  }
+  return racine;
+}
+
+/**
  * La vignette d'un objet tel qu'on le voit dans une liste : son dessin, son
  * nom, et ce qu'il faut savoir d'un coup d'œil — le niveau d'encre, la
  * quantité, l'état.
  */
-export function vignetteObjet(objet, { moiId = null, compacte = false } = {}) {
+export function vignetteObjet(objet, { moiId = null, compacte = false, figure = true } = {}) {
   const f = fiche(objet.kind) || {};
   const etat = etatObjet(objet, moiId);
   const niveau = f.consomme && objet.level != null ? Number(objet.level) : null;
 
   return el("div.objet-vignette", { class: compacte ? "objet-vignette--compacte" : "" },
-    figureObjet(objet.kind),
+    figure ? figureObjet(objet.kind) : null,
     el("div.objet-vignette__dit",
       el("span.objet-vignette__nom", nomObjet(objet)),
       el("span.objet-vignette__sous",

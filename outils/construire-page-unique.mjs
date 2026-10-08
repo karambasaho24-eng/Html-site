@@ -23,7 +23,7 @@ if (!bundlePath) {
   process.exit(1);
 }
 
-const ORDRE_CSS = ["tokens", "base", "layout", "components", "notebook", "objets", "board", "live", "responsive"];
+const ORDRE_CSS = ["tokens", "base", "layout", "components", "notebook", "objets", "board", "live", "scene", "monde", "responsive"];
 const css = ORDRE_CSS
   .map((n) => `/* ---- ${n}.css ---- */\n` + readFileSync(resolve(RACINE, "styles", `${n}.css`), "utf8"))
   .join("\n");
@@ -48,6 +48,42 @@ function embarquerObjets() {
     carte[fichier.replace(/\.svg$/, "")] =
       "data:image/svg+xml," + encodeURIComponent(svg);
   }
+  // Les photographies ensuite : elles prennent le pas sur le dessin du meme
+  // nom, exactement comme dans imageObjet().
+  const photos = resolve(dossier, "photos");
+  try {
+    for (const fichier of readdirSync(photos)) {
+      if (!fichier.endsWith(".jpg")) continue;
+      carte[fichier.replace(/\.jpg$/, "")] =
+        "data:image/jpeg;base64," + readFileSync(resolve(photos, fichier)).toString("base64");
+    }
+  } catch { /* pas de photographies : les dessins suffisent */ }
+  // Et les objets détourés, qu'on pose dans les contenants.
+  try {
+    const detoures = resolve(dossier, "detoures");
+    for (const fichier of readdirSync(detoures)) {
+      if (!fichier.endsWith(".webp")) continue;
+      carte["detoure:" + fichier.replace(/\.webp$/, "")] =
+        "data:image/webp;base64," + readFileSync(resolve(detoures, fichier)).toString("base64");
+    }
+  } catch { /* pas d'objets détourés */ }
+  try {
+    const sansFond = resolve(dossier, "sans-fond");
+    for (const fichier of readdirSync(sansFond)) {
+      if (!fichier.endsWith(".svg")) continue;
+      const svg = readFileSync(resolve(sansFond, fichier), "utf8").replace(/\n\s*/g, " ").trim();
+      carte["sans-fond:" + fichier.replace(/\.svg$/, "")] = "data:image/svg+xml," + encodeURIComponent(svg);
+    }
+  } catch { /* pas de dessins sans fond */ }
+  // Les gabarits des tenues fournies en images (vestes, pantalons).
+  try {
+    const tenues = resolve(RACINE, "assets", "tenues");
+    for (const fichier of readdirSync(tenues)) {
+      if (!fichier.endsWith(".png")) continue;
+      carte["tenue:" + fichier.replace(/\.png$/, "")] =
+        "data:image/png;base64," + readFileSync(resolve(tenues, fichier)).toString("base64");
+    }
+  } catch { /* pas de tenues en images */ }
   return carte;
 }
 
@@ -79,7 +115,7 @@ const page = `<meta charset="utf-8" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Caveat:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
 
 <style>
 ${css}

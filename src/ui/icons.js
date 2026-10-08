@@ -68,6 +68,7 @@ const TRACES = {
   stop:       "M6 6h12v12H6z",
   rejouer:    "M4 12a8 8 0 1 1 2.3 5.6M4 12V7M4 12h5",
   grille:     "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  incruste:   "M3 5h18v14H3zM12 12h7v5h-7z",
   liste:      "M4 6h16M4 12h16M4 18h16",
   livre:      "M4 5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-2zM20 5a2 2 0 0 0-2-2h-5v18h5a2 2 0 0 0 2-2z",
   robot:      "M8 3v3M16 3v3M5 8h14v11H5zM9 13h.01M15 13h.01M9.5 16h5",

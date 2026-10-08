@@ -1,0 +1,747 @@
+/* ===========================================================================
+   LA SCÈNE — ce que le personnage a devant lui
+   Vue de dessus, à plat. Une table sombre et mate, les affaires posées avec
+   une ombre douce, le sac à côté, les autres assis de l'autre côté. Pas de
+   perspective, pas de cadre doré : la matière des objets suffit.
+   ========================================================================= */
+
+:root {
+  --table-1: #4a3222;
+  --table-2: #36241a;
+  --table-bord: rgba(255, 226, 190, .1);
+  --ardoise: #1c2622;
+  --f-main: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+  --dock-h: 74px;
+  --doux: cubic-bezier(.2, .7, .2, 1);
+}
+
+/* --- L'application disparaît : il ne reste que la scène ------------------ */
+.chassis--immersif {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "vue";
+}
+.chassis--immersif > .marque,
+.chassis--immersif > .barre,
+.chassis--immersif > .rail { display: none; }
+
+/* --- La salle selon la fenêtre ------------------------------------------- */
+.salle--immersif { grid-template-rows: auto minmax(0, 1fr) auto; background: var(--fond); }
+.salle--immersif > .bandeau,
+.salle--immersif .bureau { display: none; }
+.salle--immersif > .salle__corps { display: none; }
+.salle--immersif > .scene { display: grid; }
+.salle:not(.salle--immersif) > .scene { display: none; }
+.salle--compact > .scene { display: none !important; }
+.salle { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.salle.salle--immersif { grid-template-rows: auto minmax(0, 1fr) auto; }
+.salle.salle--compact { grid-template-rows: auto auto; align-content: start; }
+
+/* ===========================================================================
+   Le décor
+   ========================================================================= */
+.scene {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: minmax(110px, 30%) minmax(0, 1fr);
+  isolation: isolate;
+  user-select: none;
+  background: var(--fond);
+}
+.scene__mur { display: none; }
+
+/* --- L'avant de la classe : le tableau, et qui le tient ------------------ */
+.scene__avant {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(12px, 3vw, 40px);
+  padding: 14px 4% 6px;
+  min-height: 0;
+}
+.scene__tableau {
+  position: relative;
+  height: 100%; max-width: min(62%, 680px);
+  aspect-ratio: 16 / 7;
+  padding: 0; border: 0; background: none; cursor: zoom-in;
+  display: flex; flex-direction: column;
+  transition: transform .25s var(--doux);
+}
+.scene__tableau:hover { transform: translateY(-1px); }
+.scene__tableau-cadre {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: 12px;
+  background: var(--ardoise);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 16px 32px -18px rgba(0,0,0,.8);
+  overflow: hidden;
+}
+.scene__ecran {
+  position: absolute; inset: 0;
+  overflow: hidden;
+  background: radial-gradient(90% 90% at 30% 10%, rgba(255,255,255,.035), transparent 60%), var(--ardoise);
+  pointer-events: none;
+}
+.scene__ecran .tableau__barre,
+.scene__ecran .tableau__pages,
+.scene__ecran .curseurs { display: none !important; }
+.scene__ecran .tableau,
+.scene__ecran .tableau__scene { height: 100%; background: transparent; border: 0; padding: 0; }
+.scene__ecran .tableau__surface { height: 100%; }
+.scene__ecran canvas { width: 100%; height: 100%; object-fit: contain; }
+.scene__ecran > :not(.tableau) { transform-origin: top left; }
+.scene__rebord { display: none; }
+.scene__legende {
+  position: absolute; left: 14px; bottom: 10px;
+  font-size: 11px; letter-spacing: .04em;
+  color: rgba(236, 240, 238, .5);
+  white-space: nowrap; pointer-events: none;
+}
+.scene__tableau:hover .scene__legende { color: rgba(236, 240, 238, .8); }
+
+/* --- L'estrade : un voyant, pas un décor -------------------------------- */
+.scene__estrade {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 0;
+}
+.estrade__prof { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.estrade__lumiere { display: none; }
+
+/* Une silhouette : une tête (portrait ou initiales). Sert aussi aux notes. */
+.silhouette { display: flex; flex-direction: column; align-items: center; }
+.silhouette__tete {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; overflow: hidden;
+  font-weight: 600; font-size: 12px; color: var(--texte);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 1px var(--ligne-forte);
+}
+.silhouette__tete img { width: 100%; height: 100%; object-fit: cover; }
+.silhouette__buste { display: none; }
+.silhouette--grand .silhouette__tete { width: 48px; height: 48px; font-size: 16px; }
+.estrade__bascule { margin-top: 0; }
+
+/* ===========================================================================
+   La table
+   ========================================================================= */
+.scene__pupitre {
+  position: relative; z-index: 2;
+  margin: 14px 2% 10px;
+  /* Le sac est posé à gauche de la table : on lui laisse sa place. */
+  padding-left: calc(clamp(76px, 8vw, 112px) + 14px);
+}
+.pupitre__surface {
+  position: absolute; inset: 0 0 0 calc(clamp(76px, 8vw, 112px) + 6px);
+  border-radius: 16px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='600' preserveAspectRatio='none'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.002 0.06' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23b)'/></svg>"),
+    radial-gradient(80% 70% at 30% 20%, rgba(255, 236, 210, .05), transparent 70%),
+    linear-gradient(180deg, var(--table-1), var(--table-2));
+  background-size: 100% 100%, auto, auto;
+  box-shadow:
+    inset 0 0 0 1px var(--table-bord),
+    0 30px 60px -30px rgba(0,0,0,.85);
+}
+.pupitre__chant { display: none; }
+.pupitre__objets { position: relative; z-index: 1; padding: 10px 12px 10px 4px; min-height: 88px; }
+
+/* Bureau vide : trois gestes, dans l'ordre. */
+.pupitre__vide {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  pointer-events: none; text-align: center;
+  animation: apparait .4s var(--doux);
+}
+.guide__titre { margin: 0; font-size: 15px; font-weight: 500; color: rgba(245,238,228,.72); }
+.guide { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.guide__etape {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px 7px 7px; border-radius: 999px;
+  font-size: 12.5px; color: rgba(245,238,228,.6);
+  background: rgba(0,0,0,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.guide__num {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; color: rgba(245,238,228,.8);
+  background: rgba(255,255,255,.08);
+}
+.guide__etape--fait { color: rgba(245,238,228,.35); }
+.guide__etape--fait .guide__num { background: var(--vert); color: #0f1a12; }
+
+/* --- À la table : les autres, assis de l'autre côté ---------------------- */
+.scene__banc {
+  position: absolute; left: 50%; top: 0; z-index: 3;
+  transform: translate(-50%, -50%);
+  display: flex; gap: 10px; max-width: 92%;
+  overflow-x: auto; scrollbar-width: none; padding: 2px 4px;
+}
+.scene__banc::-webkit-scrollbar { display: none; }
+.siege {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
+}
+.siege__tete {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; overflow: hidden;
+  font-size: 12px; font-weight: 600; color: var(--texte);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px rgba(255,255,255,.14), 0 6px 14px rgba(0,0,0,.45);
+  transition: transform .2s var(--doux), box-shadow .2s var(--doux);
+}
+.siege__tete img { width: 100%; height: 100%; object-fit: cover; }
+.siege__nom {
+  font-size: 10.5px; color: var(--texte-doux);
+  max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  background: var(--fond); padding: 0 5px; border-radius: 6px;
+}
+.siege:hover .siege__tete { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px rgba(255,255,255,.4), 0 8px 16px rgba(0,0,0,.5); }
+.siege--moi { cursor: default; }
+.siege--moi .siege__tete { background: var(--accent-fond); color: var(--accent); box-shadow: 0 0 0 2px var(--fond), 0 0 0 3px var(--accent), 0 6px 14px rgba(0,0,0,.45); }
+.siege--moi .siege__nom { color: var(--accent); }
+.siege--libre {
+  width: 34px; height: 34px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--fond), inset 0 0 0 1.5px rgba(255,255,255,.08);
+  background: var(--fond);
+}
+.siege--arrive { animation: s-assoit .5s var(--doux); }
+@keyframes s-assoit { from { opacity: 0; transform: translateY(-8px); } }
+
+/* --- Ce qu'on avait laissé ici ------------------------------------------ */
+.scene__oublis {
+  /* Dans la table, au-dessus des cartes : il ne cache plus rien. */
+  position: relative; z-index: 2;
+  margin: 0 16px 12px 4px;
+  display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100% - 20px);
+  padding: 8px 8px 8px 12px; border-radius: 14px;
+  background: rgba(26,18,12,.92); backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 16px 32px rgba(0,0,0,.5);
+  animation: monte .35s var(--doux);
+}
+.scene__oublis[hidden] { display: none; }
+.oublis__objets { display: flex; }
+.oublis__objets img { width: 34px; height: 30px; object-fit: contain; margin-right: -8px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+.oublis__texte { display: flex; flex-direction: column; min-width: 0; margin-left: 8px; }
+.oublis__texte b { font-size: 13px; font-weight: 600; color: var(--texte); }
+.oublis__texte span { font-size: 11.5px; color: var(--texte-doux); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+
+/* --- La table rangée : une petite étiquette par chose ---------------------
+   Discrètes, sur une ou deux lignes : la table ne mange pas la vue 3D. Un
+   clic sur l'étiquette = le geste principal ; le petit sac = ranger. */
+.plateau__entete {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px;
+}
+.plateau__titre {
+  font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: none;
+  color: var(--texte-doux);
+}
+.plateau__compte {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  display: inline-grid; place-items: center;
+  font-size: 10.5px; font-weight: 600; color: var(--texte-faible); background: rgba(0,0,0,.25);
+}
+.plateau__main {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px 0 5px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; color: #22170c; background: var(--accent);
+}
+.plateau__main img { height: 15px; transform: rotate(-12deg); }
+.plateau__tout { margin-left: auto; height: 26px; font-size: 11.5px; }
+.plateau__cartes {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  max-height: 84px; overflow-y: auto; overflow-x: hidden;
+  padding: 1px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,230,200,.25) transparent;
+}
+.pose {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 36px; padding: 0 3px 0 2px; border-radius: 10px;
+  background: rgba(24,16,10,.45);
+  box-shadow: inset 0 0 0 1px rgba(255,230,200,.08);
+  transition: background .15s, box-shadow .15s;
+  animation: apparait .25s var(--doux);
+}
+.pose:hover { background: rgba(40,27,16,.7); box-shadow: inset 0 0 0 1px rgba(255,230,200,.18); }
+.pose--en-main { background: rgba(232,190,130,.18); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pose__corps {
+  display: inline-flex; align-items: center; gap: 6px; height: 100%;
+  padding: 0 4px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
+}
+.pose__vignette { width: 28px; height: 26px; display: grid; place-items: center; flex: 0 0 auto; }
+.pose__image {
+  max-width: 28px; max-height: 26px; width: auto; height: auto; object-fit: contain; pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.45));
+}
+.pose--en-main .pose__image { transform: rotate(-10deg); }
+.pose__nom {
+  max-width: 120px; font-size: 12px; font-weight: 500; color: var(--texte);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pose__actions { display: inline-flex; align-items: center; gap: 2px; }
+.pose__action {
+  height: 26px; min-width: 26px; padding: 0 8px; border: 0; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font: inherit; font-size: 11px; color: var(--texte-faible); background: transparent; cursor: pointer;
+  white-space: nowrap;
+}
+.pose__action:not(.pose__action--principale) { padding: 0; }
+.pose__action:hover { color: var(--texte); background: rgba(0,0,0,.35); }
+.pose__action--principale { color: #22170c; background: rgba(232,196,142,.85); font-weight: 600; }
+.pose__action--principale:hover { color: #22170c; background: var(--accent); }
+.plateau__cartes--sac { margin-bottom: 10px; }
+.pose--sac .pose__action { margin-left: 2px; }
+.pose--parti { opacity: 0 !important; }
+.pose__vol {
+  position: fixed; z-index: 9000; pointer-events: none;
+  filter: drop-shadow(0 12px 14px rgba(0,0,0,.4));
+}
+
+/* ===========================================================================
+   Le sac, à côté de la table
+   ========================================================================= */
+.scene__sac-zone {
+  position: absolute; z-index: 4;
+  left: max(6px, 1.5%); bottom: 8px;
+  width: clamp(110px, 13%, 170px);
+  display: flex; flex-direction: column; align-items: center;
+}
+.scene__sac-zone--cible .scene__sac-image { filter: drop-shadow(0 0 0 2px var(--accent)) drop-shadow(0 0 14px rgba(232,200,150,.45)) brightness(1.1); }
+.scene__sac {
+  position: relative; width: 100%;
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.scene__sac-image {
+  width: 100%; height: auto; display: block;
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.4)) drop-shadow(0 12px 14px rgba(0,0,0,.4));
+  transition: transform .25s var(--doux), filter .2s;
+}
+.scene__sac:hover .scene__sac-image { transform: translateY(-3px); }
+.scene__sac-mot {
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 500; color: var(--texte);
+  background: rgba(26,18,12,.8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+  transition: background .15s, box-shadow .15s;
+}
+.scene__sac:hover .scene__sac-mot { background: var(--surface-3); }
+.scene__sac--appel .scene__sac-mot { color: #1a150e; background: var(--accent); box-shadow: none; animation: respire 2.4s ease-in-out infinite; }
+@keyframes respire { 50% { box-shadow: 0 0 0 6px rgba(232,200,150,.14); } }
+.scene__sans-sac { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--texte-faible); text-align: center; font-size: 12px; }
+.scene__sans-sac-trace { width: 80px; height: 62px; border: 1.5px dashed rgba(255,255,255,.12); border-radius: 12px; }
+
+/* L'intérieur du sac : du cuir, des poches, et rien d'autre. */
+.sac__contenu {
+  position: absolute; left: 4px; bottom: calc(100% + 6px); z-index: 3;
+  width: min(600px, 72vw); max-height: min(58vh, 460px); overflow: auto;
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' preserveAspectRatio='none'><filter id='c'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0.1  0 0 0 0 0.06  0 0 0 0 0.03  0 0 0 0.25 0'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
+    linear-gradient(180deg, #3a271a, #2a1c12);
+  background-size: 100% 100%, auto;
+  box-shadow: inset 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,220,180,.08), 0 30px 60px rgba(0,0,0,.6);
+  outline: 1px dashed rgba(235,205,160,.16); outline-offset: -7px;
+  transform-origin: 20% 100%;
+  animation: monte .28s var(--doux);
+  scrollbar-width: thin;
+}
+@keyframes monte { from { transform: translateY(10px); opacity: 0; } }
+@keyframes apparait { from { opacity: 0; } }
+.sac__poche {
+  padding: 8px 8px 6px; border-radius: 12px;
+  background: rgba(0,0,0,.2);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+}
+.sac__poche + .sac__poche { margin-top: 8px; }
+.sac__poche-nom {
+  display: block; margin: 0 0 4px 4px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(242,222,190,.55);
+}
+.sac__poche-objets { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px; }
+.sac__chose {
+  position: relative;
+  width: 88px; padding: 6px 2px 4px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 0; border-radius: 12px; background: none; color: inherit; cursor: pointer;
+  animation: apparait .3s var(--doux) both;
+  animation-delay: calc(var(--i) * 20ms);
+  transition: background .15s;
+}
+.sac__chose img {
+  width: 100%; height: 54px; object-fit: contain; display: block;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
+}
+.sac__chose:hover { background: rgba(255,240,220,.07); }
+.sac__chose:hover img { transform: translateY(-3px); }
+.sac__nom {
+  max-width: 84px; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11.5px; line-height: 1.2; color: rgba(245,236,220,.85); white-space: nowrap;
+  pointer-events: none;
+}
+.sac__vide { margin: 16px; font-size: 13px; color: rgba(245,236,220,.6); }
+
+/* Mode sac : le sac passe devant, le contenu s'étale. */
+.scene[data-etat="sac"] .scene__sac-zone {
+  left: 50%; bottom: 3%; transform: translateX(-50%);
+  width: clamp(150px, 18%, 220px);
+}
+.scene[data-etat="sac"] .sac__contenu {
+  left: 50%; transform: translateX(-50%);
+  width: min(880px, 90vw); max-height: 60vh; transform-origin: 50% 100%;
+  animation: apparait .25s var(--doux);
+}
+.scene[data-etat="sac"] .sac__chose { width: 100px; }
+.scene[data-etat="sac"] .sac__chose img { height: 64px; }
+.scene[data-etat="sac"] .scene__pupitre,
+.scene[data-etat="sac"] .scene__avant { opacity: .35; transition: opacity .25s; }
+
+/* ===========================================================================
+   Le premier plan : cahier ouvert, document en grand
+   ========================================================================= */
+.scene__premier-plan { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+.scene__livre, .scene__grand, .scene__rail, .scene__bulle { display: none; pointer-events: auto; }
+
+.scene[data-etat="cahier"] .scene__avant,
+.scene[data-etat="cahier"] .scene__pupitre,
+.scene[data-etat="document"] .scene__avant,
+.scene[data-etat="document"] .scene__pupitre { opacity: .18; transition: opacity .3s; }
+.scene[data-etat="cahier"] .scene__sac-zone,
+.scene[data-etat="document"] .scene__sac-zone { opacity: .2; pointer-events: none; }
+
+/* Le cahier, ouvert à plat devant soi. */
+.scene[data-etat="cahier"] .scene__livre {
+  display: flex; flex-direction: column; gap: 8px;
+  position: absolute; left: 50%; top: 14px; bottom: 14px;
+  width: min(1100px, calc(100% - 200px));
+  transform: translateX(calc(-50% - 50px));
+  animation: livre-ouvre .32s var(--doux);
+}
+@keyframes livre-ouvre { from { opacity: 0; transform: translateX(calc(-50% - 50px)) translateY(12px); } }
+.scene__livre-page {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  background: #f3ebd9;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 30px 60px -20px rgba(0,0,0,.8);
+}
+.scene__livre-page > * { flex: 1; min-height: 0; }
+.scene__livre-page .cahier { background: transparent; border: 0; box-shadow: none; }
+.scene__fermer {
+  align-self: flex-end;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 14px; border-radius: 999px;
+  font: inherit; font-size: 12.5px; font-weight: 500; color: var(--texte);
+  background: var(--surface-2); border: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--ligne-forte);
+}
+.scene__fermer:hover { background: var(--surface-3); }
+.scene__marque-page { display: none; }
+
+/* Le rail : ce qui est à portée de main pendant qu'on écrit. */
+.scene[data-etat="cahier"] .scene__rail {
+  display: flex; flex-direction: column; gap: 4px;
+  position: absolute; right: 14px; top: 56px; bottom: 14px;
+  width: 140px; overflow-y: auto; overflow-x: hidden;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--ligne);
+  animation: apparait .3s var(--doux);
+}
+.rail__outil {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px 6px; border: 0; background: none; color: inherit; cursor: pointer;
+  border-radius: 12px;
+  transition: background .15s;
+}
+.rail__outil img {
+  width: 100%; max-width: 110px; height: 50px; object-fit: contain;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
+}
+.rail__outil:hover { background: var(--surface-2); }
+.rail__nom { font-size: 11.5px; color: var(--texte-doux); }
+.rail__outil--en-main { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
+.rail__outil--en-main img { transform: rotate(-10deg) translateY(-3px); }
+.rail__outil--en-main .rail__nom { color: var(--accent); font-weight: 600; }
+.rail__outil--appel { animation: appel 1.8s ease-in-out infinite; }
+@keyframes appel {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(232,200,150,.2); }
+  50% { box-shadow: inset 0 0 0 2px var(--accent); }
+}
+.rail__vide { font-size: 12px; color: var(--texte-faible); text-align: center; padding: 10px; }
+.scene[data-etat="cahier"] .scene__bulle:not([hidden]) {
+  display: block;
+  position: absolute; right: 166px; top: 64px;
+  padding: 8px 14px; border-radius: 12px;
+  font-size: 13px; color: #1a150e;
+  background: var(--accent);
+  box-shadow: 0 10px 24px rgba(0,0,0,.4);
+  animation: apparait .3s var(--doux);
+}
+.scene__bulle::after {
+  content: ""; position: absolute; right: -6px; top: 12px;
+  border: 6px solid transparent; border-right: 0; border-left-color: var(--accent);
+}
+
+/* Le document ou le tableau, en grand. */
+.scene[data-etat="document"] .scene__grand {
+  display: flex; flex-direction: column; gap: 8px;
+  position: absolute; inset: 14px 3% 14px;
+  animation: apparait .28s var(--doux);
+}
+.scene__grand-page {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--ligne), 0 30px 60px -20px rgba(0,0,0,.8);
+}
+.scene__grand-page > * { flex: 1; min-height: 0; }
+
+/* ===========================================================================
+   Le dock de la salle : les gestes essentiels, toujours là
+   ========================================================================= */
+.dock {
+  position: relative; z-index: 20;
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 12px;
+  min-height: var(--dock-h);
+  background: var(--surface-0);
+  border-top: 1px solid var(--ligne);
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.dock::-webkit-scrollbar { display: none; }
+.dock__groupe { display: flex; align-items: center; gap: 2px; }
+.dock__sep { width: 1px; align-self: stretch; margin: 10px 8px; background: var(--ligne); }
+.dock__pousse { flex: 1; }
+.dock__chose {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  width: 66px; height: 60px; padding: 0 2px;
+  border: 0; border-radius: 14px; background: none; color: var(--texte-doux); cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.dock__chose img {
+  width: 44px; height: 30px; object-fit: contain;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.5));
+  transition: transform .2s var(--doux);
+}
+.dock__chose:hover { background: var(--surface-2); color: var(--texte); }
+.dock__chose:hover img { transform: translateY(-2px); }
+.dock__chose[aria-pressed="true"] { background: var(--surface-3); color: var(--texte); box-shadow: inset 0 0 0 1px var(--ligne-forte); }
+.dock__chose--manque img { filter: grayscale(1) brightness(.55); opacity: .7; }
+.dock__chose--principal { width: 74px; }
+.dock__chose--principal img { width: 50px; height: 34px; }
+.dock__mot { font-size: 11px; font-weight: 500; line-height: 1; white-space: nowrap; }
+.dock__pastille {
+  position: absolute; top: 4px; right: 10px;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: 10px; font-weight: 700; color: #1a150e; background: var(--accent);
+}
+.dock__signe { width: 30px; height: 30px; display: grid; place-items: center; color: currentColor; }
+.dock__signe svg { width: 22px; height: 22px; }
+.dock__signe .picto-personne { width: 14px; height: 20px; fill: currentColor; }
+
+.dock__fenetre {
+  display: flex; align-items: center; gap: 2px; align-self: center;
+  padding: 3px; border-radius: 12px; background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--ligne);
+}
+.dock__fenetre button {
+  width: 34px; height: 30px; border-radius: 9px; border: 0; background: none;
+  color: var(--texte-faible); cursor: pointer; display: grid; place-items: center;
+}
+.dock__fenetre button:hover { color: var(--texte); background: var(--surface-2); }
+.dock__fenetre button[aria-pressed="true"] { color: var(--texte); background: var(--surface-3); }
+
+.salle--compact .dock { min-height: 64px; }
+.salle--compact .dock__chose { width: 58px; }
+
+/* ===========================================================================
+   La note rapide : un petit papier
+   ========================================================================= */
+.note-rapide { display: grid; gap: 14px; }
+.note-rapide__papier {
+  position: relative;
+  padding: 16px 18px 14px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(80,110,160,.16) 25px 26px),
+    #f5eee0;
+  border-radius: 10px;
+  box-shadow: 0 12px 24px rgba(0,0,0,.35);
+}
+.note-rapide__papier textarea {
+  width: 100%; min-height: 130px; resize: vertical;
+  border: 0; background: transparent; outline: none;
+  font-family: var(--f-main); font-size: 22px; line-height: 26px; color: #1f2a44;
+}
+.note-rapide__gens { display: flex; flex-wrap: wrap; gap: 4px; }
+.note-rapide__qui {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px 6px; border-radius: 12px; border: 0;
+  background: none; color: inherit; cursor: pointer; width: 76px;
+}
+.note-rapide__qui:hover { background: var(--surface-2); }
+.note-rapide__qui span:last-child { font-size: 11px; color: var(--texte-doux); max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-rapide__qui[aria-pressed="true"] { background: var(--accent-fond); box-shadow: inset 0 0 0 1px var(--accent); }
+.note-rapide__qui[aria-pressed="true"] span:last-child { color: var(--texte); }
+.note-rapide__attestation { font-size: 12px; }
+
+/* --- Petits écrans ------------------------------------------------------- */
+@media (max-width: 760px) {
+  .scene { grid-template-rows: minmax(90px, 26%) minmax(0, 1fr); }
+  .scene__tableau { max-width: 78%; }
+  .scene[data-etat="cahier"] .scene__livre { width: calc(100% - 16px); transform: translateX(-50%); bottom: 112px; }
+  .scene[data-etat="cahier"] .scene__rail {
+    top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; height: 96px;
+    flex-direction: row; overflow-x: auto;
+  }
+  .scene[data-etat="cahier"] .scene__bulle:not([hidden]) { right: auto; left: 12px; top: auto; bottom: 112px; }
+  .rail__outil { flex: 0 0 96px; }
+  .dock__chose { width: 58px; }
+  .guide { flex-direction: column; align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pose, .sac__chose, .scene__livre, .scene__grand, .siege, .scene__oublis, .sac__contenu { animation: none !important; transition: none !important; }
+}
+
+/* ===========================================================================
+   Le cahier ouvert : du papier, pas un panneau d'application
+   ========================================================================= */
+.scene__livre-page { color: #2b2418; }
+.scene__livre-page .mon-cahier { background: transparent; }
+.scene__livre-page .petit.faible,
+.scene__livre-page .faible { color: #6f6350; }
+.scene__livre-page .cahier { background: #f3ebd9; overflow: hidden; }
+.scene__livre-page .tranche {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.12) 27px 28px),
+    #eee5d1;
+  border-right: 1px solid rgba(60,40,20,.12);
+  color: #3a3226;
+}
+.scene__livre-page .tranche__entete,
+.scene__livre-page .tranche__pied { border-color: rgba(60,40,20,.12); }
+.scene__livre-page .tranche__titre { font-family: var(--f-main); font-size: 24px; font-weight: 700; color: #2b2418; }
+.scene__livre-page .onglet-page { color: #5a4f3e; font-family: var(--f-main); font-size: 18px; }
+.scene__livre-page .onglet-page:hover { background: rgba(60,40,20,.06); color: #2b2418; }
+.scene__livre-page .onglet-page[aria-current="true"] { background: rgba(60,40,20,.08); border-color: rgba(60,40,20,.16); color: #1f1a12; }
+.scene__livre-page .onglet-page__num { color: #8a7c64; }
+.scene__livre-page .feuillet { background: #f4ecdb; }
+.scene__livre-page .feuillet__barre { background: transparent; border-bottom: 1px solid rgba(60,40,20,.12); color: #3a3226; }
+.scene__livre-page .feuillet__barre .btn,
+.scene__livre-page .mon-cahier .btn:not(.btn--primaire) {
+  color: #3a3226; background: rgba(255,255,255,.45); border-color: rgba(60,40,20,.18);
+}
+.scene__livre-page .feuillet__zone { background: transparent; padding-top: var(--e-3); }
+.scene__livre-page .parchemin { box-shadow: none; background: transparent; }
+.scene__livre-page .vide { color: #6b5f4b; border-color: rgba(60,40,20,.2); background: transparent; }
+.scene__livre-page .vide__titre { font-family: var(--f-main); font-size: 24px; color: #4a3f2f; }
+.scene__livre-page .marge { color: #3a3226; }
+.scene__livre-page .manque-outil,
+.scene__livre-page .encre-vide { background: #fffaf0; color: #2b2418; border: 1px solid rgba(160,110,40,.35); border-radius: 10px; }
+.scene__livre-page .salle__scene { height: 100%; }
+.scene__livre-page .mon-cahier { height: 100%; }
+.scene__livre-page .inspection--annotable {
+  flex: 1; min-height: 0; gap: 0;
+  grid-template-columns: minmax(0, 1fr) 240px;
+}
+.scene__livre-page .inspection--annotable > .cahier,
+.scene__livre-page .inspection--annotable > :first-child { min-height: 0; height: 100%; }
+.scene__livre-page .marge {
+  padding: var(--e-3);
+  background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(90,120,170,.1) 27px 28px), #eee5d1;
+  border-left: 1px solid rgba(60,40,20,.12);
+  overflow-y: auto;
+}
+.scene__livre-page .mon-cahier__gestes { padding: 0 0 8px; }
+
+/* ===========================================================================
+   Les objets, partout : des choses posées, pas des cartes
+   ========================================================================= */
+.cartable .objet,
+.sac-ouvert .sac-ouvert__objet,
+.bureau__objet { background: none; border: 0; box-shadow: none; border-radius: 12px; }
+.cartable .objet:hover,
+.sac-ouvert .sac-ouvert__objet:hover,
+.bureau__objet:hover { background: var(--surface-2); }
+.cartable .objet__figure,
+.sac-ouvert .objet__figure,
+.bureau__objet .objet__figure {
+  width: 72px; height: 54px;
+  background-color: transparent !important; box-shadow: none; border-radius: 0;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,.45));
+  transition: transform .2s var(--doux);
+}
+.cartable .objet:hover .objet__figure { transform: translateY(-2px); }
+.cartable .objet__figure::before, .cartable .objet__figure::after { display: none; }
+.cartable .objet__nom { font-size: 13px; font-weight: 600; }
+.cartable .objet--demande .objet__figure { filter: drop-shadow(0 0 4px rgba(232,200,150,.7)) drop-shadow(0 5px 5px rgba(0,0,0,.45)); }
+.bureau__objet--en-main { box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-fond); }
+
+/* ===========================================================================
+   La classe en 3D
+   ========================================================================= */
+.scene__classe3d { display: none; }
+/* La vue 3D prend la place qui reste ; la table, toujours la sienne. */
+.scene--3d { grid-template-rows: minmax(300px, 1fr) auto; }
+.scene--3d .scene__avant { padding: 10px 1.5% 0; }
+.scene--3d .scene__classe3d {
+  display: block; position: relative;
+  width: 100%; height: 100%;
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--ligne), 0 20px 40px -24px rgba(0,0,0,.8);
+  animation: apparait .6s var(--doux);
+}
+/* Le tableau à plat reste là, invisible : c'est sa toile qu'on voit en 3D. */
+.scene--3d .scene__tableau {
+  position: absolute; left: 0; top: 0; width: 320px; height: 180px; max-width: none;
+  opacity: 0; pointer-events: none; z-index: -1;
+}
+.scene--3d .scene__estrade,
+.scene--3d .scene__banc { display: none; }
+.scene--3d .scene__pupitre { margin-top: 8px; }
+.classe3d__toile { display: block; width: 100%; height: 100%; }
+.classe3d__etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.classe3d__nom {
+  position: absolute; left: 0; top: 0;
+  padding: 2px 8px; border-radius: 999px; border: 0;
+  font: inherit; font-size: 11px; font-weight: 500; line-height: 16px; white-space: nowrap;
+  color: #f1efe9; background: rgba(26,17,10,.66); backdrop-filter: blur(4px);
+  pointer-events: auto; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.classe3d__nom[hidden] { display: none; }
+.classe3d__nom--survol, .classe3d__nom:hover { background: var(--accent); color: #22170c; }
+.classe3d__nom--prof { background: rgba(127,197,138,.85); color: #0f1a12; font-weight: 600; }
+.chassis[data-taille="moyen"] .scene--3d { grid-template-rows: minmax(170px, 1fr) auto; }
+
+/* ===========================================================================
+   Le sac ouvert tient TOUJOURS dans la fenêtre : la zone du sac occupe la
+   hauteur de la scène, le contenu se glisse au-dessus du sac et défile.
+   ========================================================================= */
+.scene__sac-zone {
+  top: 10px; bottom: 8px; width: auto;
+  justify-content: flex-end; align-items: flex-start;
+  pointer-events: none;
+}
+.scene__sac-zone > * { pointer-events: auto; }
+.scene__sac { width: clamp(70px, 7.5vw, 104px); }
+.sac__contenu {
+  position: relative; left: auto; bottom: auto;
+  flex: 0 1 auto; min-height: 0; max-height: none;
+  margin-bottom: 8px;
+  width: min(600px, calc(100vw - 40px));
+}
+.scene[data-etat="sac"] .scene__sac-zone { top: 10px; align-items: center; }
+.scene[data-etat="sac"] .scene__sac { width: clamp(140px, 15vw, 210px); }
+.scene[data-etat="sac"] .sac__contenu { left: auto; transform: none; width: min(880px, calc(100vw - 40px)); max-height: none; }
+.classe3d__nom--main::before { content: "✋ "; }
+.classe3d__nom--main { background: var(--accent); color: #22170c; }

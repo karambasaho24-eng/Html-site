@@ -12,7 +12,7 @@ import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
 import { encadre, estAdmin, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
 import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
-import { MODES, LISTE_MODES } from "../features/modes.js";
+import { MODES, LISTE_MODES, modeSelonNom } from "../features/modes.js";
 import { personnages } from "../data/index.js";
 import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
 import { livret } from "../data/index.js";
@@ -20,7 +20,9 @@ import { listeEntrees, inscrireAuLivret, tableauClassement, noteCoupure } from "
 import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { blocNotes, porterUneNote } from "../features/bulletin.js";
+import { ouvrirObjetsTrouves } from "../features/objets-trouves.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
+import { NOMS_TENUES, libelleTenue, ficheTenue } from "../features/tenues.js";
 
 const ONGLETS = [
   { cle: "apercu", libelle: "Aperçu" },
@@ -801,6 +803,7 @@ export default async function vueClasse({ params, requete }) {
             : null
         )
       ),
+      panneauTenue(),
       el("div.panneau",
         el("div.panneau__entete", el("span.panneau__titre", "Fin de vie")),
         el("div.panneau__corps.panneau__corps--serre", el("div.liste",
@@ -829,7 +832,7 @@ export default async function vueClasse({ params, requete }) {
     const sortie = await formulaire({
       titre: "Ouvrir une séance",
       champs: [
-        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: "cours",
+        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: modeSelonNom(classe.name),
           options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
         { cle: "title", label: "Intitulé de la séance", valeur: "",
           placeholder: "Session 01 — Fondements du droit",
@@ -849,6 +852,49 @@ export default async function vueClasse({ params, requete }) {
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("Démarrage impossible", messageErreur(err));
+    }
+  }
+
+  /* La tenue de rigueur : en séance, tous les élèves apparaissent dans la
+     même tenue (ils gardent leur coupe et leur teint). */
+  function panneauTenue() {
+    const actuelle = classe.settings?.tenue || "";
+    const bouton = (nom) => {
+      const f = nom ? ficheTenue(nom) || {} : {};
+      const teintes = nom ? [f.veste || f.pull || f.chemise, f.gilet || f.chemise, f.pantalon].filter(Boolean) : [];
+      return el("button.apparence__tenue", {
+        type: "button", "aria-pressed": String(actuelle === nom),
+        onclick: () => choisirTenue(nom)
+      },
+        nom ? el("span.apparence__nuancier", teintes.map((c) => el("span", { style: { background: c } }))) : icone("profil", 14),
+        el("span", nom ? libelleTenue(nom) : "Libre : chacun la sienne"));
+    };
+    const uniformes = NOMS_TENUES.filter((n) => ficheTenue(n)?.famille === "uniforme");
+    const costumes = NOMS_TENUES.filter((n) => (ficheTenue(n)?.famille || "costume") === "costume");
+    return el("div.panneau",
+      el("div.panneau__entete",
+        el("span.panneau__titre", "Tenue de rigueur"),
+        el("span.etiq", actuelle ? libelleTenue(actuelle) : "Libre")),
+      el("div.panneau__corps",
+        el("p.petit.doux", "En séance, les élèves apparaissent dans cette tenue, avec leur coupe et leur teint. "
+          + "Le responsable garde la sienne."),
+        el("div.apparence__tenues", bouton("")),
+        el("p.apparence__sous-titre", "Uniformes"),
+        el("div.apparence__tenues", uniformes.map(bouton)),
+        el("p.apparence__sous-titre", "Costumes"),
+        el("div.apparence__tenues", costumes.map(bouton))));
+  }
+
+  async function choisirTenue(nom) {
+    try {
+      const reglages = { ...(classe.settings || {}) };
+      if (nom) reglages.tenue = nom; else delete reglages.tenue;
+      await depotClasses.majorer(classe.id, { settings: reglages });
+      classe.settings = reglages;
+      succes(nom ? `Tenue de rigueur : ${libelleTenue(nom)}` : "Tenue libre");
+      await peindreContenu();
+    } catch (e) {
+      erreur("Tenue non enregistrée", messageErreur(e));
     }
   }
 
@@ -939,7 +985,9 @@ export default async function vueClasse({ params, requete }) {
       { separateur: true },
       { libelle: "Modifier la classe", icone: "crayon", action: modifierClasse },
       { libelle: "Publier une annonce", icone: "megaphone", action: publierAnnonce },
-      { libelle: "Présences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) }
+      { libelle: "Présences et archives", icone: "archives", action: () => aller(`/archives?classe=${classe.id}`) },
+      { separateur: true },
+      { libelle: "Objets trouvés dans la salle", icone: "sac", action: () => ouvrirObjetsTrouves({ classe }) }
     ]);
   }
 

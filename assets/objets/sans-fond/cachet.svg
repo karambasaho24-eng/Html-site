@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="cachet">
+  <defs>
+    <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
+      <stop offset="1" stop-color="#7d5f15"/></linearGradient>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="boisSombre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d6a3d"/><stop offset="1" stop-color="#4d3720"/></linearGradient>
+  </defs>
+  
+  <rect x="26" y="12" width="12" height="18" rx="5" fill="url(#boisSombre)"/>
+  <rect x="27" y="14" width="10" height="5" rx="2.5" fill="url(#bois)"/>
+  <rect x="22" y="28" width="20" height="7" rx="2" fill="url(#laiton)"/>
+  <path d="M19 35h26l-2 9H21z" fill="url(#laiton)"/>
+  <rect x="20" y="44" width="24" height="4" rx="1" fill="#6d3832"/>
+  <path d="M28 16h8" fill="none" stroke="#fff" stroke-opacity=".36" stroke-width=".9"/>
+  <ellipse cx="32" cy="51" rx="15" ry="2.2" fill="#000" opacity=".3"/>
+  
+</svg>

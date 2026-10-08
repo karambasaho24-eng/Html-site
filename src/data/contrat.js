@@ -35,7 +35,7 @@ export const TABLES = [
   "permissions", "role_permissions", "rp_profiles", "service_records",
   "sticky_notes", "class_bags", "papers", "paper_handoffs",
   "session_ejections", "supply_blocks", "page_annotations", "notebook_handoffs",
-  "belongings", "belonging_handoffs"
+  "belongings", "belonging_handoffs", "dossier_items", "moderation_notes", "role_codes", "sanctions"
 ];
 
 /** Erreur métier normalisée. */
