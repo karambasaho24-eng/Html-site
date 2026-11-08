@@ -17,7 +17,7 @@ export function toast(titre, options = {}) {
   if (!hote) return () => {};
 
   const noeud = el(`div.toast.toast--${type}`, { role: "status" },
-    el("span", { style: { color: "var(--laiton)", marginTop: "1px" } }, icone(ICONES[type] || "cloche", 15)),
+    el("span", { style: { marginTop: "1px" } }, icone(ICONES[type] || "cloche", 15)),
     el("div", { style: { flex: "1", minWidth: "0" } },
       el("span.toast__titre", titre),
       corps && el("span.toast__corps", corps)

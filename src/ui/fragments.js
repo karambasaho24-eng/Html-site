@@ -1,6 +1,7 @@
 /* ---------------------------------------------------------------------------
  * Fragments d'interface réutilisés d'une vue à l'autre.
  * ------------------------------------------------------------------------- */
+import { flottantAuPremierPlan, flottantDisponible } from "../features/fenetre-flottante.js";
 import { el } from "./dom.js";
 import { icone } from "./icons.js";
 import { L } from "../core/lexique.js";
@@ -8,27 +9,23 @@ import { depuis, initiales, tronquer, duree, pluriel } from "../core/util.js";
 import { LIBELLES_ROLES_CLASSE } from "../core/permissions.js";
 
 const COUVERTURES = {
-  parchment: "linear-gradient(160deg, #e8dcc4, #cbb994)",
-  cuir:      "linear-gradient(160deg, #4a3527, #2c1f16)",
-  ardoise:   "linear-gradient(160deg, #3d525c, #22303a)",
-  olive:     "linear-gradient(160deg, #6f7d4d, #3f4a2b)",
-  oxblood:   "linear-gradient(160deg, #7c3a3a, #4a2020)",
-  encre:     "linear-gradient(160deg, #2a323a, #14181d)"
+  parchment: "linear-gradient(160deg, #ececec, #bdbdbd)",
+  cuir:      "linear-gradient(160deg, #4a4a4e, #26262a)",
+  ardoise:   "linear-gradient(160deg, #5a5a5f, #303034)",
+  olive:     "linear-gradient(160deg, #78787d, #44444a)",
+  oxblood:   "linear-gradient(160deg, #36363a, #1a1a1d)",
+  encre:     "linear-gradient(160deg, #1f1f23, #0b0b0d)"
 };
 
-const NOMS_SUPPORT = { feuille: "Feuille", cahier: "Cahier", carnet: "Carnet", dossier: "Dossier" };
 
 export function vignetteCahier(cahier, options = {}) {
-  const support = cahier.support || "cahier";
   return el("a.dos-cahier", { href: `#/cahier/${cahier.id}` },
     el("span.dos-cahier__vignette", {
-      dataset: { support },
       style: { background: COUVERTURES[cahier.cover] || COUVERTURES.parchment }
     }),
     el("span.dos-cahier__infos",
       el("span.dos-cahier__titre", cahier.title),
       cahier.subtitle ? el("span.petit.faible", cahier.subtitle) : null,
-      el("span.etiq-support", NOMS_SUPPORT[support] || "Cahier"),
       el("span.petit.faible",
         cahier.kind === "shared" ? `${L("Cahier")} commun` : `Modifié ${depuis(cahier.updated_at || cahier.created_at)}`),
       options.pages != null ? el("span.petit.faible", pluriel(options.pages, "page")) : null
@@ -126,16 +123,20 @@ export function barreOutils(...contenus) {
 }
 
 export function separateur() {
-  return el("span", { style: { width: "1px", height: "20px", background: "var(--ligne)" } });
+  return el("span", { style: { width: "1px", height: "20px", background: "var(--b2)" } });
 }
 
 /** Encart « zone Roblox » : rappelle la cohabitation avec le jeu. */
+/** Rappel du mode flottant, avec ce qu'il sait faire et ce qu'il ne sait pas faire. */
 export function encartRoblox() {
+  if (!flottantDisponible()) return null;   // téléphone, tablette : pas de mode flottant
   return el("div.zone-roblox",
-    icone("robot", 22),
+    icone("incruste", 22),
     el("p", { style: { margin: "var(--e-2) 0 0" } },
-      el("b", "Espace Roblox"), el("br"),
-      el("span.petit", "Réduisez la fenêtre (densité Compact ou Minimal) pour placer le jeu à côté du cahier.")
+      el("b", "À côté du jeu"), el("br"),
+      el("span.petit", flottantAuPremierPlan()
+        ? "Le bouton « mode flottant » de la barre pose votre cahier dans une petite fenêtre au-dessus des autres, pour écrire sans quitter le cours. Elle ne passe pas au-dessus d'un jeu en plein écran exclusif : jouez en fenêtré."
+        : "Ce navigateur ne sait pas poser une fenêtre au-dessus des autres (Chrome ou Edge sur ordinateur le savent). Le bouton de la barre ouvre le cahier dans une fenêtre à part, à placer à côté du jeu.")
     )
   );
 }

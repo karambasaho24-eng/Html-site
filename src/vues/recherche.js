@@ -94,7 +94,7 @@ export default async function vueRecherche({ requete }) {
 
       const docsTrouves = docs.filter((d) => aplatir(d.title).includes(requis));
       if (docsTrouves.length) {
-        groupes.push(groupe("Documents", docsTrouves.map((d) => ({
+        groupes.push(groupe("Fichiers", docsTrouves.map((d) => ({
           titre: d.title, detail: nomClasse(d.class_id),
           lien: `/documents?classe=${d.class_id}`, icone: "documents"
         }))));

@@ -9,13 +9,19 @@ Créez un projet sur [supabase.com](https://supabase.com), puis exécutez les
 migrations **dans l'ordre**, depuis l'éditeur SQL :
 
 ```
-supabase/migrations/0001_schema.sql        tables, types, index, déclencheurs
-supabase/migrations/0002_rls.sql           fonctions d'aide et politiques RLS
-supabase/migrations/0003_functions.sql     procédures, vues, Realtime, Storage
-supabase/migrations/0004_seed_rbac.sql     rôles et permissions
-supabase/migrations/0005_hardening.sql     search_path figé, surface RPC réduite
-supabase/migrations/0006_fix_join_class.sql correctif de join_class
+supabase/migrations/0001_schema.sql … 0038_*.sql   le schéma, la RLS, les procédures
+supabase/migrations/0039_boutique.sql              l'encre, les cahiers payants, les articles
+supabase/migrations/0040_retrait_objets.sql        ferme les anciens systèmes d'objets
+supabase/migrations/0041_commandes_en_jeu.sql      commandes par missive, limite de pages, rôle PDG
+supabase/migrations/0042_apparence_whitelist_hub.sql  apparence (fond, verre, musique…) et stockage « site-assets »
 ```
+
+Exécutez **tous** les fichiers, **dans l'ordre numérique**. Les migrations 0039
+et 0040 n'effacent ni ne modifient aucune donnée existante : elles ajoutent des
+tables, créent un portefeuille d'encre pour chaque compte déjà présent et
+referment des accès. Lisez leur en-tête avant de les lancer sur une base en
+service, et essayez-les d'abord sur une copie (voir `docs/COMMANDES.md`,
+« Vérifier sur une vraie base »).
 
 Avec la CLI Supabase, `supabase db push` fait la même chose.
 
@@ -57,8 +63,8 @@ Renseignez `config.js` :
 window.OJM_CONFIG = {
   supabaseUrl: "https://xxxx.supabase.co",
   supabaseAnonKey: "sb_publishable_…",
-  academyName: "OJM Academy",
-  academyMotto: "Ordre · Justice · Mérite",
+  academyName: "Classe Parallèle",
+  academyMotto: "L'école qui tourne à côté du jeu",
   lexique: {}
 };
 ```
@@ -132,18 +138,34 @@ Si la barre indique « Mode démonstration » alors que la configuration est
 renseignée, la bibliothèque Supabase n'a pas pu être chargée : vérifiez que
 `vendor/supabase-js.min.js` est bien déployé.
 
-## Premiers comptes
+## Connexion Discord et administrateurs
 
-Le premier compte créé est un élève ou un professeur ordinaire. Pour désigner
-l'administration, promouvez-le depuis l'éditeur SQL :
+La connexion se fait **uniquement par Discord**.
+
+1. [discord.com/developers/applications](https://discord.com/developers/applications) :
+   créez une application, puis *OAuth2* : copiez l'identifiant client et le
+   secret, et ajoutez comme *Redirect* l'adresse de callback affichée par
+   Supabase (*Authentication › Providers › Discord*).
+2. Supabase › *Authentication › Providers* : activez **Discord** (identifiant
+   client + secret) et **désactivez Email**, sans quoi l'API Supabase reste
+   ouverte à une inscription par courriel qui contournerait Discord.
+3. *Authentication › URL Configuration* : mettez l'adresse du site dans
+   *Site URL* et *Redirect URLs*.
+4. Exécutez les migrations `0034` puis `0035`.
+
+**Les deux administrateurs** se désignent par leur identifiant Discord (le
+nombre, pas le pseudo : Discord › Paramètres › Avancés › Mode développeur,
+puis clic droit sur le profil › *Copier l'identifiant*). Dans l'éditeur SQL :
 
 ```sql
-update profiles set role_key = 'super_admin'
- where id = (select id from auth.users where email = 'vous@exemple.fr');
+insert into public.admins_discord (discord_id, role_key, note) values
+  ('111111111111111111', 'super_admin', 'Administrateur 1'),
+  ('222222222222222222', 'admin',       'Administrateur 2');
 ```
 
-Ce compte donne ensuite accès à *Administration › Comptes*, d'où les autres
-rôles se règlent à la souris.
+Le rôle est accordé à leur prochaine connexion (ou au rechargement de la
+page s'ils sont déjà connectés). Ensuite, *Administration › Comptes* permet de
+régler les autres rôles à la souris.
 
 ## Entretien
 

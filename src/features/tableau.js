@@ -27,8 +27,33 @@ export const OUTILS = [
   { cle: "gomme",      libelle: "Gomme",       icone: "gomme" }
 ];
 
-export const TEINTES = ["#f3ead9", "#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#1b2430"];
+export const TEINTES = ["#f2f2f2", "#bdbdbd", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#16161b"];
 export const EPAISSEURS = [2, 4, 8, 16];
+
+/**
+ * L'écriture sur le tableau : des polices manuscrites, et des tailles qui vont
+ * de la prise de notes au grand titre. Les tailles sont en unités du tableau
+ * (1600 × 900), pas en pixels d'écran : le texte garde ses proportions quelle
+ * que soit la fenêtre.
+ */
+export const POLICES_TABLEAU = [
+  { cle: "Kalam", libelle: "Stylo" },
+  { cle: "Caveat", libelle: "Rapide" },
+  { cle: "Patrick Hand", libelle: "Feutre" },
+  { cle: "Spectral", libelle: "Imprimé" }
+];
+export const TAILLES_TEXTE = [
+  { px: 44, libelle: "Petit" },
+  { px: 72, libelle: "Normal" },
+  { px: 120, libelle: "Grand" },
+  { px: 190, libelle: "Titre" },
+  { px: 280, libelle: "Énorme" }
+];
+const POLICE_DEFAUT = "Kalam";
+const pileDePolice = (cle) => {
+  const nom = POLICES_TABLEAU.some((p) => p.cle === cle) ? cle : POLICE_DEFAUT;
+  return `"${nom}", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive`;
+};
 
 /**
  * creerTableau({ hote, lectureSeule, surElementTermine, surFragment, surCurseur })
@@ -73,6 +98,8 @@ export function creerTableau(options = {}) {
   let outil = "crayon";
   let couleur = TEINTES[0];
   let epaisseur = 4;
+  let tailleTexte = 72;
+  let police = POLICE_DEFAUT;
   let ecriture = !lectureSeule;
 
   let enCours = null;
@@ -87,9 +114,18 @@ export function creerTableau(options = {}) {
 
   /* --- Rendu ---------------------------------------------------------------- */
   function fondDeToile() {
-    const couleurs = { ardoise: "#17231f", craie: "#1b2430", papier: "#f3ead9", quadrille: "#1b2430" };
-    return couleurs[surface.dataset.fond] || "#17231f";
+    const couleurs = { ardoise: "#111114", craie: "#16161b", papier: "#efefef", quadrille: "#16161b", lignes: "#16161b", seyes: "#14171d" };
+    return couleurs[surface.dataset.fond] || "#111114";
   }
+
+  /** Une police web n'est pas prête au premier dessin : on repeint dès qu'elle arrive. */
+  const polices = new Set();
+  function chargerPolice(cle) {
+    if (polices.has(cle) || !globalThis.document?.fonts?.load) return;
+    polices.add(cle);
+    document.fonts.load(`48px "${cle}"`).then(() => peindre()).catch(() => {});
+  }
+  POLICES_TABLEAU.forEach((p) => chargerPolice(p.cle));
 
   function peindre() {
     ctx.save();
@@ -105,6 +141,33 @@ export function creerTableau(options = {}) {
       for (let y = 32; y < HAUTEUR; y += 32) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LARGEUR, y); ctx.stroke();
       }
+    }
+    if (surface.dataset.fond === "lignes") {
+      // Une feuille à grandes lignes, avec sa marge : on écrit « dans » les lignes.
+      ctx.strokeStyle = "rgba(255,255,255,.10)";
+      ctx.lineWidth = 2;
+      for (let y = 120; y < HAUTEUR; y += 80) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LARGEUR, y); ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(224,110,100,.35)";
+      ctx.beginPath(); ctx.moveTo(150, 0); ctx.lineTo(150, HAUTEUR); ctx.stroke();
+    }
+    if (surface.dataset.fond === "seyes") {
+      // Le Seyès : grands carreaux de 96 divisés en lignes fines, comme au collège.
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(120,160,235,.14)";
+      for (let y = 24; y < HAUTEUR; y += 24) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LARGEUR, y); ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(120,160,235,.30)";
+      for (let y = 96; y < HAUTEUR; y += 96) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LARGEUR, y); ctx.stroke();
+      }
+      for (let x = 96; x < LARGEUR; x += 96) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HAUTEUR); ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(224,110,100,.35)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(192, 0); ctx.lineTo(192, HAUTEUR); ctx.stroke();
     }
     ctx.restore();
 
@@ -174,7 +237,7 @@ export function creerTableau(options = {}) {
         if (d.plein) ctx.fill(); else ctx.stroke();
         break;
       case "texte":
-        ctx.font = `${d.taille || 34}px "Spectral", Georgia, serif`;
+        ctx.font = `${d.taille || 34}px ${pileDePolice(d.police)}`;
         ctx.textBaseline = "top";
         (d.texte || "").split("\n").forEach((ligne, i) => {
           ctx.fillText(ligne, d.x, d.y + i * (d.taille || 34) * 1.25);
@@ -300,6 +363,7 @@ export function creerTableau(options = {}) {
 
   /* --- Texte ------------------------------------------------------------------ */
   function ouvrirSaisieTexte(x, y) {
+    let fini = false;
     const rect = toile.getBoundingClientRect();
     const champ = el("div.saisie-tableau", {
       contenteditable: "true", role: "textbox",
@@ -307,23 +371,27 @@ export function creerTableau(options = {}) {
         left: `${(x / LARGEUR) * rect.width}px`,
         top: `${(y / HAUTEUR) * rect.height}px`,
         color: couleur,
-        fontSize: `${(34 / HAUTEUR) * rect.height}px`
+        fontFamily: pileDePolice(police),
+        fontSize: `${(tailleTexte / HAUTEUR) * rect.height}px`,
+        lineHeight: "1.25"
       },
       onkeydown: (e) => {
-        if (e.key === "Escape") { champ.remove(); }
+        if (e.key === "Escape") { fini = true; champ.remove(); }
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); valider(); }
       },
       onblur: valider
     });
 
     function valider() {
-      const texte = champ.textContent.trim();
+      if (fini) return;            // remove() déclenche un blur, donc un second appel
+      fini = true;
+      const texte = (champ.innerText || "").replace(/\n{2,}/g, "\n").trim();
       champ.remove();
       if (!texte) return;
       const element = {
         id: uid(), kind: "texte",
         z: (elements.at(-1)?.z || 0) + 1,
-        data: { x, y, texte, couleur, taille: 34 }
+        data: { x, y, texte, couleur, taille: tailleTexte, police }
       };
       ajouter(element, true);
       surElementTermine?.(element);
@@ -353,8 +421,9 @@ export function creerTableau(options = {}) {
       return (d.points || []).some(([px, py]) => Math.hypot(px - x, py - y) <= rayon + (d.epaisseur || 4) / 2);
     }
     if (element.kind === "texte") {
-      const hauteurTexte = (d.taille || 34) * 1.3;
-      const largeurTexte = (d.texte || "").length * (d.taille || 34) * 0.5;
+      const lignes = (d.texte || "").split("\n");
+      const hauteurTexte = (d.taille || 34) * 1.25 * lignes.length;
+      const largeurTexte = Math.max(...lignes.map((l) => l.length)) * (d.taille || 34) * 0.55;
       return x >= d.x && x <= d.x + largeurTexte && y >= d.y && y <= d.y + hauteurTexte;
     }
     if (d.x1 != null) {
@@ -442,6 +511,10 @@ export function creerTableau(options = {}) {
     definirCouleur(nouvelle) { couleur = nouvelle; },
     couleur: () => couleur,
     definirEpaisseur(valeur) { epaisseur = valeur; },
+    tailleTexte() { return tailleTexte; },
+    definirTailleTexte(valeur) { tailleTexte = valeur; },
+    police() { return police; },
+    definirPolice(cle) { police = cle; chargerPolice(cle); },
     epaisseur: () => epaisseur,
     definirEcriture(actif) {
       ecriture = actif;
@@ -478,7 +551,7 @@ export function creerTableau(options = {}) {
       let noeud = curseursDistants.get(id);
       if (!noeud) {
         noeud = el("div.curseur-distant",
-          el("div.curseur-distant__pointe", { style: { background: teinte || "#c9a227" } }),
+          el("div.curseur-distant__pointe", { style: { background: teinte || "#e8e8e8" } }),
           el("div.curseur-distant__nom", nom || "")
         );
         curseurs.appendChild(noeud);

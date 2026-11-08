@@ -95,7 +95,7 @@ export async function creerPiloteSupabase(config) {
   const { createClient } = await chargerBibliotheque();
 
   const sb = createClient(config.supabaseUrl, config.supabaseAnonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
     realtime: { params: { eventsPerSecond: 24 } },
     global: { headers: { "x-application": "ojm-academy" } }
   });
@@ -142,6 +142,18 @@ export async function creerPiloteSupabase(config) {
         const { data, error: e2 } = await sb.auth.signInWithPassword({ email: adresse, password: motDePasse });
         if (e2) throw new ErreurDonnees(e2.message, e2.code, e2);
         return data;
+      },
+      /* Seule porte d'entrée : Discord. Le flux PKCE ramène l'utilisateur avec
+         un ?code= dans l'adresse (et non un #access_token qui entrerait en
+         collision avec le routeur à base de #). Le profil se crée à la première
+         connexion (voir 0034_connexion_discord.sql). */
+      async discord() {
+        const { error } = await sb.auth.signInWithOAuth({
+          provider: "discord",
+          options: { redirectTo: location.origin + location.pathname, scopes: "identify email" }
+        });
+        if (error) throw new ErreurDonnees(error.message, error.code, error);
+        return true;
       },
       async changerMotDePasse(nouveau) {
         const { error } = await sb.auth.updateUser({ password: nouveau });
@@ -240,7 +252,7 @@ export async function creerPiloteSupabase(config) {
         return { chemin, seau };
       },
       async url(chemin, seau = "documents", secondes = 3600) {
-        if (seau === "avatars") {
+        if (seau === "avatars" || seau === "site-assets") {
           return sb.storage.from(seau).getPublicUrl(chemin).data.publicUrl;
         }
         const { data, error } = await sb.storage.from(seau).createSignedUrl(chemin, secondes);

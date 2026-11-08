@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# OJM ACADEMY — déploiement Netlify
+# CLASSE PARALLÈLE — déploiement Netlify
 #
 # Site entièrement statique : rien à compiler, on publie le dossier tel quel.
 # ---------------------------------------------------------------------------
@@ -46,7 +46,8 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
     # La politique de contenu autorise exactement ce dont le site se sert :
-    #  · scripts : uniquement les fichiers du site (aucun script en ligne)
+    #  · scripts : uniquement les fichiers du site (aucun script en ligne, aucun CDN :
+#              supabase-js et pdf.js sont livrés dans vendor/)
     #  · styles  : le site + Google Fonts, et les attributs style= de l'interface
     #  · images  : le site, les captures de tableau (data:) et les fichiers
     #              téléchargés depuis le stockage (blob:, https:)
@@ -57,7 +58,7 @@
     # une valeur d'en-tête. Écrite en bloc, la politique arrivait tronquée —
     # style-src disparaissait, les styles en ligne de l'interface étaient
     # refusés, et la page s'affichait vide.
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh blob: data:; worker-src 'self' blob:; child-src 'self' blob: https://*.supabase.co; frame-src 'self' blob: https://*.supabase.co; manifest-src 'self'"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co blob: data:; worker-src 'self' blob:; child-src 'self' blob: https://*.supabase.co; frame-src 'self' blob: https://*.supabase.co https://www.youtube-nocookie.com; manifest-src 'self'"
 
 # Les bibliothèques embarquées portent leur version : cache long.
 [[headers]]

@@ -13,6 +13,7 @@ import { debounce, initiales, pluriel, heure } from "../core/util.js";
 import { succes, erreur, messageErreur } from "../ui/toast.js";
 import { confirmer } from "../ui/modal.js";
 import { blocVide, jauge } from "../ui/fragments.js";
+import { melanger } from "./editeur-questions.js";
 
 export const TYPES_QUESTION = [
   { cle: "free",      libelle: "Question libre",        aide: "L'élève rédige sa réponse." },
@@ -166,8 +167,7 @@ function champReponse(question, valeur, surChangement, verrouille) {
 
   switch (question.kind) {
     case "truefalse":
-    case "single":
-    case "qcm": {
+    case "single": {
       const liste = question.kind === "truefalse" ? ["Vrai", "Faux"] : options;
       return el("div", liste.map((option, i) => el("label.choix", {
         dataset: { selection: valeur === i ? "1" : "0" }
@@ -185,21 +185,30 @@ function champReponse(question, valeur, surChangement, verrouille) {
       )));
     }
 
+    case "qcm":
     case "multiple": {
-      const selection = new Set(Array.isArray(valeur) ? valeur : []);
-      return el("div", options.map((option, i) => el("label.choix", {
-        dataset: { selection: selection.has(i) ? "1" : "0" }
-      },
-        el("input", {
-          type: "checkbox", checked: selection.has(i), disabled: verrouille,
-          onchange: (e) => {
-            if (e.target.checked) selection.add(i); else selection.delete(i);
-            e.target.closest(".choix").dataset.selection = e.target.checked ? "1" : "0";
-            surChangement(question.id, [...selection].sort((a, b) => a - b));
-          }
-        }),
-        el("span", option)
-      )));
+      const multi = question.kind === "multiple" || Boolean(question.settings?.multi);
+      const selection = new Set([].concat(valeur ?? []));
+      const ordre = question.settings?.melange
+        ? melanger(options.length, `${etat.utilisateur.id}:${question.id}`)
+        : options.map((_, i) => i);
+      return el("div",
+        multi ? el("p.petit.faible", "Plusieurs réponses possibles.") : null,
+        ordre.map((i) => el("label.choix", { dataset: { selection: selection.has(i) ? "1" : "0" } },
+          el("input", {
+            type: multi ? "checkbox" : "radio", name: `q-${question.id}`,
+            checked: selection.has(i), disabled: verrouille,
+            onchange: (e) => {
+              if (multi) { if (e.target.checked) selection.add(i); else selection.delete(i); }
+              else { selection.clear(); selection.add(i); }
+              e.target.closest(".exo__question").querySelectorAll(".choix").forEach((c, pos) => {
+                c.dataset.selection = selection.has(ordre[pos]) ? "1" : "0";
+              });
+              surChangement(question.id, [...selection].sort((a, b) => a - b));
+            }
+          }),
+          el("span", options[i])
+        )));
     }
 
     case "fill": {
@@ -308,7 +317,7 @@ export function vueSuiviProfesseur({ exercice, questions, surFermeture }) {
               ? el("button.btn.btn--danger", { onclick: async () => { await surFermeture?.(); await peindre(); } },
                   icone("stop", 15), "Fermer l'exercice")
               : null,
-            el("a.btn", { href: `#/exercice/${exercice.id}` }, icone("crayon", 15), "Corriger")
+            el("a.btn", { href: `#/exercice/${exercice.id}`, target: "_blank", rel: "noopener" }, icone("crayon", 15), "Corriger")
           )
         )
       ),

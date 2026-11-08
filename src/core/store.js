@@ -4,7 +4,6 @@
  * ------------------------------------------------------------------------- */
 import { emettre } from "./bus.js";
 
-import { stockageLocal } from "./stockage.js";
 
 export const etat = {
   // Session utilisateur
@@ -16,27 +15,21 @@ export const etat = {
   classeActive: null,
   sessionActive: null,
   membreActif: null,       // ligne class_members pour la classe active
-  personnageActif: null,   // fiche RP du membre dans la classe active
 
   // Données en cache
   classes: [],
   cahiers: [],
   notifications: [],
+  // Encre, droits de cahiers : { exempte, encre, cahiers, regles, commandes_ouvertes, pages_max } (lu auprès de la base)
+  commerce: null,
 
   // Interface
   route: { nom: "accueil", params: {} },
-  densite: "grand",
-  theme: "nuit",
   reseau: "ok",            // ok | rompu | reprise | local
   modeExamen: false,
   suitProfesseur: false,
   flottant: false,
-  // Les animations (la salle en 3D, soi assis à son bureau). Éteintes : les
-  // tableaux et l'interface, rien d'autre.
-  animations: (() => { try { return stockageLocal.getItem("ojm.animations") !== "false"; } catch { return true; } })(),
-  // La console d'à-côté, demandée à la main. Dans la fenêtre flottante elle
-  // s'impose d'elle-même.
-  console: false,
+  flottantMode: "cahier",   // cahier | tableau : ce que la petite fenêtre montre (et donc sa taille)
   pret: false
 };
 

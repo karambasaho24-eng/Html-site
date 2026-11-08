@@ -1,50 +1,51 @@
 /* ---------------------------------------------------------------------------
- * La fenêtre d'à-côté.
+ * Le mode flottant : le cahier à côté du jeu.
  *
- * Le site est conçu pour cohabiter avec le jeu, pas pour le remplacer. Mais un
- * onglet de navigateur passe derrière dès qu'on clique sur Roblox, et il faut
- * alt-tabber pour relire une consigne — ce qui casse la scène à chaque fois.
+ * Un onglet de navigateur passe derrière dès qu'on clique sur Roblox, et il
+ * faut alt-tabber pour relire une consigne ou noter une phrase.
  *
- * Chrome sait ouvrir un second document qui reste **au-dessus de toutes les
- * fenêtres**, y compris d'un jeu en plein écran fenêtré : l'API Document
- * Picture-in-Picture. On y déplace l'interface entière — on ne la duplique
- * pas, il n'y aurait qu'une seule session mais deux états à tenir d'accord.
+ * Chrome et Edge (ordinateur) savent ouvrir un second document qui reste
+ * **au-dessus des autres fenêtres**, y compris d'un jeu en fenêtré ou en
+ * fenêtré sans bordure : l'API Document Picture-in-Picture. On y déplace
+ * l'interface — on ne la duplique pas, il n'y a qu'une seule session.
  *
- * Quand le navigateur ne sait pas faire, on retombe sur une fenêtre détachée
- * classique : elle n'est pas au premier plan, mais elle n'a ni onglets ni
- * barre d'adresse, et elle se pose à côté du jeu.
+ * CE QUE CE MODE NE FAIT PAS : il ne se branche pas sur Roblox (aucune
+ * intégration, aucune injection), et il ne passe pas au-dessus d'un jeu en
+ * plein écran exclusif. Ailleurs (Firefox, Safari), on ouvre une fenêtre
+ * détachée classique : sans onglets ni barre d'adresse, à placer à côté du
+ * jeu, mais pas au premier plan.
+ *
+ * Dans cette fenêtre, la barre ne propose que les cahiers et les documents ;
+ * à l'ouverture, on retrouve le dernier cahier ouvert.
  * ------------------------------------------------------------------------- */
 import { definirHote, docHote } from "../core/hote.js";
 import { aller } from "../core/router.js";
 import { etat, definir } from "../core/store.js";
 import { local } from "../core/util.js";
 import { toast } from "../ui/toast.js";
+import { estTactile } from "../core/appareil.js";
 
 const CLE_TAILLE = "ojm.flottant.taille";
 const IDS = ["application", "calque-modales", "calque-toasts"];
 
 /**
- * Quatre façons de poser la fenêtre à côté du jeu. Aucune n'est meilleure :
- * cela dépend de ce qu'on fait — relire une consigne d'un œil, ou écrire
- * vraiment. La position exacte, elle, appartient au navigateur : on demande,
- * il place, et l'utilisateur déplace ensuite à la main. Mieux vaut des formes
- * franches qu'une promesse de positionnement qu'on ne tiendrait pas.
+ * Deux tailles, selon ce que l'on regarde : le cahier tient dans une colonne
+ * étroite, à côté du jeu ; le tableau a besoin de largeur. Chacune retient la
+ * taille que l'on a choisie.
  */
-export const FORMES = [
-  { cle: "colonne", libelle: "Colonne", aide: "Sur le côté, pour écrire",
-    width: 460, height: 760 },
-  { cle: "bandeau", libelle: "Bandeau", aide: "En bas, pour suivre",
-    width: 980, height: 300 },
-  { cle: "carre",   libelle: "Carré",   aide: "Un compromis",
-    width: 620, height: 600 },
-  { cle: "large",   libelle: "Large",   aide: "Presque l'écran entier",
-    width: 1100, height: 700 }
-];
+const TAILLES_DEFAUT = {
+  cahier: { width: 420, height: 600 },
+  tableau: { width: 880, height: 600 }
+};
+const cleTaille = (mode) => `${CLE_TAILLE}.${mode}`;
+const tailleDe = (mode) => ({ ...TAILLES_DEFAUT[mode], ...(local.lire(cleTaille(mode), null) || {}) });
 
 let fenetre = null;
-let densiteAvant = null;
 
 export function flottantDisponible() {
+  // Sur téléphone ou tablette, une « fenêtre à côté du jeu » n'a pas de sens :
+  // le mode flottant n'est tout simplement pas proposé, quoi que sache le navigateur.
+  if (estTactile()) return false;
   return Boolean(globalThis.documentPictureInPicture) || Boolean(globalThis.open);
 }
 
@@ -65,7 +66,9 @@ function transposerStyles(cible) {
   for (const lien of document.querySelectorAll('link[rel="preconnect"]')) {
     cible.head.appendChild(lien.cloneNode(true));
   }
-  cible.documentElement.dataset.theme = document.documentElement.dataset.theme || "nuit";
+  cible.documentElement.dataset.theme = "nuit";
+  // Les réglages du verre (couleur, flou…) vivent sur <html> : la petite fenêtre les reprend.
+  cible.documentElement.setAttribute("style", document.documentElement.getAttribute("style") || "");
 }
 
 /** Déplace l'interface d'un document à l'autre, sans la reconstruire. */
@@ -78,19 +81,15 @@ function demenager(vers) {
   definirHote(vers);
 }
 
-export async function ouvrirFenetreFlottante(forme = null) {
-  const voulue = FORMES.find((f) => f.cle === forme);
+export async function ouvrirFenetreFlottante() {
   if (estFlottant()) {
-    // Déjà ouverte : on la remet à la forme demandée plutôt que de la fermer.
-    if (voulue) { redimensionner(voulue); return true; }
     fenetre.focus?.();
     return true;
   }
 
-  const taille = voulue
-    ? { width: voulue.width, height: voulue.height }
-    : local.lire(CLE_TAILLE, { width: 460, height: 760 });
-  densiteAvant = etat.densite;
+  // On s'ouvre toujours sur le cahier : c'est lui que l'on veut à côté du jeu.
+  definir({ flottantMode: "cahier" });
+  const taille = tailleDe("cahier");
 
   try {
     if (globalThis.documentPictureInPicture) {
@@ -123,35 +122,32 @@ export async function ouvrirFenetreFlottante(forme = null) {
   doc.body.classList.add("est-flottant");
   detournerLiens(doc);
 
-  // On resserre d'office, et on rendra sa densité à la grande fenêtre en
-  // revenant.
-  appliquerDensiteFlottante(taille.width);
-
   fenetre.addEventListener("resize", () => {
-    local.ecrire(CLE_TAILLE, { width: fenetre.innerWidth, height: fenetre.innerHeight });
-    appliquerDensiteFlottante(fenetre.innerWidth);
+    if (!fenetre) return;
+    local.ecrire(cleTaille(etat.flottantMode), { width: fenetre.innerWidth, height: fenetre.innerHeight });
   });
 
   fenetre.addEventListener("pagehide", refermer, { once: true });
   definir({ flottant: true });
+  allerALEssentiel();
   return true;
 }
 
 /**
- * Jamais « minimal » ici : cette densité masque le rail, ce qui est un gain de
- * place dans la grande fenêtre mais supprimerait toute navigation dans une
- * fenêtre qui n'a que ça.
+ * Dans la petite fenêtre, on n'a que deux choses à faire : écrire et relire.
+ * Si l'on est ailleurs (réglages, administration…), on retrouve le dernier
+ * cahier ouvert, ou à défaut l'étagère.
  */
-function appliquerDensiteFlottante() {
-  // La taille de la fenêtre décide désormais du comportement (châssis
-  // data-taille : la console en petit). Les anciennes densités, qui
-  // réduisaient le rail, n'ont plus d'objet ici et cassaient la grille.
-  fenetre.document.documentElement.dataset.density = "grand";
+function allerALEssentiel() {
+  // La séance (tableau + cahier) reste : elle s'adapte à la petite fenêtre.
+  if (["cahier", "documents", "accueil", "salle"].includes(etat.route?.nom)) return;
+  const dernier = local.lire("ojm.dernierCahier", null);
+  aller(dernier ? `/cahier/${dernier}` : "/");
 }
 
 /** Ramène l'interface dans la page d'origine. */
 /**
- * Les liens de l'application sont des fragments (#/cahiers). Le document
+ * Les liens de l'application sont des fragments (#/cahier/…). Le document
  * flottant n'a pas d'URL : un clic y déclenche une navigation qui *ferme la
  * fenêtre*. On intercepte donc, et on passe par le routeur, qui écrit dans
  * l'adresse de la page d'origine — restée derrière, mais toujours maîtresse
@@ -178,30 +174,29 @@ export function refermer() {
   }
   definirHote(document);
   document.body.classList.remove("est-flottant");
-  document.documentElement.dataset.density = densiteAvant || "grand";
-  definir({ flottant: false, densite: densiteAvant || etat.densite });
+  definir({ flottant: false });
 
   try { if (!veuve.closed) veuve.close(); } catch { /* déjà fermée */ }
 }
 
-/** Change la forme d'une fenêtre déjà ouverte, sans la refermer. */
-function redimensionner({ width, height }) {
-  try {
-    fenetre.resizeTo(width, height);
-    local.ecrire(CLE_TAILLE, { width, height });
-    appliquerDensiteFlottante(width);
-  } catch (err) {
-    // Certains navigateurs refusent de redimensionner une fenêtre qu'ils
-    // placent eux-mêmes. On ne prétend pas y être arrivé.
-    console.warn("[flottant] redimensionnement refusé", err);
-    toast("Taille imposée par le navigateur", {
-      corps: "Attrapez le bord de la fenêtre pour l'ajuster à la main.",
-      type: "info", duree: 6000
-    });
-  }
+/**
+ * Passe de la vue « cahier » à la vue « tableau » (ou l'inverse) et adapte la
+ * taille de la fenêtre : étroite pour écrire, large pour suivre le tableau.
+ * À appeler depuis un clic (le navigateur exige un geste pour redimensionner).
+ */
+export function definirModeFlottant(mode) {
+  if (!TAILLES_DEFAUT[mode]) return;
+  definir({ flottantMode: mode });
+  if (!estFlottant()) return;
+  const { width, height } = tailleDe(mode);
+  // Une fenêtre détachée a des bordures : on compense, sinon elle rétrécit à chaque bascule.
+  const bordsL = Math.max(0, (fenetre.outerWidth || 0) - (fenetre.innerWidth || 0));
+  const bordsH = Math.max(0, (fenetre.outerHeight || 0) - (fenetre.innerHeight || 0));
+  try { fenetre.resizeTo(width + bordsL, height + bordsH); } catch (err) { console.warn("[flottant] taille", err); }
 }
 
-export function basculerFenetreFlottante(forme = null) {
-  if (estFlottant() && !forme) { refermer(); return false; }
-  return ouvrirFenetreFlottante(forme);
+export function basculerFenetreFlottante() {
+  if (!estFlottant() && !flottantDisponible()) return false;
+  if (estFlottant()) { refermer(); return false; }
+  return ouvrirFenetreFlottante();
 }

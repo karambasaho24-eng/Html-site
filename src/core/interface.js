@@ -1,55 +1,14 @@
 /* ---------------------------------------------------------------------------
- * Réglages d'affichage : thème, densité (cohabitation avec Roblox), raccourcis.
+ * Réglages d'affichage : thème et raccourcis.
  * ------------------------------------------------------------------------- */
-import { definir, etat } from "./store.js";
+import { etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { local } from "./util.js";
 import { stockageLocal } from "./stockage.js";
-import { majPreference } from "./session.js";
 
-export const DENSITES = [
-  { cle: "grand",   libelle: "Grand",   aide: "Plein écran, confort maximal" },
-  { cle: "moyen",   libelle: "Moyen",   aide: "Un peu plus dense" },
-  { cle: "compact", libelle: "Compact", aide: "Navigation en icônes, Roblox à côté" },
-  { cle: "minimal", libelle: "Minimal", aide: "Cahier seul, encombrement minimum" }
-];
-
-export function appliquerDensite(densite, persister = true) {
-  if (!DENSITES.some((d) => d.cle === densite)) densite = "grand";
-  document.documentElement.dataset.density = densite;
-  definir({ densite });
-  local.ecrire("ojm.densite", densite);
-  if (persister && etat.profil) majPreference("densite", densite);
-  emettre("interface:densite", densite);
-}
-
-export function cyclerDensite() {
-  const i = DENSITES.findIndex((d) => d.cle === etat.densite);
-  appliquerDensite(DENSITES[(i + 1) % DENSITES.length].cle);
-}
-
-export function appliquerTheme(theme, persister = true) {
-  const valide = theme === "jour" ? "jour" : "nuit";
-  document.documentElement.dataset.theme = valide;
-  definir({ theme: valide });
-  local.ecrire("ojm.theme", valide);
-  if (persister && etat.profil) majPreference("theme", valide);
-}
-
-/** Animations allumées (la salle en 3D, soi assis) ou éteintes (tableaux et interface seuls). */
-export function definirAnimations(actives) {
-  const v = Boolean(actives);
-  try { stockageLocal.setItem("ojm.animations", String(v)); } catch { /* stockage refusé */ }
-  definir({ animations: v });
-}
-
-export function basculerTheme() {
-  appliquerTheme(etat.theme === "nuit" ? "jour" : "nuit");
-}
-
+/** Un seul thème : le verre de Whitelist Hub. Sa couleur se règle dans Administration › Apparence. */
 export function restaurerInterface() {
-  appliquerDensite(local.lire("ojm.densite", "grand"), false);
-  appliquerTheme(local.lire("ojm.theme", "nuit"), false);
+  document.documentElement.dataset.theme = "nuit";
 }
 
 /* ===========================================================================
@@ -60,10 +19,7 @@ export const RACCOURCIS_DEFAUT = {
   "cahiers.liste":     "g b",
   "classes.liste":     "g k",
   "tableau.ouvrir":    "g t",
-  "notes.ouvrir":      "n",
   "recherche.ouvrir":  "/",
-  "densite.cycler":    "mod+\\",
-  "densite.minimal":   "mod+shift+m",
   "fenetre.flottante": "mod+shift+f",
   "page.suivante":     "alt+ArrowRight",
   "page.precedente":   "alt+ArrowLeft",

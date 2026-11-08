@@ -1,6 +1,10 @@
 /* ---------------------------------------------------------------------------
- * Châssis : marque, barre supérieure, rail de navigation, zone de vue.
- * Rendu une seule fois ; seuls les fragments concernés sont recalculés.
+ * Châssis : une barre de contexte (où je suis, onglets, encre), la vue, et un
+ * tiroir pour tout le reste. Rendu une seule fois ; seuls les fragments
+ * concernés sont recalculés.
+ *
+ * En fenêtre flottante (posée à côté du jeu), on ne propose que l'essentiel :
+ * les cahiers et les documents.
  * ------------------------------------------------------------------------- */
 import { el, render } from "./dom.js";
 import { icone } from "./icons.js";
@@ -8,38 +12,32 @@ import { etat, observer, definir } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
-import { estEnseignant, estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
-import { initiales } from "../core/util.js";
+import { estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
 import { menu } from "./modal.js";
 import { docHote, fenetreHote } from "../core/hote.js";
-import { construireBarreActions } from "./barre-actions.js";
-import { basculerFenetreFlottante, ouvrirFenetreFlottante, estFlottant,
-         flottantAuPremierPlan, flottantDisponible, FORMES }
+import { local } from "../core/util.js";
+import { basculerFenetreFlottante, estFlottant, flottantAuPremierPlan, flottantDisponible }
   from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
-import { barreConsole } from "../features/console-rp.js";
-import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
-import { notifications as depotNotifications } from "../data/index.js";
-import { pilote } from "../data/index.js";
+import { marque, nomDuSite } from "../features/apparence.js";
+import { ecouter } from "../core/bus.js";
+import { jaugeEncre } from "../features/encre.js";
+import { notifications as depotNotifications, pilote } from "../data/index.js";
 
 let refs = {};
 
 export function construireChassis(hote) {
-  // Plus de rail ni de tableau de bord : une ligne de contexte en haut (où je
-  // suis), la vue, et la barre des gestes en bas. Le reste de l'application
-  // se range dans le tiroir « ⋯ ».
-  const chassis = el("div.chassis.chassis--monde", { dataset: { taille: "grand" } },
+  const chassis = el("div.chassis", { dataset: { taille: "grand" } },
     el("header.contexte",
-      el("button.contexte__sceau", { type: "button", title: "Chez moi", "aria-label": "Chez moi",
-        onclick: () => aller("/") }, icone("accueil", 16)),
+      refs.sceau = el("button.contexte__sceau", { type: "button", title: "Mes cahiers", "aria-label": "Mes cahiers",
+        onclick: () => aller("/") }, marque()),
       refs.fil = el("div.contexte__lieu"),
+      refs.onglets = el("nav.nav-principale", { "aria-label": "Navigation principale" }),
       refs.statut = el("div.contexte__statut"),
       refs.outils = el("div.contexte__outils")
     ),
-    refs.vue = el("main#vue.vue", { tabindex: "-1" }),
-    refs.actions = construireBarreActions(),
-    refs.rail = el("nav.rail.tiroir", { "aria-label": "Tout le reste" }),
-    refs.console = el("div.console-hote", { hidden: true })
+    refs.vue = el("div#vue.vue", { role: "main", tabindex: "-1" }),
+    refs.rail = el("nav.rail.tiroir", { "aria-label": "Tout le reste" })
   );
   refs.chassis = chassis;
 
@@ -47,13 +45,19 @@ export function construireChassis(hote) {
   peindreRail();
   peindreOutils();
   peindreFil();
-  majActions();
+  peindreOnglets();
   suivreLaTaille();
 
-  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); majActions(); });
-  observer(["notifications", "reseau", "densite", "theme", "utilisateur", "flottant"], peindreOutils);
+  const marquerRoute = () => { document.body.dataset.route = etat.route?.nom || ""; };
+  marquerRoute();
+  observer("route", marquerRoute);
+  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); peindreOnglets(); });
+  observer(["notifications", "reseau", "utilisateur", "flottant"], peindreOutils);
+  // La marque (logo ou nom) suit les réglages d'apparence, en direct.
+  ecouter("apparence", () => { if (refs.sceau) render(refs.sceau, marque()); peindreRail(); peindreFil(); });
   observer(["classeActive", "sessionActive"], peindreFil);
-  observer("flottant", () => setTimeout(suivreLaTaille, 60));
+  observer("flottant", () => { peindreOnglets(); setTimeout(suivreLaTaille, 60); });
+  observer("utilisateur", peindreOnglets);
 
   // Le tiroir se referme comme on s'y attend : Échap, un clic à côté, ou
   // dès qu'on est allé quelque part.
@@ -106,16 +110,31 @@ function suivreLaTaille() {
   calculer();
 }
 
-/** La barre des gestes n'a pas sa place là où l'écran a déjà la sienne. */
-function majActions() {
-  const nom = etat.route?.nom;
-  const cachee = !etat.utilisateur || ["connexion", "salle"].includes(nom);
-  refs.actions.hidden = cachee;
-  refs.chassis?.classList.toggle("chassis--sans-actions", cachee);
+/* --- Onglets ---------------------------------------------------------------- */
+function onglet(href, libelle, icone_, actif) {
+  return el("a.nav-lien", { href: `#${href}`, "aria-current": actif ? "page" : null, title: libelle },
+    icone(icone_, 15), el("span.nav-lien__mot", libelle));
 }
 
-/* --- Rail ------------------------------------------------------------------ */
-function lienRail(href, nom, libelle, icone_, compteur = null) {
+function peindreOnglets() {
+  if (!etat.utilisateur) { render(refs.onglets, []); return; }
+  const { nom } = etat.route;
+  const cahiers = ["accueil", "cahier"].includes(nom);
+  const documents = nom === "documents";
+  const classes = ["classes", "classe", "salle"].includes(nom);
+  // À côté du jeu, on ne garde que ce qui sert à travailler.
+  render(refs.onglets,
+    onglet("/", L("Cahiers"), "cahiers", cahiers),
+    onglet("/documents", "Documents", "documents", documents),
+    etat.flottant ? null : onglet("/classes", L("Classes"), "classe", classes),
+    // À côté du jeu : retrouver d'un clic la séance (tableau + cahier) quittée pour un autre cahier.
+    etat.flottant && local.lire("ojm.derniereSalle", null)
+      ? onglet(`/classe/${local.lire("ojm.derniereSalle", null)}/salle`, "Séance", "tableau", nom === "salle") : null
+  );
+}
+
+/* --- Tiroir ----------------------------------------------------------------- */
+function lienRail(href, libelle, icone_, compteur = null) {
   const actif = chemin() === href || (href !== "/" && chemin().startsWith(href));
   return el("a.rail__lien", {
     href: `#${href}`,
@@ -135,40 +154,30 @@ function peindreRail() {
     el("div.tiroir__entete",
       el("div.tiroir__qui",
         el("span.tiroir__nom", etat.profil?.display_name || "—"),
-        el("span.tiroir__mail", "Pseudo RP")),
+        el("span.tiroir__mail", nomDuSite())),
       el("button.contexte__bouton", { type: "button", "aria-label": "Fermer", onclick: fermer }, icone("croix", 15))),
-    el("div.rail__titre", "Mes lieux"),
-    lienRail("/", "accueil", "Chez moi", "accueil"),
-    lienRail("/classes", "classes", "Mes espaces", "classe", classesActives.length || null),
-    ...classesActives.slice(0, 6).map((c) => lienRail(`/classe/${c.id}`, "classe", c.name, "entree")),
-    el("div.rail__titre", "Mes affaires"),
-    lienRail("/affaires", "affaires", "Tout ce que je possède", "sac"),
-    lienRail("/cahiers", "cahiers", `Mes ${L("cahiers")}`, "cahiers"),
-    lienRail("/papiers", "papiers", "Papiers et dossiers", "papier"),
-    lienRail("/documents", "documents", "Documents", "documents"),
-    lienRail("/exercices", "exercices", L("Exercices"), "exercices"),
-    lienRail("/archives", "archives", "Archives", "archives"),
-    lienRail("/recherche", "recherche", "Rechercher", "recherche"),
+    el("div.rail__titre", "Mon espace"),
+    lienRail("/", `Mes ${L("cahiers")}`, "cahiers"),
+    lienRail("/documents", "Documents", "documents"),
+    lienRail("/boutique", "Encre et cahiers", "stylo"),
+    el("div.rail__titre", L("Classes")),
+    lienRail("/classes", `Mes ${L("classes")}`, "classe", classesActives.length || null),
+    ...classesActives.slice(0, 6).map((c) => lienRail(`/classe/${c.id}`, c.name, "entree")),
+    lienRail("/exercices", L("Exercices"), "exercices"),
+    lienRail("/archives", "Archives", "archives"),
+    lienRail("/recherche", "Rechercher", "recherche"),
 
     enseignant ? el("div.rail__titre", "Encadrement") : null,
-    enseignant ? lienRail("/professeur", "professeur", "Vue d'ensemble", "grille") : null,
-    enseignant ? lienRail("/bibliotheque", "bibliotheque", "Bibliothèque", "livre") : null,
-    enseignant ? lienRail("/modeles", "modeles", "Modèles", "cours") : null,
+    enseignant ? lienRail("/professeur", "Vue d'ensemble", "grille") : null,
+    enseignant ? lienRail("/modeles", "Modèles", "cours") : null,
 
     estModerateur() ? el("div.rail__titre", estAdmin() ? "Administration" : "Modération") : null,
-    estModerateur() ? lienRail("/administration", "administration",
-      estAdmin() ? "Comptes, modération, journal" : "Modération et journal", "bouclier") : null,
+    estModerateur() ? lienRail("/administration",
+      estAdmin() ? "Comptes, boutique, journal" : "Modération et journal", "bouclier") : null,
 
     el("div.rail__pied",
-      etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: async () => {
-        fermer();
-        const { ouvrirApparence } = await import("../features/apparence.js");
-        ouvrirApparence();
-      } }, icone("eleves", 16), el("span", "Mon personnage")) : null,
-      lienRail("/profil", "profil", "Profil", "profil"),
-      lienRail("/reglages", "reglages", "Réglages", "reglages"),
-      el("button.rail__lien", { type: "button", onclick: () => { basculerTheme(); fermer(); } },
-        icone("oeil", 16), el("span", etat.theme === "nuit" ? "Thème clair" : "Thème sombre")),
+      lienRail("/profil", "Profil", "profil"),
+      lienRail("/reglages", "Réglages", "reglages"),
       etat.utilisateur ? el("button.rail__lien.rail__lien--danger", { type: "button", onclick: async () => {
         fermer(); await deconnecter(); aller("/connexion");
       } }, icone("sortie", 16), el("span", "Se déconnecter")) : null
@@ -176,44 +185,33 @@ function peindreRail() {
   );
 }
 
-/**
- * Monte ou démonte la console. On la reconstruit à chaque apparition : elle
- * compte ce qui attend une réponse, et ce nombre ne vaut que maintenant.
- */
-function majConsole() {
-  const visible = Boolean(etat.flottant || etat.console);
-  refs.console.hidden = !visible;
-  docHote().body.classList.toggle("avec-console", visible);
-  render(refs.console, visible ? barreConsole() : []);
-}
-
 /* --- L'espace actuel ------------------------------------------------------ */
 /** Où je suis : une ligne, jamais un fil d'Ariane de site. */
 function peindreFil() {
   const { nom } = etat.route;
   const lieux = {
-    accueil: ["Chez moi", null],
+    accueil: [`Mes ${L("cahiers")}`, null],
     salle: [etat.classeActive?.name || L("Classe"), etat.sessionActive?.title || "En séance"],
     classe: [etat.classeActive?.name || L("Classe"), "Espace"],
-    cahier: ["Cahier", etat.classeActive?.name || null],
-    cahiers: [`Mes ${L("cahiers")}`, null], classes: ["Mes espaces", null],
-    papiers: ["Papiers", null], affaires: ["Mes affaires", null],
+    cahier: ["Cahier", null],
+    classes: [`Mes ${L("classes")}`, null], boutique: ["Encre et cahiers", null],
     documents: ["Documents", null], exercices: [L("Exercices"), null], exercice: [L("Exercice"), null],
     archives: ["Archives", null], archive: ["Archive", null], profil: ["Profil", null], reglages: ["Réglages", null],
-    professeur: [`Espace ${L("professeur")}`, null], bibliotheque: ["Bibliothèque", null],
+    professeur: [`Espace ${L("professeur")}`, null],
     modeles: ["Modèles", null], administration: ["Administration", null], recherche: ["Recherche", null],
-    connexion: [config.academyName || "Classe Parallèle", null]
+    connexion: [nomDuSite(), null]
   };
-  const [lieu, precision] = lieux[nom] || [config.academyName || "Classe Parallèle", null];
+  // Les trois onglets disent déjà où l'on est : pas la peine de le répéter.
+  if (["accueil", "documents", "classes"].includes(nom)) { render(refs.fil, []); return; }
+  const [lieu, precision] = lieux[nom] || [nomDuSite(), null];
   const direct = etat.sessionActive?.status === "live" && nom === "salle";
   render(refs.fil,
     el("span.contexte__nom", lieu),
     precision ? el("span.contexte__precision", precision) : null,
-    direct ? el("span.contexte__direct", "En séance") : null,
-    etat.modeExamen ? el("span.etiq.etiq--alerte", "Mode examen") : null);
+    direct ? el("span.contexte__direct", "En séance") : null);
 }
 
-/** Un écran peut poser sa ligne d'état (présence du responsable…). */
+/** Un écran peut poser sa ligne d'état. */
 export function definirStatut(noeud) {
   if (refs.statut) render(refs.statut, noeud || []);
 }
@@ -227,18 +225,19 @@ function peindreOutils() {
   }[etatReseau];
 
   render(refs.outils,
-    etatReseau !== "ok" ? el("span.contexte__reseau", { dataset: { etat: etatReseau }, title: libelleReseau },
-      el("span.contexte__voyant"), el("span", libelleReseau)) : null,
+    etatReseau !== "ok" ? el("span.contexte__reseau", { dataset: { etat: etatReseau }, title: libelleReseau, "aria-label": libelleReseau },
+      el("span.contexte__voyant"), etatReseau === "local" ? el("span", "Démo") : null) : null,
 
-    flottantDisponible() && etat.utilisateur ? el("button.contexte__action", {
+    etat.utilisateur ? jaugeEncre({ compacte: Boolean(etat.flottant) }) : null,
+
+    flottantDisponible() && etat.utilisateur ? el("button.contexte__bouton.contexte__bouton--flottant", {
       type: "button",
-      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Au-dessus du jeu",
+      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Mode flottant",
       title: estFlottant() ? "Revenir dans le navigateur"
-        : flottantAuPremierPlan() ? "Poser la fenêtre au-dessus de Roblox" : "Détacher dans sa propre fenêtre",
+        : flottantAuPremierPlan() ? "Mode flottant : poser le cahier par-dessus la fenêtre de jeu" : "Détacher dans sa propre fenêtre",
       "aria-pressed": String(estFlottant()),
       onclick: () => basculerFenetreFlottante()
-    }, icone(estFlottant() ? "entree" : "incruste", 15),
-      el("span", estFlottant() ? "Revenir" : "Au-dessus du jeu")) : null,
+    }, icone(estFlottant() ? "entree" : "incruste", 15)) : null,
 
     etat.utilisateur ? el("button.contexte__bouton", {
       type: "button",
@@ -246,14 +245,14 @@ function peindreOutils() {
       title: "Notifications",
       onclick: (e) => panneauNotifications(e.currentTarget)
     },
-      icone("cloche", 16),
+      icone("cloche", 15),
       nonLues ? el("span.contexte__pastille", nonLues > 9 ? "9+" : String(nonLues)) : null
     ) : null,
 
     etat.utilisateur ? el("button.contexte__bouton", {
       type: "button", "aria-label": "Tout le reste", title: "Tout le reste",
       onclick: () => docHote().body.classList.toggle("tiroir-ouvert")
-    }, icone("points", 16)) : null
+    }, icone("points", 15)) : null
   );
 }
 
@@ -289,12 +288,4 @@ export function zoneVue() { return refs.vue; }
 /** Affiche la vue en pleine hauteur (tableau, salle, cahier). */
 export function modePleineVue(actif) {
   refs.vue?.classList.toggle("vue--pleine", Boolean(actif));
-}
-
-/**
- * Le mode immersif : plus de rail ni de barre d'application. Il ne reste que
- * ce que le personnage a devant lui — c'est une interface de jeu, pas un site.
- */
-export function modeImmersif(actif) {
-  refs.vue?.closest(".chassis")?.classList.toggle("chassis--immersif", Boolean(actif));
 }

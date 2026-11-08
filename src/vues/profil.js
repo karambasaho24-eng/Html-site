@@ -6,13 +6,14 @@ import { icone } from "../ui/icons.js";
 import { etat, definir } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { L } from "../core/lexique.js";
-import { profils, notes as depotNotes, presence, favoris, fichiers, auth } from "../data/index.js";
+import { profils, notes as depotNotes, presence, favoris, fichiers, auth, pilote } from "../data/index.js";
 import { entete, avatar, statistique, jauge } from "../ui/fragments.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { LIBELLES_ROLES } from "../core/permissions.js";
 import { dateCourte, dateHeure, duree, dureeLongue, heure, pluriel } from "../core/util.js";
 import { deconnecter } from "../core/session.js";
+import { nomRPLibre, choisirNomRP } from "../features/nom-rp.js";
 
 export default async function vueProfil() {
   const profil = etat.profil;
@@ -123,8 +124,14 @@ export default async function vueProfil() {
         el("div.panneau",
           el("div.panneau__entete", el("span.panneau__titre", "Compte")),
           el("div.panneau__corps.pile",
-            el("span.petit.faible", `Pseudo RP : ${etat.profil?.display_name || "—"}`),
-            el("button.btn", { onclick: changerMotDePasse }, icone("cadenas", 15), "Changer mon mot de passe"),
+            el("span.petit.faible", `Nom RP : ${etat.profil?.display_name || "—"}`),
+            nomRPLibre()
+              ? el("button.btn.btn--primaire", { onclick: async () => { if (await choisirNomRP()) aller("/profil"); } },
+                  icone("profil", 15), "Choisir le nom de mon personnage")
+              : null,
+            pilote.mode === "local"
+              ? el("button.btn", { onclick: changerMotDePasse }, icone("cadenas", 15), "Changer mon mot de passe")
+              : el("span.petit.faible", "Connecté avec Discord"),
             el("button.btn", { onclick: () => aller("/reglages") }, icone("reglages", 15), "Réglages"),
             el("button.btn.btn--danger", {
               onclick: async () => { await deconnecter(); aller("/connexion"); }

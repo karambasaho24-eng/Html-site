@@ -133,8 +133,11 @@ function nettoyerNoeud(racine) {
 
 const PROPRIETES_STYLE = new Set([
   "color", "background-color", "font-weight", "font-style", "text-decoration",
-  "text-align", "font-size"
+  "text-align", "font-size", "font-family"
 ]);
+
+/** Les polices d'écriture proposées par le cahier : une liste fermée, jamais un nom libre. */
+const POLICES_ECRITURE = /^(["']?)(kalam|caveat|patrick hand|spectral)\1\s*(,\s*[\w\s"'-]+)*$/i;
 
 function filtrerStyle(valeur) {
   return String(valeur || "")
@@ -144,6 +147,7 @@ function filtrerStyle(valeur) {
     .filter((regle) => {
       const [propriete, contenu = ""] = regle.split(":").map((p) => p.trim().toLowerCase());
       if (!PROPRIETES_STYLE.has(propriete)) return false;
+      if (propriete === "font-family" && !POLICES_ECRITURE.test(contenu)) return false;
       return !/url\s*\(|expression|javascript:/i.test(contenu);
     })
     .join("; ");

@@ -6,6 +6,9 @@ import { el } from "./dom.js";
 import { icone } from "./icons.js";
 import { docHote, fenetreHote } from "../core/hote.js";
 
+/* Les repères des classes : des gris, rien de coloré. */
+const NUANCES_CLASSE = { olive: "#d2d2d5", laiton: "#aeaeb3", ardoise: "#8a8a90", oxblood: "#66666b", pourpre: "#4a4a4f", encre: "#303034" };
+
 const pile = [];
 
 function calque() { return docHote().getElementById("calque-modales"); }
@@ -186,7 +189,7 @@ function construireChamp(c, refs) {
   if (c.type === "select") {
     return el("label.champ",
       el("span.champ__label", c.label),
-      el("select.saisie", { ref: capter },
+      el("select.saisie", { name: c.cle, ref: capter },
         (c.options || []).map((o) =>
           el("option", { value: o.valeur, selected: o.valeur === c.valeur }, o.libelle))
       ),
@@ -196,44 +199,19 @@ function construireChamp(c, refs) {
   if (c.type === "textarea") {
     return el("label.champ",
       el("span.champ__label", c.label),
-      el("textarea.zone", { value: c.valeur ?? "", placeholder: c.placeholder || "", rows: c.lignes || 4, ref: capter }),
+      el("textarea.zone", { name: c.cle, value: c.valeur ?? "", placeholder: c.placeholder || "", rows: c.lignes || 4, ref: capter }),
       c.aide && el("span.champ__aide", c.aide)
     );
   }
-  /* Choix illustré : on désigne un objet, pas une ligne dans une liste. */
-  if (c.type === "choix") {
-    let courant = c.valeur ?? c.options?.[0]?.valeur ?? "";
-    const cache = el("input", { type: "hidden", value: courant, ref: capter });
-    const groupe = el("div.choix-objets", { role: "radiogroup", "aria-label": c.label },
-      (c.options || []).map((o) => el("button.choix-objet", {
-        type: "button",
-        role: "radio",
-        dataset: { valeur: o.valeur },
-        "aria-checked": String(o.valeur === courant),
-        onclick: (e) => {
-          courant = o.valeur; cache.value = o.valeur;
-          groupe.querySelectorAll(".choix-objet")
-            .forEach((b) => b.setAttribute("aria-checked", String(b.dataset.valeur === courant)));
-          c.onchoix?.(o.valeur);
-        }
-      },
-        el("span.choix-objet__figure", { dataset: { objet: o.valeur }, "aria-hidden": "true" }),
-        el("span.choix-objet__nom", o.libelle),
-        o.aide ? el("span.choix-objet__aide", o.aide) : null
-      ))
-    );
-    return el("div.champ", el("span.champ__label", c.label), groupe, cache);
-  }
-
   if (c.type === "couleur") {
-    const teintes = ["olive", "laiton", "ardoise", "oxblood", "pourpre", "encre"];
+    const teintes = Object.keys(NUANCES_CLASSE);
     let courante = c.valeur || "olive";
     const cache = el("input", { type: "hidden", value: courante, ref: capter });
     const groupe = el("div.ligne-flex.enrouler",
       teintes.map((t) => el("button.teinte", {
         type: "button",
         dataset: { teinte: t },
-        style: { background: `var(--${t === "encre" ? "encre-400" : t})` },
+        style: { background: NUANCES_CLASSE[t] || "#a8a8ad" },
         "aria-pressed": String(t === courante),
         "aria-label": t,
         onclick: (e) => {
@@ -248,7 +226,7 @@ function construireChamp(c, refs) {
   return el("label.champ",
     el("span.champ__label", c.label),
     el("input.saisie", {
-      type: c.type || "text", value: c.valeur ?? "",
+      name: c.cle, type: c.type || "text", value: c.valeur ?? "",
       placeholder: c.placeholder || "", min: c.min, max: c.max, step: c.step,
       ref: capter
     }),

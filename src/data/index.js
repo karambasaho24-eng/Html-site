@@ -36,6 +36,8 @@ export const profils = {
   lire: (id) => T("profiles").lire(id),
   parIds: (ids) => ids.length ? T("profiles").liste({ id: ids }) : Promise.resolve([]),
   majorer: (id, patch) => T("profiles").majorer(id, patch),
+  /** Tous les joueurs inscrits, par ordre alphabétique (pour choisir à qui donner, sans avoir à connaître le pseudo). */
+  tous: (limite = 500) => T("profiles").liste({}, { ordre: "display_name", limite }),
   /** Retrouver quelqu'un par son pseudo : on le croise dans la rue, on ne partage aucun espace. */
   chercher(texte, limite = 8) {
     const propre = String(texte || "").trim().replace(/[%_\\]/g, "");
@@ -53,8 +55,25 @@ export const profils = {
   /** Un code de rôle (0030) : l'administration le crée, la personne le tape. */
   creerCodeRole: (role) => pilote.rpc("creer_code_role", { role }),
   utiliserCodeRole: (code) => pilote.rpc("utiliser_code_role", { code }),
+  /** Les administrateurs sont désignés par leur identifiant Discord (0035). Rend le profil à jour. */
+  async synchroniserAdmin(profil) {
+    if (!profil || pilote.mode === "local") return profil;
+    try {
+      const role = await pilote.rpc("appliquer_admins_discord", {});
+      if (role && role !== profil.role_key) return (await T("profiles").lire(profil.id)) || profil;
+    } catch (err) {
+      console.warn("[admin] attribution du rôle Discord impossible (migration 0035 appliquée ?)", err);
+    }
+    return profil;
+  },
   /** Supprimer un compte, définitivement (0031) : l'administration seule. */
   supprimerCompte: (id) => pilote.rpc("supprimer_compte", { cible: id }),
+  /** Le nom RP d'une personne (vide = retour à son pseudo Discord). Administration seule (0043). */
+  nomRP: (id, nom) => pilote.rpc("definir_nom_rp", { cible: id, nom }),
+  /** Chacun choisit son nom RP, une fois (0044). */
+  choisirNomRP: (nom) => pilote.rpc("choisir_mon_nom_rp", { nom }),
+  /** Le personnage est mort : la personne peut choisir un nouveau nom (0044). Administration seule. */
+  personnageMort: (id) => pilote.rpc("declarer_personnage_mort", { cible: id }),
   /** L'accès est-il bloqué (compte suspendu, banni, connexion bannie) ? (0033) */
   monAcces: () => pilote.rpc("mon_acces", {}),
   /** Le rôle global : l'administration seule, et jamais le sien (la base y veille). */
@@ -68,7 +87,10 @@ export const profils = {
     if (existant) return existant;
     return T("profiles").creer({
       id: utilisateur.id,
-      display_name: utilisateur.user_metadata?.pseudo || utilisateur.user_metadata?.display_name || "Nouvel élève",
+      display_name: utilisateur.user_metadata?.custom_claims?.global_name || utilisateur.user_metadata?.full_name
+        || utilisateur.user_metadata?.pseudo || utilisateur.user_metadata?.display_name
+        || utilisateur.user_metadata?.name || "Nouvel élève",
+      avatar_url: utilisateur.user_metadata?.avatar_url || null,
       role_key: "student", preferences: {}
     });
   }
@@ -150,68 +172,11 @@ export const membres = {
    Le compte identifie le joueur ; la fiche identifie le personnage, et c'est
    elle qui signe tout ce qui se passe dans l'espace. Une par membre et par
    classe : on peut être cadet ici et instructeur ailleurs.
-   ========================================================================= */
-export const personnages = {
-  async pour(classeId, utilisateurId) {
-    const lignes = await T("rp_profiles").liste({ class_id: classeId, user_id: utilisateurId });
-    return lignes[0] || null;
-  },
-  async liste(classeId) {
-    return T("rp_profiles").liste({ class_id: classeId }, { ordre: "name" });
-  },
-  /** Index user_id → fiche, pour habiller une liste de membres. */
-  async index(classeId) {
-    const lignes = await this.liste(classeId).catch(() => []);
-    return new Map(lignes.map((l) => [l.user_id, l]));
-  },
-  creer: (donnees) => T("rp_profiles").creer(donnees),
-  majorer: (id, patch) => T("rp_profiles").majorer(id, patch),
-  supprimer: (id) => T("rp_profiles").supprimer(id),
-
-  async enregistrer(classeId, utilisateurId, donnees) {
-    const existante = await this.pour(classeId, utilisateurId);
-    if (existante) return this.majorer(existante.id, donnees);
-    return this.creer({ class_id: classeId, user_id: utilisateurId, ...donnees });
-  }
-};
 
 /* ===========================================================================
    Livret de service
    Mentions, sanctions, promotions et aptitudes. C'est ce qui donne aux actes
    des conséquences durables, et au classement de promotion sa matière.
-   ========================================================================= */
-export const livret = {
-  /** Tout le livret d'un espace, ou celui d'un seul membre. */
-  liste: (classeId, utilisateurId = undefined) =>
-    T("service_records").liste(
-      { class_id: classeId, ...(utilisateurId ? { user_id: utilisateurId } : {}) },
-      { ordre: "created_at", sens: "desc" }),
-
-  creer: (donnees) => T("service_records").creer(donnees),
-  supprimer: (id) => T("service_records").supprimer(id),
-
-  /**
-   * Classement de promotion, du meilleur au dernier.
-   *
-   * Il passe par une procédure et non par une lecture directe : la RLS ne
-   * montre à un membre que ses propres inscriptions, si bien qu'un calcul
-   * côté client ne lui donnerait qu'une ligne — la sienne. Le classement,
-   * lui, est un tableau d'honneur : il se lit en entier, sans pour autant
-   * ouvrir le détail des livrets.
-   */
-  async classement(classeId) {
-    const lignes = await pilote.rpc("class_standings", { target_class: classeId });
-    return (lignes || [])
-      .map((l) => ({
-        user_id: l.user_id,
-        evaluations: Number(l.evaluations) || 0,
-        taux: l.taux == null ? 0 : Number(l.taux),
-        total: l.total == null ? 0 : Number(l.total)
-      }))
-      .sort((a, b) => b.taux - a.taux || b.evaluations - a.evaluations)
-      .map((ligne, i) => ({ ...ligne, rang: i + 1 }));
-  }
-};
 
 /* ===========================================================================
    Sessions, présence, journal
@@ -259,17 +224,6 @@ export const presence = {
 /* ===========================================================================
    Renvois de séance
    ========================================================================= */
-export const renvois = {
-  liste: (sessionId) => T("session_ejections").liste({ session_id: sessionId },
-    { ordre: "created_at", sens: "desc" }),
-  renvoyer: (sessionId, utilisateurId, motif, atteste) =>
-    pilote.rpc("eject_member", {
-      target_session: sessionId, target_user: utilisateurId,
-      motif: motif || null, proche: Boolean(atteste)
-    }),
-  /** Lever un renvoi : la personne peut revenir. */
-  lever: (id) => T("session_ejections").supprimer(id)
-};
 
 export const journal = {
   async ecrire(entree) {
@@ -294,32 +248,9 @@ export const cahiers = {
   },
   deClasse: (classeId) => T("notebooks").liste({ class_id: classeId }, { ordre: "created_at" }),
   lire: (id) => T("notebooks").lire(id),
-  creer: (donnees) => T("notebooks").creer({
-    archived: false, support: "cahier", max_pages: 10, place: "range",
-    size: VOLUME_SUPPORT[donnees.support || "cahier"] || 4, ...donnees
-  }),
-
-  /* Un cahier est un objet comme un autre : il est rangé, sur le bureau, ou
-     resté en salle. Oublié, on ne l'a pas — même s'il est à soi. */
-  sortir: (cahier, { session, classe }) => T("notebooks").majorer(cahier.id, {
-    place: "bureau", place_session: session.id, place_class: classe.id,
-    place_label: classe.name || null, container_id: null
-  }),
-  rangerDans: (cahier, contenantId) => T("notebooks").majorer(cahier.id, {
-    container_id: contenantId, place: "range", place_session: null,
-    place_class: null, place_label: null
-  }),
-  laisser: (cahier, { classe }) => T("notebooks").majorer(cahier.id, {
-    place: "salle", place_class: classe.id, place_label: classe.name || null,
-    place_session: null, container_id: null
-  }),
-  recuperer: (id) => pilote.rpc("recover_notebook", { target: id }),
-  /** Revenu à sa place : le cahier laissé dans cette salle revient sur le bureau. */
-  reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "cahier", target: id, seance: seanceId }),
-
-  /** Inspection d'un support apporté au cartable, par l'encadrement. */
-  inspecter: (cahierId, classeId) =>
-    pilote.rpc("inspect_notebook", { target_notebook: cahierId, target_class: classeId }),
+  /** Créer un cahier personnel est soumis au quota (premier gratuit, suivants achetés) :
+   *  c'est la base qui tranche et qui répond NB001 si un achat est nécessaire. */
+  creer: (donnees) => T("notebooks").creer({ archived: false, ...donnees }),
   majorer: (id, patch) => T("notebooks").majorer(id, patch),
   supprimer: (id) => T("notebooks").supprimer(id)
 };
@@ -370,601 +301,6 @@ export const penseBetes = {
   creer: (donnees) => T("sticky_notes").creer({ color: "jaune", x: 0.7, y: 0.12, rotation: 0, ...donnees }),
   majorer: (id, patch) => T("sticky_notes").majorer(id, patch),
   supprimer: (id) => T("sticky_notes").supprimer(id)
-};
-
-/* ===========================================================================
-   Cartable
-   Ce qu'on a apporté en séance. Sert aussi de frontière : un support resté
-   chez soi ne peut pas être inspecté.
-   ========================================================================= */
-export const cartable = {
-  async pour(classeId, utilisateurId) {
-    const lignes = await T("class_bags").liste({ class_id: classeId, user_id: utilisateurId });
-    return lignes[0] || null;
-  },
-  async liste(classeId) {
-    const lignes = await T("class_bags").liste({ class_id: classeId });
-    return new Map(lignes.map((l) => [l.user_id, l]));
-  },
-
-  /**
-   * `notebooks` est un objet { identifiant: intitulé }, et non une liste.
-   * `supplies` suit la même forme : { identifiant: { kind, label } }. C'est ce
-   * qui permet à la base de tester la présence d'un objet avec l'opérateur `?`
-   * — donc de confisquer ce qui a été apporté, et seulement cela.
-   * L'identifiant sert à l'inspection (les politiques SQL testent la présence
-   * de la clé avec l'opérateur `?`), l'intitulé sert au contrôle du matériel :
-   * l'encadrement demande « le cahier de manœuvre », et chacun apporte le
-   * sien, qui porte un identifiant différent.
-   */
-  async enregistrer(classeId, utilisateurId, { notebooks, supplies, session = null }) {
-    const existant = await this.pour(classeId, utilisateurId);
-    const patch = { notebooks: normaliserSac(notebooks), supplies: normaliserTrousse(supplies) };
-    // S'équiper pour une séance laisse une trace datée : c'est elle qui
-    // distingue « j'ai ces affaires » de « je les ai sur moi aujourd'hui ».
-    if (session) {
-      patch.last_session = session;
-      patch.checked_at = new Date().toISOString();
-    }
-    if (existant) return T("class_bags").majorer(existant.id, patch);
-    return T("class_bags").creer({ class_id: classeId, user_id: utilisateurId, ...patch });
-  },
-
-  /** Ses affaires sont-elles équipées pour CETTE séance ? */
-  equipePour(sac, sessionId) {
-    return Boolean(sac && sessionId && String(sac.last_session) === String(sessionId));
-  },
-
-  /** Les identifiants des supports réellement apportés. */
-  apportes(sac) {
-    return Object.keys(normaliserSac(sac?.notebooks));
-  },
-
-  /** Ce qui manque par rapport à ce que l'encadrement a demandé. */
-  manquants(sac, attendu = {}) {
-    const emportes = normaliserSac(sac?.notebooks);
-    const parId = new Set(Object.keys(emportes));
-    const parTitre = new Set(Object.values(emportes).map((t) => String(t).trim().toLowerCase()));
-    const fournitures = new Set((sac?.supplies || []).map((f) => String(f).toLowerCase()));
-
-    return {
-      // On accepte l'intitulé autant que l'identifiant : c'est le nom du
-      // support qui a été demandé à voix haute, pas sa clé technique.
-      supports: (attendu.supports || []).filter((s) =>
-        !parId.has(String(s.id)) && !parTitre.has(String(s.title || "").trim().toLowerCase())),
-      fournitures: (attendu.fournitures || []).filter((f) => !fournitures.has(f.toLowerCase()))
-    };
-  }
-};
-
-/* ===========================================================================
-   Les affaires
-
-   Ce qu'on possède, et où c'est. Le cartable dit ce qu'on a DÉCLARÉ emporter ;
-   ceci dit ce qui existe. Les deux se répondent : on boucle son sac en
-   choisissant parmi ses affaires, et la déclaration en garde la trace.
-   ========================================================================= */
-const dotationsEnCours = new Map();
-
-export const affaires = {
-  miennes: (utilisateurId) =>
-    T("belongings").liste({ owner_id: utilisateurId }, { ordre: "created_at" }),
-
-  /** Ce que j'ai entre les mains sans que ce soit à moi. */
-  enMain: (utilisateurId) => T("belongings").liste({ holder_id: utilisateurId }),
-
-  /** Tout ce dont je dispose, d'où que ça vienne. */
-  async toutes(utilisateurId) {
-    const [aMoi, pretees] = await Promise.all([
-      this.miennes(utilisateurId),
-      this.enMain(utilisateurId).catch(() => [])
-    ]);
-    const vus = new Set(aMoi.map((o) => String(o.id)));
-    return [...aMoi, ...pretees.filter((o) => !vus.has(String(o.id)))];
-  },
-
-  lire: (id) => T("belongings").lire(id),
-
-  creer: (donnees) => T("belongings").creer({
-    state: "owned", quantity: 1, carried: false, is_container: false,
-    container_id: null, label: "", meta: {}, place: "range", size: 1, ...donnees
-  }),
-
-  /* --- Les lieux ------------------------------------------------------------
-     Trois lieux : rangé (dans un contenant, ou chez soi), sur le bureau
-     pendant une activité, laissé en salle. La base refuse les passages
-     impossibles (voir app_garde_du_lieu, 0019) ; ces fonctions ne font que
-     demander. */
-
-  /** Sortir de son sac et poser devant soi, pour cette activité. */
-  sortir: (objet, { session, classe }) => T("belongings").majorer(objet.id, {
-    place: "bureau", place_session: session.id, place_class: classe.id,
-    place_label: classe.name || null, container_id: null,
-    // D'où il vient : c'est là qu'on le remettra en rangeant.
-    meta: { ...(objet.meta || {}), depuis: objet.container_id || null }
-  }),
-
-  /** Remettre dans un contenant — le sac, la trousse, un dossier. */
-  rangerDans: (objet, contenantId) => T("belongings").majorer(objet.id, {
-    container_id: contenantId, place: "range", place_session: null,
-    place_class: null, place_label: null
-  }),
-
-  /** Partir en laissant l'objet derrière soi. Il reste dans la salle. */
-  laisser: (objet, { classe }) => T("belongings").majorer(objet.id, {
-    place: "salle", place_class: classe.id, place_label: classe.name || null,
-    place_session: null, container_id: null
-  }),
-
-  /** Revenir le chercher. La base vérifie que la salle est ouverte. */
-  recuperer: (id) => pilote.rpc("recover_belonging", { target: id }),
-  /** Revenu à sa place : l'objet laissé dans cette salle revient sur le bureau. */
-  reprendre: (id, seanceId) => pilote.rpc("reprendre_a_ma_place", { genre: "objet", target: id, seance: seanceId }),
-
-  majorer: (id, patch) => T("belongings").majorer(id, patch),
-  supprimer: (id) => T("belongings").supprimer(id),
-
-  /** Ranger un objet dans un contenant, ou le sortir (contenant nul). */
-  ranger: (id, contenantId) => T("belongings").majorer(id, { container_id: contenantId || null }),
-
-  /** Porter un contenant sur soi, ou le laisser. */
-  porter: (id, oui) => T("belongings").majorer(id, { carried: Boolean(oui) }),
-
-  /**
-   * Entamer un consommable. Le niveau ne descend jamais sous zéro : un encrier
-   * vide est vide, il ne devient pas négatif — et c'est cet état-là qui se joue.
-   */
-  async consommer(objet, pas = 1) {
-    const avant = Number(objet?.level);
-    if (!Number.isFinite(avant)) return objet;
-    const apres = Math.max(0, Math.min(100, Math.round(avant - pas)));
-    if (apres === avant) return objet;
-    return T("belongings").majorer(objet.id, { level: apres });
-  },
-
-  /**
-   * Remplir son encrier au flacon. Ce qui entre dans l'un sort de l'autre :
-   * sans cela, l'encre se créerait toute seule et l'objet ne pèserait plus rien.
-   * Un flacon contient quatre encriers : un point de flacon en verse quatre.
-   */
-  async remplir(encrier, flacon) {
-    const place = 100 - Number(encrier.level || 0);
-    if (place <= 0) return { verse: 0 };
-    const dispo = Number(flacon?.level || 0);
-    if (dispo <= 0) return { verse: 0 };
-    const verse = Math.min(place, dispo * 4);
-    const pris = Math.min(dispo, Math.ceil(verse / 4));
-    const e = await T("belongings").majorer(encrier.id, { level: Number(encrier.level || 0) + verse });
-    const f = await T("belongings").majorer(flacon.id, { level: dispo - pris });
-    Object.assign(encrier, e || { level: Number(encrier.level || 0) + verse });
-    Object.assign(flacon, f || { level: dispo - pris });
-    return { verse };
-  },
-
-  perdre: (id) => T("belongings").majorer(id, { state: "lost", container_id: null, carried: false }),
-  retrouver: (id) => T("belongings").majorer(id, { state: "owned" }),
-
-  /** Confisquer : geste d'autorité, vérifié côté base. */
-  confisquer: (id, classeId, motif) =>
-    pilote.rpc("confiscate_belonging", { target: id, target_class: classeId, motif: motif || null }),
-  restituer: (id) => pilote.rpc("release_belonging", { target: id }),
-
-  /**
-   * La dotation de départ. Personne n'arrive à l'école les mains vides : sans
-   * cela, la première visite montre une étagère nue et une consigne qu'on ne
-   * peut pas satisfaire. On ne la repose jamais deux fois.
-   */
-  assurerDotation(utilisateurId, dotation) {
-    // Plusieurs vues la demandent au même moment (chez soi, le sac, le
-    // cahier) : une seule distribution, que tout le monde attend.
-    const cle = String(utilisateurId);
-    if (!dotationsEnCours.has(cle)) {
-      dotationsEnCours.set(cle, this.doter(utilisateurId, dotation)
-        .finally(() => dotationsEnCours.delete(cle)));
-    }
-    return dotationsEnCours.get(cle);
-  },
-
-  async doter(utilisateurId, dotation) {
-    const deja = await this.miennes(utilisateurId).catch(() => []);
-    if (deja.length) return deja;
-
-    const parType = new Map();
-    for (const item of dotation) {
-      const cree = await this.creer({
-        owner_id: utilisateurId,
-        kind: item.kind,
-        label: item.label || "",
-        category: item.category || "autre",
-        is_container: Boolean(item.contenant),
-        carried: Boolean(item.carried),
-        container_id: item.dans ? (parType.get(item.dans)?.id || null) : null,
-        level: item.level ?? null,
-        quantity: item.quantity ?? 1,
-        size: item.size ?? 1,
-        capacity: item.capacity ?? null
-      });
-      parType.set(item.kind, cree);
-    }
-    return this.miennes(utilisateurId);
-  }
-};
-
-/** La place que prend un support dans un sac. Même valeurs que 0019. */
-export const VOLUME_SUPPORT = { feuille: 1, carnet: 3, cahier: 4, dossier: 5 };
-
-/* ===========================================================================
-   La salle : ce qu'on y a laissé, et qui peut y entrer
-
-   Une salle est ouverte quand une séance s'y tient, quand l'encadrement l'a
-   ouverte pour un temps, ou pour une personne munie d'un laissez-passer. Hors
-   de cela, ce qui y est resté y reste.
-   ========================================================================= */
-export const salles = {
-  /** Ce qui traîne dans la salle — réservé à l'encadrement. */
-  async oublies(classeId) {
-    const lignes = await pilote.rpc("forgotten_in_class", { target_class: classeId });
-    return Array.isArray(lignes) ? lignes : [];
-  },
-
-  /** Rendre à son propriétaire ce qu'il a laissé. Geste volontaire. */
-  restituer: (genre, id) => pilote.rpc("restitute_forgotten", { genre, target: id }),
-
-  /** La salle est-elle ouverte, pour moi, maintenant ? Lecture seule : la
-   *  base refait le même calcul avant toute récupération. */
-  ouverte(classe, seanceEnCours, utilisateurId) {
-    if (seanceEnCours && seanceEnCours.status === "live") return true;
-    const r = classe?.settings || {};
-    const maintenant = Date.now();
-    if (r.salle_ouverte_jusqua && new Date(r.salle_ouverte_jusqua).getTime() > maintenant) return true;
-    const passe = r.passes?.[utilisateurId];
-    return Boolean(passe && new Date(passe).getTime() > maintenant);
-  },
-
-  /** Ouvrir la salle un moment : chacun peut venir y reprendre ses affaires. */
-  async ouvrir(classe, minutes = 30) {
-    const jusqua = new Date(Date.now() + minutes * 60000).toISOString();
-    const settings = { ...(classe.settings || {}), salle_ouverte_jusqua: jusqua };
-    const maj = await T("classes").majorer(classe.id, { settings });
-    classe.settings = maj?.settings || settings;
-    return jusqua;
-  },
-
-  async fermer(classe) {
-    const settings = { ...(classe.settings || {}), salle_ouverte_jusqua: null };
-    const maj = await T("classes").majorer(classe.id, { settings });
-    classe.settings = maj?.settings || settings;
-  },
-
-  /** Autoriser une seule personne à entrer, pour un temps. */
-  async laissezPasser(classe, utilisateurId, minutes = 20) {
-    const jusqua = new Date(Date.now() + minutes * 60000).toISOString();
-    const settings = { ...(classe.settings || {}),
-      passes: { ...(classe.settings?.passes || {}), [utilisateurId]: jusqua } };
-    const maj = await T("classes").majorer(classe.id, { settings });
-    classe.settings = maj?.settings || settings;
-    return jusqua;
-  }
-};
-
-/* ===========================================================================
-   Les dossiers et ce qu'on y classe
-
-   Un dossier est un objet (belongings, kind « dossier ») ; ce qu'il contient
-   est une liste de papiers. On ne déplace pas un papier, on le classe.
-   ========================================================================= */
-export const classement = {
-  contenu: (dossierId) => T("dossier_items").liste({ dossier_id: dossierId }, { ordre: "created_at" }),
-  deDossiers: (ids) => ids.length
-    ? T("dossier_items").liste({ dossier_id: ids }, { ordre: "created_at" })
-    : Promise.resolve([]),
-  ranger: (dossierId, paperId, utilisateurId) => T("dossier_items").inserer(
-    { dossier_id: dossierId, paper_id: paperId, added_by: utilisateurId }, "dossier_id,paper_id"),
-  sortir: (id) => T("dossier_items").supprimer(id)
-};
-
-/* ===========================================================================
-   Ce qui passe de main en main
-
-   Un seul dépôt pour les deux directions : « tiens, prends ma règle » et
-   « tu me prêtes ta règle ? » aboutissent au même transfert.
-   ========================================================================= */
-export const remisesObjet = {
-  /** Ce qu'on me tend, ou ce qu'on me demande, et qui attend ma réponse. */
-  enAttente: (utilisateurId) =>
-    T("belonging_handoffs").liste({ to_user: utilisateurId, state: "offered" },
-      { ordre: "created_at", sens: "desc" }),
-
-  /** Ce que j'ai proposé ou demandé et qui n'a pas été tranché. */
-  mesDemandes: (utilisateurId) =>
-    T("belonging_handoffs").liste({ from_user: utilisateurId, state: "offered" },
-      { ordre: "created_at", sens: "desc" }),
-
-  /** Ce que j'ai emprunté et qui n'est pas rendu. */
-  async aRendre(utilisateurId) {
-    const lignes = await T("belonging_handoffs").liste({ state: "accepted", kind: "lend" },
-      { ordre: "created_at", sens: "desc" });
-    return lignes.filter((l) =>
-      (l.direction === "offer" && l.to_user === utilisateurId)
-      || (l.direction === "request" && l.from_user === utilisateurId));
-  },
-
-  /** Ce que j'ai prêté et qui n'est pas revenu. */
-  async pretes(utilisateurId) {
-    const lignes = await T("belonging_handoffs").liste({ state: "accepted", kind: "lend" },
-      { ordre: "created_at", sens: "desc" });
-    return lignes.filter((l) =>
-      (l.direction === "offer" && l.from_user === utilisateurId)
-      || (l.direction === "request" && l.to_user === utilisateurId));
-  },
-
-  /** L'historique léger : les transferts tranchés qui me concernent. */
-  async histoire(utilisateurId, limite = 40) {
-    const lignes = await T("belonging_handoffs").liste({}, { ordre: "created_at", sens: "desc", limite: 200 });
-    return lignes
-      .filter((l) => l.from_user === utilisateurId || l.to_user === utilisateurId)
-      .filter((l) => l.state !== "offered")
-      .slice(0, limite);
-  },
-
-  tendre: (donnees) => T("belonging_handoffs").creer({
-    state: "offered", direction: "offer", kind: "lend", attested: false, ...donnees
-  }),
-
-  demander: (donnees) => T("belonging_handoffs").creer({
-    state: "offered", direction: "request", kind: "lend", attested: false, ...donnees
-  }),
-
-  /** Seule la procédure déplace un objet : voir 0018. */
-  accepter: (id, choisi = null) =>
-    pilote.rpc("accept_belonging_handoff", { handoff: id, chosen: choisi || null }),
-
-  rendre: (id) => pilote.rpc("return_belonging_handoff", { handoff: id }),
-
-  refuser: (id) => T("belonging_handoffs").majorer(id, {
-    state: "refused", settled_at: new Date().toISOString()
-  }),
-  reprendre: (id) => T("belonging_handoffs").majorer(id, {
-    state: "cancelled", settled_at: new Date().toISOString()
-  })
-};
-
-/* ===========================================================================
-   La privation de matériel
-
-   Le cartable constatait l'oubli ; ceci lui donne un prix. Une privation
-   court pendant un nombre de minutes fixé par la classe, et le maître seul
-   peut l'abréger — c'est lui qui autorise à aller chercher ses affaires.
-   ========================================================================= */
-export const privations = {
-  liste: (sessionId) => T("supply_blocks").liste({ session_id: sessionId },
-    { ordre: "started_at", sens: "desc" }),
-
-  async pour(sessionId, utilisateurId) {
-    const lignes = await T("supply_blocks").liste({ session_id: sessionId, user_id: utilisateurId });
-    return lignes[0] || null;
-  },
-
-  /**
-   * Ouvre la privation à l'entrée en séance, ou rend celle qui court déjà.
-   * On ne la rouvre jamais : revenir dans la salle ne remet pas le compteur
-   * à zéro, sans quoi il suffirait de sortir et de rentrer pour l'effacer.
-   */
-  async ouvrir({ sessionId, classeId, utilisateurId, minutes, manquants }) {
-    const existante = await this.pour(sessionId, utilisateurId);
-    if (existante) return existante;
-    return T("supply_blocks").creer({
-      session_id: sessionId, class_id: classeId, user_id: utilisateurId,
-      state: "blocked", minutes, missing: manquants,
-      // Le pilote local ne connaît pas les valeurs par défaut du schéma :
-      // sans cette date posée ici, le décompte partirait d'un NaN et la
-      // privation ne commencerait jamais.
-      started_at: new Date().toISOString()
-    });
-  },
-
-  /** « Puis-je aller chercher mes affaires ? » */
-  demander: (id) => T("supply_blocks").majorer(id, { state: "asked" }),
-
-  /** La réponse du maître : on y va, ou on reste à sa place. */
-  trancher: (id, accorde, decideur) => T("supply_blocks").majorer(id, {
-    state: accorde ? "granted" : "denied",
-    decided_at: new Date().toISOString(), decided_by: decideur
-  }),
-
-  /** Le maître lève la privation sans qu'on ait rien demandé. */
-  lever: (id, decideur) => T("supply_blocks").majorer(id, {
-    state: "lifted", decided_at: new Date().toISOString(), decided_by: decideur
-  }),
-
-  /**
-   * Reste-t-il du temps à purger ? La privation tombe d'elle-même à
-   * l'échéance : le maître n'a pas à y repenser.
-   */
-  secondesRestantes(privation) {
-    if (!privation) return 0;
-    // Lever la main n'affranchit pas : on reste privé tant qu'on n'a pas
-    // obtenu le laissez-passer. Seuls « granted » et « lifted » rendent la
-    // plume — le refus, lui, laisse le temps courir.
-    if (!["blocked", "asked", "denied"].includes(privation.state)) return 0;
-    const depart = new Date(privation.started_at || privation.created_at || Date.now()).getTime();
-    if (!Number.isFinite(depart)) return 0;
-    const fin = depart + (privation.minutes || 15) * 60000;
-    return Math.max(0, Math.round((fin - Date.now()) / 1000));
-  },
-
-  /** Privé d'écrire, ici et maintenant. */
-  prive(privation) {
-    return this.secondesRestantes(privation) > 0;
-  }
-};
-
-/* ===========================================================================
-   Tendre son cahier
-
-   Montrer ne passe pas par ici : un regard n'a pas à laisser de trace.
-   Prêter et donner, si — il faut savoir chez qui l'objet se trouve.
-   ========================================================================= */
-export const remisesCahier = {
-  /** Ce qu'on me tend et qui attend ma réponse. */
-  enAttente: (utilisateurId) =>
-    T("notebook_handoffs").liste({ to_user: utilisateurId, state: "offered" },
-      { ordre: "created_at", sens: "desc" }),
-
-  /** Ce que j'ai entre les mains sans que ce soit à moi. */
-  empruntes: (utilisateurId) =>
-    T("notebook_handoffs").liste({ to_user: utilisateurId, state: "accepted" },
-      { ordre: "created_at", sens: "desc" }),
-
-  /** Ce que j'ai tendu et qui n'est pas revenu. */
-  pretes: (utilisateurId) =>
-    T("notebook_handoffs").liste({ from_user: utilisateurId, state: "accepted" },
-      { ordre: "created_at", sens: "desc" }),
-
-  tendre: (donnees) => T("notebook_handoffs").creer(donnees),
-
-  /** Seule la procédure peut changer un propriétaire : voir 0016. */
-  accepter: (id) => pilote.rpc("accept_notebook_handoff", { handoff: id }),
-
-  refuser: (id) => T("notebook_handoffs").majorer(id, {
-    state: "refused", settled_at: new Date().toISOString()
-  }),
-  rendre: (id) => T("notebook_handoffs").majorer(id, {
-    state: "returned", settled_at: new Date().toISOString()
-  }),
-  reprendre: (id) => T("notebook_handoffs").majorer(id, {
-    state: "cancelled", settled_at: new Date().toISOString()
-  })
-};
-
-/* ===========================================================================
-   Les annotations du maître
-
-   Il écrit SUR le cahier, jamais dedans : la copie du cadet reste mot pour
-   mot ce qu'il a écrit, et la main qui corrige se distingue toujours.
-   ========================================================================= */
-export const annotations = {
-  dePage: (pageId) => T("page_annotations").liste({ page_id: pageId }, { ordre: "created_at" }),
-  dePages: (pageIds) => pageIds.length
-    ? T("page_annotations").liste({ page_id: pageIds }, { ordre: "created_at" })
-    : Promise.resolve([]),
-  ecrire: (donnees) => T("page_annotations").creer(donnees),
-  majorer: (id, patch) => T("page_annotations").majorer(id, {
-    ...patch, updated_at: new Date().toISOString()
-  }),
-  effacer: (id) => T("page_annotations").supprimer(id)
-};
-
-/** Accepte l'ancienne forme (liste d'identifiants) comme la nouvelle. */
-function normaliserSac(valeur) {
-  if (!valeur) return {};
-  if (Array.isArray(valeur)) return Object.fromEntries(valeur.map((id) => [String(id), ""]));
-  return valeur;
-}
-
-/**
- * La trousse déclarée. Longtemps une liste de mots (« Plume », « Encre ») ;
- * maintenant une carte d'objets réels. On accepte les deux : une classe
- * configurée l'an dernier ne doit pas perdre sa consigne, et un sac bouclé
- * hier doit rester lisible.
- */
-function normaliserTrousse(valeur) {
-  if (!valeur) return {};
-  if (Array.isArray(valeur)) {
-    return Object.fromEntries(valeur.map((v) =>
-      typeof v === "string" ? [v, { kind: null, label: v }] : [String(v.id), { kind: v.kind, label: v.label }]));
-  }
-  return valeur;
-}
-
-/* ===========================================================================
-   Papiers remis en main propre
-   ========================================================================= */
-export const papiers = {
-  mesPapiers: (auteurId) =>
-    T("papers").liste({ author_id: auteurId }, { ordre: "created_at", sens: "desc" }),
-  lire: (id) => T("papers").lire(id),
-  creer: (donnees) => T("papers").creer(donnees),
-  majorer: (id, patch) => T("papers").majorer(id, patch),
-  supprimer: (id) => T("papers").supprimer(id),
-
-  /** Duplique un papier pour en tendre plusieurs exemplaires. */
-  async dupliquer(paperId, exemplaires = 1) {
-    const source = await T("papers").lire(paperId);
-    if (!source) throw new ErreurDonnees("Papier introuvable", "P0002");
-    const copies = [];
-    for (let i = 0; i < exemplaires; i++) {
-      const { id, created_at, updated_at, ...reste } = source;
-      copies.push(await T("papers").creer(reste));
-    }
-    return copies;
-  },
-
-  /** Tendre un papier. `attested` : l'émetteur déclare être à proximité. */
-  tendre: (donnees) => T("paper_handoffs").creer({ state: "offered", ...donnees }),
-
-  async recus(utilisateurId) {
-    const remises = await T("paper_handoffs").liste({ to_user: utilisateurId },
-      { ordre: "created_at", sens: "desc" });
-    if (!remises.length) return [];
-    const contenus = await T("papers").liste({ id: [...new Set(remises.map((r) => r.paper_id))] });
-    const index = new Map(contenus.map((c) => [c.id, c]));
-    const auteurs = await profils.parIds([...new Set(remises.map((r) => r.from_user))]);
-    const parAuteur = new Map(auteurs.map((a) => [a.id, a]));
-    return remises.map((r) => ({ ...r, papier: index.get(r.paper_id) || null, auteur: parAuteur.get(r.from_user) || null }));
-  },
-
-  async envoyes(utilisateurId) {
-    return T("paper_handoffs").liste({ from_user: utilisateurId }, { ordre: "created_at", sens: "desc" });
-  },
-
-  repondre: (remiseId, etat, extra = {}) => T("paper_handoffs").majorer(remiseId, {
-    ...extra, state: etat, settled_at: new Date().toISOString()
-  }),
-
-  /**
-   * « Cette personne est-elle bien devant vous ? » La réponse ne se reprend
-   * pas. Non : la remise est close, et la modération le verra.
-   */
-  confirmerPresence: (remiseId, { present, lieu = null }) => T("paper_handoffs").majorer(remiseId, {
-    presence: Boolean(present),
-    lieu_reception: String(lieu || "").trim().slice(0, 120) || null,
-    ...(present ? {} : { state: "refused", settled_at: new Date().toISOString() })
-  }),
-
-  /** Retirer un papier : son auteur, ou la modération (inscrit au journal). */
-  retirer: (id) => T("papers").supprimer(id),
-
-  /**
-   * Ce qui circule, pour la modération. La base filtre : seul un modérateur
-   * ou un administrateur reçoit plus que ses propres remises.
-   */
-  async circulation(limite = 200) {
-    const remises = await T("paper_handoffs").liste({},
-      { ordre: "created_at", sens: "desc", limite });
-    if (!remises.length) return [];
-
-    const contenus = await T("papers").liste({ id: [...new Set(remises.map((r) => r.paper_id))] });
-    const parPapier = new Map(contenus.map((c) => [c.id, c]));
-    const gens = await profils.parIds([...new Set(
-      remises.flatMap((r) => [r.from_user, r.to_user]))]);
-    const parId = new Map(gens.map((p) => [p.id, p]));
-
-    const avis = await moderation.notes("paper_handoff", remises.map((r) => r.id)).catch(() => []);
-    const parRemise = new Map();
-    for (const n of avis) {
-      if (!parRemise.has(n.target_id)) parRemise.set(n.target_id, []);
-      parRemise.get(n.target_id).push(n);
-    }
-
-    return remises.map((r) => ({
-      ...r,
-      papier: parPapier.get(r.paper_id) || null,
-      expediteur: parId.get(r.from_user) || null,
-      destinataire: parId.get(r.to_user) || null,
-      notes: parRemise.get(r.id) || []
-    }));
-  }
 };
 
 /* ===========================================================================
@@ -1158,8 +494,11 @@ export const exercices = {
   supprimerQuestion: (id) => T("exercise_questions").supprimer(id),
 
   async lancer(exerciceId) {
+    const ex = await T("exercises").lire(exerciceId);
+    const dejaJoue = ["closed", "graded"].includes(ex?.status);
+    const settings = { ...(ex?.settings || {}), manche: (Number(ex?.settings?.manche) || 1) + (dejaJoue ? 1 : 0) };
     return T("exercises").majorer(exerciceId, {
-      status: "live", opened_at: new Date().toISOString(), closed_at: null
+      status: "live", opened_at: new Date().toISOString(), closed_at: null, settings
     });
   },
   async fermer(exerciceId) {
@@ -1169,15 +508,35 @@ export const exercices = {
   /* --- Tentatives --------------------------------------------------------- */
   async maTentative(exerciceId, utilisateurId) {
     const lignes = await T("exercise_attempts").liste({ exercise_id: exerciceId, user_id: utilisateurId });
-    return lignes[0] || null;
+    return lignes.sort((a, b) => (b.round || 1) - (a.round || 1))[0] || null;
   },
+  /** Une tentative par élève ET par manche : relancer l'exercice ouvre une nouvelle manche. */
   async commencer(exerciceId, utilisateurId) {
-    const deja = await this.maTentative(exerciceId, utilisateurId);
+    const ex = await T("exercises").lire(exerciceId);
+    const manche = Number(ex?.settings?.manche) || 1;
+    const lignes = await T("exercise_attempts").liste({ exercise_id: exerciceId, user_id: utilisateurId });
+    const deja = lignes.find((l) => (l.round || 1) === manche);
     if (deja) return deja;
     return T("exercise_attempts").creer({
-      exercise_id: exerciceId, user_id: utilisateurId, status: "started",
+      exercise_id: exerciceId, user_id: utilisateurId, status: "started", round: manche,
       started_at: new Date().toISOString()
     });
+  },
+  /** Copie un exercice (et toutes ses questions) en brouillon, dans la même classe ou une autre. */
+  async dupliquer(exerciceId, classeId, auteurId, titre) {
+    const ex = await T("exercises").lire(exerciceId);
+    const copie = await T("exercises").creer({
+      class_id: classeId, author_id: auteurId, title: titre || `${ex.title} (copie)`,
+      instructions: ex.instructions, status: "draft", exam_mode: ex.exam_mode,
+      duration_sec: ex.duration_sec, settings: { ...(ex.settings || {}), manche: 1 }
+    });
+    for (const q of await this.questions(exerciceId)) {
+      await this.ajouterQuestion(copie.id, {
+        kind: q.kind, prompt: q.prompt, helper: q.helper, options: q.options,
+        solution: q.solution, points: q.points, settings: q.settings || {}
+      });
+    }
+    return copie;
   },
   async tentatives(exerciceId) {
     const lignes = await T("exercise_attempts").liste({ exercise_id: exerciceId });
@@ -1233,50 +592,8 @@ export const questions = {
   supprimer: (id) => T("session_questions").supprimer(id)
 };
 
-export const mains = {
-  async liste(sessionId) {
-    const lignes = await T("hands").liste({ session_id: sessionId }, { ordre: "raised_at" });
-    return lignes.filter((l) => l.status !== "lowered");
-  },
-  lever: (sessionId, utilisateurId) => T("hands").inserer(
-    { session_id: sessionId, user_id: utilisateurId, status: "raised", raised_at: new Date().toISOString() },
-    "session_id,user_id"
-  ),
-  async baisser(sessionId, utilisateurId) {
-    const lignes = await T("hands").liste({ session_id: sessionId, user_id: utilisateurId });
-    if (lignes[0]) return T("hands").majorer(lignes[0].id, { status: "lowered" });
-    return null;
-  },
-  majorer: (id, patch) => T("hands").majorer(id, patch)
-};
 
-export const sondages = {
-  liste: (sessionId) => T("polls").liste({ session_id: sessionId }, { ordre: "created_at", sens: "desc" }),
-  async actif(sessionId) {
-    const lignes = await T("polls").liste({ session_id: sessionId, status: "open" },
-      { ordre: "created_at", sens: "desc", limite: 1 });
-    return lignes[0] || null;
-  },
-  creer: (donnees) => T("polls").creer({ status: "open", kind: "poll", ...donnees }),
-  fermer: (id) => T("polls").majorer(id, { status: "closed" }),
-  supprimer: (id) => T("polls").supprimer(id),
-  votes: (sondageId) => T("poll_votes").liste({ poll_id: sondageId }),
-  voter: (sondageId, utilisateurId, choix) => T("poll_votes").inserer(
-    { poll_id: sondageId, user_id: utilisateurId, choice: choix }, "poll_id,user_id"
-  )
-};
 
-export const minuteries = {
-  async active(sessionId) {
-    const lignes = await T("timers").liste({ session_id: sessionId },
-      { ordre: "created_at", sens: "desc", limite: 1 });
-    const derniere = lignes[0];
-    return derniere && derniere.state !== "idle" ? derniere : derniere || null;
-  },
-  creer: (donnees) => T("timers").creer(donnees),
-  majorer: (id, patch) => T("timers").majorer(id, patch),
-  supprimer: (id) => T("timers").supprimer(id)
-};
 
 /* ===========================================================================
    Notifications, favoris
@@ -1315,6 +632,45 @@ export const favoris = {
 /* ===========================================================================
    Temps réel et fichiers — exposés tels quels
    ========================================================================= */
+/* ===========================================================================
+   La boutique : encre et cahiers supplémentaires
+   Toutes les règles sont appliquées par la base (migration 0039). Ce module ne
+   fait que lire l'état et demander : il ne crédite jamais rien lui-même, et il
+   ne décide d'aucun prix.
+   ========================================================================= */
+export const boutique = {
+  /** { exempte, encre: { solde, recu, consomme }, cahiers: { crees, autorises, restants }, regles, pages_max, commandes_ouvertes } */
+  moi: () => pilote.rpc("mon_commerce", {}),
+  /** Les produits en vente (la base ne montre que les actifs aux non-administrateurs). */
+  produits: () => T("products").liste({ active: true }, { ordre: "sort" }),
+  mesCommandes: (utilisateurId, limite = 50) =>
+    T("purchases").liste({ user_id: utilisateurId }, { ordre: "created_at", sens: "desc", limite }),
+  /**
+   * La missive de commande. Le paiement se fait EN JEU, entre l'élève et le PDG :
+   * le site n'en traite aucun. Cette demande ouvre une commande EN ATTENTE au prix
+   * de la base ; elle ne crédite rien. Seule la livraison par le PDG le fait.
+   */
+  commander: (sku, message = null) => pilote.rpc("passer_commande", { target_sku: sku, note: message }),
+  annulerCommande: (id) => pilote.rpc("annuler_commande", { target: id }),
+
+  /* --- Administration (la base vérifie la permission MANAGE_SHOP) --- */
+  tousLesProduits: () => T("products").liste({}, { ordre: "sort" }),
+  async reglages() {
+    const lignes = await T("commerce_settings").liste();
+    return Object.fromEntries(lignes.map((l) => [l.key, l.value]));
+  },
+  enregistrerProduit: (donnees) => pilote.rpc("admin_save_product", { donnees }),
+  regler: (cle, valeur) => pilote.rpc("admin_set_setting", { cle, valeur }),
+  donnerEncre: (cible, montant, note = null) => pilote.rpc("admin_grant_ink", { cible, montant, note }),
+  donnerCahiers: (cible, nombre, note = null) => pilote.rpc("admin_grant_notebooks", { cible, nombre, note }),
+  apercu: (recherche = null, limite = 200) => pilote.rpc("admin_commerce_overview", { recherche, limite }),
+  livrerCommande: (id, note = null) => pilote.rpc("admin_livrer_commande", { target: id, note }),
+  refuserCommande: (id, note = null) => pilote.rpc("admin_refuser_commande", { target: id, note }),
+  commandes: (limite = 200) => T("purchases").liste({}, { ordre: "created_at", sens: "desc", limite }),
+  historiquePrix: (limite = 100) =>
+    T("product_price_history").liste({}, { ordre: "changed_at", sens: "desc", limite })
+};
+
 export const temps = {
   sabonner: (options) => pilote.temps.sabonner(options)
 };
@@ -1330,6 +686,7 @@ export const auth = {
   utilisateur: () => pilote.auth.utilisateur(),
   inscrire: (d) => pilote.auth.inscrire(d),
   connecter: (d) => pilote.auth.connecter(d),
+  discord: () => pilote.auth.discord(),
   lienMagique: (e) => pilote.auth.lienMagique(e),
   reinitialiser: (e) => pilote.auth.reinitialiser(e),
   changerMotDePasse: (m) => pilote.auth.changerMotDePasse(m),

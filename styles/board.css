@@ -5,14 +5,14 @@
 .tableau {
   display: flex; flex-direction: column;
   height: 100%; min-height: 0;
-  background: var(--encre-1000);
+  background: rgba(var(--deep),.55);
 }
 
 .tableau__barre {
   display: flex; align-items: center; gap: var(--e-2);
   padding: var(--e-2) var(--e-3);
-  background: var(--encre-850);
-  border-bottom: 1px solid var(--ligne);
+  background: var(--surf);
+  border-bottom: 1px solid var(--b2);
   flex-wrap: wrap;
 }
 
@@ -31,8 +31,8 @@
 .tableau__surface {
   position: relative;
   border-radius: var(--r-sm);
-  box-shadow: var(--ombre-3), 0 0 0 6px #241c14, 0 0 0 7px #3b2f21;
-  background: #17231f;
+  box-shadow: var(--ombre-3), 0 0 0 1px rgba(var(--tl),.35);
+  background: #111114;
   /* Le tableau garde ses proportions et tient entier dans la scène : sur un
      écran bas, il rapetisse au lieu de se faire couper par le bas — il n'y a
      rien à faire défiler puisque tout est là. */
@@ -43,11 +43,11 @@
   width: min(100cqw, max(100cqh * 1600 / 900, 420px));
   max-width: 100%;
 }
-.tableau__surface[data-fond="ardoise"] { background: #17231f; }
-.tableau__surface[data-fond="craie"]   { background: #1b2430; }
-.tableau__surface[data-fond="papier"]  { background: #f3ead9; }
+.tableau__surface[data-fond="ardoise"] { background: #111114; }
+.tableau__surface[data-fond="craie"]   { background: #16161b; }
+.tableau__surface[data-fond="papier"]  { background: #efefef; }
 .tableau__surface[data-fond="quadrille"] {
-  background-color: #1b2430;
+  background-color: #16161b;
   background-image:
     repeating-linear-gradient(rgba(255,255,255,.05) 0 1px, transparent 1px 32px),
     repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 32px);
@@ -78,8 +78,8 @@
 /* --- Outils --------------------------------------------------------------- */
 .outils {
   display: flex; align-items: center; gap: 2px;
-  background: var(--encre-900);
-  border: 1px solid var(--ligne);
+  background: var(--trough);
+  border: 1px solid var(--b2);
   border-radius: var(--r-sm);
   padding: 2px;
 }
@@ -87,10 +87,10 @@
   width: 30px; height: 30px;
   display: grid; place-content: center;
   border: 0; background: none; border-radius: var(--r-xs);
-  color: var(--texte-doux);
+  color: var(--m);
 }
-.outil:hover { background: var(--encre-700); color: var(--texte); }
-.outil[aria-pressed="true"] { background: var(--encre-600); color: var(--laiton-clair); box-shadow: inset 0 0 0 1px var(--ligne-laiton); }
+.outil:hover { background: var(--g2); color: #fff; }
+.outil[aria-pressed="true"] { background: var(--ctl-on); color: #fff; box-shadow: inset 0 0 0 1px var(--b); }
 .outil svg { width: 16px; height: 16px; }
 
 .teintes { display: flex; gap: 3px; align-items: center; }
@@ -99,15 +99,15 @@
   border: 2px solid transparent; cursor: pointer; padding: 0;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
 }
-.teinte[aria-pressed="true"] { border-color: var(--texte); transform: scale(1.12); }
+.teinte[aria-pressed="true"] { border-color: #fff; transform: scale(1.12); }
 
 .epaisseurs { display: flex; gap: 2px; align-items: center; }
 .epaisseur {
   width: 26px; height: 26px; display: grid; place-content: center;
-  background: none; border: 0; border-radius: var(--r-xs); color: var(--texte-doux);
+  background: none; border: 0; border-radius: var(--r-xs); color: var(--m);
 }
-.epaisseur:hover { background: var(--encre-700); }
-.epaisseur[aria-pressed="true"] { background: var(--encre-600); }
+.epaisseur:hover { background: var(--g2); }
+.epaisseur[aria-pressed="true"] { background: var(--ctl-on); }
 .epaisseur i { display: block; background: currentColor; border-radius: 999px; }
 
 /* --- Pages du tableau ----------------------------------------------------- */
@@ -118,20 +118,20 @@
 .page-tableau {
   min-width: 34px; height: 26px; padding: 0 var(--e-2);
   display: grid; place-content: center;
-  background: var(--encre-800); border: 1px solid var(--ligne);
+  background: var(--ctl); border: 1px solid var(--b2);
   border-radius: var(--r-xs);
-  font-family: var(--f-mono); font-size: var(--t-xs); color: var(--texte-doux);
+  font-family: var(--f-mono); font-size: var(--t-xs); color: var(--m);
 }
-.page-tableau:hover { border-color: var(--ligne-forte); color: var(--texte); }
+.page-tableau:hover { border-color: var(--b3); color: #fff; }
 .page-tableau[aria-current="true"] {
-  background: var(--encre-600); border-color: var(--laiton); color: var(--laiton-clair);
+  background: var(--ctl-on); border-color: rgba(var(--tl),.8); color: #fff;
 }
 
 /* --- Saisie de texte sur le tableau --------------------------------------- */
 .saisie-tableau {
   position: absolute; z-index: 5;
   background: rgba(0,0,0,.35);
-  border: 1px dashed var(--laiton);
+  border: 1px dashed rgba(var(--tl),.8);
   color: #fff; padding: 2px 4px; min-width: 120px;
   font-family: var(--f-titre); outline: none;
 }

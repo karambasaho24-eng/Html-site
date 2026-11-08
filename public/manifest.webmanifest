@@ -4,7 +4,7 @@
   "description": "L'espace scolaire qui tourne à côté du jeu.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0d1013",
-  "theme_color": "#0d1013",
+  "background_color": "#0f1114",
+  "theme_color": "#0f1114",
   "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }

@@ -1,37 +1,33 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="nuit" data-density="grand">
+<html lang="fr">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Classe Parallèle</title>
 <meta name="description" content="Cahiers, tableau interactif, classes et sessions en temps réel — l'espace scolaire qui tourne à côté du jeu." />
-<meta name="color-scheme" content="dark light" />
-<meta name="theme-color" content="#0d1013" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#07070a" />
 
-<link rel="icon" href="public/favicon.svg" type="image/svg+xml" />
+<link rel="icon" id="fav" href="public/favicon.svg" type="image/svg+xml" />
 <link rel="manifest" href="public/manifest.webmanifest" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Caveat:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Caveat:wght@500;700&family=Kalam:wght@300;400;700&family=Patrick+Hand&family=JetBrains+Mono:wght@400;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
 
-<link rel="stylesheet" href="styles/tokens.css" />
-<link rel="stylesheet" href="styles/base.css" />
-<link rel="stylesheet" href="styles/layout.css" />
-<link rel="stylesheet" href="styles/components.css" />
+<link rel="stylesheet" href="styles/waitlist.css" />
+<link rel="stylesheet" href="styles/classe.css" />
 <link rel="stylesheet" href="styles/notebook.css" />
-<link rel="stylesheet" href="styles/objets.css" />
 <link rel="stylesheet" href="styles/board.css" />
 <link rel="stylesheet" href="styles/live.css" />
-<link rel="stylesheet" href="styles/scene.css" />
-<link rel="stylesheet" href="styles/monde.css" />
-<link rel="stylesheet" href="styles/responsive.css" />
+<link rel="stylesheet" href="styles/animations.css" />
 </head>
 <body>
+  <div id="bg" aria-hidden="true"></div>
   <a class="skip-link" href="#vue">Aller au contenu</a>
 
   <div id="ecran-chargement" class="boot">
-    <div class="boot__bougie" aria-hidden="true"><span class="boot__flamme"></span></div>
+    <div class="boot__rond" aria-hidden="true"></div>
     <p class="boot__label">Chargement…</p>
   </div>
 
