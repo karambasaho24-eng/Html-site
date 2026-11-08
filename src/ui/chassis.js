@@ -9,7 +9,7 @@
 import { el, render } from "./dom.js";
 import { icone } from "./icons.js";
 import { etat, observer, definir } from "../core/store.js";
-import { aller, chemin } from "../core/router.js";
+import { aller, chemin, retour, peutRevenir } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
 import { estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
@@ -120,11 +120,14 @@ function onglet(href, libelle, icone_, actif) {
 function peindreOnglets() {
   if (!etat.utilisateur) { render(refs.onglets, []); return; }
   const { nom } = etat.route;
-  const cahiers = ["accueil", "cahier"].includes(nom);
+  const cahiers = ["accueil", "cahier", "papier"].includes(nom);
   const documents = nom === "documents";
   const classes = ["classes", "classe", "salle"].includes(nom);
   // À côté du jeu : un seul retour, la manette.
   render(refs.onglets,
+    etat.flottant && nom !== "manette" && peutRevenir()
+      ? el("button.nav-lien", { type: "button", title: "Retour", "aria-label": "Retour", onclick: retour },
+          icone("annuler", 15), el("span.nav-lien__mot", "Retour")) : null,
     etat.flottant ? onglet("/manette", "Manette", "grille", nom === "manette") : null,
     etat.flottant ? null : onglet("/", L("Cahiers"), "cahiers", cahiers),
     etat.flottant ? null : onglet("/documents", "Bibliothèque", "dossier", documents),

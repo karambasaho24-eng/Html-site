@@ -377,20 +377,27 @@ try {
     await popup.setViewportSize({ width: 460, height: 760 });
     verifier("le cahier y est, avec son texte", (await popup.locator(".parchemin__corps").innerText()).includes("Suite."));
     const ongletsFlottant = await popup.evaluate(() => [...document.querySelectorAll(".nav-lien")].map((a) => a.title));
-    verifier("à côté du jeu, un seul onglet : la manette", ongletsFlottant.join() === "Manette", JSON.stringify(ongletsFlottant));
+    verifier("à côté du jeu, un seul onglet : la manette (et le retour)",
+      ongletsFlottant.filter((t) => t !== "Retour").join() === "Manette", JSON.stringify(ongletsFlottant));
     await popup.click(".parchemin__corps");
     await popup.keyboard.type(" Notée à côté du jeu.", { delay: 8 });
     await popup.waitForTimeout(1500);
     await popup.click('.nav-lien[title="Manette"]');
     await popup.waitForSelector(".manette", { timeout: 5000 }).catch(() => null);
     const gestes = await popup.locator(".manette__mot").allInnerTexts();
-    verifier("la manette : Cahier, Suivre, Rejoindre", gestes.join(",") === "Cahier,Suivre,Rejoindre", gestes.join(","));
+    verifier("la manette : Cahier, Donner, Recevoir, Suivre, Rejoindre",
+      gestes.join(",") === "Cahier,Donner,Recevoir,Suivre,Rejoindre", gestes.join(","));
     const boutonsVisibles = await popup.evaluate(() => [...document.querySelectorAll(".manette__bouton")]
       .every((b) => { const r = b.getBoundingClientRect(); return r.height >= 100 && r.right <= innerWidth + 1; }));
     verifier("ses boutons sont gros et tiennent dans la fenêtre étroite", boutonsVisibles);
     await popup.click('.manette__bouton:has-text("Cahier")');
     await popup.waitForSelector(".parchemin__corps", { timeout: 8000 }).catch(() => null);
     verifier("« Cahier » rouvre le dernier cahier", (await popup.locator(".parchemin__corps").count()) === 1);
+    await popup.click('.nav-lien[title="Retour"]');
+    await popup.waitForSelector(".manette", { timeout: 5000 }).catch(() => null);
+    verifier("« Retour » ramène à la manette, dans la fenêtre flottante", (await popup.locator(".manette").count()) === 1);
+    await popup.click('.manette__bouton:has-text("Cahier")');
+    await popup.waitForSelector(".parchemin__corps", { timeout: 8000 }).catch(() => null);
     await popup.close();
     await eleve.waitForTimeout(800);
     await eleve.reload();
@@ -481,6 +488,55 @@ try {
   await eleve.click('.tiroir [role="switch"]'); await eleve.waitForTimeout(300);
   verifier("un second clic les éteint", await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === "false");
   await eleve.keyboard.press("Escape");
+
+  /* =======================================================================
+     12. Transferts : un objet, un seul détenteur
+     ===================================================================== */
+  titre("12. Transferts");
+  const trouve = await depot(eleve, `return (await d.profils.chercher("ÁDMÎN")).map((p) => p.id);`);
+  verifier("chercher un pseudo : partiel, sans majuscules ni accents", trouve.includes(adminId), JSON.stringify(trouve));
+  const papier = await depot(eleve, `return await d.papiers.creer({ author_id: etat.utilisateur.id, title: "Lettre", body: "Bonjour" });`);
+  const tendre = (type, id, titre) => essayer(eleve,
+    `return await d.transferts.tendre("${type}", { objetId: "${id}", titre: "${titre}", deId: etat.utilisateur.id, versId: "${adminId}" });`);
+  verifier("tendre un papier", (await tendre("papier", papier.id, "Lettre")).ok);
+  verifier("un papier tendu ne se tend pas une seconde fois", !(await tendre("papier", papier.id, "Lettre")).ok);
+  verifier("un papier tendu ne s'écrit plus",
+    !(await essayer(eleve, `return await d.papiers.majorer("${papier.id}", { body: "triche" });`)).ok);
+  const recusAdmin = await depot(admin, `return (await d.transferts.enAttente(etat.utilisateur.id)).recus.map((r) => r.titre);`);
+  verifier("le destinataire le voit, avec son titre", recusAdmin.includes("Lettre"), JSON.stringify(recusAdmin));
+  await depot(eleve, `const { tendus } = await d.transferts.enAttente(etat.utilisateur.id); await d.transferts.reprendre(tendus[0]);`);
+  verifier("repris, il redevient modifiable",
+    (await essayer(eleve, `return await d.papiers.majorer("${papier.id}", { body: "Bonjour, ami" });`)).ok);
+  verifier("on peut le tendre de nouveau", (await tendre("papier", papier.id, "Lettre")).ok);
+  await admin.goto(`${RACINE}#/`); await admin.waitForSelector(".remises:not([hidden])", { timeout: 6000 }).catch(() => null);
+  const texteRemises = await admin.locator(".remises").allInnerTexts();
+  verifier("l'accueil du destinataire affiche « On vous donne »", texteRemises.join("|").toLowerCase().includes("on vous donne"), JSON.stringify(texteRemises));
+  await admin.click('.remise:has-text("Lettre") button:has-text("Accepter")');
+  await admin.waitForTimeout(800);
+  const detenteurs = await depot(eleve, `return [(await d.papiers.enMain(etat.utilisateur.id)).some((p) => p.id === "${papier.id}")];`);
+  const chezAdmin = await depot(admin, `return (await d.papiers.enMain(etat.utilisateur.id)).some((p) => p.id === "${papier.id}");`);
+  verifier("accepté : un seul détenteur, le destinataire", chezAdmin && !detenteurs[0]);
+  verifier("le papier reçu s'affiche sur son accueil", (await admin.locator(`a.carte-papier[href="#/papier/${papier.id}"]`).count()) === 1);
+
+  const cahierEleve = await depot(eleve, `return (await d.cahiers.mesCahiers(etat.utilisateur.id))[0];`);
+  const nbPages = await depot(eleve, `return (await d.pages.liste("${cahierEleve.id}")).length;`);
+  verifier("tendre un cahier", (await tendre("cahier", cahierEleve.id, cahierEleve.title)).ok);
+  verifier("un cahier tendu ne s'écrit plus",
+    !(await essayer(eleve, `return await d.pages.creer("${cahierEleve.id}", { title: "triche" });`)).ok);
+  await depot(admin, `const { recus } = await d.transferts.enAttente(etat.utilisateur.id); await d.transferts.refuser(recus.find((r) => r.type === "cahier"));`);
+  verifier("refusé, il reste à l'expéditeur",
+    (await depot(eleve, `return (await d.cahiers.lire("${cahierEleve.id}")).owner_id;`)) === eleveId);
+  await tendre("cahier", cahierEleve.id, cahierEleve.title);
+  const accepte = await essayer(admin, `const { recus } = await d.transferts.enAttente(etat.utilisateur.id); return await d.transferts.accepter(recus.find((r) => r.type === "cahier"));`);
+  verifier("le destinataire accepte le cahier", accepte.ok, JSON.stringify(accepte));
+  verifier("donné : il appartient au destinataire, avec toutes ses pages",
+    (await depot(admin, `return [(await d.cahiers.lire("${cahierEleve.id}")).owner_id, (await d.pages.liste("${cahierEleve.id}")).length];`)).join() === [adminId, nbPages].join());
+  const redonne = await essayer(admin,
+    `return await d.transferts.tendre("cahier", { objetId: "${cahierEleve.id}", titre: "x", deId: etat.utilisateur.id, versId: "${eleveId}" });`);
+  verifier("un cahier reçu peut être redonné", redonne.ok, JSON.stringify(redonne));
+  await depot(admin, `const { tendus } = await d.transferts.enAttente(etat.utilisateur.id); await d.transferts.reprendre(tendus[0]);`);
+  verifier("repris par l'expéditeur, le destinataire ne peut plus l'accepter", !(await essayer(eleve,
+    `return await d.transferts.accepter({ type: "cahier", id: "${redonne.valeur?.id}" });`)).ok);
 
 } catch (err) {
   echoues++;

@@ -59,13 +59,22 @@ export function aller(destination, remplacer = false) {
   location.hash = cible;
 }
 
+/* Le parcours, tenu par le site lui-même : dans la fenêtre flottante (Document
+   Picture-in-Picture), l'historique du navigateur appartient à la page d'origine
+   et history.length n'en dit rien. */
+const parcours = [];
+
 export function retour() {
-  if (history.length > 1) history.back();
-  else aller("/");
+  parcours.pop();                       // l'écran courant
+  aller(parcours.pop() || "/");         // le précédent (il sera ré-inscrit en arrivant)
 }
+
+export const peutRevenir = () => parcours.length > 1;
 
 export async function resoudre() {
   const url = chemin();
+  const ici = location.hash.replace(/^#/, "") || "/";
+  if (parcours.at(-1) !== ici) { parcours.push(ici); if (parcours.length > 30) parcours.shift(); }
   const route = routes.find((r) => r.regex.test(url)) || routes.find((r) => r.motif === "*");
   if (!route) return;
 

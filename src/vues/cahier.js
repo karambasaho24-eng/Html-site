@@ -3,7 +3,7 @@
  * ------------------------------------------------------------------------- */
 import { el } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { cahiers } from "../data/index.js";
+import { cahiers, transferts } from "../data/index.js";
 import { chargerCommerce } from "../features/encre.js";
 import { etat } from "../core/store.js";
 import { local } from "../core/util.js";
@@ -41,7 +41,10 @@ export default async function vueCahier({ params }) {
   // Le dernier cahier ouvert : c'est lui que le mode flottant rouvre.
   local.ecrire("ojm.dernierCahier", cahier.id);
 
-  const peutEcrire = peutEcrireCahier(cahier);
+  // Tendu à quelqu'un : verrouillé jusqu'à sa réponse (la base refuse aussi, 0048).
+  const tendu = (await transferts.enAttente(etat.utilisateur.id).catch(() => ({ tendus: [] })))
+    .tendus.some((r) => r.type === "cahier" && r.objetId === cahier.id);
+  const peutEcrire = peutEcrireCahier(cahier) && !tendu;
 
   const editeur = creerEditeurCahier({
     cahier,

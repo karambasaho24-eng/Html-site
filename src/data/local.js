@@ -258,11 +258,31 @@ function gardeQuotaCahiers(ancien, nouveau) {
   return nouveau;
 }
 
+/** 0048 : un objet tendu est verrouillé jusqu'à la réponse (seul son changement de main passe). */
+function verrouRemise(table, colonne, id) {
+  if (quiSuisJe() && charger(table).some((r) => r[colonne] === id && r.state === "offered")) {
+    throw new ErreurDonnees("Cet objet est tendu : attendez la réponse, ou reprenez-le.", "42501");
+  }
+}
+
 const GARDES = {
   profiles: gardeProfil,
-  notebooks: gardeQuotaCahiers,
-  notebook_pages: (ancien, nouveau) => { gardeLimitePages(ancien, nouveau); return gardeEncrePages(ancien, nouveau); },
+  notebooks: (ancien, nouveau) => {
+    if (ancien && ancien.owner_id === nouveau.owner_id) verrouRemise("notebook_handoffs", "notebook_id", nouveau.id);
+    return gardeQuotaCahiers(ancien, nouveau);
+  },
+  notebook_pages: (ancien, nouveau) => {
+    verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id);
+    gardeLimitePages(ancien, nouveau); return gardeEncrePages(ancien, nouveau);
+  },
+  // Miroir des index « une remise en cours par objet » (paper_handoffs_une_offre, nb_handoffs_en_cours).
+  paper_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("paper_handoffs", "paper_id", nouveau.paper_id); return nouveau; },
+  notebook_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id); return nouveau; },
   sticky_notes: gardeEncrePenseBetes,
+  papers: (ancien, nouveau) => {
+    if (ancien && ancien.holder_id === nouveau.holder_id) verrouRemise("paper_handoffs", "paper_id", nouveau.id);
+    return gardeEncrePenseBetes(ancien, nouveau);
+  },
   board_elements: gardeEncreTableau
 };
 
@@ -1026,6 +1046,16 @@ export async function creerPiloteLocal() {
       await t("profiles").majorer(cible, { nom_rp_libre: true });
       journaliser(moi, "compte.personnage_mort", { cible, nom: p.display_name });
       return p.display_name;
+    },
+
+    /** Accepter un cahier tendu (accept_notebook_handoff, 0016 + 0048). */
+    async accept_notebook_handoff({ handoff }) {
+      const r = await t("notebook_handoffs").lire(handoff);
+      if (!r) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (r.to_user !== monId()) throw new ErreurDonnees("Ce cahier ne vous est pas tendu", "42501");
+      if (r.state !== "offered") throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
+      if (r.kind === "give") await t("notebooks").majorer(r.notebook_id, { owner_id: r.to_user, updated_at: new Date().toISOString() });
+      return await t("notebook_handoffs").majorer(handoff, { state: "accepted", settled_at: new Date().toISOString() });
     },
 
     /** Supprimer un compte (supprimer_compte, 0031). */

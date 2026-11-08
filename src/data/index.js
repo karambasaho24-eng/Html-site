@@ -6,7 +6,7 @@ import { config, estRelie } from "../core/config.js";
 import { creerPiloteSupabase } from "./supabase.js";
 import { creerPiloteLocal } from "./local.js";
 import { ErreurDonnees } from "./contrat.js";
-import { uid } from "../core/util.js";
+import { uid, aplatir } from "../core/util.js";
 
 export let pilote = null;
 
@@ -39,11 +39,14 @@ export const profils = {
   /** Tous les joueurs inscrits, par ordre alphabétique (pour choisir à qui donner, sans avoir à connaître le pseudo). */
   tous: (limite = 500) => T("profiles").liste({}, { ordre: "display_name", limite }),
   /** Retrouver quelqu'un par son pseudo : on le croise dans la rue, on ne partage aucun espace. */
-  chercher(texte, limite = 8) {
-    const propre = String(texte || "").trim().replace(/[%_\\]/g, "");
-    if (propre.length < 2) return Promise.resolve([]);
-    return T("profiles").liste({ display_name: { operateur: "ilike", valeur: `%${propre}%` } },
-      { ordre: "display_name", limite });
+  /** Partielle, sans majuscules ni accents, sur le nom RP, le pseudo Discord et le pseudo Roblox. */
+  async chercher(texte, limite = 8) {
+    const cle = aplatir(String(texte || "").trim());
+    if (!cle) return [];
+    // shortcut: filtre côté navigateur sur 500 profils, passer à une RPC (extension unaccent) au-delà.
+    const tous = await T("profiles").liste({}, { ordre: "display_name", limite: 500 });
+    return tous.filter((p) => [p.display_name, p.discord_name, p.roblox_name].some((n) => aplatir(n).includes(cle)))
+      .slice(0, limite);
   },
   /** Le compte qui porte exactement ce pseudo (majuscules indifférentes). */
   async parPseudo(pseudo) {
@@ -253,6 +256,66 @@ export const cahiers = {
   creer: (donnees) => T("notebooks").creer({ archived: false, ...donnees }),
   majorer: (id, patch) => T("notebooks").majorer(id, patch),
   supprimer: (id) => T("notebooks").supprimer(id)
+};
+
+/* ===========================================================================
+   Papiers : on les écrit, on les signe, on les donne. Celui qui l'a en main
+   (holder_id) est le seul à le lire, l'écrire ou le jeter.
+   ========================================================================= */
+export const papiers = {
+  enMain: (moiId) => T("papers").liste({ holder_id: moiId }, { ordre: "updated_at", sens: "desc" }),
+  lire: (id) => T("papers").lire(id),
+  creer: (donnees) => T("papers").creer({ holder_id: donnees.author_id, ...donnees }),
+  majorer: (id, patch) => T("papers").majorer(id, { ...patch, updated_at: new Date().toISOString() }),
+  supprimer: (id) => T("papers").supprimer(id)
+};
+
+/* ===========================================================================
+   Transferts entre joueurs : UN OBJET = UN SEUL DÉTENTEUR (0048).
+   Tendu, l'objet est verrouillé ; le destinataire accepte ou refuse,
+   l'expéditeur peut le reprendre tant que rien n'est tranché.
+   ========================================================================= */
+const REMISE = {
+  cahier: { table: "notebook_handoffs", objet: "notebook_id", repris: "cancelled" },
+  papier: { table: "paper_handoffs", objet: "paper_id", repris: "withdrawn" }
+};
+const tranche = (etatFinal) => ({ state: etatFinal, settled_at: new Date().toISOString() });
+
+export const transferts = {
+  /** `titre` voyage avec la remise : le destinataire ne peut pas lire un cahier qui n'est pas encore à lui. */
+  tendre: (type, { objetId, titre, deId, versId }) => T(REMISE[type].table).creer({
+    [REMISE[type].objet]: objetId, from_user: deId, to_user: versId, state: "offered", attested: true,
+    ...(type === "cahier" ? { kind: "give", note: titre } : { description: titre })
+  }),
+
+  /** Ce qu'on me tend (`recus`) et ce que j'ai tendu (`tendus`), en attente. */
+  async enAttente(moiId) {
+    const lire = (type, colonne) => T(REMISE[type].table).liste({ [colonne]: moiId, state: "offered" },
+      { ordre: "created_at", sens: "desc" }).then((l) => l.map((r) => ({ ...r, type })), () => []);
+    const [cr, ct, pr, pt] = await Promise.all([
+      lire("cahier", "to_user"), lire("cahier", "from_user"), lire("papier", "to_user"), lire("papier", "from_user")]);
+    const toutes = [...cr, ...pr, ...ct, ...pt];
+    const gens = new Map((await profils.parIds([...new Set(toutes.flatMap((r) => [r.from_user, r.to_user]))])
+      .catch(() => [])).map((p) => [p.id, p]));
+    const habiller = (r) => ({
+      ...r,
+      objetId: r[REMISE[r.type].objet],
+      titre: (r.type === "cahier" ? r.note : r.description) || (r.type === "cahier" ? "Un cahier" : "Un papier"),
+      de: gens.get(r.from_user) || null, vers: gens.get(r.to_user) || null
+    });
+    return { recus: [...cr, ...pr].map(habiller), tendus: [...ct, ...pt].map(habiller) };
+  },
+
+  async accepter(remise) {
+    if (remise.type === "cahier") return pilote.rpc("accept_notebook_handoff", { handoff: remise.id });
+    // La base exige que le destinataire confirme avoir la personne devant lui (0038).
+    const ligne = await T("paper_handoffs").majorer(remise.id, { presence: true, ...tranche("accepted") });
+    // En base réelle, le papier change de main tout seul (0038) ; en démonstration, on le fait ici.
+    if (pilote.mode === "local") await T("papers").majorer(remise.objetId, { holder_id: remise.to_user });
+    return ligne;
+  },
+  refuser: (remise) => T(REMISE[remise.type].table).majorer(remise.id, tranche("refused")),
+  reprendre: (remise) => T(REMISE[remise.type].table).majorer(remise.id, tranche(REMISE[remise.type].repris))
 };
 
 export const pages = {

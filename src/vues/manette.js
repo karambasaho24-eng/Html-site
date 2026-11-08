@@ -11,6 +11,9 @@ import { classes as depotClasses, sessions } from "../data/index.js";
 import { formulaire, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses } from "../core/session.js";
+import { etat } from "../core/store.js";
+import { transferts } from "../data/index.js";
+import { choisirEtDonner, panneauRemises } from "../features/transferts.js";
 
 function bouton(libelle, aide, nomIcone, action) {
   return el("button.manette__bouton", { type: "button", onclick: action },
@@ -61,10 +64,21 @@ export default async function vueManette() {
     ]);
   }
 
-  const noeud = el("div.manette",
+  const remises = panneauRemises();
+
+  async function recevoir() {
+    const { recus } = await transferts.enAttente(etat.utilisateur.id).catch(() => ({ recus: [] }));
+    await remises.peindre();
+    if (!recus.length) toast("Rien à recevoir", { corps: "Personne ne vous tend de cahier ni de papier." });
+    else remises.scrollIntoView({ block: "nearest" });
+  }
+
+  const noeud = el("div.manette-page", remises, el("div.manette",
     bouton("Cahier", "Ouvrir mon cahier et écrire", "cahier", ouvrirCahier),
+    bouton("Donner", "Un cahier ou un papier, à quelqu'un", "echange", async () => { await choisirEtDonner(); remises.peindre(); }),
+    bouton("Recevoir", "Ce qu'on vous tend", "main", recevoir),
     bouton("Suivre", "Un cours ou une réunion en cours", "tableau", suivre),
     bouton("Rejoindre", `Une ${L("classe")}, avec son code`, "entree", rejoindre)
-  );
-  return { noeud, titre: "Manette" };
+  ));
+  return { noeud, titre: "Manette", nettoyer: () => remises.fermer() };
 }

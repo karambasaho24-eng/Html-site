@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0047 — Pas de fournitures.
+-- 0047 — Pas de fournitures (la remise de cahier, elle, reste : voir 0048).
 --
 -- Il n'y a plus de système de fournitures (sac, trousse, objets à sortir) :
 -- chacun écrit directement, seule l'encre est limitée. On referme donc ce que
@@ -20,7 +20,7 @@ begin
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname = any (array[
-         'inspect_notebook', 'accept_notebook_handoff',
+         'inspect_notebook',
          'accept_belonging_handoff', 'confiscate_belonging', 'release_belonging',
          'return_belonging_handoff', 'forgotten_in_class', 'recover_belonging',
          'recover_notebook', 'restitute_forgotten', 'reprendre_a_ma_place',

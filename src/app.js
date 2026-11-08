@@ -31,6 +31,7 @@ function declarerRoutes() {
   definirRoute("/",                 { nom: "accueil", vue: () => import("./vues/accueil.js"), prive: true });
   definirRoute("/manette",          { nom: "manette", vue: () => import("./vues/manette.js"), prive: true });
   definirRoute("/cahier/:id",       { nom: "cahier", vue: () => import("./vues/cahier.js"), prive: true });
+  definirRoute("/papier/:id",       { nom: "papier", vue: () => import("./vues/papier.js"), prive: true });
   definirRoute("/documents",        { nom: "documents", vue: () => import("./vues/documents.js"), prive: true });
   definirRoute("/boutique",         { nom: "boutique", vue: () => import("./vues/boutique.js"), prive: true });
   definirRoute("/classes",          { nom: "classes", vue: () => import("./vues/classes.js"), prive: true });
