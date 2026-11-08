@@ -8,14 +8,15 @@ import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
 import { exercices, notes as depotNotes, notifications } from "../data/index.js";
 import { activerClasse } from "../core/session.js";
-import { encadre } from "../core/permissions.js";
+import { encadre, mesClassesEncadrees } from "../core/permissions.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
 import { formulaire, confirmer, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { TYPES_QUESTION, libelleType, vueReponseEleve, vueSuiviProfesseur } from "../features/exercice-direct.js";
 import { heure, pluriel } from "../core/util.js";
+import { compositeur, estChoix } from "../features/editeur-questions.js";
 
-export default async function vueExercice({ params }) {
+export default async function vueExercice({ params, integre = null }) {
   const exercice = await exercices.lire(params.id);
   if (!exercice) {
     return {
@@ -28,7 +29,7 @@ export default async function vueExercice({ params }) {
   const classe = await activerClasse(exercice.class_id);
   const staff = encadre();
   let questions = await exercices.questions(exercice.id);
-  let ongletActif = staff ? "questions" : "copie";
+  let ongletActif = staff ? (integre?.ongletInitial || "questions") : "copie";
 
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
@@ -41,7 +42,7 @@ export default async function vueExercice({ params }) {
           ? el("button.btn.btn--primaire", { onclick: lancer }, icone("lecture", 15), "Lancer l'exercice")
           : exercice.status === "live"
             ? el("button.btn.btn--danger", { onclick: fermer }, icone("stop", 15), "Fermer")
-            : null,
+            : el("button.btn.btn--primaire", { onclick: lancer }, icone("lecture", 15), "Relancer (nouvelle manche)"),
         el("button.btn", { onclick: (e) => menuExercice(e.currentTarget) }, icone("points", 15), "Gérer")
       ] : null
     ),
@@ -77,7 +78,7 @@ export default async function vueExercice({ params }) {
   function atelierQuestions() {
     return el("div.pile",
       questions.length
-        ? questions.map((question, index) => el("div.exo__question",
+        ? questions.map((question, index) => question.id === enEdition ? editionEnPlace(question) : el("div.exo__question",
             el("div.ligne-flex.ligne-flex--entre",
               el("div.exo__numero", `Question ${index + 1} — ${libelleType(question.kind)}`),
               el("div.ligne-flex",
@@ -106,8 +107,10 @@ export default async function vueExercice({ params }) {
           ))
         : blocVide("Aucune question", "Ajoutez la première question de cet exercice."),
 
-      el("button.btn.btn--primaire", { onclick: ajouterQuestion },
-        icone("plus", 15), "Ajouter une question")
+      el("h3", "Nouvelle question"),
+      compositeur({ surValider: async (d) => { await exercices.ajouterQuestion(exercice.id, d); await rafraichir(); } }),
+      el("button.btn", { onclick: ajouterQuestion },
+        icone("plus", 15), "Autre type : texte à trous, classement, association, vrai/faux…")
     );
   }
 
@@ -122,8 +125,8 @@ export default async function vueExercice({ params }) {
     const type = await formulaire({
       titre: "Type de question",
       champs: [{
-        cle: "kind", label: "Nature de la question", type: "select", valeur: "free",
-        options: TYPES_QUESTION.map((t) => ({ valeur: t.cle, libelle: t.libelle })),
+        cle: "kind", label: "Nature de la question", type: "select", valeur: "truefalse",
+        options: TYPES_QUESTION.filter((t) => !["free", "single", "qcm", "multiple"].includes(t.cle)).map((t) => ({ valeur: t.cle, libelle: t.libelle })),
         aide: "Le type détermine la façon dont l'élève répond et la correction automatique."
       }],
       libelle: "Continuer"
@@ -133,6 +136,8 @@ export default async function vueExercice({ params }) {
   }
 
   async function modifierQuestion(question) {
+    if (estChoix(question) || question.kind === "free") { enEdition = question.id; await peindre(); return; }
+    if (!await confirmerSiCopies()) return;
     await editerQuestion(question, question.id);
   }
 
@@ -223,6 +228,56 @@ export default async function vueExercice({ params }) {
     }
   }
 
+  /* --- Édition en place, copies existantes, réutilisation -------------------- */
+  let enEdition = null;
+
+  async function rafraichir() {
+    questions = await exercices.questions(exercice.id);
+    peindreBarre(); await peindre();
+  }
+
+  function editionEnPlace(question) {
+    return compositeur({
+      modele: question, libelle: "Enregistrer",
+      surValider: async (d) => {
+        if (!await confirmerSiCopies()) return;
+        await exercices.majorerQuestion(question.id, d);
+        enEdition = null; await rafraichir();
+      },
+      surAnnuler: () => { enEdition = null; peindre(); }
+    });
+  }
+
+  async function confirmerSiCopies() {
+    const deja = await exercices.tentatives(exercice.id).catch(() => []);
+    if (!deja.length) return true;
+    return confirmer({
+      titre: "Des élèves ont déjà répondu",
+      message: "Modifier une question peut fausser la correction automatique des copies déjà rendues. Pour garder les anciens résultats intacts, utilise plutôt « Dupliquer / réutiliser » dans Gérer.",
+      libelle: "Modifier quand même"
+    });
+  }
+
+  async function dupliquer() {
+    const cibles = mesClassesEncadrees();
+    const sortie = await formulaire({
+      titre: "Réutiliser cet exercice",
+      note: "Crée une copie en brouillon avec toutes les questions. Les résultats actuels ne sont pas touchés.",
+      champs: [
+        { cle: "title", label: "Titre", valeur: `${exercice.title} (copie)`, requis: true },
+        { cle: "class_id", label: "Classe", type: "select", valeur: exercice.class_id,
+          options: cibles.map((c) => ({ valeur: c.id, libelle: c.name })) }
+      ],
+      libelle: "Dupliquer"
+    });
+    if (!sortie) return;
+    try {
+      const copie = await exercices.dupliquer(exercice.id, sortie.class_id, etat.utilisateur.id, sortie.title);
+      succes("Exercice dupliqué", "Il est en brouillon, prêt à être lancé.");
+      integre ? integre.ouvrir(copie.id) : aller(`/exercice/${copie.id}`);
+    } catch (err) { erreur("Duplication impossible", messageErreur(err)); }
+  }
+
   /* --- Copies et correction ------------------------------------------------- */
   async function panneauCopies() {
     const tentatives = await exercices.tentatives(exercice.id);
@@ -242,7 +297,7 @@ export default async function vueExercice({ params }) {
           avatar(t.profil),
           el("div.liste__principal",
             el("div.liste__nom", t.profil?.display_name || "Élève"),
-            el("div.liste__detail", t.submitted_at ? `rendu à ${heure(t.submitted_at)}` : "en cours")
+            el("div.liste__detail", (t.submitted_at ? `rendu à ${heure(t.submitted_at)}` : "en cours") + ((exercice.settings?.manche || 1) > 1 ? ` · manche ${t.round || 1}` : ""))
           ),
           el("div.liste__fin",
             t.status === "graded"
@@ -329,6 +384,7 @@ export default async function vueExercice({ params }) {
       }).catch(() => {});
       succes("Exercice lancé", "Les élèves connectés le reçoivent immédiatement.");
       ongletActif = "suivi";
+      integre?.surLancement?.(exercice);
       peindreBarre(); await peindre();
     } catch (err) {
       erreur("Lancement impossible", messageErreur(err));
@@ -355,8 +411,9 @@ export default async function vueExercice({ params }) {
         });
         if (!sortie) return;
         Object.assign(exercice, await exercices.majorer(exercice.id, sortie));
-        aller(`/exercice/${exercice.id}`);
+        integre ? integre.ouvrir(exercice.id) : aller(`/exercice/${exercice.id}`);
       } },
+      { libelle: "Dupliquer / réutiliser…", icone: "plus", action: dupliquer },
       { libelle: "Correction automatique de toutes les copies", icone: "coche", action: async () => {
         const tentatives = await exercices.tentatives(exercice.id);
         const rendues = tentatives.filter((t) => t.status === "submitted");
@@ -374,7 +431,7 @@ export default async function vueExercice({ params }) {
         if (!await confirmer({ titre: "Supprimer l'exercice", message: `« ${exercice.title} » et toutes les copies seront perdus.`, libelle: "Supprimer", danger: true })) return;
         await exercices.supprimer(exercice.id);
         succes("Exercice supprimé");
-        aller("/exercices");
+        integre ? integre.fermer() : aller("/exercices");
       } }
     ]);
   }

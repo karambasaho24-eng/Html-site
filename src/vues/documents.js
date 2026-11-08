@@ -9,6 +9,7 @@ import { aller } from "../core/router.js";
 import { documents, dossiers, cahiers, journal, notifications } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { confirmer, demander, menu, ouvrirModale } from "../ui/modal.js";
+import { sortiePapier } from "../ui/animations.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { mesClassesEncadrees } from "../core/permissions.js";
 import { poids, depuis, pluriel } from "../core/util.js";
@@ -26,7 +27,7 @@ export default async function vueDocuments({ requete }) {
   const filArbre = el("div.ligne-flex.enrouler", { style: { marginBottom: "var(--e-4)" } });
 
   const noeud = el("div.page",
-    entete("Bibliothèque", "Documents",
+    entete("Fichiers de cours", "Bibliothèque",
       "PDF, images et fiches. Le professeur les distribue, les affiche en cours ou les convertit en pages de cahier.",
       peutImporter ? [
         el("button.btn", { onclick: creerDossier }, icone("dossier", 15), "Nouveau dossier"),
@@ -300,7 +301,9 @@ export default async function vueDocuments({ requete }) {
         libelle: "Supprimer", icone: "corbeille", danger: true,
         action: async () => {
           if (!await confirmer({ titre: "Supprimer le document", message: doc.title, libelle: "Supprimer", danger: true })) return;
-          await documents.supprimer(doc);
+          const sortie = sortiePapier(ancre.closest(".liste__item"), "jete");
+          try { await documents.supprimer(doc); }
+          catch (err) { sortie.annuler(); throw err; }
           toast("Document supprimé");
           await peindre();
         }
@@ -341,5 +344,5 @@ export default async function vueDocuments({ requete }) {
   }
 
   await peindre();
-  return { noeud, titre: "Documents" };
+  return { noeud, titre: "Bibliothèque" };
 }

@@ -14,24 +14,27 @@ import { icone } from "../ui/icons.js";
 import { pages as depotPages, temps, penseBetes } from "../data/index.js";
 import { assainirHTML, injecterHTML, texteBrut } from "../core/assainir.js";
 import { debounce, dateLongue, heure, depuis, clamp } from "../core/util.js";
-import { dateRP, REGLAGES_RP_DEFAUT } from "../core/rp.js";
 import { confirmer, demander, menu } from "../ui/modal.js";
+import { sortiePapier, ouvrirLivre, animationsActives } from "../ui/animations.js";
 import { toast, erreur, messageErreur } from "../ui/toast.js";
-import { etat } from "../core/store.js";
+import { etat, observer } from "../core/store.js";
+import {
+  reserver, peutProduire, coutTexte, coutPiece, bandeauEncre, estEncreEpuisee, estExempte,
+  MESSAGE_ENCRE_EPUISEE, synchroniserBientot
+} from "./encre.js";
 import { local } from "../core/util.js";
 
 const REGLURES = ["reglure", "quadrille", "blanc"];
 const COULEURS_REPERE = ["rouge", "bleu", "vert", "jaune", "violet"];
 const COULEURS_PENSE_BETE = ["jaune", "rose", "vert", "bleu", "orange"];
 
-/** Combien de pages tient chaque support. Une feuille n'en a qu'une. */
-export const CAPACITE_SUPPORT = { feuille: 1, cahier: 10, carnet: 20, dossier: 30 };
-
-const ANIMATION_REDUITE = () =>
-  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+const ANIMATION_REDUITE = () => !animationsActives();
 
 /**
- * creerEditeurCahier({ cahier, peutEcrire, pageInitiale, surPage, surCapture, compact, tempsReel })
+ * creerEditeurCahier({ cahier, peutEcrire, pageInitiale, surPage, compact, tempsReel })
+ *
+ * L'encre : écrire coûte de l'encre (voir encre.js). À court d'encre, la page
+ * reste lisible mais ne se laisse plus remplir ; la base fait foi.
  */
 export function creerEditeurCahier(options) {
   const {
@@ -41,18 +44,15 @@ export function creerEditeurCahier(options) {
     surPage = null,
     compact = false,
     tempsReel = false,
-    actionsSupplementaires = null,
-    rp = REGLAGES_RP_DEFAUT
+    actionsSupplementaires = null
   } = options;
 
   let corps = null;
   let piedTranche = null;
   let parcheminNoeud = null;
+  let livreOuvert = false;
   let minuteurTournage = null;
   let penseBetesPage = [];
-
-  const support = cahier.support || "cahier";
-  const capacite = cahier.max_pages || CAPACITE_SUPPORT[support] || 10;
 
   let listePages = [];
   let pageCourante = null;
@@ -77,7 +77,7 @@ export function creerEditeurCahier(options) {
       trancheListe,
       peutEcrire ? el("div.tranche__pied", { ref: (n) => { piedTranche = n; } }) : null
     ),
-    el("section.feuillet", barreFeuillet, zoneFeuillet)
+    el("section.feuillet", peutEcrire ? bandeauEncre() : null, barreFeuillet, zoneFeuillet)
   );
 
   /* --- Sauvegarde ----------------------------------------------------------
@@ -117,6 +117,8 @@ export function creerEditeurCahier(options) {
     ecrireBientot();
   }
 
+  // Vrai quand la base a refusé faute d'encre : on attend une recharge pour réessayer.
+  let attendEncre = false;
   const ecrireBientot = debounce(() => { vider(); }, 900);
 
   /** Écrit tout ce qui attend — page par page, jamais l'une pour l'autre. */
@@ -126,6 +128,7 @@ export function creerEditeurCahier(options) {
     direEtat("Enregistrement…");
 
     let dernierEchec = null;
+    let sansEncre = false;
     for (const [pageId, patch] of [...enAttente]) {
       try {
         const maj = await depotPages.majorer(pageId, patch);
@@ -140,10 +143,21 @@ export function creerEditeurCahier(options) {
         if (pageCourante?.id === pageId) pageCourante.updated_at = quand;
       } catch (err) {
         dernierEchec = err;
+        if (estEncreEpuisee(err)) sansEncre = true;
         console.warn("[cahier] écriture refusée", err);
       }
     }
     ecritureEnCours = false;
+
+    // Plus d'encre : la base refuse, le texte reste sur cet appareil (brouillon).
+    // On ne réessaie PAS en boucle : on reprend quand le solde remonte.
+    if (sansEncre) {
+      attendEncre = true;
+      direEtat("Plus d'encre — votre texte est gardé sur cet appareil", true, MESSAGE_ENCRE_EPUISEE);
+      synchroniserBientot();
+      return;
+    }
+    if (!dernierEchec) synchroniserBientot();
 
     // Une fausse bonne nouvelle est pire qu'une erreur : on ne dit
     // « enregistré » que si la base l'a confirmé.
@@ -232,7 +246,7 @@ export function creerEditeurCahier(options) {
             title: page.marker_label || "Repère",
             style: {
               width: "6px", height: "14px", borderRadius: "1px", flex: "0 0 auto",
-              background: `var(--repere-${page.marker_color}, #c9a227)`
+              background: `var(--repere-${page.marker_color}, #e8e8e8)`
             }
           })
         : null,
@@ -242,27 +256,19 @@ export function creerEditeurCahier(options) {
     )));
   }
 
-  /**
-   * Un support a une capacité. Une feuille volante n'a qu'une face ; un cahier
-   * en tient dix. Le bouton dit ce qu'il en reste plutôt que d'échouer après
-   * coup.
-   */
+  /** La limite de pages d'un cahier personnel (réglée par le PDG ; 0 = aucune ; exemptés : aucune). */
+  const pagesMax = () => (cahier.kind !== "personal" || estExempte() || !etat.commerce
+    ? 0 : Number(etat.commerce.pages_max || 0));
+  const cahierPlein = () => pagesMax() > 0 && listePages.length >= pagesMax();
+
   function peindrePiedTranche() {
     if (!piedTranche || !peutEcrire) return;
-    const reste = capacite - listePages.length;
-
+    const plein = cahierPlein();
     render(piedTranche,
       el("button.btn.btn--bloc", {
-        onclick: ajouterPage,
-        disabled: reste <= 0,
-        title: reste <= 0
-          ? `Ce ${support} est plein : ${capacite} pages.`
-          : `Encore ${reste} page${reste > 1 ? "s" : ""} disponible${reste > 1 ? "s" : ""}.`
-      }, icone("plus", 15), reste > 0 ? "Nouvelle page" : `${support} plein`),
-      reste > 0 && reste <= 3
-        ? el("p.petit.faible.centre", { style: { margin: "6px 0 0" } },
-            `Plus que ${reste} page${reste > 1 ? "s" : ""}.`)
-        : null
+        onclick: ajouterPage, disabled: plein,
+        title: plein ? `Ce cahier est plein : ${pagesMax()} pages au maximum.` : ""
+      }, icone("plus", 15), plein ? `Cahier plein (${pagesMax()} pages)` : "Nouvelle page")
     );
   }
 
@@ -338,11 +344,15 @@ export function creerEditeurCahier(options) {
     };
 
     render(barreFeuillet,
+      selecteurPagesCompact(),
       peutEcrire ? el("div.outils-texte",
         outil("Gras", "texte", commande("bold"), "B"),
         outil("Italique", "texte", commande("italic"), "I"),
         outil("Souligné", "texte", commande("underline"), "U"),
-        outil("Surligner", "surligneur", commande("hiliteColor", "#d8bd63")),
+        outil("Surligner", "surligneur", commande("hiliteColor", "#d9d9d9")),
+        sep(),
+        boutonMenu("Police d'écriture", "Aa", menuPolices),
+        boutonMenu("Taille du texte", "A↕", menuTailles),
         sep(),
         outil("Titre", "texte", commande("formatBlock", "<h2>"), "T1"),
         outil("Sous-titre", "texte", commande("formatBlock", "<h3>"), "T2"),
@@ -353,7 +363,6 @@ export function creerEditeurCahier(options) {
         outil("Citation", "texte", commande("formatBlock", "<blockquote>"), "❝"),
         sep(),
         outil("Image", "image", insererImage),
-        rp.hrpAutorise ? outil("Passage hors-roleplay", "texte", marquerHRP, "(( ))") : null,
         sep(),
         el("button.btn.btn--fantome.btn--icone", {
           type: "button", title: "Coller un pense-bête", "aria-label": "Coller un pense-bête",
@@ -384,7 +393,9 @@ export function creerEditeurCahier(options) {
           ].filter(Boolean))
         }, icone("drapeau", 15)),
         outil("Annuler", "annuler", commande("undo")),
-        outil("Refaire", "refaire", commande("redo"))
+        outil("Refaire", "refaire", commande("redo")),
+        sep(),
+        outil("Faire un calcul", "grille", calculer, "×÷")
       ) : el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule"),
 
       el("span.pousse"),
@@ -405,6 +416,85 @@ export function creerEditeurCahier(options) {
     );
   }
 
+  /**
+   * Dans une petite fenêtre (mode flottant), la liste des pages est masquée :
+   * à la place, un sélecteur tient sur une ligne. Il reste caché ailleurs (CSS).
+   */
+  function selecteurPagesCompact() {
+    if (compact) return null;
+    const i = listePages.findIndex((p) => p.id === pageCourante?.id);
+    const voisine = (delta) => {
+      const cible = listePages[i + delta];
+      if (cible) ouvrirPage(cible.id, "auto");
+    };
+    const bouton = (titre, nomIcone, action, desactive = false) => el("button.btn.btn--fantome.btn--icone", {
+      type: "button", title: titre, "aria-label": titre, disabled: desactive, onclick: action
+    }, icone(nomIcone, 15));
+    return el("div.pages-compactes",
+      bouton("Page précédente", "chevronG", () => voisine(-1), i <= 0),
+      el("select.pages-compactes__liste", {
+        "aria-label": "Page du cahier",
+        onchange: (e) => ouvrirPage(e.target.value, "auto")
+      }, listePages.map((p, k) => el("option",
+        { value: p.id, selected: p.id === pageCourante?.id }, `${k + 1}. ${p.title || "Sans titre"}`))),
+      bouton("Page suivante", "chevronD", () => voisine(1), i < 0 || i >= listePages.length - 1),
+      peutEcrire ? bouton(cahierPlein() ? "Cahier plein" : "Nouvelle page", "plus", ajouterPage, cahierPlein()) : null
+    );
+  }
+
+  /* --- Police et taille : l'écriture n'est pas uniforme ----------------------- */
+  const POLICES = [
+    { nom: "Stylo bille", famille: "Kalam" },
+    { nom: "Écriture rapide", famille: "Caveat" },
+    { nom: "Feutre", famille: "Patrick Hand" },
+    { nom: "Imprimé", famille: "Spectral" }
+  ];
+  // Les tailles du navigateur (1 à 7) : « 3 » est la taille normale.
+  const TAILLES = [
+    { nom: "Petit", valeur: "2" }, { nom: "Normal", valeur: "3" },
+    { nom: "Moyen", valeur: "4" }, { nom: "Grand", valeur: "5" }, { nom: "Très grand", valeur: "6" }
+  ];
+
+  /** On garde la sélection : ouvrir un menu ne doit pas la faire perdre. */
+  function garderSelection() {
+    const sel = corps?.ownerDocument?.getSelection?.();
+    return sel && sel.rangeCount && corps.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
+  }
+
+  function appliquerStyle(plage, nom, valeur) {
+    if (!corps) return;
+    const doc = corps.ownerDocument;
+    corps.focus();
+    if (plage) {
+      const sel = doc.getSelection();
+      sel.removeAllRanges(); sel.addRange(plage);
+    }
+    doc.execCommand("styleWithCSS", false, true);     // des <span style>, pas des <font>
+    doc.execCommand(nom, false, valeur);
+    capturerCorps();
+  }
+
+  function menuPolices(ancre, plage) {
+    menu(ancre, [
+      { titre: "Police d'écriture" },
+      ...POLICES.map((p) => ({ libelle: p.nom, action: () => appliquerStyle(plage, "fontName", p.famille) }))
+    ]);
+  }
+  function menuTailles(ancre, plage) {
+    menu(ancre, [
+      { titre: "Taille du texte" },
+      ...TAILLES.map((t) => ({ libelle: t.nom, action: () => appliquerStyle(plage, "fontSize", t.valeur) }))
+    ]);
+  }
+
+  function boutonMenu(titre, texte, ouvrir) {
+    return el("button.btn.btn--fantome.btn--icone", {
+      type: "button", title: titre, "aria-label": titre,
+      onmousedown: (e) => e.preventDefault(),
+      onclick: (e) => ouvrir(e.currentTarget, garderSelection())
+    }, el("span.petit.mono", texte));
+  }
+
   function outil(titre, nomIcone, action, texte = null) {
     return el("button.btn.btn--fantome.btn--icone", {
       type: "button", title: titre, "aria-label": titre,
@@ -414,7 +504,7 @@ export function creerEditeurCahier(options) {
   }
 
   function sep() {
-    return el("span", { style: { width: "1px", height: "18px", background: "var(--ligne)", margin: "0 4px" } });
+    return el("span", { style: { width: "1px", height: "18px", background: "var(--b2)", margin: "0 4px" } });
   }
 
   /**
@@ -425,15 +515,13 @@ export function creerEditeurCahier(options) {
   function peindreParchemin() {
     if (!pageCourante) return;
 
-    parcheminNoeud = el("article.parchemin", {
-      class: support === "feuille" ? "parchemin--feuille" : ""
-    });
+    parcheminNoeud = el("article.parchemin");
     const reperes = el("div.reperes");
+    const relieur = el("div.relieur", parcheminNoeud, reperes);
 
-    render(zoneFeuillet,
-      el("div.relieur", { class: support === "feuille" ? "relieur--feuille" : "" },
-        parcheminNoeud, reperes)
-    );
+    render(zoneFeuillet, relieur);
+    // Le livre ne s'ouvre qu'à l'arrivée dans le cahier, pas à chaque page tournée.
+    if (!livreOuvert && !compact) { livreOuvert = true; ouvrirLivre(relieur); }
     remplirParchemin();
   }
 
@@ -443,13 +531,26 @@ export function creerEditeurCahier(options) {
       : reglure === "blanc" ? "" : "parchemin--reglure";
 
     corps = el("div.parchemin__corps", {
-      contenteditable: peutEcrire ? "true" : "false",
+      contenteditable: peutEcrire && peutProduire() ? "true" : "false",
       // Une page vide qu'on ne peut pas remplir n'invite à rien : en
       // consultation, elle est simplement vide.
       "data-vide": peutEcrire ? "Commencez à écrire…" : "Cette page est restée blanche.",
       spellcheck: "true",
       role: "textbox", "aria-multiline": "true", "aria-label": "Contenu de la page",
       oninput: capturerCorps,
+      onbeforeinput: (e) => {
+        if (!peutEcrire) return;
+        const type = String(e.inputType);
+        // Effacer, annuler, mettre en forme : ne produit aucun texte, jamais refusé.
+        if (type.startsWith("delete") || type.startsWith("history") || type.startsWith("format")) return;
+        const saisi = e.data != null ? e.data.length
+          : String(e.dataTransfer?.getData?.("text/plain") || "").length || 1;
+        if (!reserver(coutTexte(saisi))) {
+          e.preventDefault();
+          signalerManque({ message: MESSAGE_ENCRE_EPUISEE });
+        }
+      },
+      onclick: () => { if (peutEcrire && !peutProduire()) signalerManque({ message: MESSAGE_ENCRE_EPUISEE }); },
       onfocus: () => { enEdition = true; },
       onblur: () => { enEdition = false; viderMaintenant(); },
       onpaste: (e) => {
@@ -464,7 +565,7 @@ export function creerEditeurCahier(options) {
     const titre = el("input.parchemin__titre", {
       value: pageCourante.title || "",
       placeholder: "Titre de la page",
-      readonly: !peutEcrire,
+      readonly: !peutEcrire || !peutProduire(),
       "aria-label": "Titre de la page",
       oninput: (e) => {
         pageCourante.title = e.target.value;
@@ -477,16 +578,12 @@ export function creerEditeurCahier(options) {
 
     const numero = listePages.findIndex((p) => p.id === pageCourante.id) + 1;
 
-    parcheminNoeud.className = `parchemin ${classeReglure}`
-      + (support === "feuille" ? " parchemin--feuille" : "");
+    parcheminNoeud.className = `parchemin ${classeReglure}`;
 
     render(parcheminNoeud,
         el("header.parchemin__entete",
           titre,
-          el("span", {
-            class: rp.actif ? "parchemin__date date-rp" : "parchemin__date",
-            title: rp.actif ? dateLongue(pageCourante.created_at) : null
-          }, rp.actif ? dateRP(pageCourante.created_at, rp) : dateLongue(pageCourante.created_at))
+          el("span.parchemin__date", dateLongue(pageCourante.created_at))
         ),
         pageCourante.drawing?.image ? el("figure.parchemin__capture",
           el("img", { src: pageCourante.drawing.image, alt: "Capture du tableau", loading: "lazy" }),
@@ -494,9 +591,7 @@ export function creerEditeurCahier(options) {
         ) : null,
         corps,
         el("footer.parchemin__pied",
-          el("span", support === "feuille"
-            ? cahier.title
-            : `${cahier.title} — page ${numero} / ${listePages.length}`),
+          el("span", `${cahier.title} — page ${numero} / ${listePages.length}`),
           el("span", pageCourante.updated_at ? `Modifiée ${depuis(pageCourante.updated_at)}` : "Nouvelle page")
         )
     );
@@ -578,9 +673,17 @@ export function creerEditeurCahier(options) {
     /* Le texte vit dans son propre nœud : un conteneur dont le seul enfant est
        un bouton non éditable n'offre aucune place au curseur. */
     const texte = el("div.pense-bete__texte", {
-      contenteditable: peutEcrire ? "true" : "false",
+      contenteditable: peutEcrire && peutProduire() ? "true" : "false",
       spellcheck: "true",
       "data-invite": "Note…",
+      onbeforeinput: (e) => {
+        const type = String(e.inputType);
+        if (type.startsWith("delete") || type.startsWith("history") || type.startsWith("format")) return;
+        if (!reserver(coutTexte(e.data != null ? e.data.length : 1))) {
+          e.preventDefault();
+          signalerManque({ message: MESSAGE_ENCRE_EPUISEE });
+        }
+      },
       oninput: (e) => {
         mot.body = e.currentTarget.textContent;
         enregistrer({ body: mot.body });
@@ -625,18 +728,21 @@ export function creerEditeurCahier(options) {
         noeud.style.left = `${x * 100}%`;
         noeud.style.top = `${y * 100}%`;
       };
+      // La fenêtre du cahier : en fenêtre flottante, ce n'est pas `window`.
+      const fen = noeud.ownerDocument?.defaultView || window;
       const surRelache = () => {
-        window.removeEventListener("pointermove", surMouvement);
-        window.removeEventListener("pointerup", surRelache);
+        fen.removeEventListener("pointermove", surMouvement);
+        fen.removeEventListener("pointerup", surRelache);
         if (bouge) enregistrer({ x: mot.x, y: mot.y });
       };
-      window.addEventListener("pointermove", surMouvement);
-      window.addEventListener("pointerup", surRelache);
+      fen.addEventListener("pointermove", surMouvement);
+      fen.addEventListener("pointerup", surRelache);
     });
   }
 
   async function collerPenseBete(couleur = "jaune") {
     if (!pageCourante || !peutEcrire) return;
+    if (!peutProduire()) { signalerManque({ message: MESSAGE_ENCRE_EPUISEE }); return; }
     try {
       const mot = await penseBetes.creer({
         page_id: pageCourante.id,
@@ -656,27 +762,49 @@ export function creerEditeurCahier(options) {
     }
   }
 
+  /** On dit ce qui manque, une fois toutes les quelques secondes — pas à
+   *  chaque frappe. */
+  let dernierSignal = 0;
+  function signalerManque(verdict) {
+    if (Date.now() - dernierSignal < 2500) return;
+    dernierSignal = Date.now();
+    toast(verdict.message || "Impossible", { corps: verdict.conseil || "", type: "attn", duree: 6000 });
+  }
+
+  /**
+   * Faire un calcul : le résultat s'écrit dans la page (et coûte donc de l'encre
+   * comme tout ce qu'on y écrit).
+   */
+  async function calculer() {
+    if (!peutProduire()) { signalerManque({ message: MESSAGE_ENCRE_EPUISEE }); return; }
+    const expression = await demander({
+      titre: "Faire un calcul", label: "Opération", placeholder: "12 × 7 + 3",
+      aide: "Chiffres, + − × ÷, parenthèses. Le résultat s'écrira dans la page."
+    });
+    if (!expression) return;
+    const normale = expression.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/,/g, ".");
+    if (!/^[\d\s+\-*/().]+$/.test(normale)) {
+      toast("Ce n'est pas une opération", { type: "attn" });
+      return;
+    }
+    let resultat;
+    try { resultat = Function(`"use strict"; return (${normale});`)(); }
+    catch { toast("Opération illisible", { type: "attn" }); return; }
+    if (!Number.isFinite(resultat)) { toast("Résultat impossible", { type: "attn" }); return; }
+    const arrondi = Math.round(resultat * 1e6) / 1e6;
+    corps?.focus();
+    document.execCommand("insertText", false, `${expression.trim()} = ${String(arrondi).replace(".", ",")}`);
+    capturerCorps();
+  }
+
   function capturerCorps() {
     if (!pageCourante || !corps) return;
     pageCourante.body = assainirHTML(corps.innerHTML);
     noter(pageCourante);
   }
 
-  /**
-   * Met la sélection à part comme passage hors-roleplay. Sans sélection, pose
-   * un marqueur où écrire. La classe « hrp » fait partie de la liste blanche
-   * de l'assainisseur : elle survit à l'enregistrement et au rechargement.
-   */
-  function marquerHRP() {
-    const selection = window.getSelection();
-    const texte = selection && !selection.isCollapsed ? selection.toString() : "";
-    const echappe = texte.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
-    document.execCommand("insertHTML", false,
-      `<span class="hrp">${echappe || "hors roleplay"}</span>&nbsp;`);
-    capturerCorps();
-  }
-
   async function insererImage() {
+    if (!reserver(coutPiece())) { signalerManque({ message: MESSAGE_ENCRE_EPUISEE }); return; }
     const url = await demander({
       titre: "Insérer une image",
       label: "Adresse de l'image",
@@ -691,10 +819,8 @@ export function creerEditeurCahier(options) {
 
   /* --- Actions sur les pages ------------------------------------------------ */
   async function ajouterPage() {
-    if (listePages.length >= capacite) {
-      toast(`Ce ${support} est plein`, {
-        corps: `Il ne tient que ${capacite} page${capacite > 1 ? "s" : ""}.`, type: "attn"
-      });
+    if (cahierPlein()) {
+      toast("Ce cahier est plein", { corps: `Il tient ${pagesMax()} pages au maximum. Un autre cahier se commande en boutique.`, type: "attn" });
       return;
     }
     try {
@@ -706,7 +832,10 @@ export function creerEditeurCahier(options) {
       peindreTranche();
       ouvrirPage(page.id, "auto");
     } catch (err) {
-      erreur("Ajout impossible", messageErreur(err));
+      if (err?.code === "PG001") {
+        toast("Ce cahier est plein", { corps: messageErreur(err), type: "attn" });
+        peindrePiedTranche();
+      } else erreur("Ajout impossible", messageErreur(err));
     }
   }
 
@@ -744,7 +873,9 @@ export function creerEditeurCahier(options) {
             libelle: "Supprimer", danger: true
           });
           if (!ok) return;
-          await depotPages.supprimer(page.id);
+          const sortie = sortiePapier(ancre.closest(".onglet-page") || ancre, "jete");
+          try { await depotPages.supprimer(page.id); }
+          catch (err) { sortie.annuler(); throw err; }
           if (pageCourante?.id === page.id) pageCourante = null;
           await charger();
         }
@@ -794,6 +925,24 @@ export function creerEditeurCahier(options) {
     });
   }
 
+  /* --- L'encre ---------------------------------------------------------------
+     Épuisée, la page se lit mais ne se remplit plus ; rechargée, tout se rouvre
+     sans quitter la page, et ce qui attendait d'être enregistré repart. */
+  function appliquerEncre() {
+    const libre = peutEcrire && peutProduire();
+    racine.classList.toggle("cahier--sans-encre", peutEcrire && !peutProduire());
+    if (corps) {
+      corps.setAttribute("contenteditable", libre ? "true" : "false");
+      corps.setAttribute("data-vide", libre ? "Commencez à écrire…"
+        : peutEcrire ? "Plus d'encre — cette page reste lisible." : "Cette page est restée blanche.");
+    }
+    for (const t of racine.querySelectorAll(".pense-bete__texte")) t.setAttribute("contenteditable", libre ? "true" : "false");
+    const champTitre = racine.querySelector(".parchemin__titre");
+    if (champTitre) champTitre.readOnly = !libre;
+    if (libre && attendEncre && enAttente.size) { attendEncre = false; vider(); }
+  }
+  const quitterEncre = observer("commerce", appliquerEncre);
+
   // Trois occasions de partir : fermer, masquer l'onglet, basculer sur le
   // jeu. Le brouillon est déjà écrit, mais autant tenter la base.
   const surFermeture = () => viderMaintenant();
@@ -816,6 +965,7 @@ export function creerEditeurCahier(options) {
       window.removeEventListener("pagehide", surFermeture);
       document.removeEventListener("visibilitychange", surMasquage);
       abonnement?.fermer();
+      quitterEncre();
     }
   };
 }

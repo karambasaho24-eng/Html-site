@@ -65,6 +65,7 @@ function correspond(ligne, filtre) {
         : valeur.operateur === "lt" ? v < c
         : valeur.operateur === "lte" ? v <= c
         : valeur.operateur === "neq" ? v !== c
+        : valeur.operateur === "ilike" ? new RegExp(`^${String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "i").test(String(v ?? ""))
         : v === c;
       if (!ok) return false;
     }
@@ -85,6 +86,235 @@ function analyserFiltreTemps(expression) {
   }
   return (ligne) => String(ligne?.[colonne]) === brut;
 }
+
+/* --- Qui nomme qui, la remise vérifiée, le journal (0029) -----------------
+   Les mêmes règles qu'en base, pour que la démonstration ne laisse pas
+   passer ce que le serveur refuse. */
+let quiSuisJe = () => null;
+const roleDe = (id) => charger("profiles").find((p) => p.id === id)?.role_key || null;
+const peutNommer = () => ["pdg", "super_admin", "admin"].includes(roleDe(quiSuisJe()));
+const estPDG = (id) => roleDe(id) === "pdg";
+const exigerBoutique = () => {
+  if (!["pdg", "super_admin"].includes(roleDe(quiSuisJe()))) {
+    throw new ErreurDonnees("Réservé à l'administration de la boutique.", "42501");
+  }
+};
+const estModerateurLocal = () => ["moderator", "admin", "super_admin", "pdg"].includes(roleDe(quiSuisJe()));
+const pareil = (a, b) => (a ?? null) === (b ?? null);
+
+let codeDeRole = null;                 // l'équivalent de app.code_de_role (0030)
+function gardeProfil(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!moi) return nouveau;
+  if (ancien && codeDeRole === ancien.id) return nouveau;
+  if (!ancien) {
+    if (!peutNommer()) Object.assign(nouveau, { role_key: "student", titre: null, titre_libelle: null });
+    return nouveau;
+  }
+  if (!pareil(nouveau.role_key, ancien.role_key)) {
+    if (!peutNommer()) throw new ErreurDonnees("Seule l'administration change un rôle.", "42501");
+    if (ancien.id === moi) throw new ErreurDonnees("On ne change pas son propre rôle.", "42501");
+    if ((["pdg", "super_admin"].includes(nouveau.role_key) || ["pdg", "super_admin"].includes(ancien.role_key)) && !estPDG(moi)) {
+      throw new ErreurDonnees("Seul le PDG fait ou défait un super administrateur.", "42501");
+    }
+  }
+  if ((!pareil(nouveau.titre, ancien.titre) || !pareil(nouveau.titre_libelle, ancien.titre_libelle)) && !peutNommer()) {
+    throw new ErreurDonnees("Un titre est attribué par l'administration.", "42501");
+  }
+  return nouveau;
+}
+
+/** La sanction de compte en vigueur (app_sanction_active, 0033). */
+function sanctionActive(cible) {
+  if (!cible) return null;
+  return charger("sanctions")
+    .filter((s) => s.user_id === cible && !s.levee_at
+      && (["definitif", "ip"].includes(s.genre) || (s.genre === "temporaire" && new Date(s.jusqua).getTime() > Date.now())))
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0] || null;
+}
+
+/* --- La boutique : miroir des migrations 0039 et 0041 -------------------
+   Mêmes règles, mêmes codes d'erreur (IK001 encre épuisée, NB001 cahier à
+   acheter, PG001 cahier plein) : sans cela, la démonstration laisserait écrire
+   ce que le serveur refuse. ATTENTION : ici rien n'est protégé (tout vit dans le
+   navigateur). Le paiement se fait EN JEU : le site n'en traite aucun, et seule
+   la livraison d'une commande par le PDG crédite de l'encre ou un cahier. */
+const REGLAGES_DEFAUT = {
+  free_notebooks: 1, starter_ink: 3000, char_cost: 1, stroke_cost: 20, attachment_cost: 500, max_pages: 10,
+  exempt_roles: ["pdg", "super_admin", "admin", "director", "teacher", "instructor"],
+  orders_open: true, currency: ""
+};
+function reglage(cle) {
+  const ligne = charger("commerce_settings").find((l) => l.key === cle);
+  return ligne ? ligne.value : REGLAGES_DEFAUT[cle];
+}
+const exempteEncre = (uid) => (reglage("exempt_roles") || []).includes(roleDe(uid));
+const mesureTexte = (t) => String(t || "").replace(/<[^>]*>/g, "").replace(/&[a-zA-Z0-9#]{2,8};/g, " ").length;
+const nbElements = (j) => (Array.isArray(j) ? j.length : 0);
+const nbImages = (t) => (String(t || "").toLowerCase().match(/<img/g) || []).length;
+
+function inscrireEncre(uid, delta, raison, note = null, acteur = null, achat = null) {
+  const lignes = charger("ink_ledger");
+  lignes.push({ id: uid_(), user_id: uid, delta, reason: raison, purchase_id: achat, note, actor: acteur,
+                created_at: new Date().toISOString() });
+  sauver("ink_ledger", lignes);
+}
+const uid_ = () => uid();
+
+/** Un portefeuille et un compteur pour chaque compte ; les cahiers déjà là comptent comme créés ET couverts. */
+function assurerCommerce(uid) {
+  if (!uid) return;
+  const portefeuilles = charger("ink_wallets");
+  if (!portefeuilles.some((w) => w.user_id === uid)) {
+    const depart = Number(reglage("starter_ink") || 0);
+    portefeuilles.push({ id: uid, user_id: uid, granted_total: depart, spent_total: 0,
+                         updated_at: new Date().toISOString() });
+    sauver("ink_wallets", portefeuilles);
+    if (depart > 0) inscrireEncre(uid, depart, "starter", "Réserve offerte à la création du compte");
+  }
+  const compteurs = charger("notebook_quota");
+  if (!compteurs.some((q) => q.user_id === uid)) {
+    const existants = charger("notebooks").filter((n) => n.owner_id === uid && n.kind === "personal").length;
+    compteurs.push({ id: uid, user_id: uid, created_total: existants, credits_purchased: 0,
+                     credits_granted: Math.max(0, existants - Number(reglage("free_notebooks") ?? 1)),
+                     updated_at: new Date().toISOString() });
+    sauver("notebook_quota", compteurs);
+  }
+}
+
+function debiterEncre(uid, cout) {
+  if (!uid || !(cout > 0) || exempteEncre(uid)) return;
+  assurerCommerce(uid);
+  const portefeuilles = charger("ink_wallets");
+  const w = portefeuilles.find((x) => x.user_id === uid);
+  const solde = w.granted_total - w.spent_total;
+  if (solde < cout) {
+    throw new ErreurDonnees(`Encre épuisée : il reste ${solde} et cette écriture en demande ${cout}.`, "IK001");
+  }
+  w.spent_total += cout;
+  w.updated_at = new Date().toISOString();
+  sauver("ink_wallets", portefeuilles);
+  signaler("ink_wallets", "UPDATE", { ...w });
+}
+
+function gardeEncrePages(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!moi) return nouveau;
+  const car = Number(reglage("char_cost") ?? 1), piece = Number(reglage("attachment_cost") ?? 500);
+  const cout = !ancien
+    ? mesureTexte(nouveau.body) * car + (nbElements(nouveau.attachments) + nbImages(nouveau.body)) * piece
+    : Math.max(0, mesureTexte(nouveau.body) - mesureTexte(ancien.body)) * car
+      + Math.max(0, (nbElements(nouveau.attachments) + nbImages(nouveau.body))
+                  - (nbElements(ancien.attachments) + nbImages(ancien.body))) * piece;
+  debiterEncre(moi, cout);
+  return nouveau;
+}
+
+function gardeEncrePenseBetes(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!moi) return nouveau;
+  const car = Number(reglage("char_cost") ?? 1);
+  debiterEncre(moi, Math.max(0, mesureTexte(nouveau.body) - (ancien ? mesureTexte(ancien.body) : 0)) * car);
+  return nouveau;
+}
+
+function gardeEncreTableau(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (!moi || ancien) return nouveau;          // seul l'AJOUT d'un élément coûte
+  const cout = nouveau.kind === "texte" ? String(nouveau.data?.texte || "").length * Number(reglage("char_cost") ?? 1)
+    : nouveau.kind === "image" ? Number(reglage("attachment_cost") ?? 500)
+    : Number(reglage("stroke_cost") ?? 20);
+  debiterEncre(moi, cout);
+  return nouveau;
+}
+
+/** Un cahier personnel est plein à max_pages pages (0 = pas de limite). Exemptés : jamais limités. */
+function gardeLimitePages(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (ancien || !moi) return;
+  const maxi = Number(reglage("max_pages") ?? 10);
+  if (maxi <= 0 || exempteEncre(moi)) return;
+  const cahier = charger("notebooks").find((n) => n.id === nouveau.notebook_id);
+  if (!cahier || cahier.kind !== "personal") return;
+  if (charger("notebook_pages").filter((p) => p.notebook_id === nouveau.notebook_id).length >= maxi) {
+    throw new ErreurDonnees(`Ce cahier est plein : ${maxi} pages au maximum.`, "PG001");
+  }
+}
+
+function gardeQuotaCahiers(ancien, nouveau) {
+  const moi = quiSuisJe();
+  if (ancien || !moi || nouveau.kind !== "personal" || !nouveau.owner_id) return nouveau;
+  assurerCommerce(nouveau.owner_id);
+  const compteurs = charger("notebook_quota");
+  const q = compteurs.find((x) => x.user_id === nouveau.owner_id);
+  const permis = Number(reglage("free_notebooks") ?? 1) + q.credits_purchased + q.credits_granted;
+  if (q.created_total >= permis && !exempteEncre(nouveau.owner_id)) {
+    throw new ErreurDonnees(
+      `Un cahier supplémentaire s'achète : ${q.created_total} cahier(s) déjà créé(s), ${permis} autorisé(s).`, "NB001");
+  }
+  q.created_total += 1;                         // jamais décrémenté : supprimer ne rend rien
+  q.updated_at = new Date().toISOString();
+  sauver("notebook_quota", compteurs);
+  return nouveau;
+}
+
+/** 0048 : un objet tendu est verrouillé jusqu'à la réponse (seul son changement de main passe). */
+function verrouRemise(table, colonne, id) {
+  if (quiSuisJe() && charger(table).some((r) => r[colonne] === id && r.state === "offered")) {
+    throw new ErreurDonnees("Cet objet est tendu : attendez la réponse, ou reprenez-le.", "42501");
+  }
+}
+
+const GARDES = {
+  profiles: gardeProfil,
+  notebooks: (ancien, nouveau) => {
+    if (ancien && ancien.owner_id === nouveau.owner_id) verrouRemise("notebook_handoffs", "notebook_id", nouveau.id);
+    return gardeQuotaCahiers(ancien, nouveau);
+  },
+  notebook_pages: (ancien, nouveau) => {
+    verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id);
+    gardeLimitePages(ancien, nouveau); return gardeEncrePages(ancien, nouveau);
+  },
+  // Miroir des index « une remise en cours par objet » (paper_handoffs_une_offre, nb_handoffs_en_cours).
+  paper_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("paper_handoffs", "paper_id", nouveau.paper_id); return nouveau; },
+  notebook_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id); return nouveau; },
+  sticky_notes: gardeEncrePenseBetes,
+  papers: (ancien, nouveau) => {
+    if (ancien && ancien.holder_id === nouveau.holder_id) verrouRemise("paper_handoffs", "paper_id", nouveau.id);
+    return gardeEncrePenseBetes(ancien, nouveau);
+  },
+  board_elements: gardeEncreTableau
+};
+
+/** Une ligne au journal, comme app_journaliser. */
+function journaliser(qui, quoi, meta = {}, classe = null, seance = null) {
+  const lignes = charger("activity_logs");
+  const ligne = {
+    id: uid(), created_at: new Date().toISOString(),
+    class_id: classe || null, session_id: seance || null, user_id: qui || null, action: quoi, meta
+  };
+  lignes.push(ligne);
+  sauver("activity_logs", lignes);
+  signaler("activity_logs", "INSERT", ligne);
+}
+
+/* Ce que les déclencheurs inscrivent d'eux-mêmes. */
+const APRES = {
+  profiles(type, n, a) {
+    if (type === "INSERT") { assurerCommerce(n.id); return; }
+    if (type !== "UPDATE") return;
+    if (!pareil(n.role_key, a.role_key)) {
+      journaliser(quiSuisJe() || n.id, "compte.role", { cible: n.id, nom: n.display_name, avant: a.role_key, apres: n.role_key });
+    }
+    if (!pareil(n.titre, a.titre) || !pareil(n.titre_libelle, a.titre_libelle)) {
+      journaliser(quiSuisJe() || n.id, "compte.titre",
+        { cible: n.id, nom: n.display_name, avant: a.titre || null, apres: n.titre || null, libelle: n.titre_libelle || null });
+    }
+  },
+  moderation_notes(type, n) {
+    if (type === "INSERT") journaliser(n.author_id, "moderation.note", { cible: n.target_id, genre: n.target_kind, verdict: n.verdict });
+  }
+};
 
 /* --- Dépôt générique ------------------------------------------------------ */
 function depot(nom) {
@@ -116,6 +346,7 @@ function depot(nom) {
         ...objet,
         id: objet.id || uid()
       };
+      if (GARDES[nom]) GARDES[nom](null, ligne);
 
       // Équivalent du déclencheur classes_set_code côté SQL.
       if (nom === "classes" && !ligne.code) {
@@ -123,32 +354,10 @@ function depot(nom) {
         while (lignes.some((l) => l.code === ligne.code));
       }
 
-      // Équivalent du déclencheur apply_promotion : une promotion inscrite au
-      // livret change le grade porté sur la fiche. Sans cela, les deux
-      // divergent dès la première montée en grade.
-      if (nom === "service_records" && ligne.kind === "promotion"
-          && String(ligne.rank_to || "").trim()) {
-        const fiches = charger("rp_profiles");
-        let touchee = false;
-        for (const f of fiches) {
-          if (f.class_id === ligne.class_id && f.user_id === ligne.user_id) {
-            f.rank = ligne.rank_to;
-            f.updated_at = new Date().toISOString();
-            touchee = true;
-          }
-        }
-        if (touchee) {
-          sauver("rp_profiles", fiches);
-          for (const f of fiches) {
-            if (f.class_id === ligne.class_id && f.user_id === ligne.user_id) {
-              signaler("rp_profiles", "UPDATE", f, null);
-            }
-          }
-        }
-      }
       lignes.push(ligne);
       sauver(nom, lignes);
       signaler(nom, "INSERT", ligne);
+      APRES[nom]?.("INSERT", ligne, null);
       return { ...ligne };
     },
     async creerPlusieurs(objets) {
@@ -161,9 +370,11 @@ function depot(nom) {
       const i = lignes.findIndex((l) => l.id === id);
       if (i < 0) throw new ErreurDonnees("Élément introuvable", "P0002");
       const ancien = { ...lignes[i] };
-      lignes[i] = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+      const fusion = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+      lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
       sauver(nom, lignes);
       signaler(nom, "UPDATE", lignes[i], ancien);
+      APRES[nom]?.("UPDATE", lignes[i], ancien);
       return { ...lignes[i] };
     },
     async majorerOu(filtre, patch) {
@@ -172,11 +383,12 @@ function depot(nom) {
       for (let i = 0; i < lignes.length; i++) {
         if (!correspond(lignes[i], filtre)) continue;
         const ancien = { ...lignes[i] };
-        lignes[i] = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+        const fusion = { ...lignes[i], ...patch, updated_at: new Date().toISOString() };
+        lignes[i] = GARDES[nom] ? GARDES[nom](ancien, fusion) : fusion;
         touchees.push({ nouveau: lignes[i], ancien });
       }
       sauver(nom, lignes);
-      for (const t of touchees) signaler(nom, "UPDATE", t.nouveau, t.ancien);
+      for (const t of touchees) { signaler(nom, "UPDATE", t.nouveau, t.ancien); APRES[nom]?.("UPDATE", t.nouveau, t.ancien); }
       return touchees.map((t) => ({ ...t.nouveau }));
     },
     async inserer(objet, conflit) {
@@ -195,6 +407,7 @@ function depot(nom) {
       const lignes = charger(nom);
       const i = lignes.findIndex((l) => l.id === id);
       if (i < 0) return true;
+      APRES[nom]?.("DELETE", null, lignes[i]);
       const [ancien] = lignes.splice(i, 1);
       sauver(nom, lignes);
       signaler(nom, "DELETE", null, ancien);
@@ -205,6 +418,7 @@ function depot(nom) {
       const restantes = [];
       const retirees = [];
       for (const l of lignes) (correspond(l, filtre) ? retirees : restantes).push(l);
+      for (const r of retirees) APRES[nom]?.("DELETE", null, r);
       sauver(nom, restantes);
       for (const r of retirees) signaler(nom, "DELETE", null, r);
       return true;
@@ -296,146 +510,234 @@ export async function creerPiloteLocal() {
   }
 
   const monId = () => sessionCourante()?.user?.id || null;
+  quiSuisJe = monId;
 
   /* --- Procédures métier (équivalents des fonctions SQL) ----------------- */
   const procedures = {
-    /**
-     * Accepter un cahier qu'on nous tend. En base, seule une fonction
-     * SECURITY DEFINER peut changer un propriétaire ; ici il n'y a personne
-     * à convaincre, mais la même règle doit valoir pour que les deux pilotes
-     * se comportent pareil.
-     */
-    async accept_notebook_handoff({ handoff }) {
-      const ligne = await t("notebook_handoffs").lire(handoff);
-      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
-      if (ligne.to_user !== monId()) {
-        throw new ErreurDonnees("Ce cahier ne vous est pas tendu", "42501");
-      }
-      if (ligne.state !== "offered") {
-        throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
-      }
-      if (ligne.kind === "give") {
-        await t("notebooks").majorer(ligne.notebook_id, { owner_id: ligne.to_user });
-      }
-      return t("notebook_handoffs").majorer(handoff, {
-        state: "accepted", settled_at: new Date().toISOString()
-      });
+
+
+
+
+
+
+
+
+
+
+    /* --- La boutique (miroir de 0039) ------------------------------------ */
+    async mon_commerce() {
+      const moi = monId();
+      if (!moi) throw new ErreurDonnees("Connexion requise.", "42501");
+      assurerCommerce(moi);
+      const w = charger("ink_wallets").find((x) => x.user_id === moi);
+      const q = charger("notebook_quota").find((x) => x.user_id === moi);
+      const permis = Number(reglage("free_notebooks") ?? 1) + q.credits_purchased + q.credits_granted;
+      return {
+        exempte: exempteEncre(moi),
+        encre: { solde: w.granted_total - w.spent_total, recu: w.granted_total, consomme: w.spent_total },
+        cahiers: { crees: q.created_total, autorises: permis, restants: Math.max(0, permis - q.created_total) },
+        regles: {
+          cout_caractere: Number(reglage("char_cost") ?? 1),
+          cout_trace: Number(reglage("stroke_cost") ?? 20),
+          cout_piece: Number(reglage("attachment_cost") ?? 500)
+        },
+        pages_max: Number(reglage("max_pages") ?? 10),
+        commandes_ouvertes: reglage("orders_open") !== false
+      };
     },
 
-    /**
-     * Accepter un objet qu'on nous tend, ou la demande qu'on nous a faite.
-     * En base, seule une fonction SECURITY DEFINER peut déplacer un objet ;
-     * ici il n'y a personne à convaincre, mais la même règle doit valoir —
-     * sinon le mode démonstration autoriserait des gestes que le mode normal
-     * refuse, et on croirait avoir écrit du code qui marche.
-     */
-    async accept_belonging_handoff({ handoff, chosen = null }) {
-      const ligne = await t("belonging_handoffs").lire(handoff);
-      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
-      if (ligne.state !== "offered") {
-        throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
+    /** La missive de commande : rien n'est payé, rien n'est crédité. */
+    async passer_commande({ target_sku, note = null }) {
+      const moi = monId();
+      if (!moi) throw new ErreurDonnees("Connexion requise.", "42501");
+      if (reglage("orders_open") === false) throw new ErreurDonnees("Les commandes sont fermées pour le moment.", "PA001");
+      const produit = charger("products").find((p) => p.sku === target_sku && p.active);
+      if (!produit) throw new ErreurDonnees("Ce produit n'est pas en vente.", "PA002");
+      if (note && String(note).length > 300) throw new ErreurDonnees("Votre message est trop long (300 caractères au plus).", "22023");
+      const attente = charger("purchases").filter((a) => a.user_id === moi && a.status === "pending");
+      if (attente.some((a) => a.product_id === produit.id)) {
+        throw new ErreurDonnees("Vous avez déjà une missive en attente pour ce produit.", "PA003");
       }
-      if (ligne.to_user !== monId()) {
-        throw new ErreurDonnees(ligne.direction === "request"
-          ? "Cette demande ne vous est pas adressée"
-          : "Cet objet ne vous est pas tendu", "42501");
-      }
-      const cible  = ligne.direction === "offer" ? ligne.to_user   : ligne.from_user;
-      const source = ligne.direction === "offer" ? ligne.from_user : ligne.to_user;
-
-      const objet = await t("belongings").lire(chosen || ligne.belonging_id);
-      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
-      if (objet.owner_id !== source) {
-        throw new ErreurDonnees("Cet objet n'est pas à celui qui s'en sépare", "42501");
-      }
-      if (objet.state === "confiscated") {
-        throw new ErreurDonnees("Cet objet est confisqué", "42501");
-      }
-
-      // Il quitte le sac de celui qui s'en sépare : un objet prêté ne reste
-      // pas rangé dans la trousse de son propriétaire.
-      await t("belongings").majorer(objet.id, ligne.kind === "give"
-        ? { owner_id: cible, former_owner: source, holder_id: null, state: "owned",
-            container_id: null, carried: false }
-        : { holder_id: cible, state: "lent", container_id: null, carried: false });
-
-      const maj = await t("belonging_handoffs").majorer(handoff, {
-        state: "accepted", settled_at: new Date().toISOString(), belonging_id: objet.id
+      if (attente.length >= 3) throw new ErreurDonnees("Trop de missives en attente : attendez qu'elles soient livrées.", "PA003");
+      const achat = await t("purchases").creer({
+        user_id: moi, product_id: produit.id, product_sku: produit.sku, product_label: produit.label, kind: produit.kind,
+        unit_price_cents: produit.price_cents, currency: produit.currency, ink_units: produit.ink_units,
+        notebook_credits: produit.notebook_credits, status: "pending", provider: "roblox",
+        message: String(note || "").trim() || null, created_at: new Date().toISOString()
       });
-      await t("notifications").creer({
-        user_id: source, class_id: ligne.class_id || null, kind: "affaires",
-        title: ligne.kind === "give" ? "Votre objet a été accepté" : "Votre prêt a été accepté",
-        body: objet.label || objet.kind, link: "/affaires", read_at: null
+      journaliser(moi, "boutique.commande", { commande: achat.id, produit: achat.product_sku, prix: achat.unit_price_cents });
+      return achat;
+    },
+
+    async annuler_commande({ target }) {
+      const achat = charger("purchases").find((a) => a.id === target && a.user_id === monId() && a.status === "pending");
+      if (!achat) throw new ErreurDonnees("Cette missive n'existe pas ou n'est plus en attente.", "P0002");
+      return await t("purchases").majorer(target, { status: "canceled", decision_note: "Annulée par l'élève" });
+    },
+
+    /** Le PDG a été payé en jeu et remet la commande : c'est ce geste, et lui seul, qui crédite. */
+    async admin_livrer_commande({ target, note = null }) {
+      exigerBoutique();
+      const achat = charger("purchases").find((a) => a.id === target);
+      if (!achat) throw new ErreurDonnees("Commande introuvable.", "P0002");
+      if (achat.status === "paid") return achat;           // idempotent : jamais deux fois
+      if (achat.status !== "pending") throw new ErreurDonnees(`Cette commande n'est plus en attente (${achat.status}).`, "22023");
+      assurerCommerce(achat.user_id);
+      const maj = await t("purchases").majorer(target, {
+        status: "paid", provider: "roblox", paid_at: new Date().toISOString(), fulfilled_at: new Date().toISOString(),
+        delivered_by: monId(), delivered_at: new Date().toISOString(), decision_note: String(note || "").trim() || null
       });
+      if (achat.ink_units > 0) {
+        const portefeuilles = charger("ink_wallets");
+        const w = portefeuilles.find((x) => x.user_id === achat.user_id);
+        w.granted_total += achat.ink_units;
+        w.updated_at = new Date().toISOString();
+        sauver("ink_wallets", portefeuilles);
+        signaler("ink_wallets", "UPDATE", { ...w });
+        inscrireEncre(achat.user_id, achat.ink_units, "purchase", achat.product_label, monId(), achat.id);
+      }
+      if (achat.notebook_credits > 0) {
+        const compteurs = charger("notebook_quota");
+        const q = compteurs.find((x) => x.user_id === achat.user_id);
+        q.credits_purchased += achat.notebook_credits;
+        q.updated_at = new Date().toISOString();
+        sauver("notebook_quota", compteurs);
+      }
+      journaliser(monId(), "boutique.livraison", { commande: achat.id, acheteur: achat.user_id, produit: achat.product_sku, prix: achat.unit_price_cents });
       return maj;
     },
 
-    async return_belonging_handoff({ handoff }) {
-      const ligne = await t("belonging_handoffs").lire(handoff);
-      if (!ligne) throw new ErreurDonnees("Remise introuvable", "P0002");
-      if (ligne.from_user !== monId() && ligne.to_user !== monId()) {
-        throw new ErreurDonnees("Cette remise ne vous concerne pas", "42501");
-      }
-      if (ligne.state !== "accepted") throw new ErreurDonnees("Il n'y a rien à rendre", "42501");
-      if (ligne.kind !== "lend") {
-        throw new ErreurDonnees("Un objet donné ne se reprend pas : il faut le redemander", "42501");
-      }
-      const objet = await t("belongings").lire(ligne.belonging_id);
-      await t("belongings").majorer(ligne.belonging_id, {
-        holder_id: null, state: "owned", container_id: null, carried: false
-      });
-      const maj = await t("belonging_handoffs").majorer(handoff, {
-        state: "returned", settled_at: new Date().toISOString()
-      });
-      await t("notifications").creer({
-        user_id: monId() === objet?.owner_id ? ligne.to_user : objet?.owner_id,
-        class_id: ligne.class_id || null, kind: "affaires", title: "Prêt rendu",
-        body: objet?.label || objet?.kind || "", link: "/affaires", read_at: null
-      });
-      return maj;
+    async admin_refuser_commande({ target, note = null }) {
+      exigerBoutique();
+      const achat = charger("purchases").find((a) => a.id === target && a.status === "pending");
+      if (!achat) throw new ErreurDonnees("Cette commande n'est plus en attente.", "P0002");
+      journaliser(monId(), "boutique.refus", { commande: achat.id, acheteur: achat.user_id, note });
+      return await t("purchases").majorer(target, { status: "canceled", decision_note: String(note || "").trim() || null });
     },
 
-    /** Équivalent de confiscate_belonging : on ne prend que ce qui a été apporté. */
-    async confiscate_belonging({ target, target_class, motif }) {
-      const objet = await t("belongings").lire(target);
-      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
-
-      const sacs = await t("class_bags").liste({ class_id: target_class, user_id: objet.owner_id });
-      const declare = sacs[0]?.supplies || {};
-      const ids = Array.isArray(declare) ? [] : Object.keys(declare);
-      if (!ids.includes(String(target))) {
-        throw new ErreurDonnees(
-          "Cet objet n'a pas été apporté : il reste hors de portée.", "42501");
+    async admin_save_product({ donnees }) {
+      exigerBoutique();
+      const moi = monId();
+      const prix = Number(donnees.price_cents);
+      const encre = Number(donnees.ink_units || 0);
+      const credits = Number(donnees.notebook_credits || 0);
+      const genre = donnees.kind;
+      const verifier = (p) => {
+        if (!/^[a-z0-9][a-z0-9_-]{1,39}$/.test(p.sku)) throw new ErreurDonnees("Identifiant de produit invalide.", "23514");
+        if (!Number.isInteger(p.price_cents) || p.price_cents <= 0) throw new ErreurDonnees("Le prix doit être supérieur à zéro.", "23514");
+        const ok = (p.kind === "ink_cartridge" && p.ink_units > 0 && p.notebook_credits === 0)
+          || (p.kind === "notebook" && p.notebook_credits > 0 && p.ink_units === 0);
+        if (!ok) throw new ErreurDonnees("Quantités incohérentes avec le genre du produit.", "23514");
+      };
+      const trace = (op, avant, apres) => t("product_price_history").creer({
+        product_id: apres.id, product_sku: apres.sku, operation: op,
+        old_price_cents: avant?.price_cents ?? null, new_price_cents: apres.price_cents,
+        old_ink_units: avant?.ink_units ?? null, new_ink_units: apres.ink_units,
+        old_notebook_credits: avant?.notebook_credits ?? null, new_notebook_credits: apres.notebook_credits,
+        old_active: avant?.active ?? null, new_active: apres.active, changed_by: moi,
+        changed_at: new Date().toISOString()
+      });
+      let produit;
+      if (!donnees.id) {
+        const sku = String(donnees.sku || "").trim().toLowerCase();
+        if (charger("products").some((x) => x.sku === sku)) throw new ErreurDonnees("Cet identifiant existe déjà.", "23505");
+        produit = { sku, kind: genre, label: String(donnees.label || "").trim(),
+          description: String(donnees.description || "").trim() || null, price_cents: prix,
+          currency: donnees.currency ?? reglage("currency") ?? "", ink_units: encre, notebook_credits: credits,
+          active: Boolean(donnees.active), sort: Number(donnees.sort || 0), updated_by: moi };
+        verifier(produit);
+        if (!produit.label) throw new ErreurDonnees("Le produit doit avoir un nom.", "23514");
+        produit = await t("products").creer(produit);
+        await trace("create", null, produit);
+      } else {
+        const avant = await t("products").lire(donnees.id);
+        if (!avant) throw new ErreurDonnees("Produit introuvable.", "P0002");
+        const patch = { updated_by: moi };
+        for (const c of ["label", "description", "price_cents", "ink_units", "notebook_credits", "active", "sort"]) {
+          if (c in donnees) patch[c] = donnees[c];
+        }
+        verifier({ ...avant, ...patch, price_cents: Number(patch.price_cents ?? avant.price_cents),
+                   ink_units: Number(patch.ink_units ?? avant.ink_units),
+                   notebook_credits: Number(patch.notebook_credits ?? avant.notebook_credits) });
+        produit = await t("products").majorer(donnees.id, patch);
+        const change = ["price_cents", "ink_units", "notebook_credits", "active"].some((c) => avant[c] !== produit[c]);
+        if (change) await trace("update", avant, produit);
       }
-      const maj = await t("belongings").majorer(target, {
-        state: "confiscated", holder_id: monId(),
-        note: motif || objet.note || null, container_id: null, carried: false
-      });
-      await t("activity_logs").creer({
-        class_id: target_class, user_id: monId(), action: "affaires.confiscation",
-        meta: { objet: target, proprietaire: objet.owner_id, motif: motif || null }
-      });
-      await t("notifications").creer({
-        user_id: objet.owner_id, class_id: target_class, kind: "affaires",
-        title: "Un objet vous a été confisqué",
-        body: (objet.label || objet.kind) + (motif ? ` — ${motif}` : ""),
-        link: "/affaires", read_at: null
-      });
-      return maj;
+      journaliser(moi, "boutique.produit", { produit: produit.sku, prix_cents: produit.price_cents, actif: produit.active });
+      return produit;
     },
 
-    async release_belonging({ target }) {
-      const objet = await t("belongings").lire(target);
-      if (!objet) throw new ErreurDonnees("Objet introuvable", "P0002");
-      if (objet.state !== "confiscated" || objet.holder_id !== monId()) {
-        throw new ErreurDonnees("Vous ne détenez pas cet objet", "42501");
-      }
-      const maj = await t("belongings").majorer(target, { state: "owned", holder_id: null });
-      await t("notifications").creer({
-        user_id: objet.owner_id, kind: "affaires", title: "On vous rend votre objet",
-        body: objet.label || objet.kind, link: "/affaires", read_at: null
-      });
-      return maj;
+    async admin_set_setting({ cle, valeur }) {
+      exigerBoutique();
+      const entier = (v) => Number.isInteger(v) && v >= 0 && v < 1e9;
+      const ok = ["free_notebooks", "starter_ink", "char_cost", "stroke_cost", "attachment_cost", "max_pages"].includes(cle) ? entier(valeur)
+        : cle === "orders_open" ? typeof valeur === "boolean"
+        : cle === "currency" ? /^[A-Z]{3}$/.test(String(valeur))
+        : cle === "exempt_roles" ? Array.isArray(valeur) && valeur.every((r) => charger("roles").some((x) => x.key === r))
+        : false;
+      if (!ok) throw new ErreurDonnees(`Réglage « ${cle} » : valeur refusée.`, "22023");
+      const existant = charger("commerce_settings").find((l) => l.key === cle);
+      if (existant) await t("commerce_settings").majorer(existant.id, { value: valeur, updated_by: monId() });
+      else await t("commerce_settings").creer({ id: cle, key: cle, value: valeur, updated_by: monId() });
+      journaliser(monId(), "boutique.reglage", { reglage: cle, valeur });
+      return valeur;
+    },
+
+    async admin_grant_ink({ cible, montant, note = null }) {
+      exigerBoutique();
+      if (!montant) throw new ErreurDonnees("Montant nul.", "22023");
+      if (!charger("profiles").some((p) => p.id === cible)) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      assurerCommerce(cible);
+      const portefeuilles = charger("ink_wallets");
+      const w = portefeuilles.find((x) => x.user_id === cible);
+      const solde = w.granted_total - w.spent_total;
+      if (solde + montant < 0) throw new ErreurDonnees(`Impossible : il ne reste que ${solde} d'encre à ce compte.`, "22023");
+      w.granted_total += montant;
+      w.updated_at = new Date().toISOString();
+      sauver("ink_wallets", portefeuilles);
+      signaler("ink_wallets", "UPDATE", { ...w });
+      inscrireEncre(cible, montant, montant > 0 ? "admin_grant" : "admin_adjust", note, monId());
+      journaliser(monId(), "boutique.encre", { cible, montant, note });
+      return solde + montant;
+    },
+
+    async admin_grant_notebooks({ cible, nombre, note = null }) {
+      exigerBoutique();
+      if (!nombre) throw new ErreurDonnees("Nombre nul.", "22023");
+      if (!charger("profiles").some((p) => p.id === cible)) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      assurerCommerce(cible);
+      const compteurs = charger("notebook_quota");
+      const q = compteurs.find((x) => x.user_id === cible);
+      if (q.credits_granted + nombre < 0) throw new ErreurDonnees(`Impossible : ce compte n'a que ${q.credits_granted} cahier(s) offert(s).`, "22023");
+      q.credits_granted += nombre;
+      q.updated_at = new Date().toISOString();
+      sauver("notebook_quota", compteurs);
+      journaliser(monId(), "boutique.cahiers", { cible, nombre, note });
+      return q.credits_granted;
+    },
+
+    async admin_commerce_overview({ recherche = null, limite = 200 }) {
+      exigerBoutique();
+      const mot = String(recherche || "").trim().toLowerCase();
+      const achats = charger("purchases");
+      return charger("profiles")
+        .filter((p) => !mot || p.display_name.toLowerCase().includes(mot))
+        .sort((a, b) => a.display_name.localeCompare(b.display_name))
+        .slice(0, Math.min(Math.max(limite, 1), 1000))
+        .map((p) => {
+          assurerCommerce(p.id);
+          const w = charger("ink_wallets").find((x) => x.user_id === p.id);
+          const q = charger("notebook_quota").find((x) => x.user_id === p.id);
+          const payes = achats.filter((a) => a.user_id === p.id && a.status === "paid");
+          return {
+            o_user_id: p.id, o_nom: p.display_name, o_role: p.role_key,
+            o_solde: w.granted_total - w.spent_total, o_recu: w.granted_total, o_consomme: w.spent_total,
+            o_cahiers_possedes: charger("notebooks").filter((n) => n.owner_id === p.id && n.kind === "personal").length,
+            o_cahiers_crees: q.created_total,
+            o_cahiers_autorises: Number(reglage("free_notebooks") ?? 1) + q.credits_purchased + q.credits_granted,
+            o_achats: payes.length, o_paye_cents: payes.reduce((n, a) => n + a.unit_price_cents, 0)
+          };
+        });
     },
 
     async join_class({ join_code }) {
@@ -549,6 +851,232 @@ export async function creerPiloteLocal() {
       return maj;
     },
 
+    /** Une annonce à tous les comptes (annoncer_a_tous, 0029). */
+    async annoncer_a_tous({ titre, corps = null }) {
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      const t0 = String(titre || "").trim();
+      if (!t0 || t0.length > 120 || String(corps || "").length > 2000) {
+        throw new ErreurDonnees("Titre requis (120 caractères au plus), texte de 2000 caractères au plus.", "22023");
+      }
+      const tous = await t("profiles").liste();
+      for (const p of tous) {
+        await t("notifications").creer({ user_id: p.id, kind: "annonce", title: t0, body: String(corps || "").trim() || null, read_at: null });
+      }
+      journaliser(monId(), "moderation.annonce", { titre: t0, destinataires: tous.length });
+      return tous.length;
+    },
+
+    async message_de_moderation({ cible, titre, corps = null }) {
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      const t0 = String(titre || "").trim();
+      if (!t0 || t0.length > 120 || String(corps || "").length > 2000) {
+        throw new ErreurDonnees("Titre requis (120 caractères au plus), texte de 2000 caractères au plus.", "22023");
+      }
+      await t("notifications").creer({ user_id: cible, kind: "moderation", title: t0, body: String(corps || "").trim() || null, read_at: null });
+      journaliser(monId(), "moderation.message", { cible, titre: t0 });
+    },
+
+    /**
+     * Démonstration seulement : sans aucun administrateur, le compte ouvert
+     * le devient. En ligne, le premier administrateur est nommé depuis la
+     * console SQL — il n'y a pas d'équivalent, et c'est voulu.
+     */
+    async amorcer_admin_demo() {
+      const tous = await t("profiles").liste();
+      if (tous.some((p) => ["admin", "super_admin", "pdg"].includes(p.role_key))) {
+        throw new ErreurDonnees("Il y a déjà une administration.", "42501");
+      }
+      const moi = monId();
+      const lignes = charger("profiles");
+      const i = lignes.findIndex((p) => p.id === moi);
+      if (i < 0) throw new ErreurDonnees("Compte introuvable", "P0002");
+      lignes[i] = { ...lignes[i], role_key: "pdg" };
+      sauver("profiles", lignes);
+      signaler("profiles", "UPDATE", lignes[i], null);
+      return lignes[i];
+    },
+
+    /** Un code de rôle à usage unique, valable 24 h (creer_code_role, 0030). */
+    async creer_code_role({ role }) {
+      if (!["moderator", "admin", "super_admin"].includes(role)) {
+        throw new ErreurDonnees("Rôle inconnu : moderator, admin ou super_admin.", "22023");
+      }
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration crée un code.", "42501");
+      if (role === "super_admin" && !estPDG(monId())) {
+        throw new ErreurDonnees("Seul le PDG crée un code de super administrateur.", "42501");
+      }
+      const brut = [...crypto.getRandomValues(new Uint8Array(6))].map((o) => o.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const code = `${brut.slice(0, 4)}-${brut.slice(4, 8)}-${brut.slice(8, 12)}`;
+      await t("role_codes").creer({
+        code_hash: await empreinte(code), role_key: role, created_by: monId(),
+        expires_at: new Date(Date.now() + 24 * 3600e3).toISOString(), used_by: null, used_at: null
+      });
+      journaliser(monId(), "compte.code_cree", { role });
+      return code;
+    },
+
+    async utiliser_code_role({ code }) {
+      const moi = monId();
+      if (!moi) throw new ErreurDonnees("Connectez-vous d'abord.", "42501");
+      const h = await empreinte(String(code || "").trim().toUpperCase());
+      const ligne = (await t("role_codes").liste({ code_hash: h }))
+        .find((l) => !l.used_at && new Date(l.expires_at).getTime() > Date.now());
+      if (!ligne) {
+        journaliser(moi, "compte.code_refuse", {});
+        throw new ErreurDonnees("Code invalide, déjà utilisé ou expiré.", "42501");
+      }
+      const rang = async (cle) => (await t("roles").liste({ key: cle }))[0]?.rank || 0;
+      const actuel = roleDe(moi);
+      await t("role_codes").majorer(ligne.id, { used_by: moi, used_at: new Date().toISOString() });
+      if (await rang(actuel) >= await rang(ligne.role_key)) return actuel;
+      codeDeRole = moi;
+      try { await t("profiles").majorer(moi, { role_key: ligne.role_key }); }
+      finally { codeDeRole = null; }
+      journaliser(moi, "compte.code_utilise", { role: ligne.role_key, avant: actuel });
+      return ligne.role_key;
+    },
+
+    /** Sanctionner (sanctionner, 0033). La démonstration n'a pas d'adresse IP : « ip » vaut « definitif ». */
+    async sanctionner({ cible, genre, raison, jours = null }) {
+      const moi = monId();
+      if (!estModerateurLocal()) throw new ErreurDonnees("Réservé à la modération.", "42501");
+      if (!["mort", "personnage", "temporaire", "definitif", "ip"].includes(genre)) throw new ErreurDonnees("Sanction inconnue.", "22023");
+      if (["definitif", "ip"].includes(genre) && !peutNommer()) {
+        throw new ErreurDonnees("Un bannissement définitif ou IP relève de l'administration.", "42501");
+      }
+      if (cible === moi) throw new ErreurDonnees("On ne se sanctionne pas soi-même.", "42501");
+      const texte = String(raison || "").trim();
+      if (!texte || texte.length > 600) throw new ErreurDonnees("Donnez une raison (600 caractères au plus).", "22023");
+      if (genre === "temporaire" && !(jours >= 1 && jours <= 365)) throw new ErreurDonnees("Une durée de 1 à 365 jours.", "22023");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (["moderator", "admin", "director"].includes(p.role_key) && !peutNommer()) {
+        throw new ErreurDonnees("Seule l'administration sanctionne un membre de l'encadrement.", "42501");
+      }
+      if (["super_admin", "pdg"].includes(p.role_key) && !(estPDG(moi) || (p.role_key === "super_admin" && roleDe(moi) === "super_admin"))) {
+        throw new ErreurDonnees("Seul un super administrateur sanctionne un super administrateur.", "42501");
+      }
+      await t("sanctions").creer({
+        user_id: cible, nom: p.display_name, genre, raison: texte, par: moi, ip_hashes: [],
+        jusqua: genre === "temporaire" ? new Date(Date.now() + jours * 864e5).toISOString() : null,
+        levee_at: null, levee_par: null
+      });
+      if (genre !== "temporaire") {
+        const { avatar, ...prefs } = p.preferences || {};
+        void avatar;
+        const lignes = charger("profiles");
+        const i = lignes.findIndex((l) => l.id === cible);
+        lignes[i] = { ...lignes[i], titre: null, titre_libelle: null,
+          preferences: { ...prefs, bannissement: { genre, raison: texte, le: new Date().toISOString(), lu: false } } };
+        sauver("profiles", lignes);
+        signaler("profiles", "UPDATE", lignes[i], p);
+      }
+      const titres = { mort: "Votre personnage est mort", personnage: "Votre personnage a été banni", temporaire: "Votre compte est suspendu" };
+      await t("notifications").creer({ user_id: cible, kind: "bannissement", title: titres[genre] || "Votre compte est banni", body: texte, read_at: null });
+      journaliser(moi, `sanction.${genre}`, { cible, nom: p.display_name, raison: texte, jours });
+      return p.display_name;
+    },
+
+
+    async lever_sanction({ sanction }) {
+      const s = await t("sanctions").lire(sanction);
+      if (!s) throw new ErreurDonnees("Sanction introuvable.", "P0002");
+      if (!estModerateurLocal() || (["definitif", "ip"].includes(s.genre) && !peutNommer())) {
+        throw new ErreurDonnees("Vous ne pouvez pas lever cette sanction.", "42501");
+      }
+      await t("sanctions").majorer(sanction, { levee_at: new Date().toISOString(), levee_par: monId() });
+      journaliser(monId(), "sanction.levee", { cible: s.user_id, nom: s.nom, genre: s.genre });
+    },
+
+    async mon_acces() {
+      const s = sanctionActive(monId());
+      return s ? { bloque: true, genre: s.genre, raison: s.raison, jusqua: s.jusqua, ip_vue: false } : { bloque: false, ip_vue: false };
+    },
+
+    /** Nom RP à la place du pseudo Discord (definir_nom_rp, 0043). */
+    async definir_nom_rp({ cible, nom }) {
+      const moi = monId();
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration change un nom RP.", "42501");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (p.role_key === "pdg" && !estPDG(moi)) throw new ErreurDonnees("Seul le PDG renomme le PDG.", "42501");
+      if (p.role_key === "super_admin" && !(estPDG(moi) || roleDe(moi) === "super_admin")) {
+        throw new ErreurDonnees("Seul un super administrateur renomme un super administrateur.", "42501");
+      }
+      const propre = String(nom || "").replace(/\s+/g, " ").trim();
+      let patch;
+      if (!propre) patch = { display_name: p.discord_name || p.display_name, discord_name: null, nom_rp_libre: true };
+      else {
+        if (propre.length < 2 || propre.length > 60) throw new ErreurDonnees("Le nom RP doit faire entre 2 et 60 caractères.", "22023");
+        patch = { display_name: propre, discord_name: p.discord_name || p.display_name, nom_rp_libre: false };
+      }
+      await t("profiles").majorer(cible, patch);
+      journaliser(moi, "compte.nom_rp", { cible, avant: p.display_name, apres: patch.display_name, discord: patch.discord_name || patch.display_name });
+      return patch.display_name;
+    },
+
+    /** Choisir son nom RP, une fois (choisir_mon_nom_rp, 0044). */
+    async choisir_mon_nom_rp({ nom }) {
+      const moi = monId();
+      const p = moi ? await t("profiles").lire(moi) : null;
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (p.nom_rp_libre === false) {
+        throw new ErreurDonnees("Votre nom RP est déjà choisi. Il ne change que si votre personnage meurt, ou par l'administration.", "42501");
+      }
+      const propre = String(nom || "").replace(/\s+/g, " ").trim();
+      if (propre.length < 2 || propre.length > 60) throw new ErreurDonnees("Le nom RP doit faire entre 2 et 60 caractères.", "22023");
+      const pris = charger("profiles").some((o) => o.id !== moi
+        && [o.display_name, o.discord_name].some((n) => n && n.toLowerCase() === propre.toLowerCase()));
+      if (pris) throw new ErreurDonnees("Ce nom est déjà porté par quelqu'un d'autre.", "23505");
+      await t("profiles").majorer(moi, { display_name: propre, discord_name: p.discord_name || p.display_name, nom_rp_libre: false });
+      journaliser(moi, "compte.nom_rp_choisi", { cible: moi, avant: p.display_name, apres: propre, discord: p.discord_name || p.display_name });
+      return propre;
+    },
+
+    /** Personnage mort : un nouveau nom RP est possible (declarer_personnage_mort, 0044). */
+    async declarer_personnage_mort({ cible }) {
+      const moi = monId();
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration déclare un personnage mort.", "42501");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (p.role_key === "pdg" && !estPDG(moi)) throw new ErreurDonnees("Seul le PDG touche au compte du PDG.", "42501");
+      if (p.role_key === "super_admin" && !(estPDG(moi) || roleDe(moi) === "super_admin")) {
+        throw new ErreurDonnees("Seul un super administrateur touche à ce compte.", "42501");
+      }
+      await t("profiles").majorer(cible, { nom_rp_libre: true });
+      journaliser(moi, "compte.personnage_mort", { cible, nom: p.display_name });
+      return p.display_name;
+    },
+
+    /** Accepter un cahier tendu (accept_notebook_handoff, 0016 + 0048). */
+    async accept_notebook_handoff({ handoff }) {
+      const r = await t("notebook_handoffs").lire(handoff);
+      if (!r) throw new ErreurDonnees("Remise introuvable", "P0002");
+      if (r.to_user !== monId()) throw new ErreurDonnees("Ce cahier ne vous est pas tendu", "42501");
+      if (r.state !== "offered") throw new ErreurDonnees("Cette remise est déjà tranchée", "42501");
+      if (r.kind === "give") await t("notebooks").majorer(r.notebook_id, { owner_id: r.to_user, updated_at: new Date().toISOString() });
+      return await t("notebook_handoffs").majorer(handoff, { state: "accepted", settled_at: new Date().toISOString() });
+    },
+
+    /** Supprimer un compte (supprimer_compte, 0031). */
+    async supprimer_compte({ cible }) {
+      const moi = monId();
+      if (!peutNommer()) throw new ErreurDonnees("Seule l'administration supprime un compte.", "42501");
+      if (cible === moi) throw new ErreurDonnees("On ne supprime pas son propre compte.", "42501");
+      const p = await t("profiles").lire(cible);
+      if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
+      if (["super_admin", "pdg"].includes(p.role_key) && !(estPDG(moi) || (p.role_key === "super_admin" && roleDe(moi) === "super_admin"))) {
+        throw new ErreurDonnees("Seul un super administrateur supprime un super administrateur.", "42501");
+      }
+      journaliser(moi, "compte.supprime", { cible: p.id, nom: p.display_name, role: p.role_key });
+      for (const table of ["class_members", "notifications", "notebooks", "ink_wallets", "notebook_quota"]) {
+        await t(table).supprimerOu(table === "notebooks" ? { owner_id: cible } : { user_id: cible });
+      }
+      await t("profiles").supprimer(cible);
+      sauverComptes(comptes().filter((c) => c.id !== cible));
+      return p.display_name;
+    },
+
     async notify_class({ target_class, notif_kind, notif_title, notif_body, notif_link, include_self }) {
       const membres = await t("class_members").liste({ class_id: target_class, status: "active" });
       let n = 0;
@@ -574,31 +1102,6 @@ export async function creerPiloteLocal() {
       });
     },
 
-    /** Équivalent de inspect_notebook : on n'ouvre que ce qui a été apporté. */
-    async inspect_notebook({ target_notebook, target_class }) {
-      const cahier = await t("notebooks").lire(target_notebook);
-      if (!cahier) throw new ErreurDonnees("Support introuvable", "P0002");
-
-      const sacs = await t("class_bags").liste({ class_id: target_class, user_id: cahier.owner_id });
-      const contenu = sacs[0]?.notebooks || {};
-      const apportes = Array.isArray(contenu) ? contenu.map(String) : Object.keys(contenu);
-      if (!apportes.includes(String(target_notebook))) {
-        throw new ErreurDonnees(
-          "Ce support n'a pas été apporté : il reste hors de portée.", "42501");
-      }
-
-      await t("activity_logs").creer({
-        class_id: target_class, user_id: monId(), action: "cahier.inspection",
-        meta: { cahier: target_notebook, proprietaire: cahier.owner_id }
-      });
-      await t("notifications").creer({
-        user_id: cahier.owner_id, class_id: target_class, kind: "inspection",
-        title: `Votre ${cahier.support || "cahier"} a été consulté`,
-        body: `L'encadrement a ouvert « ${cahier.title} ».`,
-        link: `/classe/${target_class}`, read_at: null
-      });
-      return cahier;
-    },
 
     /** Équivalent de eject_member : on sort de la séance, pas de la classe. */
     async eject_member({ target_session, target_user, motif, proche }) {
@@ -645,31 +1148,6 @@ export async function creerPiloteLocal() {
       return ligne;
     },
 
-    /** Équivalent de la fonction SQL class_standings. */
-    async class_standings({ target_class }) {
-      const entrees = await t("service_records").liste({ class_id: target_class });
-      const parMembre = new Map();
-
-      for (const e of entrees) {
-        if (e.kind !== "aptitude" || e.score == null || !e.max_score) continue;
-        if (!parMembre.has(e.user_id)) {
-          parMembre.set(e.user_id, { total: 0, max: 0, nombre: 0, derniere: null });
-        }
-        const agr = parMembre.get(e.user_id);
-        agr.total += Number(e.score);
-        agr.max += Number(e.max_score);
-        agr.nombre += 1;
-        if (!agr.derniere || e.created_at > agr.derniere) agr.derniere = e.created_at;
-      }
-
-      return [...parMembre.entries()].map(([user_id, a]) => ({
-        user_id,
-        evaluations: a.nombre,
-        taux: a.max ? Math.round((a.total / a.max) * 1000) / 10 : 0,
-        total: Math.round(a.total * 100) / 100,
-        derniere: a.derniere
-      }));
-    },
 
     async autograde_attempt({ target_attempt }) {
       const tentative = await t("exercise_attempts").lire(target_attempt);
@@ -683,11 +1161,19 @@ export async function creerPiloteLocal() {
         const r = reponses.find((x) => x.question_id === q.id);
         if (!r) continue;
         if (q.solution == null) { total += Number(r.score || 0); continue; }
-        const juste = JSON.stringify(r.response) === JSON.stringify(q.solution);
-        await t("exercise_answers").majorer(r.id, {
-          correct: juste, score: juste ? Number(q.points) : 0
-        });
-        if (juste) total += Number(q.points);
+        let juste, note;
+        if (["qcm", "single", "multiple"].includes(q.kind)) {
+          const bonnes = [].concat(q.solution), recu = [...new Set([].concat(r.response ?? []))];
+          const bons = recu.filter((v) => bonnes.includes(v)).length, faux = recu.length - bons;
+          juste = bons === bonnes.length && faux === 0;
+          note = juste ? Number(q.points)
+            : q.settings?.partiel ? Math.round(Number(q.points) * Math.max(0, bons - faux) / bonnes.length * 100) / 100 : 0;
+        } else {
+          juste = JSON.stringify(r.response) === JSON.stringify(q.solution);
+          note = juste ? Number(q.points) : 0;
+        }
+        await t("exercise_answers").majorer(r.id, { correct: juste, score: note });
+        total += note;
       }
       return t("exercise_attempts").majorer(target_attempt, {
         score: total, max_score: max, status: "graded",
@@ -711,23 +1197,27 @@ export async function creerPiloteLocal() {
       async session() { return sessionCourante(); },
       async utilisateur() { return sessionCourante()?.user || null; },
 
-      async inscrire({ email, motDePasse, nom, role }) {
+      async inscrire({ pseudo, motDePasse }) {
         const liste = comptes();
-        const normalise = String(email).trim().toLowerCase();
+        const propre = String(pseudo || "").trim().replace(/\s+/g, " ");
+        const normalise = propre.toLowerCase();
+        if (propre.length < 3 || propre.length > 24) {
+          throw new ErreurDonnees("Le pseudo doit faire entre 3 et 24 caractères.", "22023");
+        }
         if (liste.some((c) => c.email === normalise)) {
-          throw new ErreurDonnees("User already registered", "23505");
+          throw new ErreurDonnees("Ce pseudo est déjà pris.", "23505");
         }
         const compte = {
           id: uid(), email: normalise,
           empreinte: await empreinte(motDePasse),
-          nom: nom || normalise.split("@")[0]
+          nom: propre
         };
         liste.push(compte);
         sauverComptes(liste);
 
         await t("profiles").creer({
-          id: compte.id, display_name: compte.nom, role_key: role || "student",
-          preferences: {}, avatar_url: null, roblox_name: null, bio: null
+          id: compte.id, display_name: compte.nom, role_key: "student",
+          preferences: {}, avatar_url: null, roblox_name: null, bio: null, nom_rp_libre: true
         });
 
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
@@ -735,18 +1225,44 @@ export async function creerPiloteLocal() {
         return { user: session.user, session };
       },
 
-      async connecter({ email, motDePasse }) {
-        const normalise = String(email).trim().toLowerCase();
+      async connecter({ pseudo, motDePasse }) {
+        const normalise = String(pseudo || "").trim().replace(/\s+/g, " ").toLowerCase();
         const compte = comptes().find((c) => c.email === normalise);
         const emp = await empreinte(motDePasse);
         if (!compte || compte.empreinte !== emp) {
           throw new ErreurDonnees("Invalid login credentials", "401");
+        }
+        const ban = sanctionActive(compte.id);
+        if (ban) {
+          throw new ErreurDonnees(ban.genre === "temporaire"
+            ? `Compte suspendu jusqu'au ${new Date(ban.jusqua).toLocaleString("fr-FR")}. Raison : ${ban.raison}`
+            : `Compte banni définitivement. Raison : ${ban.raison}`, "42501");
         }
         const session = { user: { id: compte.id, email: compte.email }, mode: "local" };
         definirSession(session);
         return { user: session.user, session };
       },
 
+      async changerMotDePasse(nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === sessionCourante()?.user?.id);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+      async remettreMotDePasse(cible, nouveau) {
+        const liste = comptes();
+        const compte = liste.find((c) => c.id === cible);
+        if (!compte) throw new ErreurDonnees("Compte introuvable sur cet appareil.", "404");
+        compte.empreinte = await empreinte(nouveau);
+        sauverComptes(liste);
+        return true;
+      },
+
+      async discord() {
+        throw new ErreurDonnees("La connexion Discord nécessite le projet Supabase (indisponible en démonstration).", "LOCAL");
+      },
       async lienMagique() {
         throw new ErreurDonnees("Le lien par courriel nécessite un projet Supabase.", "LOCAL");
       },
@@ -856,11 +1372,21 @@ export async function creerPiloteLocal() {
 
 /* --- Référentiel RBAC minimal en mode démonstration ----------------------- */
 async function amorcerRbac(t) {
-  if ((await t("roles").liste()).length) return;
+  const existants = await t("roles").liste();
+  if (existants.length) {
+    // Une démonstration ouverte avant l'arrivée de la modération.
+    if (!existants.some((r) => r.key === "moderator")) {
+      await t("roles").creer({ id: "moderator", key: "moderator", label: "Modérateur", rank: 70 });
+      for (const p of ["MODERATE", "VIEW_LOGS", "MANAGE_PAPERS"]) {
+        await t("role_permissions").creer({ role_key: "moderator", permission_key: p });
+      }
+    }
+    return;
+  }
 
   const roles = [
-    ["super_admin", "Super administrateur", 100], ["admin", "Administrateur", 90],
-    ["director", "Directeur", 80], ["teacher", "Professeur", 60],
+    ["pdg", "PDG", 110], ["super_admin", "Super administrateur", 100], ["admin", "Administrateur", 90],
+    ["director", "Directeur", 80], ["moderator", "Modérateur", 70], ["teacher", "Professeur", 60],
     ["instructor", "Formateur", 50], ["student", "Membre", 20], ["observer", "Observateur", 10]
   ];
   for (const [key, label, rank] of roles) await t("roles").creer({ id: key, key, label, rank });
@@ -884,16 +1410,18 @@ async function amorcerRbac(t) {
     "TAKE_ATTENDANCE", "PUBLISH_ANNOUNCEMENT", "RUN_POLL"
   ];
   const permsObs = ["READ_SHARED_NOTEBOOK", "VIEW_BOARD", "VIEW_DOCUMENT", "VIEW_ARCHIVES"];
-  const toutes = [...new Set([...permsProf, ...permsEleve, "MANAGE_USERS", "MODERATE"])];
+  const toutes = [...new Set([...permsProf, ...permsEleve, "MANAGE_USERS", "MODERATE", "MANAGE_PAPERS"])];
 
   for (const key of toutes) await t("permissions").creer({ id: key, key, label: key, category: "general" });
 
   const attribuer = async (role, liste) => {
     for (const p of liste) await t("role_permissions").creer({ role_key: role, permission_key: p });
   };
+  await attribuer("pdg", toutes);
   await attribuer("super_admin", toutes);
   await attribuer("admin", toutes);
   await attribuer("director", toutes.filter((p) => p !== "MANAGE_USERS"));
+  await attribuer("moderator", ["MODERATE", "VIEW_LOGS", "MANAGE_PAPERS"]);
   await attribuer("teacher", permsProf);
   await attribuer("instructor", permsProf);
   await attribuer("student", permsEleve);

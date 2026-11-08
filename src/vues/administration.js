@@ -1,17 +1,102 @@
 /* ---------------------------------------------------------------------------
- * Administration : comptes, rôles, journaux, modération.
+ * Administration et modération.
+ *
+ * Deux métiers, un seul écran :
+ *
+ *   · la MODÉRATION veille sur ce qui circule. Elle relit les remises (qui a
+ *     tendu quoi, à qui, où), note ce qu'elle constate — fiable, douteux,
+ *     faux —, lit le journal, voit chaque personnage, retire un papier,
+ *     écrit à un joueur ou fait une annonce à tous ;
+ *   · l'ADMINISTRATION fait tout cela, et nomme : les rôles (modérateur,
+ *     administrateur…) et les titres de personnage (roi, commandant…).
+ *
+ * Les droits réels sont appliqués par la base (voir 0029) ; cet écran ne
+ * fait qu'en refléter l'état.
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { aller } from "../core/router.js";
-import { pilote, profils, rbac, journal, papiers } from "../data/index.js";
+import { profils, rbac, journal, auth, moderation, pilote } from "../data/index.js";
 import { entete, blocVide, avatar, statistique } from "../ui/fragments.js";
-import { estAdmin, estModerateur, LIBELLES_ROLES } from "../core/permissions.js";
-import { confirmer, menu, ouvrirModale } from "../ui/modal.js";
-import { erreur, toast, messageErreur } from "../ui/toast.js";
+import { estAdmin, estModerateur, peutNommer, estPDG, LIBELLES_ROLES } from "../core/permissions.js";
+import { confirmer, formulaire, menu, ouvrirModale } from "../ui/modal.js";
+import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { dateCourte, heure, depuis, aplatir } from "../core/util.js";
-import { rendrePapier, MODELES } from "../features/papier.js";
+import { sectionBoutique } from "./admin-boutique.js";
+import { sectionApparence } from "./admin-apparence.js";
+
+// Facile à dicter en jeu : deux mots, quatre chiffres.
+function motDePasseAuHasard() {
+  const mots = ["Rempart", "Plume", "Encrier", "Bougie", "Pupitre", "Muraille", "Craie", "Horloge", "Lanterne", "Cadet"];
+  const n = new Uint32Array(3); crypto.getRandomValues(n);
+  return `${mots[n[0] % mots.length]}-${mots[n[1] % mots.length]}-${1000 + (n[2] % 9000)}`;
+}
+
+/* Le journal, en français. */
+const ACTIONS = {
+  "papier.tendu": "a tendu un papier",
+  "papier.presence_confirmee": "a confirmé la présence de l'émetteur",
+  "papier.presence_niee": "a nié la présence de l'émetteur",
+  "papier.accepted": "a gardé un papier",
+  "papier.refused": "a refusé un papier",
+  "papier.withdrawn": "a retiré sa remise",
+  "papier.moderation": "a lu un papier (modération)",
+  "objet.tendu": "a tendu ou demandé un objet",
+  "objet.accepted": "a accepté une remise d'objet",
+  "objet.refused": "a refusé une remise d'objet",
+  "objet.returned": "a rendu un objet",
+  "objet.withdrawn": "a retiré une remise d'objet",
+  "cahier.tendu": "a tendu un cahier",
+  "cahier.accepted": "a pris un cahier",
+  "cahier.refused": "a refusé un cahier",
+  "cahier.returned": "a rendu un cahier",
+  "compte.role": "a changé un rôle",
+  "compte.titre": "a attribué un titre",
+  "compte.code_cree": "a créé un code de rôle",
+  "compte.supprime": "a supprimé un compte",
+  "personnage.banni": "a banni un personnage",
+  "sanction.mort": "a déclaré la mort d'un personnage",
+  "sanction.personnage": "a banni un personnage",
+  "sanction.temporaire": "a suspendu un compte",
+  "sanction.definitif": "a banni un compte",
+  "sanction.ip": "a banni un compte et son IP",
+  "sanction.levee": "a levé une sanction",
+  "compte.code_utilise": "a utilisé un code de rôle",
+  "compte.nom_rp_choisi": "a choisi le nom de son personnage",
+  "compte.personnage_mort": "a déclaré la mort d'un personnage (nouveau nom RP possible)",
+  "compte.nom_rp": "a changé le nom RP d'un compte",
+  "compte.admin_discord": "a reçu son rôle d'administrateur (compte Discord)",
+  "compte.code_refuse": "a tapé un code de rôle invalide",
+  "moderation.note": "a noté une remise",
+  "moderation.annonce": "a fait une annonce à tous",
+  "moderation.message": "a écrit à un joueur",
+  "moderation.papier_retire": "a retiré un papier",
+  "boutique.produit": "a modifié un produit de la boutique",
+  "boutique.reglage": "a modifié un réglage de la boutique",
+  "boutique.encre": "a donné ou retiré de l'encre",
+  "boutique.cahiers": "a donné ou retiré des cahiers",
+  "boutique.achat": "a acheté un produit",
+  "session.start": "a ouvert une séance",
+  "session.end": "a clos une séance",
+  "affaires.confiscation": "a confisqué un objet"
+};
+const FAMILLES = [
+  { cle: "", libelle: "Tout" },
+  { cle: "boutique.", libelle: "Boutique" },
+  { cle: "compte.", libelle: "Comptes" },
+  { cle: "moderation.", libelle: "Modération" },
+  { cle: "sanction.", libelle: "Sanctions" },
+  { cle: "session.", libelle: "Séances" }
+];
+
+/* Les sanctions, de la plus douce à la plus dure (0033). */
+const GENRES_SANCTION = [
+  { cle: "temporaire", libelle: "Suspendre le compte (temporaire)", fait: "Compte suspendu" },
+  { cle: "definitif", libelle: "Bannir le compte (définitif)", fait: "Compte banni", admin: true },
+  { cle: "ip", libelle: "Bannir le compte et l'IP (définitif)", fait: "Compte et IP bannis", admin: true }
+];
+
 
 export default async function vueAdministration() {
   if (!estModerateur()) {
@@ -23,24 +108,28 @@ export default async function vueAdministration() {
     };
   }
 
-  // Un modérateur n'administre pas les comptes : il surveille ce qui circule.
   const admin = estAdmin();
-  let actif = admin ? "comptes" : "papiers";
+  const nomme = peutNommer();
+  let actif = admin ? "boutique" : "journal";
   let filtre = "";
+  let famille = "";
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
 
   const noeud = el("div.page.page--large",
-    entete("Administration", "Comptes et journaux",
+    entete(admin ? "Administration" : "Modération", admin ? "Administration et modération" : "Modération",
       "Les droits réels sont appliqués par la base de données ; cet écran ne fait qu'en refléter l'état."),
     barre, contenu
   );
 
   const ONGLETS = [
-    admin ? { cle: "comptes", libelle: "Comptes" } : null,
-    admin ? { cle: "roles", libelle: "Rôles et permissions" } : null,
-    { cle: "papiers", libelle: "Papiers en circulation" },
-    { cle: "journaux", libelle: "Journaux" }
+    admin ? { cle: "boutique", libelle: "Boutique" } : null,
+    admin ? { cle: "comptes", libelle: "Comptes et rôles" } : null,
+    { cle: "journal", libelle: "Journal" },
+    { cle: "sanctions", libelle: "Sanctions" },
+    { cle: "annonce", libelle: "Annonces" },
+    admin ? { cle: "apparence", libelle: "Apparence" } : null,
+    admin ? { cle: "roles", libelle: "Permissions" } : null
   ].filter(Boolean);
 
   function peindreBarre() {
@@ -53,31 +142,173 @@ export default async function vueAdministration() {
   async function peindre() {
     render(contenu, el("p.petit.faible", "Chargement…"));
     try {
-      if (actif === "comptes") render(contenu, await sectionComptes());
-      else if (actif === "roles") render(contenu, await sectionRoles());
-      else if (actif === "papiers") render(contenu, await sectionPapiers());
-      else render(contenu, await sectionJournaux());
+      const sections = {
+        boutique: () => sectionBoutique(),
+        journal: sectionJournal,
+        sanctions: sectionSanctions,
+        annonce: sectionAnnonces,
+        apparence: () => sectionApparence(),
+        comptes: sectionComptes,
+        roles: sectionRoles
+      };
+      render(contenu, await (sections[actif] || sections.journal)());
     } catch (err) {
       render(contenu, blocVide("Chargement impossible", messageErreur(err)));
     }
   }
 
+  /* ======================================================================
+     Les remises : ce qui circule, et ce qui demande un regard
+
+
+
+
+
+
+  /* ======================================================================
+     Le journal : tout ce qui s'est passé, dans l'ordre
+     ==================================================================== */
+  async function sectionJournal() {
+    const entrees = await moderation.journal({}, 400);
+    const ids = new Set();
+    for (const e of entrees) {
+      if (e.user_id) ids.add(e.user_id);
+      for (const k of ["de", "a", "cible", "auteur"]) if (e.meta?.[k]) ids.add(e.meta[k]);
+    }
+    const gens = new Map((await profils.parIds([...ids])).map((p) => [p.id, p]));
+    const nom = (id) => gens.get(id)?.display_name || "—";
+    const visibles = entrees.filter((e) => {
+      if (famille && !e.action.startsWith(famille)) return false;
+      if (!filtre) return true;
+      const texte = `${nom(e.user_id)} ${nom(e.meta?.a)} ${nom(e.meta?.de)} ${nom(e.meta?.cible)} ${e.meta?.titre || ""} ${e.meta?.lieu || ""}`;
+      return aplatir(texte).includes(aplatir(filtre));
+    });
+
+    const detail = (e) => {
+      const m = e.meta || {};
+      const bouts = [];
+      if (m.titre) bouts.push(`« ${m.titre} »`);
+      if (m.a && e.action !== "papier.presence_confirmee" && e.action !== "papier.presence_niee") bouts.push(`à ${nom(m.a)}`);
+      if (m.de && e.user_id !== m.de) bouts.push(`de ${nom(m.de)}`);
+      if (m.cible && e.action.startsWith("compte.")) bouts.push(`${m.nom || nom(m.cible)} : ${m.avant || "—"} → ${m.apres || "—"}`);
+      else if (m.cible && e.action === "moderation.message") bouts.push(`à ${nom(m.cible)}`);
+      if (m.lieu) bouts.push(`— ${m.lieu}`);
+      if (m.lieu_reception && m.lieu_reception !== m.lieu) bouts.push(`(reçu : ${m.lieu_reception})`);
+      if (m.sans_description) bouts.push("· sans description");
+      if (m.verdict) bouts.push(`: ${m.verdict}`);
+      if (m.destinataires) bouts.push(`(${m.destinataires} destinataires)`);
+      return bouts.join(" ");
+    };
+
+    return el("div.pile",
+      el("div.ligne-flex.enrouler",
+        FAMILLES.map((f) => el("button.puce", {
+          type: "button", "aria-pressed": String(famille === f.cle),
+          onclick: () => { famille = f.cle; peindre(); }
+        }, f.libelle)),
+        el("input.saisie", {
+          type: "search", placeholder: "Un nom, un lieu, un titre…", value: filtre,
+          style: { maxWidth: "260px", marginLeft: "auto" },
+          oninput: (e) => { filtre = e.target.value; clearTimeout(e.target._t); e.target._t = setTimeout(peindre, 250); }
+        })),
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", `${visibles.length} action${visibles.length > 1 ? "s" : ""}`)),
+        el("div.panneau__corps.panneau__corps--serre",
+          visibles.length
+            ? el("div.journal", visibles.map((e) => el("div.journal__ligne",
+                el("span.journal__heure", `${dateCourte(e.created_at)} ${heure(e.created_at)}`),
+                el("span", el("strong", nom(e.user_id)), " ", ACTIONS[e.action] || e.action, " ",
+                  el("span.faible", detail(e))))))
+            : el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } }, "Rien à afficher.")))
+    );
+  }
+
+  /* ---- Message de la modération à un compte ---- */
+  async function ecrireA(p) {
+    if (!p) return;
+    const sortie = await formulaire({
+      titre: `Écrire à ${p.display_name}`,
+      note: "Le message arrive dans ses notifications, signé de la modération. Il est inscrit au journal.",
+      champs: [
+        { cle: "titre", label: "Objet", type: "text", requis: true, valeur: "" },
+        { cle: "corps", label: "Message", type: "textarea", valeur: "" }
+      ],
+      libelle: "Envoyer"
+    });
+    if (!sortie) return;
+    try { await moderation.ecrire(p.id, sortie.titre, sortie.corps || null); succes("Message envoyé"); }
+    catch (err) { erreur("Envoi impossible", messageErreur(err)); }
+  }
+
+  /* ======================================================================
+     Les annonces : à tout le monde, d'un coup
+     ==================================================================== */
+  async function sectionAnnonces() {
+    let titre, corps;
+    const passees = (await moderation.journal({ action: "moderation.annonce" }, 30).catch(() => []));
+    const auteurs = new Map((await profils.parIds([...new Set(passees.map((e) => e.user_id).filter(Boolean))])).map((p) => [p.id, p]));
+    return el("div.pile",
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Annonce à tous les joueurs")),
+        el("div.panneau__corps",
+          el("p.petit.faible", "Chaque compte la reçoit dans ses notifications. Elle est inscrite au journal."),
+          el("label.champ", el("span.champ__label", "Titre"),
+            titre = el("input.saisie", { maxlength: "120", placeholder: "Rassemblement devant le QG à 21 h" })),
+          el("label.champ", el("span.champ__label", "Texte"),
+            corps = el("textarea.zone", { rows: "4", maxlength: "2000", placeholder: "Les détails…" })),
+          el("button.btn.btn--primaire", {
+            type: "button",
+            onclick: async (e) => {
+              const bouton = e.currentTarget;
+              if (!titre.value.trim()) { titre.focus(); titre.classList.add("champ--erreur"); return; }
+              const ok = await confirmer({
+                titre: "Envoyer l'annonce", libelle: "Envoyer",
+                message: `« ${titre.value.trim()} » sera envoyée à tous les comptes.`
+              });
+              if (!ok) return;
+              bouton.disabled = true;
+              try {
+                const n = await moderation.annoncer(titre.value.trim(), corps.value.trim() || null);
+                succes("Annonce envoyée", `${n} destinataire${n > 1 ? "s" : ""}.`);
+                await peindre();
+              } catch (err) { erreur("Envoi impossible", messageErreur(err)); }
+              finally { bouton.disabled = false; }
+            }
+          }, icone("cloche", 15), "Envoyer à tous"))),
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Dernières annonces")),
+        el("div.panneau__corps.panneau__corps--serre",
+          passees.length
+            ? el("div.journal", passees.map((e) => el("div.journal__ligne",
+                el("span.journal__heure", `${dateCourte(e.created_at)} ${heure(e.created_at)}`),
+                el("span", el("strong", e.meta?.titre || "—"), el("span.faible",
+                  ` · ${auteurs.get(e.user_id)?.display_name || "—"} · ${e.meta?.destinataires ?? "?"} destinataires`)))))
+            : el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } }, "Aucune annonce pour l'instant.")))
+    );
+  }
+
+  /* ======================================================================
+     Les comptes : rôles, titres, mots de passe (administration)
+     ==================================================================== */
   async function sectionComptes() {
-    const tous = await pilote.table("profiles").liste({}, { ordre: "created_at", sens: "desc", limite: 300 });
+    const tous = await moderation.comptes(500);
     const visibles = filtre
-      ? tous.filter((p) => aplatir(`${p.display_name} ${p.roblox_name || ""}`).includes(aplatir(filtre)))
+      ? tous.filter((p) => aplatir(`${p.display_name} ${p.discord_name || ""} ${p.roblox_name || ""}`).includes(aplatir(filtre)))
       : tous;
 
     return el("div.pile",
       el("div.stats",
         statistique(tous.length, "comptes"),
-        statistique(tous.filter((p) => ["teacher", "instructor"].includes(p.role_key)).length, "enseignants"),
-        statistique(tous.filter((p) => p.role_key === "student").length, "élèves"),
-        statistique(tous.filter((p) => ["admin", "super_admin", "director"].includes(p.role_key)).length, "administration")
+        statistique(tous.filter((p) => ["admin", "super_admin", "pdg"].includes(p.role_key)).length, "administrateurs"),
+        statistique(tous.filter((p) => p.role_key === "moderator").length, "modérateurs")
       ),
+      el("p.petit.faible",
+        nomme
+          ? "Seul un administrateur nomme un administrateur ou un modérateur. Seul un super administrateur fait un super administrateur. On ne change jamais son propre rôle."
+          : "Vous pouvez consulter les comptes ; seul un administrateur change un rôle."),
       el("input.saisie", {
         type: "search", placeholder: "Rechercher un compte…", value: filtre,
-        oninput: (e) => { filtre = e.target.value; peindre(); }
+        oninput: (e) => { filtre = e.target.value; clearTimeout(e.target._t); e.target._t = setTimeout(peindre, 250); }
       }),
       el("div.panneau", el("div.panneau__corps.panneau__corps--serre",
         visibles.length
@@ -86,17 +317,18 @@ export default async function vueAdministration() {
               el("div.liste__principal",
                 el("div.liste__nom", p.display_name),
                 el("div.liste__detail",
-                  [p.roblox_name ? `En jeu : ${p.roblox_name}` : null,
+                  [p.discord_name ? `Discord : ${p.discord_name}` : null,
+                   p.nom_rp_libre !== false ? "nom RP à choisir" : null,
+                   p.roblox_name ? `En jeu : ${p.roblox_name}` : null,
                    `inscrit ${dateCourte(p.created_at)}`].filter(Boolean).join(" · "))
               ),
               el("div.liste__fin",
                 el("span.etiq", LIBELLES_ROLES[p.role_key] || p.role_key),
-                p.id !== etat.utilisateur.id
+                p.id !== etat.utilisateur.id && nomme
                   ? el("button.btn.btn--fantome.btn--icone", {
-                      "aria-label": "Modifier le rôle",
-                      onclick: (e) => menuCompte(e.currentTarget, p)
+                      "aria-label": "Modifier", onclick: (e) => menuCompte(e.currentTarget, p)
                     }, icone("points", 15))
-                  : el("span.petit.faible", "vous")
+                  : p.id === etat.utilisateur.id ? el("span.petit.faible", "vous") : null
               )
             )))
           : el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } }, "Aucun compte.")
@@ -105,98 +337,178 @@ export default async function vueAdministration() {
   }
 
   function menuCompte(ancre, profil) {
+    // Le PDG ne se donne pas par ce menu ; un super administrateur ne se nomme que par le PDG.
+    const roles = Object.entries(LIBELLES_ROLES)
+      .filter(([cle]) => cle !== "pdg" && (estPDG() || cle !== "super_admin"));
+    const intouchable = ["pdg", "super_admin"].includes(profil.role_key) && !estPDG();
     menu(ancre, [
       { titre: profil.display_name },
-      { titre: "Rôle global" },
-      ...Object.entries(LIBELLES_ROLES).map(([cle, libelle]) => ({
+      ...(pilote.mode === "local" ? [{ libelle: "Nouveau mot de passe…", action: () => nouveauMotDePasse(profil) }] : []),
+      { libelle: "Lui écrire…", action: () => ecrireA(profil) },
+      intouchable ? null : { libelle: "Nom RP…", action: () => nomRP(profil) },
+      intouchable || profil.nom_rp_libre !== false ? null : { libelle: "Personnage mort…", action: () => personnageMort(profil) },
+      intouchable ? null : { libelle: "Sanctionner…", danger: true, action: () => sanctionner(profil) },
+      intouchable ? null : { libelle: "Supprimer le compte…", danger: true, action: () => supprimerCompte(profil) },
+      intouchable ? { titre: profil.role_key === "pdg" ? "PDG — intouchable" : "Super administrateur — seul le PDG y touche" } : { titre: "Rôle" },
+      ...(intouchable ? [] : roles.map(([cle, libelle]) => ({
         libelle: libelle + (profil.role_key === cle ? "  ✓" : ""),
         action: async () => {
+          if (profil.role_key === cle) return;
           const ok = await confirmer({
             titre: "Changer le rôle",
-            message: `${profil.display_name} deviendra « ${libelle} ». Les permissions associées s'appliqueront immédiatement.`,
+            message: `${profil.display_name} deviendra « ${libelle} ». Les permissions associées s'appliqueront immédiatement. `
+              + "Le changement est inscrit au journal.",
             libelle: "Changer"
           });
           if (!ok) return;
           try {
-            await profils.majorer(profil.id, { role_key: cle });
+            await profils.nommer(profil.id, cle);
             toast("Rôle modifié");
             await peindre();
           } catch (err) {
             erreur("Modification impossible", messageErreur(err));
           }
         }
-      }))
+      })))
     ]);
   }
 
-  /**
-   * Ce qui circule. Un modérateur voit passer les remises et peut lire un
-   * papier signalé — il ne décide jamais à la place du destinataire :
-   * accepter ou refuser reste un geste de personnage.
-   */
-  async function sectionPapiers() {
-    let recents = [];
-    try { recents = await papiers.circulation(200); }
-    catch (err) { return blocVide("Registre indisponible", messageErreur(err)); }
-
-    if (!recents.length) {
-      return blocVide("Rien ne circule",
-        "Aucun papier n'a encore été tendu sur cette plateforme.");
+  /* Nom RP : le nom du personnage s'affiche partout à la place du pseudo Discord. */
+  async function nomRP(profil) {
+    const discord = profil.discord_name || profil.display_name;
+    const sortie = await formulaire({
+      titre: `Nom RP — ${profil.discord_name ? `${profil.display_name} (Discord : ${profil.discord_name})` : profil.display_name}`,
+      note: `Pseudo Discord : ${discord}. Le nom RP s'affiche partout sur le site à sa place. `
+        + "Laissez le champ vide pour rendre à la personne son pseudo Discord.",
+      champs: [{ cle: "nom", label: "Nom du personnage", valeur: profil.discord_name ? profil.display_name : "" }],
+      libelle: "Enregistrer"
+    });
+    if (!sortie) return;
+    try {
+      const affiche = await profils.nomRP(profil.id, sortie.nom || "");
+      succes("Nom mis à jour", `Affiché : ${affiche}`);
+      await peindre();
+    } catch (err) {
+      erreur("Modification impossible", messageErreur(err));
     }
-
-    const ETATS = {
-      offered:  ["En attente", "etiq--attn"],
-      accepted: ["Gardé", "etiq--ok"],
-      refused:  ["Refusé", "etiq--alerte"],
-      withdrawn:["Retiré", ""]
-    };
-
-    return el("div.panneau",
-      el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } },
-        "Les deux cents dernières remises. Ouvrir un papier est une lecture, "
-        + "inscrite au journal comme telle."),
-      el("div.liste", recents.map((r) => {
-        const [libelle, teinte] = ETATS[r.state] || ETATS.offered;
-        return el("div.liste__item",
-          el("span.etiq", { class: teinte }, libelle),
-          el("div", { style: { flex: "1", minWidth: "0" } },
-            el("div.tronque", r.papier?.title || "Papier supprimé"),
-            el("div.petit.faible",
-              `${MODELES[r.papier?.model]?.libelle || "Papier"} · `
-              + `${r.expediteur?.display_name || "?"} → ${r.destinataire?.display_name || "?"}`
-              + ` · ${depuis(r.created_at)}`)
-          ),
-          r.attested
-            ? el("span.etiq.etiq--info", { title: "Proximité attestée par l'émetteur" }, "En main propre")
-            : el("span.etiq", { title: "Aucune attestation de proximité" }, "Sans attestation"),
-          r.papier ? el("button.btn.btn--fantome.btn--icone", {
-            "aria-label": `Lire « ${r.papier.title} »`,
-            onclick: () => lirePapier(r)
-          }, icone("oeil", 15)) : null
-        );
-      }))
-    );
   }
 
-  async function lirePapier(remise) {
-    await ouvrirModale({
-      titre: "Lecture de modération",
-      large: true,
-      corps: () => el("div",
-        el("p.petit.faible",
-          `Remis par ${remise.expediteur?.display_name || "?"} à `
-          + `${remise.destinataire?.display_name || "?"}.`),
-        rendrePapier(remise.papier, { auteur: remise.expediteur })),
-      actions: [{ libelle: "Fermer", variante: "primaire", valeur: true }]
+  /* Personnage mort : la personne peut choisir un nouveau nom RP (une fois de plus). */
+  async function personnageMort(profil) {
+    const ok = await confirmer({
+      titre: "Personnage mort",
+      message: `Le personnage de ${profil.display_name} est mort ? Cette personne pourra choisir un nouveau nom RP, une seule fois. `
+        + "Le changement est inscrit au journal.",
+      libelle: "Oui, il est mort"
     });
-    journal.ecrire({
-      class_id: remise.class_id || null, user_id: etat.utilisateur.id,
-      action: "papier.moderation", meta: { papier: remise.paper_id, remise: remise.id }
+    if (!ok) return;
+    try {
+      await profils.personnageMort(profil.id);
+      succes("Nouveau nom possible", `${profil.display_name} peut choisir un nouveau nom RP.`);
+      await peindre();
+    } catch (err) {
+      erreur("Modification impossible", messageErreur(err));
+    }
+  }
+
+  /* Sanctionner : de la suspension temporaire au bannissement IP. */
+  async function sanctionner(profil) {
+    const genres = GENRES_SANCTION.filter((g) => !g.admin || nomme);
+    const sortie = await formulaire({
+      titre: `Sanctionner ${profil.display_name}`,
+      note: "Le joueur lit la raison. Mort ou bannissement du personnage : il garde son compte et recommence "
+        + "un personnage. Suspension : il ne peut plus entrer jusqu'à la date. Définitif, IP : il ne peut plus entrer ; "
+        + "l'IP bloque aussi ses connexions (nouveau compte compris). Inscrit au journal ; une sanction se lève.",
+      champs: [
+        { cle: "genre", label: "Sanction", type: "select", valeur: "personnage",
+          options: genres.map((g) => ({ valeur: g.cle, libelle: g.libelle })) },
+        { cle: "jours", label: "Durée en jours (suspension seulement)", type: "number", valeur: 3 },
+        { cle: "raison", label: "Raison (le joueur la lira)", type: "textarea", requis: true, valeur: "" }
+      ],
+      libelle: "Appliquer la sanction"
     });
+    if (!sortie) return;
+    try {
+      await moderation.sanctionner(profil.id, sortie.genre, sortie.raison,
+        sortie.genre === "temporaire" ? Number(sortie.jours) || 1 : null);
+      succes(GENRES_SANCTION.find((g) => g.cle === sortie.genre)?.fait || "Sanction appliquée", profil.display_name);
+      await peindre();
+    } catch (err) { erreur("Sanction impossible", messageErreur(err)); }
+  }
+
+  async function sectionSanctions() {
+    const liste = await moderation.sanctions({}, 300);
+    const enCours = (x) => !x.levee_at && (x.genre !== "temporaire" || new Date(x.jusqua).getTime() > Date.now());
+    if (!liste.length) return blocVide("Aucune sanction", "Personne n'a été sanctionné pour l'instant.");
+    return el("div.moderation__liste", liste.map((x) => {
+      const g = GENRES_SANCTION.find((y) => y.cle === x.genre);
+      const actif = enCours(x) && ["temporaire", "definitif", "ip"].includes(x.genre);
+      return el("article.moderation__carte",
+        el("div.moderation__tete",
+          el("span.etiq", { class: actif ? "etiq--alerte" : "" }, g?.libelle || x.genre),
+          x.levee_at ? el("span.etiq.etiq--ok", "Levée") : null,
+          el("strong", x.nom || "?"),
+          el("span.pousse"),
+          el("span.petit.faible", `${dateCourte(x.created_at)} ${heure(x.created_at)}`)),
+        el("p", { style: { margin: 0 } }, x.raison),
+        x.jusqua ? el("p.petit.faible", { style: { margin: 0 } }, `Jusqu'au ${dateCourte(x.jusqua)} ${heure(x.jusqua)}`) : null,
+        actif && (nomme || x.genre === "temporaire")
+          ? el("div.moderation__actions", el("button.btn.btn--petit", {
+              type: "button",
+              onclick: async () => {
+                const ok = await confirmer({ titre: "Lever la sanction", message: `${x.nom} pourra de nouveau entrer.`, libelle: "Lever" });
+                if (!ok) return;
+                try { await moderation.leverSanction(x.id); succes("Sanction levée"); await peindre(); }
+                catch (err) { erreur("Impossible", messageErreur(err)); }
+              }
+            }, "Lever la sanction"))
+          : null);
+    }));
+  }
+
+  /* Supprimer un compte : on retape son pseudo, pour ne pas se tromper de ligne. */
+  async function supprimerCompte(profil) {
+    const sortie = await formulaire({
+      titre: `Supprimer le compte de ${profil.display_name}`,
+      note: "Définitif : le compte, ses cahiers, son encre et les espaces "
+        + "qu'il a créés disparaissent. La suppression est inscrite au journal.",
+      champs: [{ cle: "pseudo", label: `Retapez « ${profil.display_name} » pour confirmer`, type: "text", requis: true, valeur: "" }],
+      libelle: "Supprimer définitivement"
+    });
+    if (!sortie) return;
+    if (sortie.pseudo.toLowerCase() !== profil.display_name.toLowerCase()) {
+      erreur("Pseudo différent", "Rien n'a été supprimé.");
+      return;
+    }
+    try {
+      await profils.supprimerCompte(profil.id);
+      succes("Compte supprimé", profil.display_name);
+      await peindre();
+    } catch (err) { erreur("Suppression impossible", messageErreur(err)); }
+  }
+
+  /* Le joueur a oublié son mot de passe : on lui en donne un nouveau, qu'on
+     lui transmet en jeu. Il pourra le changer depuis son profil. */
+  async function nouveauMotDePasse(profil) {
+    const sortie = await formulaire({
+      titre: `Nouveau mot de passe — ${profil.display_name}`,
+      note: "Transmettez-le au joueur en jeu ; il pourra le changer depuis son profil.",
+      champs: [{ cle: "mdp", label: "Mot de passe", type: "text", valeur: motDePasseAuHasard(), requis: true,
+                 aide: "Huit caractères minimum." }],
+      libelle: "Appliquer"
+    });
+    if (!sortie) return;
+    if (sortie.mdp.length < 8) { erreur("Mot de passe trop court", "Huit caractères au minimum."); return; }
+    try {
+      await auth.remettreMotDePasse(profil.id, sortie.mdp);
+      succes("Mot de passe changé", `${profil.display_name} peut entrer avec « ${sortie.mdp} ».`);
+    } catch (err) {
+      erreur("Changement impossible", messageErreur(err));
+    }
   }
 
   async function sectionRoles() {
-    const [roles, permissions] = await Promise.all([rbac.roles(), rbac.permissions()]);
+    const roles = await rbac.roles();
     const parRole = new Map();
     for (const role of roles) parRole.set(role.key, await rbac.pourRole(role.key));
 
@@ -219,25 +531,7 @@ export default async function vueAdministration() {
     );
   }
 
-  async function sectionJournaux() {
-    const entrees = await journal.liste({}, 200);
-    const profilsLies = await profils.parIds([...new Set(entrees.map((e) => e.user_id).filter(Boolean))]);
-    const index = new Map(profilsLies.map((p) => [p.id, p]));
-
-    return el("div.panneau",
-      el("div.panneau__entete", el("span.panneau__titre", "200 dernières actions")),
-      el("div.panneau__corps.panneau__corps--serre",
-        entrees.length
-          ? el("div.journal", entrees.map((e) => el("div.journal__ligne",
-              el("span.journal__heure", `${dateCourte(e.created_at)} ${heure(e.created_at)}`),
-              el("span", `${index.get(e.user_id)?.display_name || "—"} · ${e.action}`)
-            )))
-          : el("p.petit.faible", { style: { padding: "var(--e-4)", margin: 0 } }, "Journal vide.")
-      )
-    );
-  }
-
   peindreBarre();
   await peindre();
-  return { noeud, titre: "Administration" };
+  return { noeud, titre: admin ? "Administration" : "Modération" };
 }

@@ -38,8 +38,8 @@ export const P = {
   GERER_PAPIERS:     "MANAGE_PAPERS"
 };
 
-const ROLES_ADMIN = new Set(["super_admin", "admin", "director"]);
-const ROLES_ENSEIGNANTS = new Set(["super_admin", "admin", "director", "teacher", "instructor"]);
+const ROLES_ADMIN = new Set(["pdg", "super_admin", "admin", "director"]);
+const ROLES_ENSEIGNANTS = new Set(["pdg", "super_admin", "admin", "director", "teacher", "instructor"]);
 
 /** Permission globale (issue du rôle du profil). */
 export function peut(permission) {
@@ -49,6 +49,24 @@ export function peut(permission) {
 
 export function estAdmin() {
   return ROLES_ADMIN.has(etat.profil?.role_key);
+}
+
+/**
+ * Nommer : changer un rôle ou attribuer un titre. L'administrateur seul — le
+ * directeur administre ses espaces, pas les comptes. La base y veille (0029).
+ */
+export function peutNommer() {
+  return ["pdg", "admin", "super_admin"].includes(etat.profil?.role_key);
+}
+
+/** Le PDG est aussi super administrateur : toutes les vérifications existantes passent pour lui. */
+export function estSuperAdmin() {
+  return ["pdg", "super_admin"].includes(etat.profil?.role_key);
+}
+
+/** Le fondateur. Seul à nommer ou destituer un super administrateur ; intouchable par les autres. */
+export function estPDG() {
+  return etat.profil?.role_key === "pdg";
 }
 
 /**
@@ -132,6 +150,7 @@ export function peutEcrireCahier(cahier, membre = etat.membreActif) {
 }
 
 export const LIBELLES_ROLES = {
+  pdg: "PDG",
   super_admin: "Super administrateur",
   admin: "Administrateur",
   moderator: "Modérateur",

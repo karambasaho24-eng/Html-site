@@ -10,6 +10,7 @@ pas casser le site en production.
 | `supabase-js.min.js`   | `@supabase/supabase-js`  | 2.45.4   |
 | `pdf.min.mjs`          | `pdfjs-dist`             | 4.6.82   |
 | `pdf.worker.min.mjs`   | `pdfjs-dist`             | 4.6.82   |
+| `three.module.min.js`  | `three`                  | 0.170.0  |
 
 `supabase-js.min.js` est chargé au démarrage ; les deux fichiers `pdf.*` ne le
 sont qu'au moment d'une conversion de PDF en pages de cahier.
@@ -25,7 +26,12 @@ npx esbuild node_modules/@supabase/supabase-js/dist/module/index.js \
 
 cp node_modules/pdfjs-dist/build/pdf.min.mjs        vendor/
 cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs vendor/
+cp node_modules/three/build/three.module.min.js      vendor/   # npm install three@0.170.0
 ```
 
 En cas d'absence de ces fichiers, `src/data/supabase.js` et
 `src/features/import-document.js` se replient automatiquement sur esm.sh.
+
+`three.module.min.js` n'est chargé qu'à l'entrée dans une salle, pour la vue
+de la classe en 3D (src/features/classe-3d.js). Sans lui, ou sans WebGL, la
+salle garde sa vue à plat.

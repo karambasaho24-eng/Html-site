@@ -9,7 +9,7 @@
  *     --outfile=.tmp/app.bundle.js
  *   node outils/construire-page-unique.mjs .tmp/app.bundle.js page-unique.html
  * ------------------------------------------------------------------------- */
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,33 +23,12 @@ if (!bundlePath) {
   process.exit(1);
 }
 
-const ORDRE_CSS = ["tokens", "base", "layout", "components", "notebook", "objets", "board", "live", "responsive"];
+const ORDRE_CSS = ["waitlist", "classe", "notebook", "board", "live", "animations"];
 const css = ORDRE_CSS
   .map((n) => `/* ---- ${n}.css ---- */\n` + readFileSync(resolve(RACINE, "styles", `${n}.css`), "utf8"))
   .join("\n");
 
 const source = readFileSync(resolve(RACINE, "index.html"), "utf8");
-
-/**
- * Les dessins des objets, embarqués.
- *
- * La page autonome n'a pas de fichiers à côté : `assets/objets/plume.svg`
- * n'existe pas, et le cartable se serait ouvert sur des cases vides. On les
- * transporte donc dans la page, en data-uri, et `imageObjet()` les y trouve.
- * Ce sont des vecteurs : les trente-sept pèsent moins qu'une photographie.
- */
-function embarquerObjets() {
-  const dossier = resolve(RACINE, "assets", "objets");
-  const carte = {};
-  for (const fichier of readdirSync(dossier)) {
-    if (!fichier.endsWith(".svg")) continue;
-    const svg = readFileSync(resolve(dossier, fichier), "utf8")
-      .replace(/\n\s*/g, " ").trim();
-    carte[fichier.replace(/\.svg$/, "")] =
-      "data:image/svg+xml," + encodeURIComponent(svg);
-  }
-  return carte;
-}
 
 /** Une chaîne contenant </script> refermerait la balise qui l'englobe. */
 const neutraliser = (js) => js.replace(/<\/script/gi, "<\\/script");
@@ -79,7 +58,7 @@ const page = `<meta charset="utf-8" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
 
 <style>
 ${css}
@@ -87,8 +66,6 @@ ${css}
 /* Page autonome : on s'aligne sur la hauteur réellement disponible, le cadre
    d'accueil réservant déjà les marges de sécurité de l'appareil. */
 html, body { height: 100%; }
-body { margin: 0; font-family: var(--f-ui); }
-.chassis { height: 100%; }
 @media (pointer: coarse) {
   .btn { min-height: 38px; }
   .onglet, .rail__lien { padding-top: 10px; padding-bottom: 10px; }
@@ -99,19 +76,18 @@ body { margin: 0; font-family: var(--f-ui); }
   (function () {
     var r = document.documentElement;
     try {
-      r.dataset.theme = JSON.parse(localStorage.getItem("ojm.theme") || '"nuit"');
-      r.dataset.density = JSON.parse(localStorage.getItem("ojm.densite") || '"grand"');
+      r.dataset.theme = "nuit";
     } catch (e) {
       r.dataset.theme = "nuit";
-      r.dataset.density = "grand";
     }
   })();
 </script>
 
+<div id="bg" aria-hidden="true"></div>
 <a class="skip-link" href="#vue">Aller au contenu</a>
 
 <div id="ecran-chargement" class="boot">
-  <div class="boot__mark" aria-hidden="true">CP</div>
+  <div class="boot__rond" aria-hidden="true"></div>
   <p class="boot__label">Ouverture de la classe…</p>
 </div>
 
@@ -127,7 +103,6 @@ ${config}
 </script>
 
 <script>
-window.__OJM_OBJETS__ = ${neutraliser(JSON.stringify(embarquerObjets()))};
 </script>
 
 <script type="module">

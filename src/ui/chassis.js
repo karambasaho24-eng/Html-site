@@ -1,75 +1,145 @@
 /* ---------------------------------------------------------------------------
- * Châssis : marque, barre supérieure, rail de navigation, zone de vue.
- * Rendu une seule fois ; seuls les fragments concernés sont recalculés.
+ * Châssis : une barre de contexte (où je suis, onglets, encre), la vue, et un
+ * tiroir pour tout le reste. Rendu une seule fois ; seuls les fragments
+ * concernés sont recalculés.
+ *
+ * En fenêtre flottante (posée à côté du jeu), on ne propose que l'essentiel :
+ * les cahiers et les documents.
  * ------------------------------------------------------------------------- */
 import { el, render } from "./dom.js";
 import { icone } from "./icons.js";
 import { etat, observer, definir } from "../core/store.js";
-import { aller, chemin } from "../core/router.js";
+import { aller, chemin, retour, peutRevenir } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
-import { estEnseignant, estAdmin, encadreUneClasse } from "../core/permissions.js";
-import { initiales } from "../core/util.js";
+import { estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
 import { menu } from "./modal.js";
-import { docHote } from "../core/hote.js";
-import { basculerFenetreFlottante, ouvrirFenetreFlottante, estFlottant,
-         flottantAuPremierPlan, flottantDisponible, FORMES }
+import { docHote, fenetreHote } from "../core/hote.js";
+import { local } from "../core/util.js";
+import { basculerFenetreFlottante, estFlottant, flottantAuPremierPlan, flottantDisponible }
   from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
-import { barreConsole } from "../features/console-rp.js";
-import { basculerTheme, appliquerDensite, DENSITES } from "../core/interface.js";
-import { notifications as depotNotifications } from "../data/index.js";
-import { pilote } from "../data/index.js";
+import { marque, nomDuSite } from "../features/apparence.js";
+import { ecouter } from "../core/bus.js";
+import { jaugeEncre } from "../features/encre.js";
+import { notifications as depotNotifications, pilote } from "../data/index.js";
+import { animationsVoulues, basculerAnimations } from "./animations.js";
 
 let refs = {};
 
-/** Monogramme dérivé du nom affiché : « Classe Parallèle » → « CP ». */
-function sceau() {
-  const mots = String(config.academyName || "Classe Parallèle")
-    .split(/[\s·—-]+/).filter(Boolean);
-  if (mots.length === 1) return mots[0].slice(0, 3).toUpperCase();
-  return mots.slice(0, 3).map((m) => m[0]).join("").toUpperCase();
-}
-
 export function construireChassis(hote) {
-  const chassis = el("div.chassis",
-    el("div.marque",
-      el("div.marque__sceau", sceau()),
-      el("div", { style: { minWidth: "0" } },
-        el("div.marque__nom", config.academyName || "Classe Parallèle"),
-        el("span.marque__devise", config.academyMotto || "")
-      )
+  const chassis = el("div.chassis", { dataset: { taille: "grand" } },
+    el("header.contexte",
+      refs.sceau = el("button.contexte__sceau", { type: "button", title: "Mes cahiers", "aria-label": "Mes cahiers",
+        onclick: () => aller("/") }, marque()),
+      refs.fil = el("div.contexte__lieu"),
+      refs.onglets = el("nav.nav-principale", { "aria-label": "Navigation principale" }),
+      refs.statut = el("div.contexte__statut"),
+      refs.outils = el("div.contexte__outils")
     ),
-    el("header.barre",
-      el("button.btn.btn--fantome.btn--icone.bouton-tiroir", {
-        "aria-label": "Navigation", onclick: () => docHote().body.classList.toggle("tiroir-ouvert")
-      }, icone("menu", 17)),
-      refs.fil = el("div.barre__fil"),
-      refs.outils = el("div.barre__outils")
-    ),
-    refs.rail = el("nav.rail", { "aria-label": "Navigation principale" }),
-    refs.console = el("div.console-hote", { hidden: true }),
-    refs.vue = el("main#vue.vue", { tabindex: "-1" })
+    refs.vue = el("div#vue.vue", { role: "main", tabindex: "-1" }),
+    refs.rail = el("nav.rail.tiroir", { "aria-label": "Tout le reste" })
   );
+  refs.chassis = chassis;
 
   render(hote, chassis);
   peindreRail();
   peindreOutils();
   peindreFil();
+  peindreOnglets();
+  suivreLaTaille();
 
-  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); });
-  observer(["notifications", "reseau", "densite", "theme", "utilisateur", "flottant"], peindreOutils);
-  // La console d'à-côté n'existe que là où elle sert : dans la fenêtre posée
-  // sur le jeu, ou quand on la demande. Ailleurs elle doublerait le rail.
-  observer(["flottant", "console"], majConsole);
-  observer(["route"], () => { if (etat.console || etat.flottant) majConsole(); });
-  observer("classeActive", peindreFil);
+  const marquerRoute = () => { document.body.dataset.route = etat.route?.nom || ""; };
+  marquerRoute();
+  observer("route", marquerRoute);
+  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); peindreOnglets(); });
+  observer(["notifications", "reseau", "utilisateur", "flottant"], peindreOutils);
+  // La marque (logo ou nom) suit les réglages d'apparence, en direct.
+  ecouter("apparence", () => { if (refs.sceau) render(refs.sceau, marque()); peindreRail(); peindreFil(); });
+  observer(["classeActive", "sessionActive"], peindreFil);
+  observer("flottant", () => { peindreOnglets(); setTimeout(suivreLaTaille, 60); });
+  observer("utilisateur", peindreOnglets);
+
+  // Le tiroir se referme comme on s'y attend : Échap, un clic à côté, ou
+  // dès qu'on est allé quelque part.
+  const fermerTiroir = () => docHote().body.classList.remove("tiroir-ouvert");
+  observer("route", fermerTiroir);
+  const docsBranches = new WeakSet();
+  const brancherDoc = (doc) => {
+    if (!doc || docsBranches.has(doc)) return;
+    docsBranches.add(doc);
+    doc.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerTiroir(); });
+    doc.addEventListener("pointerdown", (e) => {
+      if (!docHote().body.classList.contains("tiroir-ouvert")) return;
+      if (e.target.closest?.(".tiroir, .contexte__bouton")) return;
+      fermerTiroir();
+    }, true);
+  };
+  brancherDoc(hote.ownerDocument);
+  // La fenêtre posée sur le jeu est un autre document : on l'écoute aussi.
+  observer("flottant", () => setTimeout(() => brancherDoc(docHote()), 80));
 
   return refs.vue;
 }
 
-/* --- Rail ------------------------------------------------------------------ */
-function lienRail(href, nom, libelle, icone_, compteur = null) {
+/**
+ * La taille décide du COMPORTEMENT, pas seulement du zoom : au-dessous d'un
+ * certain seuil, la scène cède la place à la console (un panneau à la fois).
+ */
+function suivreLaTaille() {
+  const chassis = refs.chassis;
+  const calculer = () => {
+    const r = chassis.getBoundingClientRect();
+    const w = r.width || fenetreHote().innerWidth;
+    const h = r.height || fenetreHote().innerHeight;
+    const t = w >= 1000 && h >= 620 ? "grand"
+      : w >= 720 && h >= 460 ? "moyen"
+      : w >= 360 && h >= 330 ? "compact"
+      : "mini";
+    if (chassis.dataset.taille !== t) {
+      chassis.dataset.taille = t;
+      docHote().body.dataset.taille = t;
+      definir({ taille: t });
+    }
+  };
+  refs.ecouteTaille?.();
+  const fen = fenetreHote();
+  fen.addEventListener("resize", calculer);
+  let ro = null;
+  try { ro = new fen.ResizeObserver(calculer); ro.observe(chassis); } catch { /* ancien navigateur */ }
+  refs.ecouteTaille = () => { fen.removeEventListener("resize", calculer); ro?.disconnect(); };
+  calculer();
+}
+
+/* --- Onglets ---------------------------------------------------------------- */
+function onglet(href, libelle, icone_, actif) {
+  return el("a.nav-lien", { href: `#${href}`, "aria-current": actif ? "page" : null, title: libelle },
+    icone(icone_, 15), el("span.nav-lien__mot", libelle));
+}
+
+function peindreOnglets() {
+  if (!etat.utilisateur) { render(refs.onglets, []); return; }
+  const { nom } = etat.route;
+  const cahiers = ["accueil", "cahier", "papier"].includes(nom);
+  const documents = nom === "documents";
+  const classes = ["classes", "classe", "salle"].includes(nom);
+  // À côté du jeu : un seul retour, la manette.
+  render(refs.onglets,
+    etat.flottant && nom !== "manette" && peutRevenir()
+      ? el("button.nav-lien", { type: "button", title: "Retour", "aria-label": "Retour", onclick: retour },
+          icone("annuler", 15), el("span.nav-lien__mot", "Retour")) : null,
+    etat.flottant ? onglet("/manette", "Manette", "grille", nom === "manette") : null,
+    etat.flottant ? null : onglet("/", L("Cahiers"), "cahiers", cahiers),
+    etat.flottant ? null : onglet("/documents", "Bibliothèque", "dossier", documents),
+    etat.flottant ? null : onglet("/classes", L("Classes"), "classe", classes),
+    // À côté du jeu : retrouver d'un clic la séance (tableau + cahier) quittée pour un autre cahier.
+    etat.flottant && local.lire("ojm.derniereSalle", null)
+      ? onglet(`/classe/${local.lire("ojm.derniereSalle", null)}/salle`, "Séance", "tableau", nom === "salle") : null
+  );
+}
+
+/* --- Tiroir ----------------------------------------------------------------- */
+function lienRail(href, libelle, icone_, compteur = null) {
   const actif = chemin() === href || (href !== "/" && chemin().startsWith(href));
   return el("a.rail__lien", {
     href: `#${href}`,
@@ -82,73 +152,69 @@ function lienRail(href, nom, libelle, icone_, compteur = null) {
 
 function peindreRail() {
   const enseignant = encadreUneClasse();
-  const classesActives = etat.classes.filter((c) => !c.archived);
+  const fermer = () => docHote().body.classList.remove("tiroir-ouvert");
 
   render(refs.rail,
-    el("div.rail__titre", "Mon espace"),
-    lienRail("/", "accueil", "Accueil", "accueil"),
-    lienRail("/cahiers", "cahiers", `Mes ${L("cahiers")}`, "cahiers"),
-    lienRail("/classes", "classes", `Mes ${L("classes")}`, "classe", classesActives.length || null),
-    lienRail("/affaires", "affaires", "Mes affaires", "sac"),
-    lienRail("/papiers", "papiers", "Ma sacoche", "papier"),
-    lienRail("/documents", "documents", "Documents", "documents"),
-    lienRail("/exercices", "exercices", L("Exercices"), "exercices"),
-    lienRail("/archives", "archives", "Archives", "archives"),
+    el("div.tiroir__entete",
+      el("div.tiroir__qui",
+        el("span.tiroir__nom", etat.profil?.display_name || "—"),
+        el("span.tiroir__mail", nomDuSite())),
+      el("button.contexte__bouton", { type: "button", "aria-label": "Fermer", onclick: fermer }, icone("croix", 15))),
+    // Les onglets du haut mènent déjà aux cahiers, aux documents et aux classes : on ne les répète pas ici.
+    lienRail("/boutique", "Encre et cahiers", "stylo"),
 
-    enseignant ? el("div.rail__titre", `Espace ${L("professeur")}`) : null,
-    enseignant ? lienRail("/professeur", "professeur", "Tableau de bord", "grille") : null,
-    enseignant ? lienRail("/bibliotheque", "bibliotheque", "Bibliothèque", "livre") : null,
-    enseignant ? lienRail("/modeles", "modeles", "Modèles de cours", "cours") : null,
+    enseignant ? el("div.rail__titre", "Encadrement") : null,
+    enseignant ? lienRail("/professeur", "Vue d'ensemble", "grille") : null,
+    enseignant ? lienRail("/exercices", L("Exercices"), "exercices") : null,
+    enseignant ? lienRail("/modeles", "Modèles", "cours") : null,
 
-    estAdmin() ? el("div.rail__titre", "Administration") : null,
-    estAdmin() ? lienRail("/administration", "administration", "Comptes & journaux", "bouclier") : null,
+    estModerateur() ? el("div.rail__titre", estAdmin() ? "Administration" : "Modération") : null,
+    estModerateur() ? lienRail("/administration",
+      estAdmin() ? "Comptes, boutique, journal" : "Modération et journal", "bouclier") : null,
 
     el("div.rail__pied",
-      lienRail("/profil", "profil", "Mon profil", "profil"),
-      lienRail("/reglages", "reglages", "Réglages", "reglages")
+      el("button.rail__lien", {
+        type: "button", role: "switch", "aria-checked": String(animationsVoulues()),
+        onclick: () => { basculerAnimations(); peindreRail(); }
+      }, icone("etoile", 16), el("span", animationsVoulues() ? "Animations : oui" : "Animations : non")),
+      lienRail("/profil", "Profil", "profil"),
+      lienRail("/reglages", "Réglages", "reglages"),
+      etat.utilisateur ? el("button.rail__lien.rail__lien--danger", { type: "button", onclick: async () => {
+        fermer(); await deconnecter(); aller("/connexion");
+      } }, icone("sortie", 16), el("span", "Se déconnecter")) : null
     )
   );
 }
 
-/**
- * Monte ou démonte la console. On la reconstruit à chaque apparition : elle
- * compte ce qui attend une réponse, et ce nombre ne vaut que maintenant.
- */
-function majConsole() {
-  const visible = Boolean(etat.flottant || etat.console);
-  refs.console.hidden = !visible;
-  docHote().body.classList.toggle("avec-console", visible);
-  render(refs.console, visible ? barreConsole() : []);
-}
-
-/* --- Fil d'Ariane ---------------------------------------------------------- */
+/* --- L'espace actuel ------------------------------------------------------ */
+/** Où je suis : une ligne, jamais un fil d'Ariane de site. */
 function peindreFil() {
   const { nom } = etat.route;
-  const titres = {
-    accueil: "Accueil", cahiers: `Mes ${L("cahiers")}`, cahier: L("Cahier"),
-    classes: `Mes ${L("classes")}`, classe: L("Classe"), salle: "Session en direct",
-    papiers: "Ma sacoche", affaires: "Mes affaires",
-    documents: "Documents", exercices: L("Exercices"), exercice: L("Exercice"),
-    archives: "Archives", profil: "Profil", reglages: "Réglages",
-    professeur: `Espace ${L("professeur")}`, bibliotheque: "Bibliothèque",
-    modeles: "Modèles", administration: "Administration", recherche: "Recherche"
+  const lieux = {
+    accueil: [`Mes ${L("cahiers")}`, null],
+    salle: [etat.classeActive?.name || L("Classe"), etat.sessionActive?.title || "En séance"],
+    classe: [etat.classeActive?.name || L("Classe"), "Espace"],
+    cahier: ["Cahier", null],
+    classes: [`Mes ${L("classes")}`, null], boutique: ["Encre et cahiers", null],
+    documents: ["Bibliothèque", null], exercices: [L("Exercices"), null], exercice: [L("Exercice"), null],
+    archives: ["Archives", null], archive: ["Archive", null], profil: ["Profil", null], reglages: ["Réglages", null],
+    professeur: [`Espace ${L("professeur")}`, null],
+    modeles: ["Modèles", null], administration: ["Administration", null], recherche: ["Recherche", null],
+    connexion: [nomDuSite(), null]
   };
+  // Les trois onglets disent déjà où l'on est : pas la peine de le répéter.
+  if (["accueil", "documents", "classes"].includes(nom)) { render(refs.fil, []); return; }
+  const [lieu, precision] = lieux[nom] || [nomDuSite(), null];
+  const direct = etat.sessionActive?.status === "live" && nom === "salle";
+  render(refs.fil,
+    el("span.contexte__nom", lieu),
+    precision ? el("span.contexte__precision", precision) : null,
+    direct ? el("span.contexte__direct", "En séance") : null);
+}
 
-  const morceaux = [el("span", { style: { color: "var(--texte-faible)" } }, titres[nom] || sceau())];
-
-  if (etat.classeActive && ["classe", "salle", "exercice", "cahier"].includes(nom)) {
-    morceaux.unshift(
-      el("a", { href: `#/classe/${etat.classeActive.id}` }, el("b", etat.classeActive.name)),
-      el("span.barre__sep", "›")
-    );
-  }
-  if (etat.sessionActive?.status === "live") {
-    morceaux.push(el("span.barre__sep", "·"), el("span.etiq.etiq--direct", "En direct"));
-  }
-  if (etat.modeExamen) {
-    morceaux.push(el("span.barre__sep", "·"), el("span.etiq.etiq--alerte", "Mode examen"));
-  }
-  render(refs.fil, morceaux);
+/** Un écran peut poser sa ligne d'état. */
+export function definirStatut(noeud) {
+  if (refs.statut) render(refs.statut, noeud || []);
 }
 
 /* --- Outils de la barre ---------------------------------------------------- */
@@ -156,92 +222,43 @@ function peindreOutils() {
   const nonLues = notificationsNonLues();
   const etatReseau = pilote?.mode === "local" ? "local" : etat.reseau;
   const libelleReseau = {
-    ok: "En ligne", rompu: "Hors ligne", reprise: "Reconnexion…", local: "Mode démonstration"
+    ok: "En ligne", rompu: "Hors ligne", reprise: "Reconnexion…", local: "Démonstration"
   }[etatReseau];
 
   render(refs.outils,
-    el("span.reseau.hors-examen", { dataset: { etat: etatReseau }, title: libelleReseau },
-      el("span.pastille", {
-        class: etatReseau === "ok" ? "pastille--present"
-             : etatReseau === "rompu" ? "pastille--absent"
-             : etatReseau === "local" ? "pastille--away" : "pastille--offline"
-      }),
-      el("span.petit", libelleReseau)
-    ),
+    etatReseau !== "ok" ? el("span.contexte__reseau", { dataset: { etat: etatReseau }, title: libelleReseau, "aria-label": libelleReseau },
+      el("span.contexte__voyant"), etatReseau === "local" ? el("span", "Démo") : null) : null,
 
-    el("button.btn.btn--fantome.btn--icone.hors-examen", {
-      "aria-label": "Recherche globale", title: "Recherche (/)",
-      onclick: () => aller("/recherche")
-    }, icone("recherche", 17)),
+    etat.utilisateur ? jaugeEncre({ compacte: Boolean(etat.flottant) }) : null,
 
-    el("button.btn.btn--fantome.btn--icone.hors-examen", {
-      "aria-label": `Notifications${nonLues ? ` (${nonLues} non lues)` : ""}`,
-      title: "Notifications",
-      style: { position: "relative" },
-      onclick: (e) => panneauNotifications(e.currentTarget)
-    },
-      icone("cloche", 17),
-      nonLues ? el("span.pastille-compteur", nonLues > 9 ? "9+" : String(nonLues)) : null
-    ),
-
-    el("button.btn.btn--fantome.btn--icone.hors-examen", {
-      "aria-label": "Console d'à-côté", title: "Console : les gestes fréquents",
-      "aria-pressed": String(Boolean(etat.console || etat.flottant)),
-      onclick: () => definir({ console: !(etat.console || etat.flottant) })
-    }, icone("main", 17)),
-
-    flottantDisponible() ? el("button.btn.btn--fantome.btn--icone.hors-examen", {
-      "aria-label": "Fenêtre d'à-côté",
-      title: flottantAuPremierPlan()
-        ? "Détacher au-dessus du jeu (Ctrl+Maj+F)"
-        : "Détacher dans sa propre fenêtre (Ctrl+Maj+F)",
+    flottantDisponible() && etat.utilisateur ? el("button.contexte__bouton.contexte__bouton--flottant", {
+      type: "button",
+      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Mode flottant",
+      title: estFlottant() ? "Revenir dans le navigateur"
+        : flottantAuPremierPlan() ? "Mode flottant : poser le cahier par-dessus la fenêtre de jeu" : "Détacher dans sa propre fenêtre",
       "aria-pressed": String(estFlottant()),
       onclick: () => basculerFenetreFlottante()
-    }, icone(estFlottant() ? "entree" : "sortie", 17)) : null,
+    }, icone(estFlottant() ? "entree" : "incruste", 15)) : null,
 
-    el("button.btn.btn--fantome.btn--icone.hors-examen", {
-      "aria-label": "Densité d'affichage", title: "Densité (Ctrl+\\)",
-      onclick: (e) => menu(e.currentTarget, [
-        { titre: "Cohabitation Roblox" },
-        ...DENSITES.map((d) => ({
-          libelle: `${d.libelle}${etat.densite === d.cle ? "  ✓" : ""}`,
-          action: () => appliquerDensite(d.cle)
-        })),
-        ...(flottantDisponible() ? [
-          { separateur: true },
-          { titre: "Fenêtre d'à-côté" },
-          ...FORMES.map((f) => ({
-            libelle: `${f.libelle} — ${f.aide}`,
-            action: () => ouvrirFenetreFlottante(f.cle)
-          })),
-          ...(estFlottant() ? [{ libelle: "La ranger", icone: "entree", action: () => basculerFenetreFlottante() }] : [])
-        ] : []),
-        { separateur: true },
-        { libelle: etat.theme === "nuit" ? "Thème clair" : "Thème sombre", icone: "oeil", action: basculerTheme }
-      ])
-    }, icone("grille", 17)),
-
-    el("button.btn.btn--fantome", {
-      "aria-label": "Mon compte",
-      onclick: (e) => menu(e.currentTarget, [
-        { titre: etat.profil?.display_name || "Compte" },
-        { libelle: "Mon profil", icone: "profil", action: () => aller("/profil") },
-        { libelle: "Réglages", icone: "reglages", action: () => aller("/reglages") },
-        { libelle: "Raccourcis clavier", icone: "liste", action: () => aller("/reglages?onglet=raccourcis") },
-        { separateur: true },
-        { libelle: "Se déconnecter", icone: "sortie", danger: true, action: async () => {
-          await deconnecter(); aller("/connexion");
-        } }
-      ])
+    etat.utilisateur ? el("button.contexte__bouton", {
+      type: "button",
+      "aria-label": `Notifications${nonLues ? ` (${nonLues} non lues)` : ""}`,
+      title: "Notifications",
+      onclick: (e) => panneauNotifications(e.currentTarget)
     },
-      el("span.avatar", { class: encadreUneClasse() ? "avatar--prof" : "" },
-        initiales(etat.profil?.display_name))
-    )
+      icone("cloche", 15),
+      nonLues ? el("span.contexte__pastille", nonLues > 9 ? "9+" : String(nonLues)) : null
+    ) : null,
+
+    etat.utilisateur ? el("button.contexte__bouton", {
+      type: "button", "aria-label": "Tout le reste", title: "Tout le reste",
+      onclick: () => docHote().body.classList.toggle("tiroir-ouvert")
+    }, icone("points", 15)) : null
   );
 }
 
 /* --- Panneau de notifications --------------------------------------------- */
-function panneauNotifications(ancre) {
+export function panneauNotifications(ancre) {
   const liste = etat.notifications.slice(0, 12);
   if (!liste.length) {
     menu(ancre, [{ titre: "Notifications" }, { libelle: "Aucune notification", action: () => {} }]);

@@ -20,6 +20,10 @@ const surcharge = local.lire(CLE, {}) || {};
 
 export const config = { ...DEFAUTS, ...fichier, ...surcharge };
 
+/** Vrai si le site est livré relié à son serveur (config.js rempli) : on n'a
+ *  alors rien à régler à la main, et l'écran de connexion n'existe pas. */
+export const configIntegree = Boolean(fichier.supabaseUrl && fichier.supabaseAnonKey);
+
 /** Vrai si un projet Supabase est renseigné. */
 export function estRelie() {
   return Boolean(config.supabaseUrl && config.supabaseAnonKey);

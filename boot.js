@@ -32,22 +32,22 @@
     ecran.innerHTML = "";
     var boite = document.createElement("div");
     boite.style.cssText = "max-width:34em;padding:24px;text-align:center;"
-      + "font-family:system-ui,sans-serif;color:#e6e2d8;line-height:1.6";
+      + "font-family:system-ui,sans-serif;color:#fff;line-height:1.6";
     boite.innerHTML =
       '<div style="font-size:1.3rem;font-weight:600;margin-bottom:10px">'
       + "L'application n'a pas pu démarrer</div>"
-      + '<p style="color:#a9a396;margin:0 0 14px">'
+      + '<p style="color:rgba(255,255,255,.84);margin:0 0 14px">'
       + (causes.length
           ? "Cause probable : " + causes.join(", ") + "."
           : "Les fichiers de l'application n'ont pas pu être chargés.")
       + "</p>"
-      + '<p style="color:#746e63;font-size:.85rem;margin:0 0 18px">'
+      + '<p style="color:rgba(255,255,255,.62);font-size:.85rem;margin:0 0 18px">'
       + "Essayez de recharger, ou d'ouvrir la page dans un onglet normal "
       + "plutôt qu'en navigation privée.</p>";
     var bouton = document.createElement("button");
     bouton.textContent = "Recharger";
-    bouton.style.cssText = "background:#c9a227;color:#1a1508;border:0;"
-      + "border-radius:4px;padding:10px 22px;font:inherit;font-weight:600;cursor:pointer";
+    bouton.style.cssText = "background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.4);"
+      + "border-radius:12px;padding:10px 22px;font:inherit;font-weight:600;cursor:pointer";
     bouton.onclick = function () { location.reload(); };
     boite.appendChild(bouton);
     ecran.appendChild(boite);

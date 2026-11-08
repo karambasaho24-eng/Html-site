@@ -1,26 +1,32 @@
 /* ---------------------------------------------------------------------------
- * Réglages : affichage, cohabitation Roblox, raccourcis, vocabulaire RP,
+ * Réglages : affichage, mode flottant, raccourcis, vocabulaire RP,
  * connexion Supabase, données locales.
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { entete } from "../ui/fragments.js";
-import { config, definirConfig, reinitialiserConfig } from "../core/config.js";
+import { config, configIntegree, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
-import { DENSITES, appliquerDensite, appliquerTheme, raccourcis, definirRaccourci, reinitialiserRaccourcis, libelleCombinaison } from "../core/interface.js";
+import { panneauFond } from "../ui/selecteur-fond.js";
+import { raccourcis, libelleCombinaison, definirRaccourci, reinitialiserRaccourcis } from "../core/interface.js";
+import { basculerFenetreFlottante, flottantAuPremierPlan, flottantDisponible } from "../features/fenetre-flottante.js";
+import { estTactile } from "../core/appareil.js";
 import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
 import { confirmer, formulaire } from "../ui/modal.js";
 import { succes, erreur, toast } from "../ui/toast.js";
 import { local, poids } from "../core/util.js";
 import { stockageLocal, cles as clesStockees, persistant } from "../core/stockage.js";
+import { fondPerso, definirFondPerso } from "../features/apparence.js";
 
 const ONGLETS = [
   { cle: "affichage", libelle: "Affichage" },
-  { cle: "roblox", libelle: "Cohabitation Roblox" },
-  { cle: "raccourcis", libelle: "Raccourcis" },
+  { cle: "roblox", libelle: "Mode flottant", visible: () => flottantDisponible() },
+  { cle: "raccourcis", libelle: "Raccourcis", visible: () => !estTactile() },
   { cle: "lexique", libelle: "Vocabulaire RP" },
-  { cle: "connexion", libelle: "Connexion" },
+  // La connexion au serveur ne s'affiche que sur un site pas encore relié
+  // (config.js vide) : en ligne, personne ne la voit, administrateurs compris.
+  { cle: "connexion", libelle: "Connexion", visible: () => !configIntegree },
   { cle: "donnees", libelle: "Données locales" }
 ];
 
@@ -29,10 +35,7 @@ const LIBELLES_ACTIONS = {
   "cahiers.liste": "Mes cahiers",
   "classes.liste": "Mes classes",
   "tableau.ouvrir": "Salle de cours",
-  "notes.ouvrir": "Notes personnelles",
   "recherche.ouvrir": "Recherche globale",
-  "densite.cycler": "Changer de densité",
-  "densite.minimal": "Basculer en mode minimal",
   "fenetre.flottante": "Détacher la fenêtre d'à-côté",
   "page.suivante": "Page suivante",
   "page.precedente": "Page précédente",
@@ -41,7 +44,9 @@ const LIBELLES_ACTIONS = {
 };
 
 export default async function vueReglages({ requete }) {
+  const onglets = () => ONGLETS.filter((o) => !o.visible || o.visible());
   let actif = requete?.onglet || "affichage";
+  if (!onglets().some((o) => o.cle === actif)) actif = "affichage";
   const contenu = el("div");
   const barre = el("div.onglets", { role: "tablist" });
 
@@ -51,7 +56,7 @@ export default async function vueReglages({ requete }) {
   );
 
   function peindreBarre() {
-    render(barre, ONGLETS.map((o) => el("button.onglet", {
+    render(barre, onglets().map((o) => el("button.onglet", {
       role: "tab", "aria-selected": String(o.cle === actif),
       onclick: () => { actif = o.cle; peindreBarre(); peindre(); }
     }, o.libelle)));
@@ -60,7 +65,8 @@ export default async function vueReglages({ requete }) {
   function peindre() {
     const rendus = {
       affichage: sectionAffichage, roblox: sectionRoblox, raccourcis: sectionRaccourcis,
-      lexique: sectionLexique, connexion: sectionConnexion, donnees: sectionDonnees
+      lexique: sectionLexique, donnees: sectionDonnees,
+      ...(onglets().some((o) => o.cle === "connexion") ? { connexion: sectionConnexion } : {})
     };
     render(contenu, (rendus[actif] || sectionAffichage)());
   }
@@ -68,23 +74,13 @@ export default async function vueReglages({ requete }) {
   /* --- Affichage ------------------------------------------------------------ */
   function sectionAffichage() {
     return el("div.pile",
-      el("div.panneau",
-        el("div.panneau__entete", el("span.panneau__titre", "Thème")),
-        el("div.panneau__corps",
-          el("div.groupe-btn",
-            el("button.btn", {
-              "aria-pressed": String(etat.theme === "nuit"),
-              onclick: () => { appliquerTheme("nuit"); peindre(); }
-            }, "Nuit"),
-            el("button.btn", {
-              "aria-pressed": String(etat.theme === "jour"),
-              onclick: () => { appliquerTheme("jour"); peindre(); }
-            }, "Jour")
-          ),
-          el("p.petit.faible", { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
-            "Le cahier conserve son parchemin dans les deux thèmes.")
-        )
-      )
+      panneauFond({
+        titre: "Fond d'écran de ce poste",
+        aide: "Votre image passe devant le fond du site, sur cet appareil seulement. Sans image, c'est le fond du site qui s'affiche. La couleur du verre se règle dans Administration › Apparence.",
+        lire: () => fondPerso(),
+        ecrire: (patch) => definirFondPerso({ ...fondPerso(), ...patch }),
+        octetsMax: 1_200_000
+      })
     );
   }
 
@@ -92,31 +88,16 @@ export default async function vueReglages({ requete }) {
   function sectionRoblox() {
     return el("div.pile",
       el("div.panneau",
-        el("div.panneau__entete", el("span.panneau__titre", "Densité de l'interface")),
-        el("div.panneau__corps.panneau__corps--serre",
-          el("div.liste", DENSITES.map((d) => el("div.liste__item.liste__item--cliquable", {
-            "aria-current": String(etat.densite === d.cle),
-            onclick: () => { appliquerDensite(d.cle); peindre(); }
-          },
-            el("div.liste__principal",
-              el("div.liste__nom", d.libelle),
-              el("div.liste__detail", d.aide)
-            ),
-            el("div.liste__fin", etat.densite === d.cle ? icone("coche", 15) : null)
-          )))
-        )
-      ),
-      el("div.panneau",
-        el("div.panneau__entete", el("span.panneau__titre", "Bonnes pratiques")),
+        el("div.panneau__entete", el("span.panneau__titre", "Mode flottant")),
         el("div.panneau__corps",
-          el("ul.doux.petit", { style: { paddingLeft: "1.2em", margin: 0 } },
-            el("li", "Le site ne s'injecte pas dans Roblox et ne modifie pas le jeu : il s'utilise dans une fenêtre à côté."),
-            el("li", "En mode Compact, la navigation passe en icônes ; en mode Minimal, seul le cahier reste."),
-            el("li", "Toute la logique scolaire vit ici, ce qui évite d'alourdir le serveur RP."),
-            el("li", `Raccourci : ${libelleCombinaison(raccourcis()["densite.cycler"])} pour changer de densité.`)
-          )
-        )
-      )
+          el("p", flottantAuPremierPlan()
+            ? "Votre navigateur sait poser une petite fenêtre au-dessus des autres : votre cahier reste visible par-dessus le jeu."
+            : "Votre navigateur ne sait pas poser une fenêtre au-dessus des autres (Chrome ou Edge sur ordinateur le savent). Le mode flottant ouvre alors une fenêtre à part, à placer à côté du jeu."),
+          el("ul.doux.petit", { style: { paddingLeft: "1.2em", margin: "var(--e-3) 0" } },
+            el("li", "Le site ne s'injecte pas dans Roblox et ne modifie pas le jeu."),
+            el("li", "Il reste au-dessus d'un jeu en fenêtré ; pas au-dessus d'un jeu en plein écran exclusif."),
+            el("li", `Raccourci : ${libelleCombinaison(raccourcis()["fenetre.flottante"])}.`)),
+          el("button.btn.btn--primaire", { onclick: () => basculerFenetreFlottante() }, icone("incruste", 15), "Ouvrir le mode flottant")))
     );
   }
 
@@ -246,7 +227,10 @@ export default async function vueReglages({ requete }) {
           el("label.champ",
             el("span.champ__label", "Clé publique (anon / publishable)"),
             champCle = el("input.saisie", {
-              value: config.supabaseAnonKey || "", placeholder: "eyJ… ou sb_publishable_…",
+              // La clé enregistrée n'est jamais réaffichée : on en saisit une
+              // nouvelle, ou l'on laisse vide pour garder l'actuelle.
+              value: "", placeholder: config.supabaseAnonKey ? "Clé enregistrée — laisser vide pour la garder" : "eyJ… ou sb_publishable_…",
+              autocomplete: "off",
               spellcheck: "false", type: "password"
             }),
             el("span.champ__aide", "Disponible dans Supabase › Project Settings › API.")
@@ -255,7 +239,7 @@ export default async function vueReglages({ requete }) {
             el("button.btn.btn--primaire", {
               onclick: async () => {
                 const url = champUrl.value.trim();
-                const cle = champCle.value.trim();
+                const cle = champCle.value.trim() || config.supabaseAnonKey || "";
                 if (url && !/^https:\/\/.+/.test(url)) {
                   erreur("URL invalide", "Elle doit commencer par https://");
                   return;
@@ -309,7 +293,7 @@ export default async function vueReglages({ requete }) {
     const taille = toutes.reduce((s, c) => s + (stockageLocal.getItem(c)?.length || 0), 0);
 
     return el("div.pile",
-      !persistant() ? el("div.carte", { style: { borderColor: "var(--ligne-laiton)" } },
+      !persistant() ? el("div.carte", { style: { borderColor: "var(--b3)" } },
         el("b.petit", "Stockage indisponible"),
         el("p.petit.doux", { style: { margin: "var(--e-2) 0 0" } },
           "Ce navigateur refuse l'enregistrement local — navigation privée, cookies bloqués, "

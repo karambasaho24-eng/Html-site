@@ -12,27 +12,16 @@ import { activerClasse, rafraichirClasses } from "../core/session.js";
 import { entete, blocVide, avatar, statistique, etiquetteStatutSession, vignetteCahier } from "../ui/fragments.js";
 import { encadre, estAdmin, LIBELLES_ROLES_CLASSE, libelleRoleClasse } from "../core/permissions.js";
 import { confirmer, demander, formulaire, menu } from "../ui/modal.js";
-import { MODES, LISTE_MODES } from "../features/modes.js";
-import { personnages } from "../data/index.js";
-import { carteFiche, editerFiche, inviteFiche } from "../features/personnage.js";
-import { livret } from "../data/index.js";
-import { listeEntrees, inscrireAuLivret, tableauClassement, noteCoupure } from "../features/livret.js";
-import { UNIVERS, universDe, reglagesRP, dateRP, identiteComplete, nomAffiche } from "../core/rp.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { blocNotes, porterUneNote } from "../features/bulletin.js";
 import { copier, dateCourte, dateHeure, depuis, pluriel, poids } from "../core/util.js";
 
 const ONGLETS = [
   { cle: "apercu", libelle: "Aperçu" },
-  { cle: "identite", libelle: "Personnage", rp: true },
-  { cle: "livret", libelle: "Livret", rp: true },
-  { cle: "classement", libelle: "Classement", rp: true },
   { cle: "membres", libelle: "Membres" },
   { cle: "sessions", libelle: "Sessions" },
   { cle: "cahier", libelle: "Cahier commun" },
-  { cle: "documents", libelle: "Documents" },
+  { cle: "documents", libelle: "Fichiers" },
   { cle: "exercices", libelle: "Exercices" },
-  { cle: "notes", libelle: "Notes" },
   { cle: "annonces", libelle: "Annonces" },
   { cle: "reglages", libelle: "Réglages", staff: true }
 ];
@@ -89,9 +78,8 @@ export default async function vueClasse({ params, requete }) {
   );
 
   function peindreOnglets() {
-    const enRP = universDe(classe) !== "aucun";
     render(barreOnglets, ONGLETS
-      .filter((o) => (!o.staff || staff) && (!o.rp || enRP))
+      .filter((o) => !o.staff || staff)
       .map((o) =>
       el("button.onglet", {
         role: "tab", "aria-selected": String(o.cle === ongletActif),
@@ -103,10 +91,9 @@ export default async function vueClasse({ params, requete }) {
   async function peindreContenu() {
     render(contenu, el("p.faible.petit", "Chargement…"));
     const rendus = {
-      apercu: ongletApercu, identite: ongletIdentite,
-      livret: ongletLivret, classement: ongletClassement, membres: ongletMembres,
+      apercu: ongletApercu, membres: ongletMembres,
       sessions: ongletSessions, cahier: ongletCahier, documents: ongletDocuments,
-      exercices: ongletExercices, notes: ongletNotes,
+      exercices: ongletExercices,
       annonces: ongletAnnonces, reglages: ongletReglages
     };
     try {
@@ -118,58 +105,6 @@ export default async function vueClasse({ params, requete }) {
 
   /* --- Notes ---------------------------------------------------------------- */
 
-  /**
-   * Le relevé. Un cadet ne voit que le sien : comparer les moyennes à voix
-   * haute est une scène de cour de récréation, pas d'académie. L'encadrement,
-   * lui, voit la classe entière et peut noter depuis ici, hors séance —
-   * parce qu'on corrige rarement pendant qu'on fait cours.
-   */
-  async function ongletNotes() {
-    if (!staff) {
-      const bloc = blocNotes({ classeId: classe.id, utilisateurId: etat.utilisateur.id });
-      return el("section",
-        el("h2", "Mes notes"),
-        el("p.doux.petit", { style: { marginBottom: "var(--e-4)" } },
-          "Ce que l'encadrement a porté à votre relevé, séance après séance."),
-        bloc.noeud);
-    }
-
-    const equipe = await depotMembres.liste(classe.id).catch(() => []);
-    const cadets = equipe.filter((m) => m.role !== "teacher" && m.status === "active");
-    if (!cadets.length) return blocVide("Personne à noter", "Aucun élève actif dans cette classe.");
-
-    const zone = el("div");
-    let choisi = cadets[0];
-
-    async function peindre() {
-      const bloc = blocNotes({ classeId: classe.id, utilisateurId: choisi.user_id, peutNoter: true });
-      render(zone,
-        el("div.page__entete", { style: { marginBottom: "var(--e-4)" } },
-          el("div.page__titre",
-            el("h3", choisi.profil?.display_name || "Cadet"),
-            el("span.doux.petit", "Relevé de ses notes dans cette classe")),
-          el("button.btn.btn--primaire", {
-            onclick: async () => {
-              const portee = await porterUneNote({
-                classe,
-                participant: { user_id: choisi.user_id, nom: choisi.profil?.display_name }
-              });
-              if (portee) bloc.recharger();
-            }
-          }, icone("balance", 15), "Porter une note")),
-        bloc.noeud);
-    }
-
-    await peindre();
-    return el("section",
-      el("h2", "Notes de la classe"),
-      el("div.onglets", { role: "tablist", style: { marginBottom: "var(--e-4)" } },
-        cadets.map((m) => el("button.onglet", {
-          role: "tab", "aria-selected": String(m.user_id === choisi.user_id),
-          onclick: async () => { choisi = m; await peindre(); }
-        }, m.profil?.display_name || "Cadet"))),
-      zone);
-  }
 
   /* --- Aperçu -------------------------------------------------------------- */
   async function ongletApercu() {
@@ -332,137 +267,17 @@ export default async function vueClasse({ params, requete }) {
     ].filter(Boolean));
   }
 
-  /* --- Personnage ------------------------------------------------------------ */
-  async function ongletIdentite() {
-    const [maFiche, toutes, equipe] = await Promise.all([
-      personnages.pour(classe.id, etat.utilisateur.id).catch(() => null),
-      personnages.liste(classe.id).catch(() => []),
-      depotMembres.liste(classe.id)
-    ]);
-    const profilsParUtilisateur = new Map(equipe.map((m) => [m.user_id, m.profil]));
 
-    const modifier = async () => {
-      const maj = await editerFiche({
-        classe, personnage: maFiche, utilisateurId: etat.utilisateur.id, profil: etat.profil
-      });
-      if (maj) { definirPersonnageActif(maj); await peindreContenu(); }
-    };
 
-    const autres = toutes.filter((f) => f.user_id !== etat.utilisateur.id);
-
-    return el("div.colonnes",
-      el("div.pile",
-        el("h3", "Ma fiche"),
-        carteFiche(maFiche, etat.profil, { sien: true, surEdition: modifier }),
-        el("p.petit.faible",
-          "Votre fiche accompagne cet espace seulement. Ailleurs, vous pouvez être quelqu'un d'autre.")
-      ),
-      el("div.pile",
-        el("h3", "Les autres"),
-        autres.length
-          ? el("div.panneau", el("div.panneau__corps.panneau__corps--serre",
-              el("div.liste", autres.map((f) => el("div.liste__item",
-                el("span.avatar", initialesDe(f)),
-                el("div.liste__principal",
-                  el("div.liste__nom", identiteComplete(f, profilsParUtilisateur.get(f.user_id))),
-                  el("div.liste__detail",
-                    [f.corps, f.origin].filter(Boolean).join(" · ") || "—")
-                )
-              )))
-            ))
-          : blocVide("Personne d'autre", "Les fiches des autres membres apparaîtront ici.")
-      )
-    );
-  }
-
-  function initialesDe(fiche) {
-    return String(fiche.name || "?").split(/[\s-]+/).filter(Boolean).slice(0, 2)
-      .map((m) => m[0].toUpperCase()).join("") || "?";
-  }
-
-  function definirPersonnageActif(fiche) {
-    import("../core/store.js").then(({ definir }) => definir({ personnageActif: fiche }));
-  }
 
   /* --- Livret ---------------------------------------------------------------- */
 
-  /** Index user_id → nom affiché : le personnage d'abord, le compte à défaut. */
-  async function annuaire() {
-    const [equipe, fiches] = await Promise.all([
-      depotMembres.liste(classe.id),
-      personnages.index(classe.id).catch(() => new Map())
-    ]);
-    const noms = new Map();
-    for (const m of equipe) {
-      noms.set(m.user_id, nomAffiche(fiches.get(m.user_id), m.profil));
-    }
-    return { equipe, fiches, noms, nomDe: (id) => noms.get(id) || "—" };
-  }
 
-  async function ongletLivret() {
-    const { equipe, nomDe } = await annuaire();
-    // Un membre ne voit que son propre livret ; l'encadrement voit tout.
-    const entrees = await livret.liste(classe.id, staff ? undefined : etat.utilisateur.id);
 
-    const inscrire = async () => {
-      const cibles = equipe
-        .filter((m) => m.status === "active")
-        .map((m) => ({ user_id: m.user_id, nom: nomDe(m.user_id) }));
-      const entree = await inscrireAuLivret({
-        classe, membres: cibles, auteurId: etat.utilisateur.id,
-        sessionId: sessionEnCours?.id || null
-      });
-      if (entree) {
-        await activerClasse(classe.id);
-        await peindreContenu();
-      }
-    };
-
-    return el("div.pile",
-      el("div.ligne-flex.ligne-flex--entre.enrouler",
-        el("p.petit.doux", { style: { margin: 0, maxWidth: "52ch" } },
-          staff
-            ? "Mentions, sanctions, promotions et aptitudes. Une promotion inscrite ici "
-              + "change aussitôt le grade porté sur la fiche."
-            : "Ce que l'encadrement a inscrit à votre dossier."),
-        staff ? el("button.btn.btn--primaire", { onclick: inscrire },
-          icone("plus", 15), "Inscrire au livret") : null
-      ),
-      listeEntrees(entrees, {
-        classe,
-        nomDe: staff ? nomDe : null,
-        surSuppression: staff ? () => peindreContenu() : null
-      })
-    );
-  }
-
-  async function ongletClassement() {
-    const { nomDe } = await annuaire();
-    const classement = await livret.classement(classe.id);
-
-    return el("div.pile",
-      el("div.panneau",
-        el("div.panneau__entete",
-          el("span.panneau__titre", `Classement — ${classe.name}`),
-          el("span.petit.faible", `${classement.length} classé${classement.length > 1 ? "s" : ""}`)
-        ),
-        el("div.panneau__corps.panneau__corps--serre",
-          tableauClassement(classement, { nomDe, moiId: etat.utilisateur.id })
-        )
-      ),
-      classement.length ? noteCoupure(10) : null,
-      el("p.petit.faible",
-        "Le rang se calcule sur la moyenne des aptitudes inscrites au livret, "
-        + "en pourcentage du maximum possible — un cadet évalué sur peu d'axes "
-        + "n'est ni avantagé ni pénalisé.")
-    );
-  }
 
   /* --- Membres -------------------------------------------------------------- */
   async function ongletMembres() {
     const equipe = await depotMembres.liste(classe.id);
-    const fiches = await personnages.index(classe.id);
-    for (const m of equipe) m.fiche = fiches.get(m.user_id) || null;
     const enAttente = equipe.filter((m) => m.status === "pending");
     const actifs = equipe.filter((m) => m.status === "active");
     const exclus = equipe.filter((m) => m.status === "banned");
@@ -490,12 +305,7 @@ export default async function vueClasse({ params, requete }) {
 
   function ligneMembre(membre, options = {}) {
     const moi = membre.user_id === etat.utilisateur.id;
-    const enRP = universDe(classe) !== "aucun";
-    // En RP, c'est le personnage qui est listé ; le nom du compte n'apparaît
-    // qu'à l'encadrement, et discrètement.
-    const nom = enRP && membre.fiche
-      ? identiteComplete(membre.fiche, membre.profil)
-      : (membre.profil?.display_name || "—");
+    const nom = membre.profil?.display_name || "—";
 
     return el("div.liste__item",
       avatar(membre.profil, { prof: ["teacher", "assistant"].includes(membre.role) }),
@@ -503,8 +313,6 @@ export default async function vueClasse({ params, requete }) {
         el("div.liste__nom", nom + (moi ? " (vous)" : "")),
         el("div.liste__detail",
           [libelleRoleClasse(membre.role),
-           enRP && membre.fiche && staff ? `compte : ${membre.profil?.display_name}` : null,
-           enRP && !membre.fiche ? "sans fiche de personnage" : null,
            membre.profil?.roblox_name ? `en jeu : ${membre.profil.roblox_name}` : null,
            `inscrit ${depuis(membre.joined_at)}`].filter(Boolean).join(" · "))
       ),
@@ -775,33 +583,6 @@ export default async function vueClasse({ params, requete }) {
       ),
 
       el("div.panneau",
-        el("div.panneau__entete",
-          el("span.panneau__titre", "Univers de jeu"),
-          el("span.etiq", UNIVERS[universDe(classe)]?.libelle || "—")
-        ),
-        el("div.panneau__corps",
-          el("p.petit.doux",
-            "L'univers décide du calendrier affiché, des grades proposés sur les fiches "
-            + "de personnage, et de la présence du marquage hors-roleplay. "
-            + "Il n'impose rien : chaque terme reste modifiable."),
-          el("div.liste", Object.entries(UNIVERS).map(([cle, u]) =>
-            el("div.liste__item.liste__item--cliquable", {
-              "aria-current": String(cle === universDe(classe)),
-              onclick: () => choisirUnivers(cle)
-            },
-              el("div.liste__principal",
-                el("div.liste__nom", u.libelle),
-                el("div.liste__detail", u.aide)
-              ),
-              el("div.liste__fin", cle === universDe(classe) ? icone("coche", 15) : null)
-            ))),
-          universDe(classe) !== "aucun"
-            ? el("p.petit.faible", { style: { marginTop: "var(--e-3)" } },
-                "Aujourd'hui, une page datera de : ", el("b.date-rp", dateRP(Date.now(), reglagesRP(classe))))
-            : null
-        )
-      ),
-      el("div.panneau",
         el("div.panneau__entete", el("span.panneau__titre", "Fin de vie")),
         el("div.panneau__corps.panneau__corps--serre", el("div.liste",
           ligne("Archiver", "La classe reste consultable mais n'accepte plus de session.",
@@ -820,19 +601,13 @@ export default async function vueClasse({ params, requete }) {
   }
 
   /* --- Actions ------------------------------------------------------------------ */
-  /**
-   * On ouvre une séance en disant d'abord ce qu'on y fait : un cours, une
-   * réunion ou une distribution. Le mode se change ensuite en salle, mais le
-   * choisir ici évite d'entrer sans savoir ce qui se joue.
-   */
+  /** On ouvre une séance en lui donnant, si l'on veut, un intitulé. */
   async function demarrerSession() {
     const sortie = await formulaire({
       titre: "Ouvrir une séance",
       champs: [
-        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: "cours",
-          options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
         { cle: "title", label: "Intitulé de la séance", valeur: "",
-          placeholder: "Session 01 — Fondements du droit",
+          placeholder: "Séance 01 — Introduction",
           aide: "Laissez vide pour une numérotation automatique." }
       ],
       libelle: "Ouvrir"
@@ -840,37 +615,14 @@ export default async function vueClasse({ params, requete }) {
     if (!sortie) return;
 
     try {
-      await depotSessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
-      const nom = MODES[sortie.mode]?.libelle || "Cours";
+      await depotSessions.demarrer(classe.id, sortie.title || null);
       await notifications.diffuser(classe.id, {
         kind: "session", titre: `${classe.name} — séance ouverte`,
-        corps: `${nom} en cours.`, lien: `/classe/${classe.id}/salle`
+        corps: "Une séance est en cours.", lien: `/classe/${classe.id}/salle`
       }).catch(() => {});
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("Démarrage impossible", messageErreur(err));
-    }
-  }
-
-  async function choisirUnivers(cle) {
-    const univers = UNIVERS[cle];
-    if (!univers) return;
-    try {
-      const reglages = { ...(classe.settings || {}), univers: cle, rp: univers.rp };
-      await depotClasses.majorer(classe.id, { settings: reglages });
-      classe.settings = reglages;
-      await activerClasse(classe.id);
-      // Le vocabulaire suit l'univers, sauf si l'établissement l'a déjà réglé
-      // lui-même : on ne défait pas un choix explicite.
-      if (univers.lexique && presetActuel() === "ecole") {
-        appliquerPreset(univers.lexique);
-      }
-      toast(`Univers : ${univers.libelle}`,
-        { corps: univers.lexique ? "Vocabulaire et calendrier adaptés." : null });
-      await peindreContenu();
-      peindreOnglets();
-    } catch (err) {
-      erreur("Changement impossible", messageErreur(err));
     }
   }
 
