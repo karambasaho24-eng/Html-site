@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="boite">
+  <defs>
+    <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
+      <stop offset="1" stop-color="#7d5f15"/></linearGradient>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="boisSombre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d6a3d"/><stop offset="1" stop-color="#4d3720"/></linearGradient>
+  </defs>
+  
+  <path d="M10 28h44v22a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z" fill="url(#boisSombre)"/>
+  <path d="M8 24h48a2 2 0 0 1 2 2v4H6v-4a2 2 0 0 1 2-2z" fill="url(#bois)"/>
+  <path d="M6 30h52" fill="none" stroke="#000" stroke-opacity=".38" stroke-width="1"/>
+  <rect x="13" y="33" width="38" height="16" rx="1" fill="none" stroke="#000" stroke-opacity=".2"/>
+  <rect x="28" y="28" width="8" height="5" rx="1" fill="url(#laiton)"/>
+  <path d="M9 26h46" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width=".9"/>
+  <path d="M10 46h44v4a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z" fill="#000" opacity=".16"/>
+  
+</svg>

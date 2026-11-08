@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="encrier">
+  <defs>
+    <linearGradient id="laiton" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6cb78"/><stop offset=".45" stop-color="#b9932f"/>
+      <stop offset="1" stop-color="#7d5f15"/></linearGradient>
+    <linearGradient id="encre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2c3644"/><stop offset="1" stop-color="#0f151c"/></linearGradient>
+    <linearGradient id="verre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d7e8ee" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#5d7f8b" stop-opacity=".8"/></linearGradient>
+  </defs>
+  
+  <path d="M20 30h24l-2 18a5 5 0 0 1-5 4h-10a5 5 0 0 1-5-4z" fill="url(#verre)"/>
+  <path d="M23 36h18l-1.4 12a3 3 0 0 1-3 2.6h-9.2a3 3 0 0 1-3-2.6z" fill="url(#encre)"/>
+  <rect x="18" y="25" width="28" height="6" rx="2" fill="url(#laiton)"/>
+  <rect x="26" y="19" width="12" height="7" rx="2" fill="url(#laiton)"/>
+  <path d="M24 28h16" fill="none" stroke="#fff" stroke-opacity=".34" stroke-width=".9"/>
+  <path d="M25 33v16" stroke="#fff" stroke-opacity=".22" stroke-width="1.4"/>
+  <ellipse cx="32" cy="53" rx="12" ry="2.4" fill="#000" opacity=".3"/>
+  
+</svg>

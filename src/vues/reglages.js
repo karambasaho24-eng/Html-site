@@ -9,7 +9,7 @@ import { entete } from "../ui/fragments.js";
 import { config, configIntegree, definirConfig, reinitialiserConfig } from "../core/config.js";
 import { pilote } from "../data/index.js";
 import { panneauFond } from "../ui/selecteur-fond.js";
-import { raccourcis, libelleCombinaison, definirRaccourci, reinitialiserRaccourcis } from "../core/interface.js";
+import { raccourcis, libelleCombinaison, definirRaccourci, reinitialiserRaccourcis, definirAnimations } from "../core/interface.js";
 import { basculerFenetreFlottante, flottantAuPremierPlan, flottantDisponible } from "../features/fenetre-flottante.js";
 import { estTactile } from "../core/appareil.js";
 import { L, lexiqueActuel, definirLexique, PRESETS, appliquerPreset, presetActuel } from "../core/lexique.js";
@@ -35,7 +35,10 @@ const LIBELLES_ACTIONS = {
   "cahiers.liste": "Mes cahiers",
   "classes.liste": "Mes classes",
   "tableau.ouvrir": "Salle de cours",
+  "notes.ouvrir": "Notes personnelles",
   "recherche.ouvrir": "Recherche globale",
+  "densite.cycler": "Changer de densité",
+  "densite.minimal": "Basculer en mode minimal",
   "fenetre.flottante": "Détacher la fenêtre d'à-côté",
   "page.suivante": "Page suivante",
   "page.precedente": "Page précédente",
@@ -74,6 +77,24 @@ export default async function vueReglages({ requete }) {
   /* --- Affichage ------------------------------------------------------------ */
   function sectionAffichage() {
     return el("div.pile",
+      el("div.panneau",
+        el("div.panneau__entete", el("span.panneau__titre", "Animations")),
+        el("div.panneau__corps",
+          el("div.groupe-btn",
+            el("button.btn", {
+              "aria-pressed": String(etat.animations !== false),
+              onclick: () => { definirAnimations(true); peindre(); }
+            }, "Allumées"),
+            el("button.btn", {
+              "aria-pressed": String(etat.animations === false),
+              onclick: () => { definirAnimations(false); peindre(); }
+            }, "Coupées")
+          ),
+          el("p.petit.faible", { style: { marginTop: "var(--e-3)", marginBottom: 0 } },
+            "Allumées : vous vous voyez assis à votre bureau. Coupées : seulement les tableaux et l'interface. "
+            + "Si votre appareil demande moins d'animations, les scènes 3D restent immobiles.")
+        )
+      ),
       panneauFond({
         titre: "Fond d'écran de ce poste",
         aide: "Votre image passe devant le fond du site, sur cet appareil seulement. Sans image, c'est le fond du site qui s'affiche. La couleur du verre se règle dans Administration › Apparence.",

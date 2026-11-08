@@ -1,0 +1,284 @@
+/* ===========================================================================
+   Liquid Glass × Titane — couche d'harmonisation visuelle
+   Chargée après les feuilles de composants : elle ne touche ni structure ni
+   comportement, seulement la matière (verre dépoli, liserés, reflets, états).
+   Le flou est réservé aux surfaces flottantes (barre, rail, panneaux, menus,
+   modales, toasts) ; le contenu courant reste opaque pour rester lisible et
+   léger. Repli sans backdrop-filter : fonds plus opaques.
+   ========================================================================= */
+
+/* --- Fond : béton froid, un seul halo, sans décor ------------------------- */
+body {
+  background:
+    radial-gradient(1100px 640px at 10% -10%, rgba(130,150,172,.24), transparent 62%),
+    radial-gradient(900px 620px at 100% 110%, rgba(95,112,130,.22), transparent 60%),
+    var(--fond);
+  background-attachment: fixed;
+}
+:root[data-theme="jour"] body {
+  background:
+    radial-gradient(1100px 620px at 12% -8%, rgba(255,255,255,.7), transparent 62%),
+    var(--fond);
+  background-attachment: fixed;
+}
+.chassis { background: transparent; }
+::selection { background: rgba(185,196,207,.28); }
+:focus-visible { outline: 2px solid rgba(215,226,238,.75); outline-offset: 2px; border-radius: 8px; }
+
+/* --- Typographie : sobre, titres en capitales aérées légères -------------- */
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.015em; }
+.page__surtitre, .rail__titre, .panneau__titre, .champ__label, .stat__label, .menu__titre {
+  letter-spacing: .14em; color: var(--texte-faible);
+}
+.page__surtitre { color: var(--texte-doux); }
+
+/* --- Surfaces vitrées (verre) --------------------------------------------- */
+.rail, .panneau, .menu, .toast, .modale, .stats, .carte {
+  -webkit-backdrop-filter: var(--verre-flou);
+  backdrop-filter: var(--verre-flou);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rail, .panneau, .menu, .toast, .modale { background: var(--verre-fond-fort); }
+}
+
+/* Barre et rail : verre continu, un seul liseré fin */
+.rail {
+  background: var(--verre-fond);
+  border-color: var(--verre-bord);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+}
+.rail { box-shadow: none; }
+
+/* Rail : lien actif en pastille de verre, plus de filet doré */
+.rail__lien {
+  margin: 1px var(--e-2); padding: 8px var(--e-3);
+  border-left: 0; border-radius: 11px;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+.rail__lien:hover { background: rgba(200,215,230,.07); }
+.rail__lien[aria-current="page"] {
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 0 0 1px var(--verre-bord);
+  color: var(--texte);
+}
+.rail__lien .compteur { background: rgba(200,215,230,.12); color: var(--texte-doux); }
+:root[data-theme="jour"] .rail__lien:hover { background: rgba(30,40,52,.06); }
+:root[data-theme="jour"] .rail__lien[aria-current="page"] {
+  background: rgba(255,255,255,.7);
+}
+
+/* --- Page : en-tête allégé ------------------------------------------------ */
+.page__entete { border-bottom-color: var(--ligne); }
+
+/* --- Cartes, panneaux, statistiques --------------------------------------- */
+.carte, .panneau, .stats {
+  background: var(--verre-fond);
+  border: 1px solid var(--verre-bord);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px rgba(2,4,8,.25);
+}
+.carte { border-radius: var(--r-md); }
+.carte--cliquable:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,.09), var(--verre-fond));
+  border-color: rgba(215,226,238,.26);
+}
+.panneau__entete { background: transparent; border-bottom-color: var(--ligne); }
+.stat { background: transparent; }
+.stats { background: var(--verre-fond); gap: 0; }
+.stat + .stat { border-left: 1px solid var(--ligne); }
+.stat__valeur { font-weight: 600; }
+.carte__pied { border-top-color: var(--ligne); }
+.carte--classe::before { width: 2px; opacity: .8; }
+
+/* Teintes de classes : désaturées */
+[data-teinte="olive"]   { --teinte: #7f9188; }
+[data-teinte="laiton"]  { --teinte: #9aa6b2; }
+[data-teinte="ardoise"] { --teinte: #6b8499; }
+[data-teinte="oxblood"] { --teinte: #9a6460; }
+[data-teinte="pourpre"] { --teinte: #7c7a98; }
+[data-teinte="encre"]   { --teinte: #56616d; }
+
+/* --- Boutons : un seul langage -------------------------------------------- */
+.btn {
+  background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+  border: 1px solid var(--verre-bord);
+  border-radius: 999px; padding: 6px var(--e-4);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  font-weight: 500;
+}
+.btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,.06));
+  border-color: rgba(215,226,238,.28);
+}
+.btn:active:not(:disabled) { transform: scale(.985); }
+.btn--icone { border-radius: 50%; padding: 0; }
+.btn--primaire {
+  background: linear-gradient(180deg, #f1f4f7, #c9d1d9);
+  border-color: rgba(255,255,255,.55); color: #14181c; text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 4px 14px rgba(2,4,8,.35);
+}
+.btn--primaire:hover:not(:disabled) { background: linear-gradient(180deg, #ffffff, #d6dde4); border-color: #fff; }
+.btn--fantome { background: transparent; border-color: transparent; box-shadow: none; }
+.btn--fantome:hover:not(:disabled) { background: rgba(200,215,230,.09); }
+.btn--contour { background: transparent; box-shadow: none; }
+.btn--danger { color: #d9928e; border-color: rgba(184,106,102,.4); }
+.btn--danger:hover:not(:disabled) { background: rgba(184,106,102,.16); border-color: #b86a66; }
+.btn--succes { background: rgba(143,179,160,.22); border-color: rgba(143,179,160,.5); color: #dcebe3; box-shadow: none; }
+.btn--succes:hover:not(:disabled) { background: rgba(143,179,160,.32); }
+.btn--menu { border-radius: 0; background: transparent; box-shadow: none; border: 0; }
+.btn--menu:hover { background: rgba(200,215,230,.09); }
+.groupe-btn .btn { border-radius: 0; }
+.groupe-btn .btn:first-child { border-radius: 999px 0 0 999px; }
+.groupe-btn .btn:last-child  { border-radius: 0 999px 999px 0; }
+.groupe-btn .btn[aria-pressed="true"] {
+  background: rgba(255,255,255,.16); border-color: rgba(215,226,238,.35); color: var(--texte);
+}
+:root[data-theme="jour"] .btn { background: rgba(255,255,255,.6); }
+:root[data-theme="jour"] .btn--primaire { background: linear-gradient(180deg, #3a434d, #232a31); color: #f4f6f8; border-color: #1c2126; }
+:root[data-theme="jour"] .btn--fantome, :root[data-theme="jour"] .btn--contour { background: transparent; }
+
+/* --- Champs ---------------------------------------------------------------- */
+.saisie, .zone, select.saisie {
+  background: rgba(8,10,13,.35);
+  border: 1px solid var(--verre-bord);
+  border-radius: 11px;
+  box-shadow: inset 0 1px 2px rgba(2,4,8,.3);
+}
+.saisie:focus, .zone:focus {
+  border-color: rgba(215,226,238,.5); background: rgba(8,10,13,.5);
+  box-shadow: 0 0 0 3px rgba(185,196,207,.14);
+}
+:root[data-theme="jour"] .saisie, :root[data-theme="jour"] .zone { background: rgba(255,255,255,.7); box-shadow: none; }
+:root[data-theme="jour"] .saisie:focus, :root[data-theme="jour"] .zone:focus { background: #fff; }
+.code-classe { background: rgba(8,10,13,.35); border: 1px solid var(--verre-bord); border-radius: 11px; color: var(--texte); }
+
+/* --- Étiquettes, onglets, listes ------------------------------------------ */
+.etiq { border-radius: 999px; padding: 1px 9px; background: rgba(200,215,230,.08); border-color: var(--verre-bord); }
+.etiq--laiton { background: rgba(185,196,207,.12); }
+.etiq--ok     { background: rgba(143,179,160,.14); border-color: rgba(143,179,160,.3); }
+.etiq--attn   { background: rgba(196,168,120,.14); border-color: rgba(196,168,120,.3); }
+.etiq--alerte { background: rgba(184,106,102,.14); border-color: rgba(184,106,102,.3); color: #d9928e; }
+.etiq--info   { background: rgba(125,155,179,.14); border-color: rgba(125,155,179,.3); }
+.etiq--direct { background: rgba(184,106,102,.18); color: #d9928e; border-color: rgba(184,106,102,.4); }
+.pastille--present { box-shadow: 0 0 0 2px rgba(143,179,160,.2); }
+
+.onglets { border-bottom-color: var(--ligne); }
+.onglet[aria-selected="true"] { color: var(--texte); border-bottom-color: var(--texte); }
+.liste__item { border-bottom-color: var(--ligne); }
+a.liste__item:hover, .liste__item--cliquable:hover { background: rgba(200,215,230,.06); }
+.liste__item[aria-current="true"] { background: rgba(200,215,230,.09); box-shadow: inset 2px 0 0 var(--accent); }
+.avatar { border-radius: 50%; background: rgba(200,215,230,.1); border-color: var(--verre-bord); }
+.avatar--grand { border-radius: 50%; }
+.vide { border: 1px dashed var(--ligne-forte); border-radius: var(--r-md); background: rgba(200,215,230,.025); }
+.jauge { background: rgba(200,215,230,.1); }
+.jauge__remplissage { background: linear-gradient(90deg, #8d99a6, #d3dbe3); }
+.jauge__remplissage--ok { background: var(--ok); }
+
+/* --- Fenêtres : modales, menus, toasts ------------------------------------ */
+.voile { background: var(--voile); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.modale {
+  background: var(--verre-fond-fort);
+  border: 1px solid var(--verre-bord);
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-3);
+}
+.modale__entete, .modale__pied { border-color: var(--ligne); }
+.modale__titre { font-weight: 600; }
+.menu {
+  background: var(--verre-fond-fort);
+  border: 1px solid var(--verre-bord);
+  border-radius: 14px; padding: 6px;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-2);
+}
+.menu .btn--menu, .menu button, .menu a { border-radius: 9px; }
+.toast {
+  background: var(--verre-fond-fort);
+  border: 1px solid var(--verre-bord); border-left: 1px solid var(--verre-bord);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-2);
+  position: relative; overflow: hidden;
+}
+.toast::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px;
+  background: var(--accent);
+}
+.toast--ok::before { background: var(--ok); }
+.toast--alerte::before { background: var(--alerte); }
+.toast--attn::before { background: var(--attn); }
+.toast--ok, .toast--alerte, .toast--attn { border-left-color: var(--verre-bord); }
+.reseau { border-radius: 999px; }
+
+/* --- Écran d'accès --------------------------------------------------------- */
+
+.acces__titre { font-weight: 600; letter-spacing: -.03em; }
+
+/* --- Amorçage : la bougie cède la place à un simple anneau de verre -------- */
+.boot { background: var(--fond); }
+.boot__bougie {
+  width: 34px; height: 34px; margin-top: 0; border-radius: 50%; background: none;
+  border: 2px solid rgba(200,215,230,.14); border-top-color: var(--accent);
+  animation: boot-tour 1.1s linear infinite;
+}
+.boot__bougie::before, .boot__flamme { display: none; }
+@keyframes boot-tour { to { transform: rotate(360deg); } }
+
+/* --- Cahiers : papier béton, reliure froide ---------------------------------
+   Le papier de travail reste clair et contrasté (lecture, écriture) ; seul le
+   ton change : gris pâle, encre anthracite. */
+.parchemin { border-radius: 6px; }
+
+/* --- Fenêtre flottante ------------------------------------------------------ */
+body.est-flottant .chassis { border: 1px solid var(--verre-bord); border-radius: var(--r-lg); }
+
+/* --- Barres de défilement -------------------------------------------------- */
+* { scrollbar-color: rgba(200,215,230,.22) transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(200,215,230,.22); background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(200,215,230,.38); background-clip: content-box; }
+
+/* --- Sobriété : pas de transparence/flou inutiles quand l'utilisateur le refuse */
+@media (prefers-reduced-transparency: reduce) {
+  .rail, .panneau, .menu, .toast, .modale, .stats, .carte {
+    -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface-1);
+  }
+}
+/* Mobile : flou plus léger pour préserver les performances */
+@media (max-width: 720px) {
+  .rail, .panneau, .menu, .toast, .modale, .stats, .carte {
+    -webkit-backdrop-filter: blur(12px) saturate(1.1); backdrop-filter: blur(12px) saturate(1.1);
+  }
+  .rail { background: var(--verre-fond-fort); }
+}
+
+/* --- Écran de connexion (vue auth) ----------------------------------------- */
+.acces { background: transparent; }
+.acces__titre { font-weight: 600; letter-spacing: -.025em; }
+.acces__sous-titre { letter-spacing: .02em; }
+.acces__carte {
+  background: var(--verre-fond);
+  border: 1px solid var(--verre-bord);
+  border-radius: 24px; padding: 20px;
+  -webkit-backdrop-filter: var(--verre-flou); backdrop-filter: var(--verre-flou);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-3);
+}
+.acces__onglets { background: rgba(8,10,13,.38); border-radius: 999px; box-shadow: inset 0 1px 2px rgba(2,4,8,.3); }
+.acces__onglets button { border-radius: 999px; transition: background var(--transition), color var(--transition); }
+.acces__onglets button[aria-selected="true"] {
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07));
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 0 0 1px var(--verre-bord);
+}
+.acces__carte .acces__formulaire { display: grid; gap: 4px; padding: 0; overflow: visible; justify-content: stretch; }
+:root[data-theme="jour"] .acces__onglets { background: rgba(30,40,52,.07); }
+
+/* Fond : fines lignes verticales de béton banché, quasi invisibles */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(200,215,230,.022) 0 1px, transparent 1px 160px);
+}
+
+/* --- Console et barre d'actions (dock bas) : même verre que le reste ----------- */
+.console { background: transparent; }
+
+/* --- Connexion Discord ------------------------------------------------------- */
+.acces__discord { gap: var(--e-4); padding: var(--e-2) 0; }
+.acces__aide--haut { margin: 0 0 var(--e-2); text-align: center; }
+.btn--discord { gap: 10px; }
+.btn--discord .btn__logo { display: inline-grid; place-items: center; }

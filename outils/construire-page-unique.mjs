@@ -23,7 +23,7 @@ if (!bundlePath) {
   process.exit(1);
 }
 
-const ORDRE_CSS = ["waitlist", "classe", "notebook", "board", "live", "animations"];
+const ORDRE_CSS = ["waitlist", "classe", "notebook", "board", "live", "systemes", "animations"];
 const css = ORDRE_CSS
   .map((n) => `/* ---- ${n}.css ---- */\n` + readFileSync(resolve(RACINE, "styles", `${n}.css`), "utf8"))
   .join("\n");

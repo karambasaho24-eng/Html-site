@@ -23,6 +23,9 @@ begin
   if not found then
     raise exception 'Compte introuvable.' using errcode = 'P0002';
   end if;
+  if p.role_key = 'pdg' then
+    raise exception 'Le compte du PDG ne se supprime pas.' using errcode = '42501';
+  end if;
   if p.role_key = 'super_admin' and not app_is_super_admin() then
     raise exception 'Seul un super administrateur supprime un super administrateur.' using errcode = '42501';
   end if;

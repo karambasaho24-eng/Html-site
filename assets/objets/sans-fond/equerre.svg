@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="equerre">
+  <defs>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+  </defs>
+  
+  <path d="M10 50V14l40 36z" fill="url(#bois)" opacity=".95"/>
+  <path d="M15 45V26l21 19z" fill="#0d1013" opacity=".55"/>
+  <g stroke="#3a2f1c" stroke-opacity=".7" stroke-width=".9">
+    <path d="M10 20h4M10 26h4M10 32h4M10 38h4M10 44h4"/>
+    <path d="M18 50v-4M25 50v-4M32 50v-4M39 50v-4"/>
+  </g>
+  <path d="M11 16v33" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".9"/>
+  <ellipse cx="30" cy="53" rx="21" ry="2" fill="#000" opacity=".28"/>
+  
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="dossier">
+  <defs>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="boisSombre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8d6a3d"/><stop offset="1" stop-color="#4d3720"/></linearGradient>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+  </defs>
+  
+  <path d="M12 18h18l4 4h18a2 2 0 0 1 2 2v28a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V20a2 2 0 0 1 2-2z" fill="url(#bois)" opacity=".9"/>
+  <path d="M16 26h32v4H16z" fill="url(#papier)" opacity=".7"/>
+  <path d="M14 34h34M14 39h28" stroke="#6d5a38" stroke-opacity=".6" stroke-width="1.2"/>
+  <path d="M10 44h44v10a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2z" fill="url(#boisSombre)"/>
+  <path d="M10 44h44" fill="none" stroke="#000" stroke-opacity=".3" stroke-width="1"/>
+  <rect x="38" y="47" width="12" height="5" rx="1" fill="url(#papier)" opacity=".75"/>
+  
+</svg>

@@ -17,6 +17,9 @@ import { el, render } from "./ui/dom.js";
 import { ecouter } from "./core/bus.js";
 import { stockageLocal, stockageSession } from "./core/stockage.js";
 import { basculerFenetreFlottante } from "./features/fenetre-flottante.js";
+import { surveillerRemises } from "./features/remises-globales.js";
+import { monterCommandes } from "./features/commandes.js";
+import { surveillerBannissement } from "./features/bannissement.js";
 import { surveillerAcces } from "./features/acces.js";
 import { demarrerApparence } from "./features/apparence.js";
 import { suivreTelephone } from "./core/appareil.js";
@@ -29,12 +32,19 @@ function declarerRoutes() {
   // en un fichier unique pour les contextes qui ne servent pas de modules.
   definirRoute("/connexion",        { nom: "connexion", vue: () => import("./vues/auth.js"), publique: true });
   definirRoute("/",                 { nom: "accueil", vue: () => import("./vues/accueil.js"), prive: true });
+  definirRoute("/cahiers",          { nom: "cahiers", vue: () => import("./vues/etagere.js"), prive: true });
   definirRoute("/cahier/:id",       { nom: "cahier", vue: () => import("./vues/cahier.js"), prive: true });
+  definirRoute("/papiers",          { nom: "papiers", vue: () => import("./vues/papiers.js"), prive: true });
+  definirRoute("/affaires",         { nom: "affaires", vue: () => import("./vues/affaires.js"), prive: true });
+  // L'ancienne adresse reste valide : elle est dans des notifications déjà
+  // envoyées, et un lien mort fait croire que la page a disparu.
+  definirRoute("/cartable",         { nom: "affaires", vue: () => import("./vues/affaires.js"), prive: true });
   definirRoute("/documents",        { nom: "documents", vue: () => import("./vues/documents.js"), prive: true });
   definirRoute("/boutique",         { nom: "boutique", vue: () => import("./vues/boutique.js"), prive: true });
   definirRoute("/classes",          { nom: "classes", vue: () => import("./vues/classes.js"), prive: true });
   definirRoute("/classe/:id",       { nom: "classe", vue: () => import("./vues/classe.js"), prive: true });
   definirRoute("/classe/:id/salle", { nom: "salle", vue: () => import("./vues/salle.js"), prive: true });
+  definirRoute("/bibliotheque",     { nom: "bibliotheque", vue: () => import("./vues/documents.js"), prive: true });
   definirRoute("/exercices",        { nom: "exercices", vue: () => import("./vues/exercices.js"), prive: true });
   definirRoute("/exercice/:id",     { nom: "exercice", vue: () => import("./vues/exercice.js"), prive: true });
   definirRoute("/archives",         { nom: "archives", vue: () => import("./vues/archives.js"), prive: true });
@@ -45,24 +55,21 @@ function declarerRoutes() {
   definirRoute("/recherche",        { nom: "recherche", vue: () => import("./vues/recherche.js"), prive: true });
   definirRoute("/profil",           { nom: "profil", vue: () => import("./vues/profil.js"), prive: true });
   definirRoute("/reglages",         { nom: "reglages", vue: () => import("./vues/reglages.js"), prive: true });
-  // Anciennes adresses : elles figurent dans des notifications et des signets déjà
-  // enregistrés. Elles mènent à l'accueil (les cahiers) au lieu d'une page morte.
-  for (const ancienne of ["/cahiers", "/bibliotheque", "/affaires", "/cartable", "/papiers"]) {
-    definirRoute(ancienne, { nom: "accueil", vue: () => import("./vues/accueil.js"), prive: true });
-  }
   definirRoute("*",                 { nom: "introuvable", vue: () => import("./vues/introuvable.js") });
 }
 
 /* --- Raccourcis globaux ---------------------------------------------------- */
 function declarerRaccourcis() {
-  enregistrerAction("cahiers.liste",    () => aller("/"));
+  enregistrerAction("cahiers.liste",    () => aller("/cahiers"));
   enregistrerAction("classes.liste",    () => aller("/classes"));
   enregistrerAction("recherche.ouvrir", () => aller("/recherche"));
+  enregistrerAction("densite.cycler",   () => cyclerDensite());
+  enregistrerAction("densite.minimal",  () => appliquerDensite(etat.densite === "minimal" ? "grand" : "minimal"));
   enregistrerAction("fenetre.flottante", () => basculerFenetreFlottante());
   enregistrerAction("aide.raccourcis",  () => aller("/reglages?onglet=raccourcis"));
   enregistrerAction("cahier.ouvrir", () => {
     const dernier = etat.cahiers?.[0];
-    aller(dernier ? `/cahier/${dernier.id}` : "/");
+    aller(dernier ? `/cahier/${dernier.id}` : "/cahiers");
   });
   enregistrerAction("tableau.ouvrir", () => {
     if (etat.classeActive) aller(`/classe/${etat.classeActive.id}/salle`);
@@ -89,10 +96,13 @@ async function demarrer() {
 
     await demarrerApparence();
     await chargerSession();
+    surveillerRemises();
+    surveillerBannissement();
     surveillerAcces();
 
     hote.hidden = false;
     const vue = construireChassis(hote);
+    monterCommandes(document.body);
 
     declarerRoutes();
     declarerRaccourcis();

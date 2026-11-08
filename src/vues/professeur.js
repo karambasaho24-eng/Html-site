@@ -12,6 +12,7 @@ import { encadreUneClasse, mesClassesEncadrees } from "../core/permissions.js";
 import { formulaire } from "../ui/modal.js";
 import { erreur, toast, messageErreur } from "../ui/toast.js";
 import { copier, depuis, pluriel } from "../core/util.js";
+import { LISTE_MODES, modeSelonNom } from "../features/modes.js";
 
 export default async function vueProfesseur() {
   if (!encadreUneClasse()) {
@@ -119,6 +120,8 @@ export default async function vueProfesseur() {
     const sortie = await formulaire({
       titre: `Ouvrir une séance — ${classe.name}`,
       champs: [
+        { cle: "mode", label: "Ce qui va se jouer", type: "choix", valeur: modeSelonNom(classe.name),
+          options: LISTE_MODES.map((m) => ({ valeur: m.cle, libelle: m.libelle, aide: m.resume })) },
         { cle: "title", label: "Intitulé de la séance", valeur: "",
           placeholder: "Séance 01 — Introduction",
           aide: "Laissez vide pour une numérotation automatique." }
@@ -127,7 +130,7 @@ export default async function vueProfesseur() {
     });
     if (!sortie) return;
     try {
-      await sessions.demarrer(classe.id, sortie.title || null);
+      await sessions.demarrer(classe.id, sortie.title || null, sortie.mode || "cours");
       aller(`/classe/${classe.id}/salle`);
     } catch (err) {
       erreur("Démarrage impossible", messageErreur(err));

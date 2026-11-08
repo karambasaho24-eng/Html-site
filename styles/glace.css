@@ -1,0 +1,380 @@
+/* ===========================================================================
+   GLACE — la couche finale.
+
+   Trois idées, et rien d'autre :
+     1. TOUT EST PETIT. Une barre de 32 px, des boutons de 26 px, des textes de
+        12 px. L'interface s'efface devant le jeu ; elle ne le remplace pas.
+     2. UN VRAI VERRE, comme sur iPhone : un fond coloré derrière, des
+        surfaces presque transparentes, un flou fort, un liseré lumineux. Plus
+        de fond noir, plus de gris mat.
+     3. LE MODE FLOTTANT NE BOUGE PAS. Aucune animation, aucune transition —
+        sauf celle qui remet un document, qui doit dominer.
+
+   Cette feuille se charge en dernier : elle ne change ni structure ni
+   comportement, elle donne leur taille et leur matière aux feuilles d'avant.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   0. L'ÉCHELLE
+   ------------------------------------------------------------------------- */
+:root {
+  --t-xs: .625rem;     /* 10 px */
+  --t-sm: .6875rem;    /* 11 px */
+  --t-md: .78125rem;   /* 12.5 px */
+  --t-lg: .875rem;     /* 14 px */
+  --t-xl: 1rem;
+  --t-2xl: 1.125rem;
+  --t-3xl: 1.375rem;
+
+  --e-1: 3px; --e-2: 6px; --e-3: 8px; --e-4: 12px; --e-5: 14px; --e-6: 18px; --e-7: 24px;
+
+  --h-ctl: 26px;       /* hauteur d'un bouton */
+  --h-barre-haut: 32px;
+  --h-barre-bas: 44px;
+  --l-mur: 236px;      /* la colonne « en ce moment » de Chez moi */
+
+  --r-sm: 9px; --r-md: 14px; --r-lg: 20px;
+  --courbe: cubic-bezier(.2, .7, .2, 1);
+  --transition: 120ms var(--courbe);
+}
+
+body { font-size: 12.5px; line-height: 1.45; }
+h1 { font-size: 1.375rem; } h2 { font-size: 1.125rem; } h3 { font-size: 1rem; } h4 { font-size: .875rem; }
+p { margin-bottom: 8px; }
+.petit { font-size: 11px; }
+
+/* ---------------------------------------------------------------------------
+   1. LE FOND ET LE VERRE
+   Le verre n'a de sens que devant quelque chose : un fond vivant, coloré, qui
+   passe à travers les surfaces. C'est ce qui fait « iPhone ».
+   ------------------------------------------------------------------------- */
+html { background: #07070a !important; }
+/* Aucune couleur de fond : l'image choisie (--lq-fond-image), assombrie d'un voile
+   réglable (--lq-voile), sinon un noir neutre. Le verre laisse passer l'image. */
+body::before {
+  background:
+    linear-gradient(rgba(0, 0, 0, var(--lq-voile, .18)), rgba(0, 0, 0, var(--lq-voile, .18))),
+    var(--lq-fond-image, none) center / cover no-repeat,
+    radial-gradient(80% 60% at 50% 0%, #15151d, #07070a 72%) !important;
+}
+:root[data-theme="jour"] html { background: #dfe3e9 !important; }
+:root[data-theme="jour"] body::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, calc(var(--lq-voile, .18) * .5)), rgba(255, 255, 255, calc(var(--lq-voile, .18) * .5))),
+    var(--lq-fond-image, none) center / cover no-repeat,
+    linear-gradient(160deg, #eef1f5, #cfd5de) !important;
+}
+
+/* La matière : presque transparente, très floue, un liseré de lumière en haut. */
+:root, :root[data-theme="nuit"] {
+  --bf: blur(calc(var(--flou, 16px) * 1.4)) saturate(1.9) !important;
+  --lq-flou: var(--bf); --lq-flou-dense: var(--bf);
+
+  --surf: linear-gradient(150deg,
+            rgba(var(--tint), calc(var(--fill) * 1.35 + .03)) 0%,
+            rgba(var(--tint), calc(var(--fill) * .50)) 52%,
+            rgba(var(--tint), calc(var(--fill) * .85)) 100%);
+  --surf-hi: linear-gradient(150deg,
+            rgba(var(--tint), calc(var(--fill) * 1.8 + .06)) 0%,
+            rgba(var(--tint), calc(var(--fill) * 1.0 + .03)) 100%);
+  --ctl: linear-gradient(180deg,
+            rgba(var(--tint), calc(var(--fill) * 1.5 + .06)),
+            rgba(var(--tint), calc(var(--fill) * .75 + .02)));
+  --ctl-h: linear-gradient(180deg,
+            rgba(var(--tint), calc(var(--fill) * 2.0 + .12)),
+            rgba(var(--tint), calc(var(--fill) * 1.1 + .06)));
+  --ctl-on: linear-gradient(180deg,
+            rgba(var(--tint), calc(var(--fill) * 2.6 + .24)),
+            rgba(var(--tint), calc(var(--fill) * 1.5 + .12)));
+  --b: rgba(255, 255, 255, .26);
+  --sh-surf: inset 0 1px 0 rgba(255,255,255,.50), inset 0 -1px 0 rgba(255,255,255,.08),
+             0 10px 30px -14px rgba(4, 8, 36, .6);
+  --sh-ctl: inset 0 1px 0 rgba(255,255,255,.45), 0 2px 8px -4px rgba(4, 8, 36, .5);
+  --sh-on: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 10px -3px rgba(4, 8, 36, .5);
+
+  --texte: #ffffff;
+  --texte-doux: rgba(255, 255, 255, .90);
+  --texte-faible: rgba(255, 255, 255, .70);
+  --tsh: 0 1px 2px rgba(6, 10, 40, .55);
+}
+/* Lisibilité : une ombre fine sous les écritures, jamais un fond opaque. */
+body { text-shadow: var(--tsh); }
+input, textarea, select { text-shadow: none; }
+::placeholder { color: rgba(255, 255, 255, .62); }
+
+/* Les surfaces de premier niveau reprennent le verre unique. */
+.contexte, .tiroir, .rail, .panneau, .carte, .stats, .bandeau, .fiche, .affaire, .menu, .toast, .modale, .acces__carte {
+  background: var(--surf) !important;
+  background-image: var(--surf) !important;
+  -webkit-backdrop-filter: var(--bf) !important;
+  backdrop-filter: var(--bf) !important;
+  border: 1px solid rgba(255, 255, 255, .20) !important;
+  box-shadow: var(--sh-surf) !important;
+}
+.modale, .menu, .toast {
+  background: var(--surf-hi) !important;
+  background-image: var(--surf-hi) !important;
+}
+:root[data-theme="jour"] {
+  --tsh: none;
+}
+
+/* Boutons et champs : plus petits, même matière. */
+.btn, .etiq, .onglet, .select, select, .choix, .classable {
+  min-height: var(--h-ctl);
+  padding: 0 11px;
+  font-size: 12px; font-weight: 500; line-height: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .30);
+  background: var(--ctl);
+  box-shadow: var(--sh-ctl);
+  gap: 5px;
+}
+.btn svg { width: 13px; height: 13px; }
+.btn--petit { min-height: 22px; padding: 0 9px; font-size: 11px; }
+.btn--grand { min-height: 32px; padding: 0 16px; font-size: 13px; }
+.btn--icone { width: var(--h-ctl); min-height: var(--h-ctl); padding: 0; border-radius: 50%; }
+.btn:hover:not(:disabled) { transform: none; background: var(--ctl-h); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn--primaire, .btn--primaire:hover:not(:disabled) {
+  background: var(--ctl-on) !important; color: #fff;
+  border-color: rgba(255, 255, 255, .55) !important; box-shadow: var(--sh-on) !important;
+}
+.btn--fantome { background: transparent; border-color: transparent; box-shadow: none; }
+.btn--danger { color: #ffc4be; border-color: rgba(255, 150, 140, .5); }
+.saisie, .zone, select.saisie, input[type="text"], input[type="password"], input[type="search"], textarea {
+  min-height: var(--h-ctl);
+  padding: 4px 10px; font-size: 12.5px;
+  border-radius: 11px;
+  background: rgba(8, 14, 50, .30);
+  border: 1px solid rgba(255, 255, 255, .26);
+  box-shadow: inset 0 1px 3px rgba(4, 8, 36, .35);
+}
+.champ { margin-bottom: 10px; gap: 3px; }
+.champ__label { font-size: 10px; letter-spacing: .1em; }
+.etiq { min-height: 18px; padding: 0 8px; font-size: 10.5px; }
+.onglet { padding: 0 11px; }
+.onglets { margin-bottom: 10px; gap: 4px; border-bottom: 0; }
+.onglet[aria-selected="true"] { background: var(--ctl-on); border-color: rgba(255,255,255,.5); color: #fff; }
+
+/* Pages (tout ce qui n'est pas la scène) : serrées. */
+.page { padding: 10px 14px 20px; max-width: 1000px; }
+.page__entete { padding-bottom: 8px; margin-bottom: 10px; gap: 8px; border-bottom: 1px solid rgba(255,255,255,.14); }
+.page__titre h1 { font-size: 1.25rem; }
+.page__surtitre { font-size: 10px; }
+.carte, .panneau { border-radius: 16px !important; }
+.carte { padding: 10px 12px; }
+.panneau__entete { padding: 7px 12px; }
+.panneau__corps { padding: 10px 12px; }
+.panneau__titre { font-size: 10px; }
+.grille { gap: 8px; }
+.stat { padding: 8px 12px; }
+.stat__valeur { font-size: 1.125rem; }
+.liste__item { padding: 6px 10px; gap: 8px; }
+.avatar { width: 26px; height: 26px; font-size: 10.5px; }
+.avatar--grand { width: 38px; height: 38px; }
+
+/* Fenêtres, menus, notifications : verre plein, petits. */
+.voile { background: rgba(8, 12, 44, .30) !important; backdrop-filter: blur(6px); }
+.modale { border-radius: 20px !important; width: min(520px, 100%); }
+.modale--large { width: min(760px, 100%); }
+.modale__entete { padding: 10px 14px; }
+.modale__titre { font-size: 14px; }
+.modale__corps { padding: 12px 14px; }
+.modale__pied { padding: 8px 14px 10px; gap: 6px; }
+.menu { border-radius: 14px !important; padding: 4px; }
+.menu .btn--menu, .menu button, .menu a { font-size: 12px; padding: 6px 10px; }
+.toast { border-radius: 14px !important; padding: 8px 12px; font-size: 12px; max-width: 340px; }
+.toast__corps { font-size: 11px; }
+.calque-toasts { top: 44px; bottom: auto; right: 8px; gap: 6px; }
+
+/* ---------------------------------------------------------------------------
+   2. LA BARRE DU HAUT : une capsule de 32 px, des icônes, rien d'autre
+   ------------------------------------------------------------------------- */
+
+.contexte {
+  height: var(--h-barre-haut);
+  margin: 6px 8px 0;
+  padding: 0 4px 0 3px;
+  gap: 6px;
+  border-radius: 999px !important;
+  background: var(--surf) !important;
+}
+.contexte__sceau { width: 24px; height: 24px; border-radius: 50%; }
+.contexte__sceau svg { width: 14px; height: 14px; }
+.contexte__lieu { gap: 6px; }
+.contexte__nom { font-size: 12px; font-weight: 600; }
+.contexte__precision { font-size: 11px; }
+.contexte__direct { height: 18px; padding: 0 7px; font-size: 10px; gap: 4px; }
+.contexte__direct::before { width: 5px; height: 5px; animation: none; }
+.contexte__outils { gap: 1px; }
+.contexte__bouton {
+  width: 26px; height: 26px; border-radius: 50%;
+  color: rgba(255,255,255,.9);
+}
+.contexte__bouton:hover { background: rgba(255, 255, 255, .18); color: #fff; }
+.contexte__bouton[aria-pressed="true"] { background: rgba(255, 255, 255, .28); color: #fff; }
+.contexte__bouton svg { width: 14px; height: 14px; }
+.contexte__pastille { top: 1px; right: 0; min-width: 13px; height: 13px; font-size: 8.5px; background: #fff; color: #1b2450; }
+.contexte__reseau { margin: 0 3px 0 0; }
+.contexte__voyant { width: 6px; height: 6px; background: #ffd479; box-shadow: 0 0 0 2px rgba(255, 212, 121, .25); }
+.contexte__reseau[data-etat="ok"] .contexte__voyant { background: #7be0b0; }
+.contexte__reseau[data-etat="rompu"] .contexte__voyant { background: #ff8a80; }
+.contexte__reseau span:not(.contexte__voyant) { display: none; }
+.contexte__statut { gap: 4px; }
+.presence {
+  height: 22px; padding: 0 8px; gap: 5px; font-size: 11px;
+  background: var(--ctl); box-shadow: var(--sh-ctl);
+  border: 1px solid rgba(255,255,255,.26);
+}
+.presence::before { width: 6px; height: 6px; }
+
+/* Le tiroir ⋯ : étroit, en verre. */
+
+.tiroir__entete { padding: 12px 8px 8px 14px; }
+.tiroir__nom { font-size: 13px; }
+.tiroir__mail { font-size: 10.5px; }
+.tiroir .rail__titre { font-size: 9.5px; padding: 8px 14px 2px; }
+.tiroir .rail__lien { padding: 6px 10px; margin: 0 6px; width: calc(100% - 12px); font-size: 12px; gap: 8px; border-radius: 10px; }
+.tiroir .rail__lien svg { width: 14px; height: 14px; }
+body.tiroir-ouvert::after { background: rgba(8, 12, 44, .30); animation: none; }
+
+/* ---------------------------------------------------------------------------
+   3. LA BARRE DU BAS : les six gestes, en capsule
+   ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   4. CHEZ MOI : la chambre, et à côté ce qui se passe
+   Avant : un bonjour énorme, un cadre vide de 500 px, la table dessous. Maintenant
+   la chambre prend la place, et une colonne de verre dit ce qui attend.
+   ------------------------------------------------------------------------- */
+
+/* Sans la 3D (animations coupées) : la table seule {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 10px; min-height: 0; overflow-y: auto;
+  border-radius: 20px !important;
+  animation: none;
+  scrollbar-width: none;
+}
+
+/* Plus étroit : une colonne plus fine. */
+.chassis[data-taille="moyen"] { --l-mur: 196px; }
+
+/* ---------------------------------------------------------------------------
+   5. LA TABLE : une seule rangée de pastilles de taille fixe
+   Plus rien ne change de largeur au survol : c'est ce qui faisait « vibrer »
+   et « coulisser » les objets sous le pointeur.
+   ------------------------------------------------------------------------- */
+
+.pose {
+  position: relative; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 0;
+  height: 26px; padding: 0 3px 0 3px;
+  border-radius: 999px;
+  background: var(--ctl);
+  border: 1px solid rgba(255,255,255,.30);
+  box-shadow: var(--sh-ctl);
+  transform: none !important; animation: none;
+  transition: background .12s, border-color .12s;
+}
+.pose:hover, .pose:focus-within { background: var(--ctl-h); border-color: rgba(255,255,255,.5); transform: none; }
+
+/* Le verbe ne se lit plus qu'en info-bulle : jamais de largeur qui bouge. */
+
+/* Le bureau vide : une phrase et trois pastilles, sur une ligne. */
+
+/* Ce qu'on avait laissé : une ligne. */
+
+/* Le sac : petit, à gauche de la table. */
+
+/* Cahier ouvert : du papier, mais encadré de verre. */
+
+/* La salle : le dock, comme la barre d'actions. */
+
+.bandeau { margin: 6px 8px 0; border-radius: 16px !important; }
+
+/* 3D : les étiquettes de noms discrètes. */
+
+/* ---------------------------------------------------------------------------
+   6. LA CONSOLE (petites fenêtres) : un panneau à la fois
+   ------------------------------------------------------------------------- */
+.console { background: transparent; }
+
+/* Les bascules « une barre à la fois » en toute petite fenêtre */
+
+/* Commandes « >_ » : plus de bouton qui se pose sur le sac. On l'ouvre par la
+   touche ² ou par le tiroir ⋯. */
+
+.commandes { left: 8px; bottom: 58px; right: 8px; align-items: stretch; }
+
+/* ---------------------------------------------------------------------------
+   7. LA REMISE D'UN DOCUMENT : la seule animation qui domine, partout
+   Quelqu'un tend un papier : on voit la scène, en grand, même dans une fenêtre
+   flottante. C'est l'événement de la partie — il passe avant tout.
+   ------------------------------------------------------------------------- */
+.reception { gap: 8px; }
+
+/* ---------------------------------------------------------------------------
+   8. LE MODE FLOTTANT : parfait, immobile
+   Fenêtre posée sur le jeu : tout est encore plus petit, et rien ne bouge. Pas
+   de transition, pas d'animation, pas de 3D de décor. Seule la remise d'un
+   document reste animée, et elle prend la fenêtre.
+   ------------------------------------------------------------------------- */
+body.est-flottant :where(*):not(.remise3d, .remise3d *, .proximite__scene, .proximite__scene *, .reception__main, .reception__main *),
+body.est-flottant :where(*):not(.remise3d, .remise3d *, .proximite__scene, .proximite__scene *, .reception__main, .reception__main *)::before,
+body.est-flottant :where(*):not(.remise3d, .remise3d *, .proximite__scene, .proximite__scene *, .reception__main, .reception__main *)::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+body.est-flottant { --h-ctl: 24px; --h-barre-haut: 28px; --h-barre-bas: 40px; font-size: 12px; }
+body.est-flottant .contexte { margin: 4px 4px 0; padding-right: 2px; }
+body.est-flottant .contexte__precision { display: none; }
+
+body.est-flottant .calque-toasts { top: 36px; left: 6px; right: 6px; }
+
+body.est-flottant .chassis { background: transparent; }
+/* Une remise dans une fenêtre flottante : la fenêtre entière, la scène en haut. */
+body.est-flottant .voile { padding: 4px; align-items: stretch; }
+body.est-flottant .modale { width: 100%; max-width: none; max-height: 100%; border-radius: 16px !important; }
+body.est-flottant .modale__corps { padding: 8px 10px; }
+
+/* ---------------------------------------------------------------------------
+   9. LES TAILLES : moins de choses, pas seulement plus petites
+   ------------------------------------------------------------------------- */
+
+.chassis[data-taille="mini"] .contexte { height: 26px; margin: 3px 3px 0; }
+.chassis[data-taille="mini"] .contexte__bouton { width: 22px; height: 22px; }
+
+/* Les anciennes règles de petit écran grossissaient les boutons : on les annule. */
+@media (max-width: 720px) {
+  .btn { min-height: var(--h-ctl); }
+  .btn--petit { min-height: 22px; }
+  .page { padding: 8px 10px 16px; }
+  .modale { max-height: 94dvh; }
+}
+
+/* ---------------------------------------------------------------------------
+   10. MOUVEMENT
+   Hors flottant, les mouvements restent courts (≤ 160 ms) et décoratifs ; la
+   préférence système « réduire les animations » les coupe tous.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --bf: none !important; }
+  .contexte, .tiroir, .menu, .modale, .toast { background: rgba(24, 30, 70, .94) !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   11. CHEZ MOI en petite fenêtre : la console remplace la chambre et la colonne
+   ------------------------------------------------------------------------- */
+
+/* Sans la 3D, le sac se pose à côté de la table, pas au fond de l'écran. */
+
+/* La table prend la hauteur de ses pastilles, pas celle de l'écran. */
+
+/* Console : les objets en pastilles, comme sur la table. */
+

@@ -1,0 +1,7 @@
+/* Gestes interactifs de la version animée, adaptés à l'interface simplifiée. */
+.papier-carte--jete { animation: papier-jete .42s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none; }
+.papier-carte--dechire { animation: papier-dechire .42s ease-in forwards; pointer-events:none; transform-origin:50% 0; }
+.papier-tendu { animation: papier-tendu .42s cubic-bezier(.2,.9,.3,1.1) both; }
+.relieur--ouvre { animation: livre-ouvre-simple .32s ease-out both; }
+@keyframes livre-ouvre-simple { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .papier-carte--jete,.papier-carte--dechire,.papier-tendu,.relieur--ouvre {animation:none!important;} }

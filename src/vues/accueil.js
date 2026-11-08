@@ -1,196 +1,402 @@
 /* ---------------------------------------------------------------------------
- * Mes cahiers — l'accueil.
+ * Chez moi.
  *
- * L'étagère de l'élève : ses cahiers, un bouton pour en créer, un rappel de
- * ce qu'il reste d'encre. Le premier cahier est gratuit, les suivants
- * s'achètent : l'écran le dit AVANT de demander un titre, mais c'est la base
- * qui tranche (une création refusée répond NB001).
+ * On ne se connecte pas à un tableau de bord : on rentre dans sa chambre. Le
+ * bureau, le sac posé à côté, les affaires sur la table — et au mur, ce qui
+ * se passe en ce moment : une séance ouverte quelque part, un papier qu'on
+ * vous a remis, une notification.
+ *
+ * C'est ici qu'on prépare son sac, en vrai : on prend un objet sur le bureau,
+ * on le met dans le sac ; ce qui est dans le sac part avec soi.
+ *
+ * En petite fenêtre (au-dessus de Roblox), la même chambre devient une
+ * console : un panneau à la fois, la barre des gestes en dessous.
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { etat, definir } from "../core/store.js";
+import { etat, definir, observer } from "../core/store.js";
 import { aller } from "../core/router.js";
+import { ecouter } from "../core/bus.js";
 import { L } from "../core/lexique.js";
-import { cahiers, pages } from "../data/index.js";
-import { entete, vignetteCahier, blocVide, encartRoblox } from "../ui/fragments.js";
-import { formulaire, confirmer, menu } from "../ui/modal.js";
-import { sortiePapier } from "../ui/animations.js";
-import { erreur, succes, messageErreur } from "../ui/toast.js";
-import { chargerCommerce, estCahierAAcheter, estExempte } from "../features/encre.js";
-import { nomRPLibre, choisirNomRP } from "../features/nom-rp.js";
-import { illustrationCahier } from "../ui/logo-cahier.js";
-
-const COUVERTURES = [
-  { cle: "parchment", libelle: "Parchemin" },
-  { cle: "cuir", libelle: "Cuir" },
-  { cle: "ardoise", libelle: "Ardoise" },
-  { cle: "olive", libelle: "Olive" },
-  { cle: "oxblood", libelle: "Bordeaux" },
-  { cle: "encre", libelle: "Encre" }
-];
+import { sessions, papiers, cahiers, classes as depotClasses } from "../data/index.js";
+import { normaliserCode, dateLongue, local } from "../core/util.js";
+import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
+import { rafraichirClasses, notificationsNonLues } from "../core/session.js";
+import { modePleineVue, panneauNotifications } from "../ui/chassis.js";
+import { creerBureauMaison } from "../features/bureau-maison.js";
+import { creerScene } from "../features/scene-bureau.js";
+import { creerEditeurCahier } from "../features/editeur-cahier.js";
+import { ouvrirDossier } from "../features/dossiers.js";
+import { recevoirPapier } from "../features/papier.js";
+import {
+  prendreLesGestes, noteDePartout, personnesDePartout, ouvrirDocuments, gensDeLEspace
+} from "../features/gestes.js";
+import {
+  creerConsole, panneauBureau, panneauSac, panneauCahier, panneauNote,
+  panneauDocumentsConsole, panneauPersonnes
+} from "../features/console.js";
+import { imageDetouree } from "../features/affaires.js";
+import { creerBuveur, jaugeEncrier, remplirChezSoi } from "../features/encrier.js";
 
 export default async function vueAccueil() {
-  const conteneur = el("div.grille.grille--3");
-  const droits = el("p.petit.faible.droits-cahiers");
+  const moi = etat.utilisateur.id;
+  let editeur = null;
+  let cahierOuvert = null;
+  let enDirect = [];
+  let aLire = [];
+  let gens = { gens: [], nomDe: () => "—", classe: null };
 
-  const noeud = el("div.page",
-    el("section.panneau.entree",
-      el("div.entree__texte",
-        el("p.entree__sur", "Bienvenue"),
-        el("div.entree__titre", `Bonjour ${etat.profil?.display_name || ""}`.trim()),
-        el("p.entree__lead",
-          "Votre école, à côté du jeu : prenez vos notes sans quitter le cours. "
-          + "Vos cahiers sont privés, personne d'autre que vous n'y a accès, et ils restent consultables même sans encre."),
-        el("div.entree__actions",
-          el("button.btn.btn--primaire.btn--grand", { onclick: creer }, icone("plus", 15), `Nouveau ${L("cahier")}`),
-          el("button.btn.btn--grand", { onclick: () => aller("/classes") }, icone("classe", 15), "Mes classes")),
-        el("div.entree__faits",
-          el("span.etiq", "Cahiers privés"), el("span.etiq", "Notes en plein cours"), el("span.etiq", "Classes et exercices"))
-      ),
-      el("div.entree__dessin", illustrationCahier())
-    ),
-    nomRPLibre() ? el("div.panneau", { style: { marginBottom: "var(--e-4)" } },
-      el("div.panneau__corps.pile",
-        el("b", "Quel est le nom de votre personnage ?"),
-        el("p.petit.doux", "Choisissez-le une fois : il s'affichera partout à la place de votre pseudo Discord."),
-        el("div", el("button.btn.btn--primaire", {
-          onclick: async () => { if (await choisirNomRP()) aller("/"); }
-        }, icone("profil", 15), "Choisir mon nom RP"))
-      )) : null,
-    el("h1.entree__etagere", `Mes ${L("cahiers")}`),
-    droits,
-    conteneur,
-    encartRoblox() ? el("div", { style: { marginTop: "var(--e-6)" } }, encartRoblox()) : null
-  );
+  const bureau = creerBureauMaison({ surChange: () => { decor.peindre(); remonterLivre(); console_.rafraichir(); } });
+  await bureau.charger();
 
-  /** « Vous pouvez encore créer 1 cahier. » ou la règle du cahier payant. */
-  function peindreDroits() {
-    const c = etat.commerce?.cahiers;
-    if (!c || estExempte()) { droits.textContent = ""; return; }
-    droits.textContent = c.restants > 0
-      ? `Vous pouvez encore créer ${c.restants} ${c.restants > 1 ? "cahiers" : "cahier"}.`
-      : "Votre cahier offert est créé : un nouveau cahier s'achète. Supprimer un cahier ne rend pas ce droit.";
-  }
+  // Le « mur » n'est plus un en-tête posé au-dessus de la chambre : c'est une
+  // colonne à côté, qui montre ce qui se passe et laisse la chambre respirer.
+  const mur = el("aside.mur", { "aria-label": "En ce moment" });
 
-  async function peindre() {
-    const liste = await cahiers.mesCahiers(etat.utilisateur.id);
-    definir({ cahiers: liste });
-    peindreDroits();
+  const decor = creerScene({
+    bureau, classe: null, session: {}, staff: false,
+    // Chez soi : pas de tableau ni d'estrade. La scène veut un « avant » ; ce
+    // n'est qu'une ancre invisible, le mur vit à côté.
+    avant: el("span.scene__ancre", { hidden: true }),
+    surCahier: (c) => ouvrirCahier(c),
+    surDossier: (d) => ouvrirDossier(d, { moiId: moi }),
+    surNote: () => noteDePartout(),
+    // Mon cahier, cliqué sur le bureau en 3D : il s'ouvre pour écrire.
+    surMonCahier: () => (petit() ? console_.ouvrir("cahier") : ouvrirLeCahier())
+  });
+  decor.surChangementEtat((e) => { if (e !== "cahier") fermerLivre(); });
 
-    if (!liste.length) {
-      render(conteneur, blocVide(
-        "Votre étagère est vide",
-        `Un ${L("cahier")} par matière, par cours ou par sujet : à vous de choisir l'organisation. Le premier est offert.`,
-        { libelle: `Créer mon premier ${L("cahier")}`, action: creer }
-      ));
-      return;
-    }
-
-    const compte = new Map();
-    await Promise.all(liste.map(async (c) => {
-      try { compte.set(c.id, (await pages.liste(c.id)).length); }
-      catch { compte.set(c.id, 0); }
-    }));
-
-    render(conteneur, liste.map((cahier) => el("div", { style: { position: "relative" } },
-      vignetteCahier(cahier, { pages: compte.get(cahier.id) }),
-      el("button.btn.btn--fantome.btn--icone", {
-        style: { position: "absolute", top: "8px", right: "8px" },
-        "aria-label": "Actions du cahier",
-        onclick: (e) => { e.preventDefault(); actions(e.currentTarget, cahier); }
-      }, icone("points", 15))
-    )));
-  }
-
-  function actions(ancre, cahier) {
-    menu(ancre, [
-      { libelle: "Ouvrir", icone: "cahier", action: () => aller(`/cahier/${cahier.id}`) },
-      { libelle: "Renommer / couverture", icone: "crayon", action: () => modifier(cahier) },
-      { separateur: true },
-      {
-        libelle: "Supprimer", icone: "corbeille", danger: true,
-        action: async () => {
-          const ok = await confirmer({
-            titre: "Supprimer ce cahier",
-            message: `« ${cahier.title} » et toutes ses pages seront définitivement perdus. `
-              + "Supprimer un cahier ne donne droit ni à un remboursement ni à un nouveau cahier gratuit.",
-            libelle: "Supprimer", danger: true
-          });
-          if (!ok) return;
-          const sortie = sortiePapier(ancre.parentElement, "dechire");
-          try { await cahiers.supprimer(cahier.id); succes("Cahier supprimé"); await peindre(); }
-          catch (err) { sortie.annuler(); erreur("Suppression impossible", messageErreur(err)); }
+  /* --- La console, pour les petites fenêtres ------------------------------ */
+  const enTete = el("div.console__entete");
+  const console_ = creerConsole({
+    avecBarre: false,
+    enTete,
+    // Animation allumée : on se voit assis à son bureau ; éteinte : le bureau, à plat.
+    defaut: () => (console_.avecScene() ? null : "bureau"),
+    scene: (hote) => decor.classeDans(hote),
+    panneaux: [
+      { cle: "bureau", mot: "Bureau", rendre: panneauBureau(bureau, {
+        surCahier: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); },
+        surSac: () => console_.ouvrir("sac"),
+        surDossier: (d) => ouvrirDossier(d, { moiId: moi })
+      }) },
+      { cle: "sac", mot: "Sac", rendre: panneauSac(bureau) },
+      { cle: "cahier", mot: "Cahier", rendre: panneauCahier(bureau, {
+        surSac: () => console_.ouvrir("sac"),
+        choisi: () => cahierOuvert?.id,
+        choisir: (c) => { cahierOuvert = c; console_.ouvrir("cahier"); },
+        surNouveau: () => cahierNeuf(),
+        encre: {
+          encrier: () => encrierDeLaPlume(),
+          remplir: () => remplirIci(),
+          frappe: () => buveur.frappe()
         }
-      }
-    ]);
-  }
+      }) },
+      { cle: "note", mot: "Note", rendre: panneauNote({ bureau, classe: null, gens: () => gens.gens, nomDe: (p) => gens.nomDe(p) }) },
+      { cle: "documents", mot: "Papiers", rendre: panneauDocumentsConsole() },
+      { cle: "personnes", mot: "Personnes", rendre: panneauPersonnes({
+        gens: () => gens.gens, nomDe: (p) => gens.nomDe(p),
+        roleDe: (p) => (["teacher", "owner", "assistant"].includes(p.role) ? "responsable" : ""),
+        gestes: (p) => [{ libelle: "Lui écrire une note", action: () => noteDePartout(p) }]
+      }) }
+    ]
+  });
 
-  /** Le droit de créer est épuisé : on l'explique, on renvoie à la boutique. */
-  async function proposerAchat() {
-    const ok = await confirmer({
-      titre: `Un ${L("cahier")} supplémentaire s'achète`,
-      message: "Votre premier cahier est offert ; les suivants sont payants. "
-        + "Vos cahiers existants restent intacts et consultables.",
-      libelle: "Voir la boutique"
-    });
-    if (ok) aller("/boutique");
-  }
+  const noeud = el("div.chez-moi", el("div.chez-moi__scene", decor.noeud), mur, console_.noeud);
 
-  async function creer() {
-    await chargerCommerce();                       // l'état le plus frais avant de proposer
-    if (etat.commerce && !estExempte() && etat.commerce.cahiers.restants <= 0) {
-      peindreDroits();
-      await proposerAchat();
+  const petit = () => ["compact", "mini"].includes(etat.taille);
+
+  /* --- Les gestes de la barre : ici, ils agissent sur ce bureau ----------- */
+  const rendre = prendreLesGestes({
+    bureau: () => (petit() ? console_.ouvrir("bureau") : decor.definirEtat("bureau")),
+    sac: () => (petit() ? console_.ouvrir("sac", { basculer: true })
+      : decor.definirEtat(decor.etat() === "sac" ? "bureau" : "sac")),
+    cahier: () => ouvrirLeCahier(),
+    note: () => (petit() ? console_.ouvrir("note", { basculer: true }) : noteDePartout()),
+    documents: (ancre) => (petit() ? console_.ouvrir("documents", { basculer: true }) : ouvrirDocuments(ancre)),
+    personnes: (ancre) => (petit() ? console_.ouvrir("personnes", { basculer: true }) : personnesDePartout(ancre))
+  });
+
+  function ouvrirLeCahier() {
+    const pose = bureau.cahiersSurLeBureau()[0];
+    if (petit()) { if (pose) cahierOuvert = cahierOuvert || pose; console_.ouvrir("cahier", { basculer: true }); return; }
+    if (pose) { ouvrirCahier(cahierOuvert && bureau.cahiersSurLeBureau().some((c) => c.id === cahierOuvert.id) ? cahierOuvert : pose); return; }
+    if (!bureau.supports().length) {
+      // Pas de cahier du tout : on s'en procure un, il arrive sur le bureau.
+      toast("Vous n'avez pas encore de cahier", {
+        type: "attn", duree: 8000,
+        action: { libelle: "M'en procurer un", action: async () => {
+          const c = await cahierNeuf();
+          if (c) { decor.peindre(); ouvrirCahier(c); }
+        } }
+      });
       return;
     }
-    const sortie = await formulaire({
-      titre: `Nouveau ${L("cahier")}`,
-      champs: [
-        { cle: "title", label: "Titre", valeur: "", placeholder: "Histoire — chapitre 1", requis: true },
-        { cle: "subtitle", label: "Sous-titre (facultatif)", valeur: "", placeholder: "Année 2026" },
-        { cle: "cover", label: "Couverture", type: "select", valeur: "parchment",
-          options: COUVERTURES.map((c) => ({ valeur: c.cle, libelle: c.libelle })) }
-      ],
-      libelle: "Créer"
+    toast("Aucun cahier sur votre bureau", { corps: "Sortez-le de votre sac.", type: "attn" });
+    decor.definirEtat("sac");
+  }
+
+  /** Un cahier neuf, posé sur le bureau de la chambre. */
+  async function cahierNeuf() {
+    const c = await cahiers.creer({ owner_id: moi, kind: "personal", title: "Cahier" }).catch((err) => {
+      erreur("Impossible", messageErreur(err)); return null;
     });
-    if (!sortie) return;
+    if (!c) return null;
+    await bureau.charger();
+    return bureau.cahiersSurLeBureau().find((x) => x.id === c.id) || c;
+  }
+
+  /* --- Le cahier ouvert, sur le bureau ------------------------------------ */
+  function ouvrirCahier(c) {
+    cahierOuvert = c;
+    decor.definirEtat("cahier");
+    remonterLivre();
+  }
+
+  function remonterLivre() {
+    if (decor.etat() !== "cahier" || !cahierOuvert) return;
+    const verdict = bureau.peutFaire("ecrire");
+    const page = editeur?.pageCourante?.()?.id || null;
+    editeur?.detruire?.();
+    editeur = creerEditeurCahier({
+      cahier: cahierOuvert,
+      peutEcrire: verdict.ok,
+      manqueEcriture: verdict.ok ? null : verdict,
+      garde: (action) => bureau.peutFaire(action),
+      pageInitiale: page
+    });
+    // À la plume, l'encre se voit et se boit, ici comme en classe.
+    const encrier = encrierDeLaPlume();
+    render(decor.livre, el("div.salle__scene", el("div.mon-cahier",
+      encrier ? jaugeEncrier(encrier, { remplir: remplirIci }) : null,
+      editeur.noeud)));
+    ecouterLEncre(editeur.noeud);
+  }
+
+  /* --- L'encre : la plume boit, on remplit au flacon de la maison ---------- */
+  function encrierDeLaPlume() {
+    const v = bureau.peutFaire("ecrire");
+    if (v.encrier) return v.encrier;
+    // À sec : la jauge reste, à zéro, avec « Remplir ».
+    return /encrier est vide/.test(v.message || "")
+      ? bureau.objets().find((o) => o.kind === "encrier" && Number(o.level || 0) <= 0) || null
+      : null;
+  }
+  const buveur = creerBuveur({
+    encrier: () => bureau.peutFaire("ecrire").encrier || null,
+    surChange: () => rafraichirJauges(),
+    surVide: () => { remonterLivre(); console_.rafraichir(); }
+  });
+  function ecouterLEncre(zone) {
+    zone?.addEventListener("input", (e) => {
+      if (e.target?.closest?.(".parchemin__corps")) buveur.frappe();
+    });
+  }
+  function rafraichirJauges() {
+    const e = encrierDeLaPlume();
+    for (const j of noeud.querySelectorAll(".encre-niveau")) {
+      if (e) j.replaceWith(jaugeEncrier(e, { remplir: remplirIci }));
+    }
+  }
+  async function remplirIci() {
+    if (await remplirChezSoi(bureau)) { remonterLivre(); console_.rafraichir(); decor.peindre(); }
+  }
+
+  function fermerLivre() {
+    editeur?.detruire?.();
+    editeur = null;
+    render(decor.livre, []);
+  }
+
+  /* --- Le mur : ce qui se passe en ce moment ------------------------------ */
+  async function charger() {
+    const [live, recus, voisins] = await Promise.all([
+      sessionsEnDirect(),
+      papiers.recus(moi).catch(() => []),
+      gensDeLEspace().catch(() => gens)
+    ]);
+    enDirect = live;
+    aLire = recus.filter((r) => r.state === "offered");
+    gens = voisins;
+    peindreMur();
+    peindreEnTete();
+  }
+
+  function lignesDuMoment() {
+    const nonLues = notificationsNonLues();
+    return [
+      ...enDirect.map(({ classe, session }) => el("li.mur__ligne.mur__ligne--direct",
+        el("span.mur__voyant"),
+        el("span.mur__texte", el("b", session.title || "Séance"), el("small", classe.name)),
+        el("button.btn.btn--petit.btn--primaire", { type: "button", onclick: () => aller(`/classe/${classe.id}/salle`) },
+          "Entrer"))),
+      aLire.length ? el("li.mur__ligne",
+        el("img.mur__objet", { src: imageDetouree("feuille"), alt: "" }),
+        el("span.mur__texte", el("b", aLire.length === 1 ? "Un papier remis" : `${aLire.length} papiers remis`)),
+        el("button.btn.btn--petit", { type: "button", onclick: async () => { await recevoirPapier(aLire[0]); charger(); } }, "Lire")) : null,
+      nonLues ? el("li.mur__ligne",
+        el("span.mur__cloche", icone("cloche", 13)),
+        el("span.mur__texte", el("b", `${nonLues} notification${nonLues > 1 ? "s" : ""}`)),
+        el("button.btn.btn--petit.btn--fantome", { type: "button", onclick: (e) => panneauNotifications(e.currentTarget) }, "Voir")) : null
+    ].filter(Boolean);
+  }
+
+  function salut() {
+    const h = new Date().getHours();
+    return h < 5 || h >= 18 ? "Bonsoir" : "Bonjour";
+  }
+
+  function peindreMur() {
+    const lignes = lignesDuMoment();
+    const espaces = etat.classes.filter((c) => !c.archived);
+    const cahiersRecents = (bureau.supports?.() || []).slice(0, 4);
+    const prenom = (etat.profil?.display_name || "").split(/\s+/)[0];
+    const date = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+    render(mur,
+      el("header.mur__tete",
+        el("div.mur__bonjour",
+          el("span.mur__date", date),
+          el("h1.mur__titre", prenom ? `${salut()}, ${prenom}` : salut())),
+        el("div.mur__icones",
+          el("button.mur__icone", { type: "button", title: "Mon personnage", "aria-label": "Mon personnage", onclick: () => personnage() }, icone("eleves", 14)),
+          el("button.mur__icone", { type: "button", title: "Mes cahiers", "aria-label": "Mes cahiers", onclick: () => mesCahiers() }, icone("cahiers", 14)))),
+
+      el("section.mur__bloc",
+        el("h2.mur__sous-titre", "En ce moment"),
+        el("ul.mur__lignes", lignes.length ? lignes
+          : el("li.mur__ligne.mur__ligne--calme", "Rien ne vous attend."))),
+
+      el("section.mur__bloc",
+        el("h2.mur__sous-titre", "Mes espaces", espaces.length ? el("span.mur__compte", String(espaces.length)) : null),
+        espaces.length
+          ? el("ul.mur__liste", espaces.slice(0, 6).map((c) => el("li",
+              el("a.mur__espace", { href: `#/classe/${c.id}` }, icone("classe", 13), el("span", c.name)))))
+          : el("p.mur__vide", "Aucun espace. Entrez un code pour en rejoindre un.")),
+
+      cahiersRecents.length ? el("section.mur__bloc",
+        el("h2.mur__sous-titre", "Cahiers", el("span.mur__compte", String((bureau.supports?.() || []).length))),
+        el("ul.mur__liste", cahiersRecents.map((c) => el("li",
+          el("a.mur__espace", { href: `#/cahier/${c.id}` }, icone("cahiers", 13), el("span", c.title || "Cahier")))))) : null,
+
+      rejoindre());
+  }
+
+  function peindreEnTete() {
+    const direct = enDirect[0];
+    render(enTete,
+      direct
+        ? el("button.console__direct", { type: "button", onclick: () => aller(`/classe/${direct.classe.id}/salle`) },
+            el("span.mur__voyant"), el("span", el("b", direct.classe.name), ` · ${direct.session.title || "en séance"}`),
+            el("span.console__aller", "Y aller"))
+        : el("span.console__calme", aLire.length ? `${aLire.length} papier${aLire.length > 1 ? "s" : ""} à lire` : "Chez moi — rien ne vous attend"));
+  }
+
+  /* --- S'habiller, choisir ses cahiers ------------------------------------ */
+  async function personnage(options) {
+    const { ouvrirApparence } = await import("../features/mon-personnage.js");
+    return ouvrirApparence(options);
+  }
+  async function mesCahiers(options) {
+    const { ouvrirMesCahiers } = await import("../features/mes-cahiers.js");
+    return ouvrirMesCahiers(options);
+  }
+
+  /* --- Les demandes venues d'ailleurs (« Sac » depuis une autre page) ----- */
+  function servirDemande() {
+    const d = etat.demandeBureau;
+    if (!d) return;
+    definir({ demandeBureau: null });
+    if (d === "sac") petit() ? console_.ouvrir("sac") : decor.definirEtat("sac");
+    if (d === "cahier") ouvrirLeCahier();
+  }
+
+  const lachers = [
+    observer("demandeBureau", servirDemande),
+    observer("taille", () => {
+      if (petit()) { if (!console_.ouvert()) console_.demarrer(); }
+      else decor.classeDans(null);
+    }),
+    observer("notifications", peindreMur),
+    ecouter("papiers:change", charger),
+    ecouter("cahiers:change", async () => { await bureau.charger(); decor.peindre(); console_.rafraichir(); peindreMur(); })
+  ];
+
+  modePleineVue(true);
+  decor.peindre();
+  await charger();
+  if (petit()) console_.demarrer();
+  setTimeout(servirDemande, 0);
+  // Tout juste inscrit : on s'habille, puis on prend ses cahiers.
+  if (local.lire("ojm.bienvenue", false)) {
+    local.ecrire("ojm.bienvenue", false);
+    setTimeout(async () => {
+      await personnage({ bienvenue: true });
+      await mesCahiers({ bienvenue: true });
+    }, 500);
+  }
+
+  return {
+    noeud,
+    titre: "Chez moi",
+    nettoyer: () => {
+      rendre();
+      console_.detruire();
+      for (const l of lachers) l?.();
+      editeur?.detruire?.();
+      decor.detruire?.();
+      modePleineVue(false);
+    }
+  };
+}
+
+/* --- Fragments -------------------------------------------------------------- */
+
+async function sessionsEnDirect() {
+  const sorties = [];
+  for (const classe of etat.classes) {
+    if (classe.archived) continue;
     try {
-      const cahier = await cahiers.creer({
-        owner_id: etat.utilisateur.id, kind: "personal", class_id: null,
-        title: sortie.title, subtitle: sortie.subtitle || null, cover: sortie.cover,
-        color: "olive", icon: "book", collaborative: false
-      });
-      await pages.creer(cahier.id, { title: "Page 1", created_by: etat.utilisateur.id });
-      await chargerCommerce();
-      succes("Cahier créé");
-      aller(`/cahier/${cahier.id}`);
+      const session = await sessions.enCours(classe.id);
+      if (session) sorties.push({ classe, session });
+    } catch { /* espace inaccessible */ }
+  }
+  return sorties;
+}
+
+/** Rejoindre un espace : le code qu'on vous donne en jeu. */
+function rejoindre() {
+  let champ, bouton;
+
+  async function valider() {
+    const code = normaliserCode(champ.value);
+    if (code.length < 7) {
+      erreur("Code incomplet", "Un code ressemble à K7F-29A.");
+      champ.focus();
+      return;
+    }
+    bouton.disabled = true;
+    try {
+      const sortie = await depotClasses.rejoindre(code);
+      await rafraichirClasses();
+      if (sortie.member_status === "pending") {
+        succes("Demande envoyée", `Le ${L("professeur")} doit valider votre arrivée dans « ${sortie.class_name} ».`);
+      } else {
+        succes("Vous avez rejoint l'espace", sortie.class_name);
+        aller(`/classe/${sortie.class_id}`);
+      }
+      champ.value = "";
     } catch (err) {
-      if (estCahierAAcheter(err)) { await chargerCommerce(); peindreDroits(); await proposerAchat(); return; }
-      erreur("Création impossible", messageErreur(err));
+      erreur("Impossible de rejoindre", messageErreur(err));
+    } finally {
+      bouton.disabled = false;
     }
   }
 
-  async function modifier(cahier) {
-    const sortie = await formulaire({
-      titre: "Modifier le cahier",
-      champs: [
-        { cle: "title", label: "Titre", valeur: cahier.title, requis: true },
-        { cle: "subtitle", label: "Sous-titre", valeur: cahier.subtitle || "" },
-        { cle: "cover", label: "Couverture", type: "select", valeur: cahier.cover,
-          options: COUVERTURES.map((c) => ({ valeur: c.cle, libelle: c.libelle })) }
-      ]
-    });
-    if (!sortie) return;
-    try {
-      await cahiers.majorer(cahier.id, {
-        title: sortie.title, subtitle: sortie.subtitle || null, cover: sortie.cover
-      });
-      await peindre();
-    } catch (err) {
-      erreur("Modification impossible", messageErreur(err));
-    }
-  }
-
-  await peindre();
-  return { noeud, titre: `Mes ${L("cahiers")}` };
+  return el("div.mur__rejoindre",
+    champ = el("input.saisie.saisie--code", {
+      placeholder: "Code d'un espace", maxlength: 7, "aria-label": "Code d'un espace",
+      oninput: (e) => { e.target.value = normaliserCode(e.target.value); },
+      onkeydown: (e) => { if (e.key === "Enter") valider(); }
+    }),
+    bouton = el("button.btn.btn--petit", { type: "button", onclick: valider }, "Rejoindre"));
 }

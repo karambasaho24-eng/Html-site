@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="carnet">
+  <defs>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+  </defs>
+  
+  <path d="M20 12h24a2 2 0 0 1 2 2v38a2 2 0 0 1-2 2H20z" fill="#3d4339"/>
+  <rect x="18" y="12" width="4" height="42" fill="#22271f"/>
+  <path d="M24 17h18v33H24z" fill="#fff" opacity=".06"/>
+  <rect x="27" y="23" width="12" height="8" rx="1" fill="url(#papier)" opacity=".8"/>
+  <path d="M44 24h5v10h-5z" fill="#8b3f3a"/>
+  <path d="M24 15h20" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width=".9"/>
+  <path d="M44 12l2 2v38l-2 2z" fill="#000" opacity=".25"/>
+  
+</svg>

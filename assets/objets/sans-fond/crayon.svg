@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="crayon">
+  <defs>
+    <linearGradient id="bois" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0c68d"/><stop offset=".55" stop-color="#bd9d5f"/>
+      <stop offset="1" stop-color="#8a6c3a"/></linearGradient>
+    <linearGradient id="papier" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#f4ecd8"/><stop offset=".6" stop-color="#e2d5b8"/>
+      <stop offset="1" stop-color="#c3b493"/></linearGradient>
+    <linearGradient id="cuivre" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d59a5b"/><stop offset=".5" stop-color="#a9662c"/>
+      <stop offset="1" stop-color="#6d3d15"/></linearGradient>
+  </defs>
+  
+  <path d="M21 43l27-27 5 5-27 27z" fill="url(#bois)"/>
+  <path d="M23.4 45.4l27-27 1.6 1.6-27 27z" fill="#000" opacity=".14"/>
+  <path d="M30 34.6l9-9" stroke="#fff" stroke-opacity=".22" stroke-width="1.6"/>
+  <path d="M48 16l5 5 4-4a3.6 3.6 0 0 0-5-5z" fill="url(#cuivre)"/>
+  <path d="M49.6 14.4l5 5" stroke="#000" stroke-opacity=".28" stroke-width="1"/>
+  <path d="M21 43l5 5-8 3z" fill="url(#papier)"/>
+  <path d="M18 51l3.2-1.4 1.4-3.2z" fill="#171c22"/>
+  <ellipse cx="18" cy="55" rx="4" ry="1.6" fill="#000" opacity=".3"/>
+  
+</svg>
