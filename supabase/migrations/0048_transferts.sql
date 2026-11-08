@@ -57,9 +57,12 @@ begin
   end if;
   -- La procédure d'acceptation change le propriétaire alors que la remise est
   -- encore « offerte » : on la laisse passer (seul le propriétaire change).
-  if tg_table_name = 'notebooks' and tg_op = 'UPDATE'
-     and new.owner_id is distinct from old.owner_id then
-    return new;
+  -- (deux « if » imbriqués : une page n'a pas de colonne owner_id, et
+  -- PL/pgSQL n'évite pas toujours de lire le second membre d'un « and »).
+  if tg_table_name = 'notebooks' and tg_op = 'UPDATE' then
+    if new.owner_id is distinct from old.owner_id then
+      return new;
+    end if;
   end if;
   if auth.uid() is not null and app_cahier_tendu(cible) then
     raise exception 'Ce cahier est tendu : attendez la réponse, ou reprenez-le.' using errcode = '42501';
