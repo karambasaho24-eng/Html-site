@@ -5,7 +5,6 @@
 import { definir, etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { toast } from "../ui/toast.js";
-import { stockageLocal } from "./stockage.js";
 
 let fermerToast = null;
 let etaitRompu = false;
@@ -41,61 +40,4 @@ export function marquer(nouvelEtat) {
       emettre("reseau:retabli");
     }
   }
-}
-
-/** Relance une opération réseau avec repli exponentiel. */
-export async function avecReprise(operation, { tentatives = 4, delai = 600 } = {}) {
-  let derniere;
-  for (let i = 0; i < tentatives; i++) {
-    try {
-      const sortie = await operation();
-      if (etat.reseau !== "ok" && etat.reseau !== "local") marquer("ok");
-      return sortie;
-    } catch (err) {
-      derniere = err;
-      const reseauEnCause = /fetch|network|timeout|Failed to fetch/i.test(err?.message || "");
-      if (!reseauEnCause || i === tentatives - 1) throw err;
-      marquer("reprise");
-      await new Promise((r) => setTimeout(r, delai * 2 ** i));
-    }
-  }
-  throw derniere;
-}
-
-/* --- File d'attente des écritures différées -------------------------------- */
-const CLE_FILE = "ojm.file";
-
-export function fileEnAttente() {
-  try { return JSON.parse(stockageLocal.getItem(CLE_FILE) || "[]"); }
-  catch { return []; }
-}
-
-export function mettreEnFile(entree) {
-  const file = fileEnAttente();
-  file.push({ ...entree, horodatage: Date.now() });
-  try { stockageLocal.setItem(CLE_FILE, JSON.stringify(file.slice(-200))); }
-  catch { /* quota */ }
-}
-
-export function viderFile() {
-  try { stockageLocal.removeItem(CLE_FILE); } catch { /* ignoré */ }
-}
-
-/**
- * Rejoue les écritures mises de côté pendant une coupure.
- * `executeur(entree)` doit renvoyer une promesse ; une entrée qui échoue à
- * nouveau reste en file.
- */
-export async function rejouerFile(executeur) {
-  const file = fileEnAttente();
-  if (!file.length) return 0;
-  const restantes = [];
-  let rejouees = 0;
-  for (const entree of file) {
-    try { await executeur(entree); rejouees++; }
-    catch { restantes.push(entree); }
-  }
-  try { stockageLocal.setItem(CLE_FILE, JSON.stringify(restantes)); }
-  catch { /* quota */ }
-  return rejouees;
 }

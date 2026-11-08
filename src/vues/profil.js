@@ -13,7 +13,20 @@ import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { LIBELLES_ROLES } from "../core/permissions.js";
 import { dateCourte, dateHeure, duree, dureeLongue, heure, pluriel } from "../core/util.js";
 import { deconnecter } from "../core/session.js";
-import { nomRPLibre, choisirNomRP } from "../features/nom-rp.js";
+import { changerNomRP } from "../features/nom-rp.js";
+import { creerSignature, rendreSignature } from "../features/signature.js";
+
+/** La signature enregistrée sert de proposition ; elle n'est jamais apposée sans le vouloir. */
+async function modifierSignature() {
+  const sig = await creerSignature({ initiale: etat.profil?.preferences?.signature });
+  if (!sig) return;
+  try {
+    const maj = await profils.majorer(etat.profil.id, { preferences: { ...(etat.profil.preferences || {}), signature: sig } });
+    if (maj) definir({ profil: maj });
+    succes("Signature enregistrée");
+    aller("/profil", true);
+  } catch (err) { erreur("Non enregistrée", messageErreur(err)); }
+}
 
 export default async function vueProfil() {
   const profil = etat.profil;
@@ -125,10 +138,13 @@ export default async function vueProfil() {
           el("div.panneau__entete", el("span.panneau__titre", "Compte")),
           el("div.panneau__corps.pile",
             el("span.petit.faible", `Nom RP : ${etat.profil?.display_name || "—"}`),
-            nomRPLibre()
-              ? el("button.btn.btn--primaire", { onclick: async () => { if (await choisirNomRP()) aller("/profil"); } },
-                  icone("profil", 15), "Choisir le nom de mon personnage")
-              : null,
+            el("button.btn.btn--primaire", { onclick: async () => { if (await changerNomRP()) aller("/profil", true); } },
+              icone("profil", 15), "Modifier mon nom RP"),
+            el("div.signature__apercu.profil__signature", etat.profil?.preferences?.signature
+              ? rendreSignature(etat.profil.preferences.signature, { hauteur: 56 })
+              : el("span.petit.faible", "Aucune signature enregistrée.")),
+            el("button.btn", { onclick: modifierSignature }, icone("cachet", 15),
+              etat.profil?.preferences?.signature ? "Modifier ma signature" : "Créer ma signature"),
             pilote.mode === "local"
               ? el("button.btn", { onclick: changerMotDePasse }, icone("cadenas", 15), "Changer mon mot de passe")
               : el("span.petit.faible", "Connecté avec Discord"),

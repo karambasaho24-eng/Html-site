@@ -12,7 +12,7 @@ import { formulaire, menu } from "../ui/modal.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { rafraichirClasses } from "../core/session.js";
 import { etat } from "../core/store.js";
-import { transferts } from "../data/index.js";
+import { transferts, papiers } from "../data/index.js";
 import { choisirEtDonner, panneauRemises } from "../features/transferts.js";
 
 function bouton(libelle, aide, nomIcone, action) {
@@ -64,7 +64,15 @@ export default async function vueManette() {
     ]);
   }
 
-  const remises = panneauRemises();
+  const compteur = el("span.manette__compteur", { hidden: true, "aria-label": "objets en attente" });
+  const remises = panneauRemises({ surCompte: (n) => { compteur.hidden = !n; compteur.textContent = String(n); } });
+
+  async function nouveauPapier() {
+    try {
+      const p = await papiers.creer({ author_id: etat.utilisateur.id, title: "Nouveau papier", body: "" });
+      aller(`/papier/${p.id}`);
+    } catch (err) { erreur("Création impossible", messageErreur(err)); }
+  }
 
   async function recevoir() {
     const { recus } = await transferts.enAttente(etat.utilisateur.id).catch(() => ({ recus: [] }));
@@ -74,9 +82,11 @@ export default async function vueManette() {
   }
 
   const noeud = el("div.manette-page", remises, el("div.manette",
-    bouton("Cahier", "Ouvrir mon cahier et écrire", "cahier", ouvrirCahier),
+    bouton("Cahier", "Reprendre mon dernier cahier", "cahier", ouvrirCahier),
+    bouton("Mes affaires", "Cahiers et papiers, en prendre un nouveau", "cahiers", () => aller("/")),
+    bouton("Papier", "Écrire un nouveau papier", "papier", nouveauPapier),
     bouton("Donner", "Un cahier ou un papier, à quelqu'un", "echange", async () => { await choisirEtDonner(); remises.peindre(); }),
-    bouton("Recevoir", "Ce qu'on vous tend", "main", recevoir),
+    (() => { const b = bouton("Recevoir", "Ce qu'on vous tend", "main", recevoir); b.append(compteur); return b; })(),
     bouton("Suivre", "Un cours ou une réunion en cours", "tableau", suivre),
     bouton("Rejoindre", `Une ${L("classe")}, avec son code`, "entree", rejoindre)
   ));

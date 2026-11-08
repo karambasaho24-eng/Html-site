@@ -112,12 +112,6 @@ export function render(container, ...children) {
   return container;
 }
 
-export function frag(...children) {
-  const f = document.createDocumentFragment();
-  append(f, children);
-  return f;
-}
-
 export function clear(node) { node.replaceChildren(); return node; }
 
 export const $  = (sel, root = document) => root.querySelector(sel);

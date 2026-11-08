@@ -271,6 +271,15 @@ export const papiers = {
 };
 
 /* ===========================================================================
+   Signatures (0049) : apposées par celui qui a le papier en main ; le nom RP
+   du moment est figé par la base. Elles ne se modifient ni ne s'effacent.
+   ========================================================================= */
+export const signatures = {
+  dePapier: (paperId) => T("paper_signatures").liste({ paper_id: paperId }, { ordre: "created_at" }),
+  apposer: (paperId, { kind, data }) => T("paper_signatures").creer({ paper_id: paperId, kind, data })
+};
+
+/* ===========================================================================
    Transferts entre joueurs : UN OBJET = UN SEUL DÉTENTEUR (0048).
    Tendu, l'objet est verrouillé ; le destinataire accepte ou refuse,
    l'expéditeur peut le reprendre tant que rien n'est tranché.

@@ -12,3 +12,6 @@ jeton-netlify.txt
 # Le lien local vers le projet Netlify (cree par netlify-cli).
 .netlify/
 .tmp/
+
+# Produit par outils/regrouper.mjs au déploiement.
+build/

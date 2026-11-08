@@ -91,7 +91,6 @@ export const peutProduire = () => solde() > 0;
 
 /** Coût, en encre, de n caractères de texte. */
 export const coutTexte = (n) => Math.max(0, n) * Number(etat.commerce?.regles?.cout_caractere ?? 1);
-export const coutTrace = () => Number(etat.commerce?.regles?.cout_trace ?? 20);
 export const coutPiece = () => Number(etat.commerce?.regles?.cout_piece ?? 500);
 
 /**

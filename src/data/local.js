@@ -258,6 +258,16 @@ function gardeQuotaCahiers(ancien, nouveau) {
   return nouveau;
 }
 
+/** 0049 : on vous tend quelque chose, une notification arrive. */
+function notifierRemise(r, quoi) {
+  const de = charger("profiles").find((p) => p.id === r.from_user)?.display_name || "Quelqu'un";
+  const n = { id: uid(), user_id: r.to_user, class_id: null, kind: "remise", title: `${de} vous tend ${quoi}`,
+    body: `« ${String(r.note || r.description || quoi).slice(0, 80)} » — acceptez ou refusez.`, link: "#/manette",
+    read_at: null, created_at: new Date().toISOString() };
+  sauver("notifications", [...charger("notifications"), n]);
+  signaler("notifications", "INSERT", n);
+}
+
 /** 0048 : un objet tendu est verrouillé jusqu'à la réponse (seul son changement de main passe). */
 function verrouRemise(table, colonne, id) {
   if (quiSuisJe() && charger(table).some((r) => r[colonne] === id && r.state === "offered")) {
@@ -276,10 +286,23 @@ const GARDES = {
     gardeLimitePages(ancien, nouveau); return gardeEncrePages(ancien, nouveau);
   },
   // Miroir des index « une remise en cours par objet » (paper_handoffs_une_offre, nb_handoffs_en_cours).
-  paper_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("paper_handoffs", "paper_id", nouveau.paper_id); return nouveau; },
-  notebook_handoffs: (ancien, nouveau) => { if (!ancien) verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id); return nouveau; },
+  paper_handoffs: (ancien, nouveau) => { if (!ancien) { verrouRemise("paper_handoffs", "paper_id", nouveau.paper_id); notifierRemise(nouveau, "un papier"); } return nouveau; },
+  notebook_handoffs: (ancien, nouveau) => { if (!ancien) { verrouRemise("notebook_handoffs", "notebook_id", nouveau.notebook_id); notifierRemise(nouveau, "un cahier"); } return nouveau; },
   sticky_notes: gardeEncrePenseBetes,
+  paper_signatures: (ancien, nouveau) => {
+    const moi = quiSuisJe();
+    const papier = charger("papers").find((p) => p.id === nouveau.paper_id);
+    if (!papier || papier.holder_id !== moi) throw new ErreurDonnees("Seul celui qui a le papier en main le signe.", "42501");
+    verrouRemise("paper_handoffs", "paper_id", nouveau.paper_id);
+    nouveau.signer_id = moi;
+    nouveau.nom_rp = charger("profiles").find((p) => p.id === moi)?.display_name || "—";
+    return nouveau;
+  },
   papers: (ancien, nouveau) => {
+    if (ancien && (ancien.body !== nouveau.body || ancien.title !== nouveau.title)
+        && charger("paper_signatures").some((s) => s.paper_id === nouveau.id)) {
+      throw new ErreurDonnees("Ce papier est signé : son texte ne change plus.", "42501");
+    }
     if (ancien && ancien.holder_id === nouveau.holder_id) verrouRemise("paper_handoffs", "paper_id", nouveau.id);
     return gardeEncrePenseBetes(ancien, nouveau);
   },
@@ -1015,19 +1038,19 @@ export async function creerPiloteLocal() {
       return patch.display_name;
     },
 
-    /** Choisir son nom RP, une fois (choisir_mon_nom_rp, 0044). */
+    /** Choisir ou changer son nom RP (choisir_mon_nom_rp, 0049). */
     async choisir_mon_nom_rp({ nom }) {
       const moi = monId();
       const p = moi ? await t("profiles").lire(moi) : null;
       if (!p) throw new ErreurDonnees("Compte introuvable.", "P0002");
-      if (p.nom_rp_libre === false) {
-        throw new ErreurDonnees("Votre nom RP est déjà choisi. Il ne change que si votre personnage meurt, ou par l'administration.", "42501");
-      }
       const propre = String(nom || "").replace(/\s+/g, " ").trim();
       if (propre.length < 2 || propre.length > 60) throw new ErreurDonnees("Le nom RP doit faire entre 2 et 60 caractères.", "22023");
       const pris = charger("profiles").some((o) => o.id !== moi
         && [o.display_name, o.discord_name].some((n) => n && n.toLowerCase() === propre.toLowerCase()));
       if (pris) throw new ErreurDonnees("Ce nom est déjà porté par quelqu'un d'autre.", "23505");
+      if (charger("activity_logs").some((l) => l.action === "compte.personnage_mort" && String(l.meta?.nom || "").toLowerCase() === propre.toLowerCase())) {
+        throw new ErreurDonnees("Ce personnage est mort : son nom ne peut plus être porté.", "42501");
+      }
       await t("profiles").majorer(moi, { display_name: propre, discord_name: p.discord_name || p.display_name, nom_rp_libre: false });
       journaliser(moi, "compte.nom_rp_choisi", { cible: moi, avant: p.display_name, apres: propre, discord: p.discord_name || p.display_name });
       return propre;

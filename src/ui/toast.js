@@ -44,8 +44,6 @@ export function toast(titre, options = {}) {
 
 export const succes = (titre, corps) => toast(titre, { corps, type: "ok" });
 export const erreur = (titre, corps) => toast(titre, { corps, type: "alerte", duree: 6500 });
-export const avertir = (titre, corps) => toast(titre, { corps, type: "attn", duree: 5200 });
-
 /** Transforme une erreur Supabase/JS en message lisible. */
 export function messageErreur(err) {
   if (!err) return "Erreur inconnue.";

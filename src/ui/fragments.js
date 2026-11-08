@@ -105,22 +105,9 @@ export function jauge(valeur, total, options = {}) {
   );
 }
 
-export function ligneEleve(entree, options = {}) {
-  const { profil, status, activite } = entree;
-  return el("div.eleve", { class: options.mainLevee ? "eleve--main-levee" : "" },
-    pastillePresence(status),
-    avatar(profil, { prof: options.prof }),
-    el("div.eleve__infos",
-      el("div.eleve__nom", profil?.display_name || "Participant"),
-      el("div.eleve__activite", activite || "—")
-    ),
-    options.fin || null
-  );
-}
 
-export function barreOutils(...contenus) {
-  return el("div.ligne-flex.enrouler", contenus);
-}
+
+
 
 export function separateur() {
   return el("span", { style: { width: "1px", height: "20px", background: "var(--b2)" } });

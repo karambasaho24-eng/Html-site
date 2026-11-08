@@ -1,17 +1,17 @@
 /* ---------------------------------------------------------------------------
  * Donner et recevoir un cahier ou un papier.
  *
- * Objet → Destinataire → Confirmation. Un objet donné n'a qu'un détenteur :
+ * Objet → Destinataire → Présence → Remise. Un objet donné n'a qu'un détenteur :
  * tant que l'autre n'a pas répondu, l'objet est verrouillé (la base y veille,
  * 0048) ; l'expéditeur peut le reprendre, le destinataire accepte ou refuse.
- * On ne devine pas qui est « à côté » : on cherche la personne par son pseudo.
+ * On ne devine pas qui est « à côté » : on cherche la personne par son nom RP.
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
 import { etat } from "../core/store.js";
 import { debounce } from "../core/util.js";
 import { profils, transferts, cahiers, papiers, temps } from "../data/index.js";
-import { ouvrirModale, confirmer } from "../ui/modal.js";
+import { ouvrirModale } from "../ui/modal.js";
 import { succes, erreur, toast, messageErreur } from "../ui/toast.js";
 
 const NOM = { cahier: "cahier", papier: "papier" };
@@ -20,26 +20,25 @@ const NOM = { cahier: "cahier", papier: "papier" };
 function choisirDestinataire(titre) {
   let choisi = null;
   const liste = el("div.destinataires", { role: "listbox", "aria-label": "Joueurs trouvés" });
-  const aide = el("p.petit.faible", "Tapez au moins une lettre du pseudo.");
+  const aide = el("p.petit.faible", "Tapez au moins une lettre de son nom RP.");
 
   const chercher = debounce(async (texte) => {
     const trouves = (await profils.chercher(texte, 8).catch(() => []))
       .filter((p) => p.id !== etat.utilisateur.id);
-    aide.textContent = texte.trim() && !trouves.length ? "Personne ne porte ce pseudo." : "";
+    aide.textContent = texte.trim() && !trouves.length ? "Personne ne porte ce nom." : "";
     render(liste, trouves.map((p) => el("button.destinataire", {
       type: "button", role: "option", "aria-selected": "false",
       onclick: (e) => {
         choisi = p;
         liste.querySelectorAll(".destinataire").forEach((b) => b.setAttribute("aria-selected", String(b === e.currentTarget)));
       }
-    }, el("b", p.display_name || "Sans nom"),
-       p.discord_name && p.discord_name !== p.display_name ? el("span.petit.faible", p.discord_name) : null)));
+    }, el("b", p.display_name || "Sans nom"))));
   }, 200);
 
   return ouvrirModale({
     titre: `À qui donner « ${titre} » ?`,
     corps: () => el("div.pile",
-      el("label.champ", el("span.champ__label", "Pseudo"),
+      el("label.champ", el("span.champ__label", "Nom RP"),
         el("input.saisie", { type: "search", autocomplete: "off", placeholder: "ex. Élodie, Kara…",
           oninput: (e) => chercher(e.currentTarget.value) })),
       aide, liste),
@@ -54,13 +53,30 @@ function choisirDestinataire(titre) {
 export async function donner({ type, objetId, titre }) {
   const vers = await choisirDestinataire(titre);
   if (!vers) return null;
-  const ok = await confirmer({
-    titre: `Donner ce ${NOM[type]}`,
-    message: `« ${titre} » part chez ${vers.display_name}, avec tout ce qu'il contient. `
-      + "Vous ne l'aurez plus. Tant qu'il n'a pas répondu, vous pouvez le reprendre.",
-    libelle: "Donner"
+  // Étape 3 : la présence. Une déclaration du joueur, pas une détection : le site ne
+  // sait pas qui est à côté de qui dans Roblox (un script du jeu pourra le dire un jour).
+  const present = await ouvrirModale({
+    titre: "Remise en main propre",
+    corps: () => el("div.pile",
+      el("p", el("b", `Le joueur à qui vous souhaitez donner cet objet se trouve-t-il actuellement devant vous dans Roblox ?`)),
+      el("p.petit.faible", `« ${titre} » part chez ${vers.display_name}, avec tout ce qu'il contient : vous ne l'aurez plus. `
+        + "Tant qu'il n'a pas répondu, vous pouvez le reprendre.")),
+    actions: [
+      { libelle: "Non, il n'est pas devant moi.", valeur: "non" },
+      { libelle: "Oui, il est devant moi.", variante: "primaire", valeur: "oui" }
+    ]
   });
-  if (!ok) return null;
+  if (present === "non") {
+    await ouvrirModale({
+      titre: "Remise impossible",
+      corps: () => el("p", "Vous ne pouvez pas remettre physiquement un document à une personne qui n'est pas devant vous dans Roblox. "
+        + "Cette action serait considérée comme du metagaming et ne serait pas comptabilisée. "
+        + "Pour communiquer à distance, veuillez envoyer une missive sur Discord."),
+      actions: [{ libelle: "Compris", variante: "primaire", valeur: true }]
+    });
+    return null;
+  }
+  if (present !== "oui") return null;
   try {
     const remise = await transferts.tendre(type, { objetId, titre, deId: etat.utilisateur.id, versId: vers.id });
     succes(`${type === "cahier" ? "Cahier" : "Papier"} tendu`, `${vers.display_name} doit l'accepter.`);
@@ -100,7 +116,7 @@ export async function choisirEtDonner() {
  * en direct quand l'autre agit ; vide (caché) quand rien n'attend.
  * `surChangement` : après un geste. Appeler `noeud.fermer()` en quittant la vue.
  */
-export function panneauRemises({ surChangement = null } = {}) {
+export function panneauRemises({ surChangement = null, surCompte = null } = {}) {
   const noeud = el("section.remises", { hidden: true, "aria-live": "polite" });
 
   async function geste(action, remise, message) {
@@ -119,6 +135,7 @@ export function panneauRemises({ surChangement = null } = {}) {
     const { recus, tendus } = await transferts.enAttente(etat.utilisateur.id)
       .catch(() => ({ recus: [], tendus: [] }));
     noeud.hidden = !recus.length && !tendus.length;
+    surCompte?.(recus.length);
     render(noeud,
       recus.length ? el("h2.remises__titre", "On vous donne") : null,
       recus.map((r) => ligne(r, [

@@ -100,4 +100,3 @@ export function icone(nom, taille = 18) {
   return svg;
 }
 
-export const nomsIcones = Object.keys(TRACES);

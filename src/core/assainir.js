@@ -65,14 +65,6 @@ export function injecterHTML(hote, html) {
   return hote;
 }
 
-/** Renvoie un DocumentFragment assaini, prêt à être inséré. */
-export function fragmentSur(html) {
-  const gabarit = document.createElement("template");
-  gabarit.innerHTML = String(html || "");
-  nettoyerNoeud(gabarit.content);
-  return gabarit.content;
-}
-
 function nettoyerNoeud(racine) {
   const aRetirer = [];
   const parcours = document.createTreeWalker(racine, NodeFilter.SHOW_ELEMENT);

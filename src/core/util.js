@@ -156,25 +156,6 @@ export function throttle(fn, intervalle = 60) {
 export const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* --- Divers --------------------------------------------------------------- */
-export function grouper(liste, cle) {
-  const sortie = new Map();
-  for (const item of liste) {
-    const k = typeof cle === "function" ? cle(item) : item[cle];
-    if (!sortie.has(k)) sortie.set(k, []);
-    sortie.get(k).push(item);
-  }
-  return sortie;
-}
-
-export function trier(liste, cle, sens = 1) {
-  const acces = typeof cle === "function" ? cle : (o) => o[cle];
-  return [...liste].sort((a, b) => {
-    const va = acces(a), vb = acces(b);
-    if (va === vb) return 0;
-    return (va > vb ? 1 : -1) * sens;
-  });
-}
-
 export function clamp(valeur, min, max) {
   return Math.min(max, Math.max(min, valeur));
 }

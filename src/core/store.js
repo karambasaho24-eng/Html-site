@@ -74,6 +74,4 @@ export function toucher(cle) {
   emettre("etat:change", [cle]);
 }
 
-export function estConnecte() {
-  return Boolean(etat.utilisateur);
-}
+

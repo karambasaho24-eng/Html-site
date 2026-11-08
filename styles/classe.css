@@ -286,10 +286,10 @@ body.hors-session .contexte, body.hors-session .rail { display: none; }
 label.btn { cursor: pointer; }
 label.btn input[type="file"] { display: none; }
 
-.groupe-btn { display: inline-flex; gap: 2px; padding: 3px; border-radius: 13px; background: var(--trough); border: 1px solid rgba(var(--tl), .26); box-shadow: var(--sh-trough); }
-.groupe-btn .btn { height: 30px; padding: 0 12px; border-color: transparent; border-radius: 10px; background: none; box-shadow: none; color: var(--m); font-size: 13px; }
-.groupe-btn .btn:hover { color: #fff; background: var(--g); transform: none; }
-.groupe-btn .btn[aria-pressed="true"] { background: var(--ctl-on); border-color: rgba(var(--tl), .45); box-shadow: var(--sh-on); color: #fff; }
+
+
+
+
 
 /* --- Champs ----------------------------------------------------------------- */
 .champ { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--e-4); }
@@ -498,6 +498,8 @@ a.liste__item:hover, .liste__item--cliquable:hover { background: var(--g); borde
 /* ===========================================================================
    Fenêtre étroite
    =========================================================================== */
+/* Le flou du verre coûte du GPU à chaque image ; à côté du jeu, sans image de fond derrière, il ne montre rien. */
+body.est-flottant { --bf: none; }
 body.est-flottant .page { padding: var(--e-3) var(--e-3) var(--e-5); }
 body.est-flottant .page__entete { flex-direction: column; align-items: stretch; }
 body.est-flottant .btn { min-height: 34px; }
@@ -790,3 +792,36 @@ html.telephone .entree__titre { font-size: 28px; }
 }
 /* Les petites lignes posées à même le fond (droits, étagère vide) : une ombre plus franche. */
 .droits-cahiers, .grille > p.petit, .entree__etagere { text-shadow: 0 1px 3px rgba(0, 0, 0, .9), 0 0 14px rgba(0, 0, 0, .65); }
+
+/* Manette : le compteur de ce qui vous attend */
+.manette__bouton { position: relative; }
+.manette__compteur { position: absolute; top: 8px; right: 10px; min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 12px; background: rgb(var(--ko)); color: #fff; font-weight: 800; font-size: 13px; line-height: 24px; text-shadow: none; }
+
+/* Le nom du personnage, avant tout le reste */
+.identite { min-height: 70vh; display: grid; place-items: center; padding: 16px; }
+.identite__carte { display: grid; gap: 12px; width: min(520px, 100%); padding: clamp(20px, 5vw, 36px); text-align: center; justify-items: center; }
+.identite__sceau { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, .05) 50%, transparent 52%), var(--ctl-on); box-shadow: var(--sh-on); }
+.identite__titre { font-size: clamp(22px, 4vw, 30px); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 0; }
+.identite__champ { width: 100%; font-size: 20px; text-align: center; height: 52px; }
+.identite p { margin: 0; max-width: 46ch; }
+
+/* Signatures */
+.signature { display: grid; gap: 12px; }
+.signature__modes { display: flex; gap: 6px; }
+.signature__modes [aria-selected="true"], .signature__polices [aria-pressed="true"] { background: var(--ctl-on); box-shadow: var(--sh-on); }
+.signature__zone { display: grid; gap: 10px; }
+.signature__toile { width: 100%; aspect-ratio: 3 / 1; touch-action: none; cursor: crosshair; border-radius: var(--r-sm);
+  background: var(--parch-100) repeating-linear-gradient(0deg, transparent 0 72%, rgba(0, 0, 0, .12) 72% 73%, transparent 73% 100%); }
+.signature__outils, .signature__polices { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.signature__epaisseur { display: flex; gap: 6px; align-items: center; margin-left: auto; font-size: var(--t-sm); }
+.signature__polices .btn { font-size: 20px; }
+.signature__apercu { display: grid; justify-items: center; align-content: center; min-height: 80px; padding: 8px 12px;
+  border-radius: var(--r-sm); background: var(--parch-100); color: var(--parch-encre); text-shadow: none; }
+.signature--texte { line-height: 1.1; }
+.signature--trace { width: auto; max-width: 100%; color: var(--parch-encre); }
+.papier__signatures { display: flex; flex-wrap: wrap; gap: 18px; justify-content: flex-end; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(0, 0, 0, .12); }
+.papier__signature { display: grid; justify-items: center; gap: 2px; margin: 0; }
+.papier__signature figcaption { color: #555; font-style: italic; }
+.profil__signature { min-height: 64px; }

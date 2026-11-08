@@ -14,10 +14,8 @@ import { L } from "../core/lexique.js";
 import { cahiers, pages, papiers, transferts } from "../data/index.js";
 import { entete, vignetteCahier, blocVide, encartRoblox } from "../ui/fragments.js";
 import { formulaire, confirmer, menu } from "../ui/modal.js";
-import { sortiePapier } from "../ui/animations.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 import { chargerCommerce, estCahierAAcheter, estExempte } from "../features/encre.js";
-import { nomRPLibre, choisirNomRP } from "../features/nom-rp.js";
 import { donner, panneauRemises } from "../features/transferts.js";
 
 const COUVERTURES = [
@@ -48,14 +46,6 @@ export default async function vueAccueil() {
           el("button.btn.btn--grand", { onclick: () => aller("/classes") }, icone("classe", 15), "Mes classes"))
       )
     ),
-    nomRPLibre() ? el("div.panneau", { style: { marginBottom: "var(--e-4)" } },
-      el("div.panneau__corps.pile",
-        el("b", "Quel est le nom de votre personnage ?"),
-        el("p.petit.doux", "Choisissez-le une fois : il s'affichera partout à la place de votre pseudo Discord."),
-        el("div", el("button.btn.btn--primaire", {
-          onclick: async () => { if (await choisirNomRP()) aller("/"); }
-        }, icone("profil", 15), "Choisir mon nom RP"))
-      )) : null,
     el("h1.entree__etagere", `Mes ${L("cahiers")}`),
     droits,
     conteneur,
@@ -146,9 +136,8 @@ export default async function vueAccueil() {
             libelle: "Supprimer", danger: true
           });
           if (!ok) return;
-          const sortie = sortiePapier(ancre.parentElement, "dechire");
           try { await cahiers.supprimer(cahier.id); succes("Cahier supprimé"); await peindre(); }
-          catch (err) { sortie.annuler(); erreur("Suppression impossible", messageErreur(err)); }
+          catch (err) { erreur("Suppression impossible", messageErreur(err)); }
         }
       }
     ]);

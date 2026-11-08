@@ -39,7 +39,6 @@ export const P = {
 };
 
 const ROLES_ADMIN = new Set(["pdg", "super_admin", "admin", "director"]);
-const ROLES_ENSEIGNANTS = new Set(["pdg", "super_admin", "admin", "director", "teacher", "instructor"]);
 
 /** Permission globale (issue du rôle du profil). */
 export function peut(permission) {
@@ -59,11 +58,6 @@ export function peutNommer() {
   return ["pdg", "admin", "super_admin"].includes(etat.profil?.role_key);
 }
 
-/** Le PDG est aussi super administrateur : toutes les vérifications existantes passent pour lui. */
-export function estSuperAdmin() {
-  return ["pdg", "super_admin"].includes(etat.profil?.role_key);
-}
-
 /** Le fondateur. Seul à nommer ou destituer un super administrateur ; intouchable par les autres. */
 export function estPDG() {
   return etat.profil?.role_key === "pdg";
@@ -77,15 +71,6 @@ export function estPDG() {
  */
 export function estModerateur() {
   return estAdmin() || etat.profil?.role_key === "moderator";
-}
-
-/**
- * Rôle global déclaré sur le profil. Sert à la présentation et à
- * l'administration, pas à décider qui peut ouvrir une classe : sur cette
- * plateforme, n'importe quel inscrit peut créer la sienne.
- */
-export function estEnseignant() {
-  return ROLES_ENSEIGNANTS.has(etat.profil?.role_key);
 }
 
 /**
@@ -115,10 +100,6 @@ export function encadre(membre = etat.membreActif, classe = etat.classeActive) {
   if (estAdmin()) return true;
   if (classe && etat.utilisateur && classe.owner_id === etat.utilisateur.id) return true;
   return membre?.role === "teacher" || membre?.role === "assistant";
-}
-
-export function estObservateur(membre = etat.membreActif) {
-  return membre?.role === "observer";
 }
 
 /** Peut contribuer (écrire) dans la classe : ni observateur, ni réduit au silence. */

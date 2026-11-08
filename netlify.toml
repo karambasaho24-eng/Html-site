@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------------
 # CLASSE PARALLÈLE — déploiement Netlify
 #
-# Site entièrement statique : rien à compiler, on publie le dossier tel quel.
+# Site statique. Au déploiement, le JS et le CSS sont regroupés et compressés
+# (outils/regrouper.mjs) ; en local, index.html charge les sources telles quelles.
 # ---------------------------------------------------------------------------
 
 [build]
@@ -11,7 +12,8 @@
   # config.js que le navigateur ira lire. Sans elle, les variables ne
   # serviraient à rien : un site statique ne lit pas l'environnement.
   # Sans variables, elle ne touche à rien et le config.js du dépôt reste.
-  command = "node outils/config-depuis-env.mjs"
+  # Puis regrouper.mjs regroupe JS et CSS dans build/ ; s'il échoue, le site part non regroupé.
+  command = "node outils/config-depuis-env.mjs && node outils/regrouper.mjs"
 
 # --- Ce qui n'a rien à faire en ligne ---------------------------------------
 # On publie le dossier tel quel, donc tout ce qui traîne à côté du site serait

@@ -22,6 +22,3 @@ export function emettre(evenement, charge) {
   }
 }
 
-export function oublier(evenement) {
-  abonnes.delete(evenement);
-}

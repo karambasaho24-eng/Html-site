@@ -237,27 +237,6 @@
   background: var(--parch-400);
 }
 
-/* --- Page qui tourne ------------------------------------------------------- */
-.parchemin {
-  transform-origin: left center;
-  backface-visibility: hidden;
-  will-change: transform, opacity;
-}
-
-@keyframes tourne-avant {
-  0%   { transform: rotateY(0deg);   opacity: 1; }
-  45%  { transform: rotateY(-58deg); opacity: .82; box-shadow: -18px 0 40px rgba(0,0,0,.35); }
-  55%  { transform: rotateY(58deg);  opacity: .82; box-shadow: 18px 0 40px rgba(0,0,0,.35); }
-  100% { transform: rotateY(0deg);   opacity: 1; }
-}
-@keyframes tourne-arriere {
-  0%   { transform: rotateY(0deg);   opacity: 1; }
-  45%  { transform: rotateY(58deg);  opacity: .82; box-shadow: 18px 0 40px rgba(0,0,0,.35); }
-  55%  { transform: rotateY(-58deg); opacity: .82; box-shadow: -18px 0 40px rgba(0,0,0,.35); }
-  100% { transform: rotateY(0deg);   opacity: 1; }
-}
-.parchemin.tourne-avant   { animation: tourne-avant 420ms cubic-bezier(.4,.05,.3,1); }
-.parchemin.tourne-arriere { animation: tourne-arriere 420ms cubic-bezier(.4,.05,.3,1); }
 
 /* Une feuille volante ne se feuillette pas : elle se pose. */
 
@@ -355,21 +334,6 @@
   content: ""; position: absolute; top: -3px; left: 8px; right: 14px; height: 6px;
   background: inherit; border-radius: 3px 3px 0 0;
 }
-
-/* --- Choix d'un objet : on montre la chose, on ne la nomme pas seulement --- */
-
-/* Chaque objet est dessiné en CSS : pas d'icône générique. */
-
-/* --- La règle de proximité ------------------------------------------------- */
-
-@keyframes proximite-onde {
-  0%   { transform: scale(.4); opacity: .9; }
-  100% { transform: scale(3.4); opacity: 0; }
-}
-/* Les deux silhouettes se rapprochent : le geste est montré, pas décrit. */
-
-@keyframes proximite-vers-droite { from { transform: translateX(-10px); } to { transform: translateX(6px); } }
-@keyframes proximite-vers-gauche { from { transform: translateX(10px); } to { transform: translateX(-6px); } }
 
 /* Une sauvegarde qui a échoué doit se voir. Une fausse bonne nouvelle est pire
    qu'une erreur : elle fait croire que le texte est en sûreté. */

@@ -70,7 +70,12 @@ async function creerCompte(page, nom) {
   await page.fill('input[name="mdp"]', "motdepasse1");
   await page.fill('input[name="mdp2"]', "motdepasse1");
   await page.click('button[type="submit"]:has-text("Créer mon compte")');
+  // Première étape obligatoire : le nom RP (on reprend le pseudo pour que les recherches suivantes le trouvent).
+  await page.waitForSelector('input[name="nom_rp"]', { timeout: 15000 });
+  await page.fill('input[name="nom_rp"]', nom);
+  await page.click('button[type="submit"]:has-text("C\'est mon personnage")');
   await page.waitForSelector(".contexte", { timeout: 15000 });
+  await page.waitForFunction(() => location.hash === "#/" || location.hash === "", null, { timeout: 8000 });
   await page.waitForTimeout(900);
 }
 
@@ -385,8 +390,8 @@ try {
     await popup.click('.nav-lien[title="Manette"]');
     await popup.waitForSelector(".manette", { timeout: 5000 }).catch(() => null);
     const gestes = await popup.locator(".manette__mot").allInnerTexts();
-    verifier("la manette : Cahier, Donner, Recevoir, Suivre, Rejoindre",
-      gestes.join(",") === "Cahier,Donner,Recevoir,Suivre,Rejoindre", gestes.join(","));
+    verifier("la manette : Cahier, Mes affaires, Papier, Donner, Recevoir, Suivre, Rejoindre",
+      gestes.join(",") === "Cahier,Mes affaires,Papier,Donner,Recevoir,Suivre,Rejoindre", gestes.join(","));
     const boutonsVisibles = await popup.evaluate(() => [...document.querySelectorAll(".manette__bouton")]
       .every((b) => { const r = b.getBoundingClientRect(); return r.height >= 100 && r.right <= innerWidth + 1; }));
     verifier("ses boutons sont gros et tiennent dans la fenêtre étroite", boutonsVisibles);
@@ -470,23 +475,18 @@ try {
   verifier("le PDG rend son rôle à l'élève", (await depot(admin, `return (await d.profils.lire("${eleveId}")).role_key;`)) === "student");
 
   /* =======================================================================
-     11. Simplicité : menu court, animations en option
+     11. Simplicité : menu court, plus d'animations décoratives
      ===================================================================== */
   titre("11. Simplicité");
   await eleve.goto(`${RACINE}#/documents`); await eleve.waitForTimeout(800);
   await eleve.goto(`${RACINE}#/`); await eleve.reload(); await eleve.waitForTimeout(1500);   // l'élève vient de redevenir élève (étape 10)
-  verifier("aucune animation n'est allumée par défaut",
-    await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === null);
   verifier("aucun dessin de cahier sur l'accueil", (await eleve.locator(".cahier-illu, .logo-cahier").count()) === 0);
   await eleve.click('[aria-label="Tout le reste"]'); await eleve.waitForTimeout(400);
   const entrees = await eleve.locator(".tiroir .rail__lien").allInnerTexts();
-  verifier("le menu d'un élève tient en 5 entrées", entrees.length === 5, entrees.join(" | "));
+  verifier("le menu d'un élève tient en 4 entrées", entrees.length === 4, entrees.join(" | "));
   verifier("le menu ne répète pas les onglets du haut",
     !entrees.some((t) => /Mes cahiers|^Documents$|Mes classes|Archives|Rechercher/.test(t.trim())), entrees.join(" | "));
-  await eleve.click('.tiroir [role="switch"]'); await eleve.waitForTimeout(300);
-  verifier("un clic allume les animations", await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === "true");
-  await eleve.click('.tiroir [role="switch"]'); await eleve.waitForTimeout(300);
-  verifier("un second clic les éteint", await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === "false");
+  verifier("plus d'interrupteur d'animations", (await eleve.locator('.tiroir [role="switch"]').count()) === 0);
   await eleve.keyboard.press("Escape");
 
   /* =======================================================================
@@ -537,6 +537,84 @@ try {
   await depot(admin, `const { tendus } = await d.transferts.enAttente(etat.utilisateur.id); await d.transferts.reprendre(tendus[0]);`);
   verifier("repris par l'expéditeur, le destinataire ne peut plus l'accepter", !(await essayer(eleve,
     `return await d.transferts.accepter({ type: "cahier", id: "${redonne.valeur?.id}" });`)).ok);
+  const notifRemise = await depot(admin, `return (await d.notifications.liste(etat.utilisateur.id)).filter((n) => n.kind === "remise").length;`);
+  verifier("chaque remise prévient le destinataire (notification)", notifRemise >= 1, String(notifRemise));
+
+  /* =======================================================================
+     13. Signatures, nom RP, présence
+     ===================================================================== */
+  titre("13. Signatures et nom RP");
+  const lettre = await depot(eleve, `return await d.papiers.creer({ author_id: etat.utilisateur.id, title: "Contrat", body: "Je m'engage." });`);
+  await eleve.goto(`${RACINE}#/papier/${lettre.id}`);
+  await eleve.waitForSelector(".papier__corps", { timeout: 8000 });
+  await eleve.click('.papier__gestes button:has-text("Signer")');
+  await eleve.waitForSelector("canvas.signature__toile", { timeout: 5000 });
+  const toile = await eleve.locator("canvas.signature__toile").boundingBox();
+  await eleve.mouse.move(toile.x + 30, toile.y + toile.height * 0.6);
+  await eleve.mouse.down();
+  for (let i = 1; i <= 12; i++) await eleve.mouse.move(toile.x + 30 + i * 18, toile.y + toile.height * (0.6 - 0.3 * Math.sin(i / 2)));
+  await eleve.mouse.up();
+  await eleve.click('[role="dialog"] button:text-is("Valider")');
+  await eleve.waitForSelector('[role="dialog"] button:text-is("Signer")', { timeout: 5000 });
+  await eleve.click('[role="dialog"] button:text-is("Signer")');
+  await eleve.waitForSelector(".papier__signature svg path", { timeout: 8000 }).catch(() => null);
+  verifier("signature dessinée à la souris, apposée sur le papier", (await eleve.locator(".papier__signature svg path").count()) >= 1);
+  const legende = await eleve.locator(".papier__signature figcaption").first().innerText().catch(() => "");
+  verifier("la signature porte le nom RP et la date", legende.startsWith(`Eleve${sfx}, le `), legende);
+  verifier("signé, le texte est figé à l'écran", await eleve.locator("textarea.papier__corps").evaluate((t) => t.readOnly));
+  verifier("signé, la base refuse de modifier le texte",
+    !(await essayer(eleve, `return await d.papiers.majorer("${lettre.id}", { body: "autre chose" });`)).ok);
+  verifier("la signature est enregistrée pour la prochaine fois",
+    (await depot(eleve, `return (await d.profils.lire(etat.utilisateur.id)).preferences?.signature?.kind;`)) === "trace");
+  verifier("une signature écrite au clavier s'appose aussi",
+    (await essayer(eleve, `return await d.signatures.apposer("${lettre.id}", { kind: "texte", data: { texte: "E. Test", police: "ronde" } });`)).ok);
+  verifier("seul celui qui a le papier en main peut le signer",
+    !(await essayer(admin, `return await d.signatures.apposer("${lettre.id}", { kind: "texte", data: { texte: "intrus", police: "plume" } });`)).ok);
+  const nomForce = await essayer(eleve, `const s = await d.pilote.table("paper_signatures").creer({ paper_id: "${lettre.id}", kind: "texte", data: { texte: "x" }, nom_rp: "Faux Nom" }); return s.nom_rp;`);
+  verifier("on ne peut pas signer sous un autre nom", !nomForce.ok || nomForce.valeur === `Eleve${sfx}`, JSON.stringify(nomForce));
+
+  // Changer de nom RP : libre, sans demande ; l'histoire ne se réécrit pas.
+  const change = await essayer(eleve, `return await d.profils.choisirNomRP("Élise Morand ${sfx}");`);
+  verifier("changer son nom RP sans passer par l'administration", change.ok, JSON.stringify(change));
+  const signataires = await depot(eleve, `return (await d.signatures.dePapier("${lettre.id}")).map((s) => s.nom_rp);`);
+  verifier("les signatures gardent le nom d'alors", signataires.every((n) => n === `Eleve${sfx}`), JSON.stringify(signataires));
+  verifier("on ne prend pas le nom d'un autre joueur",
+    !(await essayer(eleve, `return await d.profils.choisirNomRP("Admin${sfx}");`)).ok);
+
+  // Personnage mort : l'écran du nom RP revient, et le nom mort est interdit.
+  await depot(admin, `await d.profils.personnageMort("${eleveId}");`);
+  await eleve.goto(`${RACINE}#/`); await eleve.reload();
+  await eleve.waitForSelector('input[name="nom_rp"]', { timeout: 8000 }).catch(() => null);
+  verifier("sans nom RP, on est ramené à l'écran du personnage", (await eleve.locator('input[name="nom_rp"]').count()) === 1);
+  await eleve.goto(`${RACINE}#/documents`); await eleve.waitForTimeout(600);
+  verifier("…et on ne peut pas le contourner", (await eleve.locator('input[name="nom_rp"]').count()) === 1);
+  verifier("le nom d'un personnage mort ne revient pas",
+    !(await essayer(eleve, `return await d.profils.choisirNomRP("Élise Morand ${sfx}");`)).ok);
+  await eleve.fill('input[name="nom_rp"]', `Eleve${sfx}`);
+  await eleve.click('button[type="submit"]:has-text("C\'est mon personnage")');
+  await eleve.waitForFunction(() => location.hash === "#/", null, { timeout: 8000 }).catch(() => null);
+  verifier("un nouveau nom, et on retrouve ses affaires", (await eleve.locator('input[name="nom_rp"]').count()) === 0);
+
+  // Présence : déclarer que le joueur n'est pas là bloque la remise.
+  const billet = await depot(eleve, `return await d.papiers.creer({ author_id: etat.utilisateur.id, title: "Billet", body: "Salut" });`);
+  await eleve.goto(`${RACINE}#/papier/${billet.id}`);
+  await eleve.waitForSelector(".papier__corps", { timeout: 8000 });
+  await eleve.click('.papier__gestes button:has-text("Donner")');
+  await eleve.fill('[role="dialog"] input[type="search"]', `Admin${sfx}`.slice(0, 5));
+  await eleve.waitForSelector('[role="dialog"] .destinataire', { timeout: 5000 });
+  await eleve.click('[role="dialog"] .destinataire');
+  await eleve.click('[role="dialog"] button:text-is("Continuer")');
+  await eleve.waitForSelector('[role="dialog"] button:has-text("Non, il n\'est pas devant moi.")', { timeout: 5000 });
+  verifier("la question de présence est posée mot pour mot",
+    (await eleve.locator('[role="dialog"]').innerText()).includes("Le joueur à qui vous souhaitez donner cet objet se trouve-t-il actuellement devant vous dans Roblox ?"));
+  await eleve.click('[role="dialog"] button:has-text("Non, il n\'est pas devant moi.")');
+  await eleve.waitForTimeout(300);
+  verifier("« non » : le message sur le metagaming s'affiche",
+    (await eleve.locator('[role="dialog"]').innerText()).includes("considérée comme du metagaming"));
+  await eleve.click('[role="dialog"] button:text-is("Compris")');
+  await eleve.waitForTimeout(400);
+  verifier("« non » : rien n'est tendu",
+    !(await depot(eleve, `return (await d.transferts.enAttente(etat.utilisateur.id)).tendus.some((r) => r.objetId === "${billet.id}");`)));
 
 } catch (err) {
   echoues++;

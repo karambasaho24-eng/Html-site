@@ -15,7 +15,6 @@ import { pages as depotPages, temps, penseBetes } from "../data/index.js";
 import { assainirHTML, injecterHTML, texteBrut } from "../core/assainir.js";
 import { debounce, dateLongue, heure, depuis, clamp } from "../core/util.js";
 import { confirmer, demander, menu } from "../ui/modal.js";
-import { sortiePapier, ouvrirLivre, animationsActives } from "../ui/animations.js";
 import { toast, erreur, messageErreur } from "../ui/toast.js";
 import { etat, observer } from "../core/store.js";
 import {
@@ -28,7 +27,6 @@ const REGLURES = ["reglure", "quadrille", "blanc"];
 const COULEURS_REPERE = ["rouge", "bleu", "vert", "jaune", "violet"];
 const COULEURS_PENSE_BETE = ["jaune", "rose", "vert", "bleu", "orange"];
 
-const ANIMATION_REDUITE = () => !animationsActives();
 
 /**
  * creerEditeurCahier({ cahier, peutEcrire, pageInitiale, surPage, compact, tempsReel })
@@ -50,8 +48,6 @@ export function creerEditeurCahier(options) {
   let corps = null;
   let piedTranche = null;
   let parcheminNoeud = null;
-  let livreOuvert = false;
-  let minuteurTournage = null;
   let penseBetesPage = [];
 
   let listePages = [];
@@ -324,15 +320,7 @@ export function creerEditeurCahier(options) {
       if (pageCourante?.id === pageId) peindrePenseBetes();
     });
 
-    if (sens && parcheminNoeud && !ANIMATION_REDUITE()) {
-      parcheminNoeud.classList.remove("tourne-avant", "tourne-arriere");
-      void parcheminNoeud.offsetWidth;          // relance l'animation
-      parcheminNoeud.classList.add(`tourne-${sens}`);
-      clearTimeout(minuteurTournage);
-      minuteurTournage = setTimeout(() => remplirParchemin(), 190);
-    } else {
-      peindreParchemin();
-    }
+    peindreParchemin();
     surPage?.(pageCourante);
   }
 
@@ -520,8 +508,6 @@ export function creerEditeurCahier(options) {
     const relieur = el("div.relieur", parcheminNoeud, reperes);
 
     render(zoneFeuillet, relieur);
-    // Le livre ne s'ouvre qu'à l'arrivée dans le cahier, pas à chaque page tournée.
-    if (!livreOuvert && !compact) { livreOuvert = true; ouvrirLivre(relieur); }
     remplirParchemin();
   }
 
@@ -873,9 +859,7 @@ export function creerEditeurCahier(options) {
             libelle: "Supprimer", danger: true
           });
           if (!ok) return;
-          const sortie = sortiePapier(ancre.closest(".onglet-page") || ancre, "jete");
-          try { await depotPages.supprimer(page.id); }
-          catch (err) { sortie.annuler(); throw err; }
+          await depotPages.supprimer(page.id);
           if (pageCourante?.id === page.id) pageCourante = null;
           await charger();
         }

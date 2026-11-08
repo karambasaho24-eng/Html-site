@@ -134,4 +134,3 @@ export function lexiqueActuel() {
   return { ...BASE, ...surcharge };
 }
 
-export const termesDisponibles = Object.keys(BASE);

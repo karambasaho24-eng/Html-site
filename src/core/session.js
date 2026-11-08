@@ -88,13 +88,3 @@ export async function deconnecter() {
   oublierPortefeuille();
   emettre("session:fermee");
 }
-
-/** Enregistre une préférence utilisateur (persistée sur le profil). */
-export async function majPreference(cle, valeur) {
-  if (!etat.profil) return;
-  const prefs = { ...(etat.profil.preferences || {}), [cle]: valeur };
-  definir({ profil: { ...etat.profil, preferences: prefs } });
-  local.ecrire("ojm.prefs", prefs);
-  try { await profils.majorer(etat.profil.id, { preferences: prefs }); }
-  catch (err) { console.warn("[session] préférence non enregistrée", err); }
-}

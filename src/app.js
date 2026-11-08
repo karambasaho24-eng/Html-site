@@ -29,6 +29,7 @@ function declarerRoutes() {
   // en un fichier unique pour les contextes qui ne servent pas de modules.
   definirRoute("/connexion",        { nom: "connexion", vue: () => import("./vues/auth.js"), publique: true });
   definirRoute("/",                 { nom: "accueil", vue: () => import("./vues/accueil.js"), prive: true });
+  definirRoute("/identite",         { nom: "identite", vue: () => import("./vues/identite.js"), prive: true });
   definirRoute("/manette",          { nom: "manette", vue: () => import("./vues/manette.js"), prive: true });
   definirRoute("/cahier/:id",       { nom: "cahier", vue: () => import("./vues/cahier.js"), prive: true });
   definirRoute("/papier/:id",       { nom: "papier", vue: () => import("./vues/papier.js"), prive: true });

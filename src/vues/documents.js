@@ -9,7 +9,6 @@ import { aller } from "../core/router.js";
 import { documents, dossiers, cahiers, journal, notifications } from "../data/index.js";
 import { entete, blocVide } from "../ui/fragments.js";
 import { confirmer, demander, menu, ouvrirModale } from "../ui/modal.js";
-import { sortiePapier } from "../ui/animations.js";
 import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
 import { mesClassesEncadrees } from "../core/permissions.js";
 import { poids, depuis, pluriel } from "../core/util.js";
@@ -301,9 +300,7 @@ export default async function vueDocuments({ requete }) {
         libelle: "Supprimer", icone: "corbeille", danger: true,
         action: async () => {
           if (!await confirmer({ titre: "Supprimer le document", message: doc.title, libelle: "Supprimer", danger: true })) return;
-          const sortie = sortiePapier(ancre.closest(".liste__item"), "jete");
-          try { await documents.supprimer(doc); }
-          catch (err) { sortie.annuler(); throw err; }
+          await documents.supprimer(doc);
           toast("Document supprimé");
           await peindre();
         }

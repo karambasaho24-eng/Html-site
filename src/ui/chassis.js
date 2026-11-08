@@ -23,7 +23,6 @@ import { marque, nomDuSite } from "../features/apparence.js";
 import { ecouter } from "../core/bus.js";
 import { jaugeEncre } from "../features/encre.js";
 import { notifications as depotNotifications, pilote } from "../data/index.js";
-import { animationsVoulues, basculerAnimations } from "./animations.js";
 
 let refs = {};
 
@@ -173,10 +172,6 @@ function peindreRail() {
       estAdmin() ? "Comptes, boutique, journal" : "Modération et journal", "bouclier") : null,
 
     el("div.rail__pied",
-      el("button.rail__lien", {
-        type: "button", role: "switch", "aria-checked": String(animationsVoulues()),
-        onclick: () => { basculerAnimations(); peindreRail(); }
-      }, icone("etoile", 16), el("span", animationsVoulues() ? "Animations : oui" : "Animations : non")),
       lienRail("/profil", "Profil", "profil"),
       lienRail("/reglages", "Réglages", "reglages"),
       etat.utilisateur ? el("button.rail__lien.rail__lien--danger", { type: "button", onclick: async () => {
@@ -210,11 +205,6 @@ function peindreFil() {
     el("span.contexte__nom", lieu),
     precision ? el("span.contexte__precision", precision) : null,
     direct ? el("span.contexte__direct", "En séance") : null);
-}
-
-/** Un écran peut poser sa ligne d'état. */
-export function definirStatut(noeud) {
-  if (refs.statut) render(refs.statut, noeud || []);
 }
 
 /* --- Outils de la barre ---------------------------------------------------- */

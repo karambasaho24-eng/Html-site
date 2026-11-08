@@ -1,44 +1,45 @@
 /* ---------------------------------------------------------------------------
- * Le nom RP : chacun choisit celui de son personnage, une seule fois.
+ * Le nom RP : l'identité publique du joueur, partout sur le site.
  *
- * Il remplace alors le pseudo Discord partout sur le site. L'administration
- * peut le modifier à tout moment ; si le personnage meurt, elle le déclare et
- * la personne peut en choisir un nouveau (voir 0043 et 0044).
+ * Choisi obligatoirement au premier accès (vues/identite.js), puis modifiable
+ * par la personne elle-même quand son personnage change (0049). Le compte, ses
+ * cahiers et ses droits ne bougent pas ; les signatures déjà apposées gardent
+ * le nom d'alors. Le pseudo Discord ne sert qu'à se connecter.
  * ------------------------------------------------------------------------- */
 import { etat, definir } from "../core/store.js";
 import { profils } from "../data/index.js";
 import { formulaire, confirmer } from "../ui/modal.js";
 import { erreur, succes, messageErreur } from "../ui/toast.js";
 
-/** La personne a encore un choix de nom RP à faire. */
-export const nomRPLibre = () => Boolean(etat.profil) && etat.profil.nom_rp_libre !== false;
-
-/** Ouvre le choix. Rend true si le nom a été enregistré. */
-export async function choisirNomRP() {
-  const sortie = await formulaire({
-    titre: "Le nom de votre personnage",
-    note: "Ce nom s'affichera partout sur le site à la place de votre pseudo Discord. "
-      + "Vous ne pouvez le choisir qu'une fois : il ne changera que si votre personnage meurt, "
-      + "ou si l'administration le modifie.",
-    champs: [{ cle: "nom", label: "Nom RP (prénom et nom)", valeur: "", requis: true }],
-    libelle: "Choisir"
-  });
-  if (!sortie) return false;
-  const nom = String(sortie.nom || "").replace(/\s+/g, " ").trim();
-  const ok = await confirmer({
-    titre: "Confirmer ce nom",
-    message: `Votre personnage s'appellera « ${nom} ». Vous ne pourrez plus le changer vous-même.`,
-    libelle: "C'est bien lui"
-  });
-  if (!ok) return false;
+/** Enregistre le nom ; rend true en cas de succès. */
+export async function enregistrerNomRP(brut) {
+  const nom = String(brut || "").replace(/\s+/g, " ").trim();
   try {
     await profils.choisirNomRP(nom);
     const maj = await profils.lire(etat.profil.id);
     if (maj) definir({ profil: maj });
-    succes("Nom enregistré", maj?.display_name || nom);
+    succes("Nom RP enregistré", maj?.display_name || nom);
     return true;
   } catch (err) {
-    erreur("Choix impossible", messageErreur(err));
+    erreur("Nom refusé", messageErreur(err));
     return false;
   }
+}
+
+/** Depuis le profil : changer de nom, sans demande à l'administration. */
+export async function changerNomRP() {
+  const sortie = await formulaire({
+    titre: "Modifier mon nom RP",
+    note: "Votre compte, vos cahiers et vos papiers restent les mêmes. "
+      + "Les documents déjà signés gardent le nom sous lequel ils ont été signés.",
+    champs: [{ cle: "nom", label: "Nom du personnage", valeur: etat.profil?.display_name || "", requis: true }],
+    libelle: "Continuer"
+  });
+  if (!sortie) return false;
+  const ok = await confirmer({
+    titre: "Changer de nom",
+    message: `Votre personnage s'appellera désormais « ${String(sortie.nom).trim()} ».`,
+    libelle: "Changer"
+  });
+  return ok ? enregistrerNomRP(sortie.nom) : false;
 }

@@ -84,6 +84,11 @@ export async function resoudre() {
     aller("/connexion", true);
     return;
   }
+  // Le nom du personnage d'abord (0049) : tant qu'il n'est pas choisi, rien d'autre.
+  if (route.prive && etat.profil && etat.profil.nom_rp_libre !== false && route.nom !== "identite") {
+    aller("/identite", true);
+    return;
+  }
   if (route.publique && etat.utilisateur && route.nom === "connexion") {
     aller("/", true);
     return;
@@ -125,4 +130,3 @@ export async function resoudre() {
   }
 }
 
-export function routeActuelle() { return etat.route; }
