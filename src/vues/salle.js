@@ -1,96 +1,61 @@
 /* ---------------------------------------------------------------------------
- * Salle de cours en direct.
+ * La séance — ce dont on a besoin pendant un cours, et rien d'autre.
  *
- * Le professeur ouvre une session, la classe entre avec le code, et tout ce
- * qui se passe ici est synchronisé : tableau, page du cahier commun, document
- * affiché, exercice lancé, sondage, minuterie, présences, questions.
+ *   · à gauche, la scène : le tableau du professeur en direct, ou le document
+ *     qu'il affiche ;
+ *   · à droite, de quoi travailler : MON CAHIER (on y écrit pendant le cours),
+ *     les documents de la classe, et pour l'encadrement la liste des présents.
  *
- * Roblox reste à côté : cette page est conçue pour cohabiter avec le jeu
- * (densités Compact et Minimal).
+ * Pas d'objets, pas de bureau, pas de sac : le tableau, le cahier et les
+ * documents suffisent. Tracer ou écrire consomme de l'encre comme partout
+ * ailleurs ; sans encre, on continue de regarder et de lire.
  * ------------------------------------------------------------------------- */
 import { el, render } from "../ui/dom.js";
 import { icone } from "../ui/icons.js";
-import { etat, definir } from "../core/store.js";
+import { etat, definir, observer } from "../core/store.js";
 import { aller } from "../core/router.js";
+import { local } from "../core/util.js";
 import { L } from "../core/lexique.js";
-import {
-  sessions as depotSessions, tableaux, cahiers, presence as depotPresence,
-  questions as depotQuestions, mains, sondages, minuteries, annonces,
-  exercices, documents, temps, journal, notifications, membres as depotMembres, pages as depotPages,
-  cartable as depotCartable, renvois, cahiers as depotCahiers, classes as depotClasses,
-  privations
-} from "../data/index.js";
 import { activerClasse } from "../core/session.js";
-import { encadre, peutDessiner, peutContribuer, estObservateur } from "../core/permissions.js";
+import { encadre, peutDessiner, mesClassesEncadrees } from "../core/permissions.js";
+import {
+  sessions as depotSessions, presence as depotPresence, tableaux, documents,
+  cahiers, pages, annonces, temps, exercices, notifications
+} from "../data/index.js";
+import { blocVide, onglets as fOnglets } from "../ui/fragments.js";
+import { confirmer, demander } from "../ui/modal.js";
+import { toast, erreur, succes, messageErreur } from "../ui/toast.js";
+import { modePleineVue } from "../ui/chassis.js";
 import { creerTableau, OUTILS, TEINTES, EPAISSEURS, POLICES_TABLEAU, TAILLES_TEXTE } from "../features/tableau.js";
-import { compterPagesPdf, pdfEnImages } from "../features/import-document.js";
 import { creerEditeurCahier } from "../features/editeur-cahier.js";
-import { modePleineVue, modeImmersif, definirStatut } from "../ui/chassis.js";
-import { compteurPersonnes, ouvrirBande, pictogramme } from "../features/personnes.js";
-import { pictoBureau } from "../ui/barre-actions.js";
-import {
-  creerConsole, panneauBureau, panneauSac, panneauNote, panneauDocumentsConsole, panneauPersonnes, bandeauEcriture
-} from "../features/console.js";
-import { observer } from "../core/store.js";
-import { docHote } from "../core/hote.js";
-import { CARACTERES_PAR_POINT, jaugeEncrier } from "../features/encrier.js";
+import { definirModeFlottant } from "../features/fenetre-flottante.js";
+import { vueReponseEleve } from "../features/exercice-direct.js";
+import vueExercice from "./exercice.js";
 import { peutProduire, estEncreEpuisee, MESSAGE_ENCRE_EPUISEE, synchroniserBientot } from "../features/encre.js";
-import { creerScene, silhouetteDe } from "../features/scene-bureau.js";
-import { pretAEcrire, diagnostic } from "../features/pret-a-ecrire.js";
-import { monAvatar } from "../features/mon-personnage.js";
-import { ecouter } from "../core/bus.js";
-import { lectureCourante } from "../features/lecture.js";
-import { siegeSurLeTrone } from "../features/titres.js";
-import { ecrireUneNote } from "../features/note-rapide.js";
-import { panneauDossiers } from "../features/dossiers.js";
-import { basculerFenetreFlottante, flottantDisponible, estFlottant } from "../features/fenetre-flottante.js";
-import { OUTILS_REQUIS } from "../features/portee.js";
-import { avatar, blocVide, pastillePresence } from "../ui/fragments.js";
-import { confirmer, demander, formulaire, menu, ouvrirModale } from "../ui/modal.js";
-import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
-import { duree, heure, depuis, initiales, local, debounce, pluriel } from "../core/util.js";
-import { personnages } from "../data/index.js";
-import { baliserHRP, contientHRP, universDe, reglagesRP, dateRP, nomAffiche } from "../core/rp.js";
-import { inscrireAuLivret } from "../features/livret.js";
-import { LISTE_MODES, mode as modeDe, offre } from "../features/modes.js";
-import { preparerAffaires, ligneMateriel, assurerMaterielProfesseur } from "../features/cartable.js";
-import { materielAttendu, consigneAEnregistrer, typeDepuisTexte, NIVEAUX, ecart, idsDuSac }
-  from "../features/materiel.js";
-import { nomType, nomObjet, fiche as ficheObjet, encrierEnService, figureObjet, TYPES, imageDetouree }
-  from "../features/affaires.js";
-import { tendreObjet, demanderObjet, confisquerObjet } from "../features/transfert.js";
-import { creerBureau } from "../features/bureau.js";
-import { ouvrirObjetsTrouves } from "../features/objets-trouves.js";
-import { affaires as depotAffaires } from "../data/index.js";
-import {
-  MINUTES_OFFERTES, reglesMateriel, nePeutPasEcrire, bandeauPrivation, lignePrivation
-} from "../features/privation.js";
-import { exigerProximite } from "../features/proximite.js";
-import { creerMarge } from "../features/annotation.js";
-import { porterUneNote } from "../features/bulletin.js";
-import { tendreSonCahier, accueillirRemiseCahier } from "../features/tendre-cahier.js";
-import { remisesCahier } from "../data/index.js";
-import { composerPapier, tendrePapier, recevoirPapier } from "../features/papier.js";
-import { papiers as depotPapiers } from "../data/index.js";
-import { creerEditeurCahier as ouvrirCahierInspecte } from "../features/editeur-cahier.js";
 
-const COULEURS_PARTICIPANTS = ["#c9a227", "#8fb8d8", "#9ecf8f", "#e08b84", "#c4a3e0", "#d8a15e", "#7fbfb3"];
-
-/* Les fonds de page du tableau : la clé en base, le nom pour le moteur. */
+const COULEURS_PARTICIPANTS = ["#e8e8e8", "#6fa8dc", "#93c47d", "#e06666", "#b4a7d6", "#f6b26b"];
+const FONDS = [
+  { cle: "slate", libelle: "Ardoise" }, { cle: "chalk", libelle: "Craie" },
+  { cle: "paper", libelle: "Papier" }, { cle: "grid", libelle: "Quadrillé" },
+  { cle: "lines", libelle: "Lignes" }, { cle: "seyes", libelle: "Seyès" }
+];
+/** Le moteur parle français (« ardoise »), la base anglais (« slate »). */
 const NOMS_FONDS = { slate: "ardoise", chalk: "craie", paper: "papier", grid: "quadrille", lines: "lignes", seyes: "seyes" };
 const nomFond = (fond) => NOMS_FONDS[fond] || fond || "ardoise";
 
 export default async function vueSalle({ params }) {
   const classe = await activerClasse(params.id);
-  if (!classe) return vueErreur("Classe introuvable");
+  if (!classe) {
+    return { noeud: el("div.page", blocVide("Classe introuvable", "Elle a peut-être été supprimée.")), titre: "Séance" };
+  }
 
   const session = await depotSessions.enCours(classe.id);
   if (!session) {
     return {
       noeud: el("div.page", blocVide(
-        "Aucune session en cours",
+        "Aucune séance en cours",
         encadre()
-          ? "Démarrez une session depuis la fiche de la classe pour ouvrir le tableau."
+          ? "Démarrez une séance depuis la fiche de la classe pour ouvrir le tableau."
           : `Le ${L("professeur")} n'a pas encore ouvert la séance.`,
         { libelle: "Retour à la classe", action: () => aller(`/classe/${classe.id}`) }
       )),
@@ -99,2714 +64,248 @@ export default async function vueSalle({ params }) {
   }
 
   definir({ sessionActive: session });
-
   const staff = encadre();
-  // À côté du jeu, l'onglet « Séance » ramène ici.
-  local.ecrire("ojm.derniereSalle", classe.id);
-  const contributeur = peutContribuer();
+  const moiId = etat.utilisateur.id;
+  const monNom = () => etat.profil?.display_name || "Moi";
 
-  /* --- État local ------------------------------------------------------------ */
+  /* --- État --------------------------------------------------------------- */
   let tableau = await tableaux.pourSession(session.id, classe.id);
   let pagesTableau = await tableaux.pages(tableau.id);
   let indexPage = Math.min(tableau.current_page || 0, Math.max(0, pagesTableau.length - 1));
-  let cahierCommun = await cahiers.commun(classe.id);
-  let scene = "tableau";                 // tableau | cahier | document | exercice
-  let refScene = null;
-  let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
-  let ongletPanneau = staff ? "eleves" : "notes";
-  let participants = [];
-  // Ma place dans la salle (choisie par moi ; le plan du professeur l'emporte),
-  // et si j'écris en ce moment : les deux voyagent avec ma présence.
-  const clePlace = `ojm.place.${session?.id}`;
-  let maPlace = local.lire(clePlace, null);
-  let jEcris = false, finEcriture = null;
-  let quitte = false;               // la salle est quittée : plus rien ne se repeint
-  let listeMains = [];
-  let listeQuestions = [];
-  let sondageActif = null;
-  let votesSondage = [];
-  let minuterie = null;
-  let exerciceActif = null;
+  let scene = "tableau";                         // tableau | document
   let documentAffiche = null;
-  let presences = [];
-  let equipe = [];
-  let sacs = new Map();            // cartables déposés, par utilisateur
-  let listeRenvois = [];
-  let modeSeance = modeDe(session);
-  let attendu = materielAttendu(classe, session);
-  const regles = reglesMateriel(classe, session);
-
-  // Mes affaires : il faut les connaître pour savoir si l'encre suffit, et
-  // pour en tendre une à quelqu'un sans quitter la salle.
-  let mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => []);
-
-  // La privation : la mienne si je suis cadet, toutes si je tiens l'estrade.
-  let maPrivation = null;
-  let privationsSeance = new Map();
-  let dernierRafraichiPrivations = 0;
-  const zonePrivation = el("div");
-
-  // Le bureau : ce qu'on a sorti du sac. Seul ce qui est posé devant soi sert.
-  const bureau = creerBureau({
-    classe, session,
-    surChange: async () => {
-      mesAffaires = bureau.objets();
-      // Ce que je sors, les autres le voient se poser sur ma table.
-      try { majPresence(); } catch { /* le canal n'est pas encore ouvert */ }
-      decor?.peindre();
-      peindreDock();
-      if (["bureau", "sac"].includes(consoleSalle?.ouvert())) consoleSalle.rafraichir();
-      if (consoleSalle?.ouvert() === "cahier") peindreBandeauConsole();
-      if (scene === "moncahier") await peindreMonCahier();
-      if (scene === "tableau" && moteurTableau) moteurTableau.redessiner?.();
-    }
-  });
-
-  // En RP, c'est le personnage qui est présent à l'appel, pas le compte.
-  const enRP = universDe(classe) !== "aucun";
-  let fichesRP = enRP ? await personnages.index(classe.id).catch(() => new Map()) : new Map();
-  const maFiche = () => fichesRP.get(etat.utilisateur.id) || null;
-  const monNom = () => nomAffiche(maFiche(), etat.profil);
-
-  let moteurTableau = null;
-  let editeurCommun = null;
+  let exerciceAffiche = null;
+  let suit = staff ? false : local.lire(`ojm.suivi.${session.id}`, true);
+  let ongletPanneau = "cahier";
+  let participants = [];
+  let moteur = null;
   let canalSession = null;
   let canalTableau = null;
-  let tictac = null;
+  let editeur = null;
+  let quitte = false;
+  // Dans la petite fenêtre flottante, on ne montre qu'une moitié à la fois :
+  // « panneau » (mon cahier, documents) ou « scene » (le tableau).
+  let zoneVisible = "panneau";
+  // Pour y revenir d'un clic depuis le mode flottant.
+  local.ecrire("ojm.derniereSalle", classe.id);
 
-  definir({ suitProfesseur: suit });
-
-  /* --- Ossature -------------------------------------------------------------- */
   const zoneScene = el("div.salle__scene");
-  const zonePanneau = el("div.salle__panneau-corps");
-  const ongletsPanneau = el("div.salle__panneau-onglets", { role: "tablist" });
-  const bandeau = el("div.bandeau");
-  const dock = el("nav.dock", { "aria-label": "Mes gestes" });
-  const corps = el("div.salle__corps", zoneScene,
-    el("aside.salle__panneau", ongletsPanneau, zonePanneau));
+  const zonePanneau = el("aside.salle__panneau");
+  const barre = el("div.salle__barre");
+  const racine = el("div.salle", { dataset: { focus: zoneVisible } }, barre, el("div.salle__corps", zoneScene, zonePanneau));
 
-  /* --- La scène : ce que le personnage a devant lui ----------------------------
-     Le bureau vu depuis sa chaise, le tableau et l'estrade au fond, le sac par
-     terre. C'est l'écran principal ; l'interface « étendue » d'avant reste
-     accessible d'un geste pour ce qui demande de la place. */
-  // Les lignes de présence portent le nom retenu sous `nom` ; nomAffiche le sait.
-  const nomPersonne = (p) => {
-    const n = nomAffiche(fichesRP.get(p?.user_id), p?.profil || p);
-    return n && n !== "—" ? n : "Participant";
-  };
-  let notesRecues = [];
-  let fenetre = local.lire("ojm.fenetre", "bureau");
-  // La fenêtre « compacte » n'existe plus en bouton : c'est la taille de la
-  // fenêtre qui en décide (console). On ne reste pas coincé dedans.
-  if (!["bureau", "etendu"].includes(fenetre)) fenetre = "bureau";
-
-  const decor = creerScene({
-    bureau, classe, session, staff,
-    meneur: () => modeSeance.meneur || L("Professeur"),
-    participants: () => participants,
-    nomDe: nomPersonne,
-    // En petite fenêtre, le tableau s'ouvre dans la console, pas en grand.
-    surTableau: () => (petit() ? consoleSalle.ouvrir("tableau") : appliquerFenetre("document")),
-    surCahier: (c) => { cahierOuvertId = c.id; appliquerFenetre("cahier"); },
-    surDossier: () => ouvrirMesDossiers(),
-    surNote: () => noteRapide(),
-    surPersonne: (ancre, p) => menuPersonne(ancre, p),
-    surEstrade: (present) => basculerEstrade(present),
-    mode: () => session.mode || "cours",
-    mains: () => new Set(listeMains.filter((m) => m.status === "raised").map((m) => String(m.user_id))),
-    toile: () => moteurTableau?.noeud?.querySelector?.("canvas.tableau__toile") || null,
-    plan: () => session.plan || {},
-    surPlace: (i, qui) => choisirPlace(i, qui),
-    // Le professeur clique le cahier ouvert sur une table : il le vérifie.
-    surCahierDe: (ancre, p) => (staff && offre(session, "cartable") ? inspecterSupport(p) : menuPersonne(ancre, p)),
-    // Mon cahier, cliqué sur ma table : il vient à l'écran, prêt à écrire.
-    surMonCahier: () => (petit() ? consoleSalle.ouvrir("cahier") : appliquerFenetre("cahier")),
-    surSac: () => majPresence()
+  /** Mode flottant : cahier (fenêtre étroite) ou tableau (fenêtre large). */
+  function choisirZone(zone) {
+    zoneVisible = zone;
+    racine.dataset.focus = zone;
+    peindreBarre();
+    if (etat.flottant) definirModeFlottant(zone === "scene" ? "tableau" : "cahier");
+  }
+  // À chaque ouverture du mode flottant, on repart du cahier.
+  const oublierFlottant = observer("flottant", () => {
+    if (!etat.flottant) return;
+    zoneVisible = "panneau";
+    racine.dataset.focus = zoneVisible;
+    peindreBarre();
   });
 
-  /* --- Les places ------------------------------------------------------------ */
-  let placerQui = null;              // le professeur place quelqu'un : qui
-  async function choisirPlace(i, qui) {
-    const moi = String(etat.utilisateur.id);
-    if (staff) {
-      if (!placerQui) {
-        toast("Choisissez d'abord qui placer", { corps: "Cliquez son nom dans la salle, puis « Changer de place ».", type: "info" });
-        return;
-      }
-      if (qui && qui !== String(placerQui.user_id)) { toast("Cette place est prise", { type: "attn" }); return; }
-      const plan = { ...(session.plan || {}), [placerQui.user_id]: i };
-      session.plan = plan;
-      decor.majClasse();
-      toast(`${nomPersonne(placerQui)} change de place`, { type: "ok" });
-      placerQui = null;
-      await depotSessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistré", messageErreur(e)));
-      return;
-    }
-    if (qui === moi) return;
-    if (qui) { toast("Cette place est prise", { corps: "Choisissez une place libre.", type: "attn" }); return; }
-    if (Number.isInteger(session.plan?.[moi])) {
-      toast("Le professeur vous a placé", { corps: "C'est lui qui peut vous changer de place.", type: "info" });
-      return;
-    }
-    maPlace = { place: i, depuis: Date.now() };
-    local.ecrire(clePlace, maPlace);
-    majPresence();
-    decor.majClasse();
-  }
-  decor.surChangementEtat((etatDecor) => {
-    const voulue = etatDecor === "bureau" && fenetre === "compact" ? "compact" : etatDecor;
-    if (voulue !== fenetre) appliquerFenetre(voulue);
-  });
-
-  /* --- En petite fenêtre : la console, un panneau à la fois ------------------ */
-  const gensPresents = () => participants.filter((p) => p.user_id !== etat.utilisateur.id);
-  // Au-dessus du jeu, le geste principal est d'écrire : ce qui manque pour
-  // le faire, et le bouton qui le règle, restent en tête du cahier.
-  const porteBandeau = el("div.console__porte-bandeau");
-  function peindreBandeauConsole() {
-    render(porteBandeau, bandeauEcriture(bureau, {
-      apres: async ({ cahier }) => {
-        if (cahier) cahierOuvertId = cahierOuvertId || cahier.id;
-        await peindreMonCahier();
-        peindreBandeauConsole();
-      }
-    }));
-  }
-  const consoleSalle = creerConsole({
-    // Animation allumée : on se voit assis à sa place, rien d'ouvert par-dessus ;
-    // éteinte : le tableau.
-    defaut: () => (consoleSalle.avecScene() ? null : "tableau"),
-    // En tête de la console : soi, assis à sa table, dans la salle en 3D.
-    scene: (hote) => decor.classeDans(hote),
-    enTete: el("span.console__lieu", el("span.mur__voyant"), session.title || classe.name),
-    panneaux: [
-      { cle: "bureau", mot: "Bureau", figure: () => pictoBureauConsole(), rendre: panneauBureau(bureau, {
-        surCahier: (c) => { cahierOuvertId = c.id; consoleSalle.ouvrir("cahier"); },
-        surSac: () => consoleSalle.ouvrir("sac"),
-        surDossier: () => ouvrirMesDossiers()
-      }) },
-      { cle: "sac", mot: "Sac", image: "cartable", rendre: panneauSac(bureau) },
-      { cle: "cahier", mot: "Cahier", image: "cahier", rendre: async (zone) => {
-        await montrerDansConsole(zone, "moncahier");
-      } },
-      { cle: "note", mot: "Note", image: "feuille", rendre: panneauNote({ bureau, classe, session, gens: () => participants, nomDe: nomPersonne }) },
-      { cle: "documents", mot: "Papiers", image: "feuilles", pastille: () => notesRecues.length, rendre: panneauDocumentsConsole() },
-      { cle: "tableau", mot: "Tableau", figure: () => icone("tableau", 22), rendre: (zone) => montrerDansConsole(zone, "tableau") },
-      { cle: "plus", mot: "Plus", figure: () => icone("points", 20), geste: () => menuPlusConsole() }
-    ]
-  });
-
-  /** Le tableau ou mon cahier, déplacés tels quels dans le panneau. */
-  async function montrerDansConsole(zone, voulue) {
-    zone.classList.add("console__corps--plein");
-    zone.appendChild(zoneScene);
-    if (scene !== voulue) {
-      scene = voulue;
-      if (voulue === "tableau" && !staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
-      else await peindreScene();
-    }
-  }
-
-  function menuPlusConsole() {
-    const ancre = consoleSalle.noeud.querySelector('[aria-label="Plus"]');
-    menu(ancre, [
-      !staff && contributeur ? { libelle: maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander, icone: "main", action: () => basculerMain() } : null,
-      !staff && contributeur && (session.mode || "cours") === "cours" ? { libelle: "J'ai une question", icone: "interro", action: () => poserQuestion() } : null,
-      staff ? { libelle: session.estrade?.present ? "Je quitte l'avant" : "Je suis devant la classe", icone: "entree",
-        action: () => basculerEstrade(!session.estrade?.present) } : null,
-      staff ? { libelle: "Outils", icone: "reglages", action: () => menuProfesseur(ancre) } : null,
-      staff ? { libelle: "Terminer la séance", icone: "stop", danger: true, action: () => terminerSession() } : null,
-      { separateur: true },
-      { libelle: "Quitter la salle", icone: "sortie", action: () => aller(`/classe/${classe.id}`) }
-    ].filter(Boolean));
-  }
-
-  const noeud = el("div.salle",
-    bandeau,
-    el("div", zonePrivation, bureau.noeud),
-    corps,
-    decor.noeud,
-    dock,
-    consoleSalle.noeud
-  );
-
-  /* --- Bandeau --------------------------------------------------------------- */
-  function peindreBandeau() {
-    const presentsCount = participants.length;
-    render(bandeau,
-      el("span.etiq.etiq--direct", "En direct"),
-      el("div",
-        el("div.bandeau__titre", session.title),
-        el("div.bandeau__meta",
-          `${classe.name} · ${pluriel(presentsCount, "connecté", "connectés")} · ouverte ${depuis(session.started_at)}`)
-      ),
-      el("div.bandeau__outils",
-        staff
-          ? el("button.mode-seance", {
-              dataset: { mode: session.mode || "cours" },
-              title: "Changer le mode de la séance",
-              onclick: (e) => choisirMode(e.currentTarget)
-            }, icone(modeSeance.icone, 13), modeSeance.libelle)
-          : el("span.mode-seance", { dataset: { mode: session.mode || "cours" } },
-              icone(modeSeance.icone, 13), modeSeance.libelle),
-
-        minuterie ? blocMinuterie() : null,
-
-        !staff ? el("button.suivi", {
-          dataset: { actif: suit ? "1" : "0" },
-          title: "Suivre la page affichée par le professeur",
-          onclick: () => basculerSuivi(!suit)
-        }, icone(suit ? "lien" : "main", 13), suit ? "Je suis le cours" : "Navigation libre") : null,
-
-        // Lever la main, poser une question, ouvrir son cahier : ces gestes
-        // sont dans le dock, toujours visible. On ne les répète pas ici.
-        !staff && offre(session, "cartable") ? el("button.btn", {
-          onclick: () => ouvrirCartable(), title: "Ce que j'ai apporté en séance"
-        }, icone("sac", 15), "Mes affaires") : null,
-
-      )
+  /* --- Barre : où on en est, ce qu'on peut faire -------------------------- */
+  function peindreBarre() {
+    render(barre,
+      el("div.salle__bascule", { role: "group", "aria-label": "Que montrer ?" },
+        el("button.btn", { type: "button", "aria-pressed": String(zoneVisible === "panneau"), onclick: () => choisirZone("panneau") },
+          icone("cahier", 14), "Cahier"),
+        el("button.btn", { type: "button", "aria-pressed": String(zoneVisible === "scene"), onclick: () => choisirZone("scene") },
+          icone("tableau", 14), "Tableau")),
+      el("strong.salle__titre", session.title || classe.name),
+      el("span.petit.faible", `${participants.length} présent${participants.length > 1 ? "s" : ""}`),
+      el("span.pousse"),
+      staff ? null : el("label.petit.salle__suivre",
+        el("input", {
+          type: "checkbox", checked: suit,
+          onchange: async (e) => {
+            suit = e.target.checked;
+            local.ecrire(`ojm.suivi.${session.id}`, suit);
+            if (suit && session.focus?.kind) await appliquerFocus(session.focus);
+          }
+        }), ` Suivre le ${L("professeur")}`),
+      staff ? el("button.btn", { onclick: annoncer }, icone("cloche", 14), "Annonce") : null,
+      staff ? el("button.btn.btn--danger", { onclick: terminer }, "Terminer la séance") : null
     );
   }
 
-  function blocMinuterie() {
-    const restant = calculerMinuterie();
-    return el("span.chrono", { dataset: { etat: minuterie.state } },
-      el("span.chrono__label", minuterie.label),
-      el("span", duree(restant)),
-      staff ? el("button.btn.btn--fantome.btn--icone", {
-        "aria-label": "Piloter la minuterie",
-        onclick: (e) => menu(e.currentTarget, [
-          { libelle: minuterie.state === "running" ? "Mettre en pause" : "Démarrer", icone: minuterie.state === "running" ? "pause" : "lecture",
-            action: () => pilotageMinuterie(minuterie.state === "running" ? "pause" : "reprise") },
-          { libelle: "Réinitialiser", icone: "rejouer", action: () => pilotageMinuterie("reset") },
-          { libelle: "Retirer", icone: "corbeille", danger: true, action: () => pilotageMinuterie("retirer") }
-        ])
-      }, icone("points", 13)) : null
-    );
-  }
-
-  function calculerMinuterie() {
-    if (!minuterie) return 0;
-    const ecoule = minuterie.state === "running" && minuterie.started_at
-      ? minuterie.elapsed_sec + Math.floor((Date.now() - new Date(minuterie.started_at).getTime()) / 1000)
-      : minuterie.elapsed_sec;
-    return minuterie.kind === "chrono"
-      ? ecoule
-      : Math.max(0, minuterie.duration_sec - ecoule);
-  }
-
-  /* --- Scène ----------------------------------------------------------------- */
-  async function peindreScene() {
-    editeurCommun?.detruire();
-    editeurCommun = null;
-    decor.majLegende(contexteCourant() || "");
-
-    if (scene === "tableau") return peindreTableau();
-    if (scene === "moncahier") return peindreMonCahier();
-    if (scene === "cahier") return peindreCahierCommun();
-    if (scene === "document") return peindreDocument();
-    if (scene === "exercice") return peindreExercice();
-    return peindreTableau();
-  }
-
-  /* --- Scène : mon propre cahier ---------------------------------------------- */
-
-  /**
-   * On écrit dans SON cahier, pas sur une feuille volante.
-   *
-   * C'est la différence entre prendre des notes et remplir un formulaire : le
-   * cadet choisit lequel de ses cahiers il ouvre — celui qu'il a apporté, et
-   * seulement celui-là —, il y écrit de sa main, et il le garde. Le maître,
-   * lui, peut le lui demander en séance : c'est le même objet des deux côtés.
-   */
-  let cahierOuvertId = local.lire(`ojm.moncahier.${classe.id}`, null);
-  let editeurPersonnel = null;
-
-  /* --- L'encre -------------------------------------------------------------
-     Une plume qui n'a plus d'encre ne trace plus. C'est la seule consommation
-     automatique du site : un pour cent tous les cinquante caractères (voir
-     encre.js), de quoi remplir quelques pages. Assez pour qu'on voie l'encre
-     baisser et qu'on pense à la remplir — et que la scène du cadet qui
-     demande de l'encre à son voisin existe. */
-  let fraisEncre = 0;
-  /** La jauge d'encre, remise à jour là où elle est affichée. */
-  function rafraichirJauge() {
-    const e = monEncrier();
-    for (const j of noeud?.querySelectorAll?.(".encre-niveau") || []) {
-      if (e) j.replaceWith(jaugeEncrier(e, { remplir: remplirMonEncrier }));
-    }
-  }
-
-  /** L'encrier qui sert : celui qui est sur le bureau, si j'écris à la plume. */
-  const monEncrier = () => bureau.peutFaire("ecrire").encrier || null;
-
-  /** Est-ce que j'écris à la plume, c'est-à-dire avec quelque chose qui boit ? */
-  const jEcrisALaPlume = () => Boolean(bureau.peutFaire("ecrire").encrier);
-
-  /** À sec : l'encrier est là, sur le bureau, mais vide. */
-  function aSec() {
-    const v = bureau.peutFaire("ecrire");
-    return !v.ok && /encrier est vide/.test(v.message || "");
-  }
-
-  /**
-   * Chaque frappe boit un peu. On n'écrit en base qu'au point entier : mille
-   * requêtes pour un paragraphe seraient absurdes, et le niveau ne se lit
-   * pas au centième.
-   */
-  const boireUnPeu = debounce(async () => {
-    const encrier = monEncrier();
-    if (!encrier || !jEcrisALaPlume()) { fraisEncre = 0; return; }
-    const points = Math.floor(fraisEncre / CARACTERES_PAR_POINT);
-    if (points < 1) return;
-    fraisEncre -= points * CARACTERES_PAR_POINT;
-    try {
-      const maj = await depotAffaires.consommer(encrier, points);
-      Object.assign(encrier, maj);
-      rafraichirJauge();
-      if (Number(encrier.level || 0) <= 0) {
-        toast("Votre encrier est vide", {
-          corps: "La plume gratte le papier sans rien laisser. Remplissez-le, ou demandez de l'encre.",
-          type: "attn", duree: 10000
-        });
-        await peindreMonCahier();
-      } else if (Number(encrier.level) <= 15 && Number(encrier.level) + points > 15) {
-        toast("L'encre baisse", { corps: `Il reste ${encrier.level} % dans l'encrier.`, type: "attn" });
-      }
-    } catch { /* un encrier qu'on ne peut pas entamer n'empêche pas d'écrire */ }
-  }, 1400);
-
-  async function remplirMonEncrier() {
-    const encrier = monEncrier();
-    // Le flacon doit être sur le bureau aussi : on ne remplit pas un encrier
-    // avec une bouteille restée à la maison.
-    const flacon = bureau.objets().find((o) => o.kind === "encre" && Number(o.level || 0) > 0
-      && o.place === "bureau" && String(o.place_session) === String(session.id));
-    const encrierPose = encrier || bureau.objets().find((o) => o.kind === "encrier"
-      && o.place === "bureau" && String(o.place_session) === String(session.id));
-    if (!encrierPose) { toast("Votre encrier n'est pas sur le bureau."); return; }
-    if (!flacon) {
-      toast("Aucun flacon d'encre sur le bureau", {
-        corps: "Sortez-le de votre sac, ou demandez de l'encre à quelqu'un.", type: "attn"
-      });
-      return;
-    }
-    try {
-      const { verse } = await depotAffaires.remplir(encrierPose, flacon);
-      if (!verse) { toast("L'encrier est déjà plein."); return; }
-      await bureau.charger();
-      mesAffaires = bureau.objets();
-      succes(`Encrier rempli (+${verse} %)`);
-      await peindreMonCahier();
-    } catch (err) { erreur("Impossible", messageErreur(err)); }
-  }
-
-  async function peindreMonCahier() {
-    editeurPersonnel?.detruire();
-    editeurPersonnel = null;
-
-    // On n'écrit que dans ce qui est SUR LE BUREAU. Un cahier au fond du sac
-    // est là, mais fermé : il faut le sortir.
-    await bureau.charger();
-    mesAffaires = bureau.objets();
-
-    // Ce qu'on nous a prêté s'ouvre aussi : un cahier qu'on a entre les mains
-    // n'a pas à passer par le cartable pour se lire.
-    let empruntes = [];
-    try {
-      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
-      empruntes = (await Promise.all(remises.map((r) =>
-        depotCahiers.lire(r.notebook_id).catch(() => null)))).filter(Boolean)
-        .map((c) => ({ ...c, emprunte: true }));
-    } catch { empruntes = []; }
-
-    // Ce que j'ai tendu et qui n'est pas revenu : je peux le reprendre.
-    let pretes = new Map();
-    try {
-      pretes = new Map((await remisesCahier.pretes(etat.utilisateur.id))
-        .map((r) => [String(r.notebook_id), r]));
-    } catch { pretes = new Map(); }
-
-    const disponibles = [...bureau.cahiersSurLeBureau(), ...empruntes];
-
-    if (!disponibles.length) {
-      render(zoneScene, blocVide(
-        "Aucun cahier sur votre bureau",
-        "On n'écrit que dans ce qu'on a devant soi. Ouvrez votre sac et sortez-en un cahier ; "
-          + "s'il n'y est pas, c'est qu'il est resté ailleurs.",
-        { libelle: "Ouvrir mon sac", action: () => appliquerFenetre("sac") }
-      ));
-      return;
-    }
-
-    const choisi = disponibles.find((c) => String(c.id) === String(cahierOuvertId))
-      || disponibles[0];
-    cahierOuvertId = choisi.id;
-    local.ecrire(`ojm.moncahier.${classe.id}`, choisi.id);
-
-    // Ce que le maître a écrit dans la marge doit se lire par celui qu'on
-    // corrige : une correction qu'il ne verrait pas ne corrigerait rien.
-    const margePersonnelle = creerMarge({
-      // Sur le sien, on lit ce qu'on y a porté. Sur un cahier qu'on nous a
-      // prêté, c'est le seul endroit où l'on a le droit d'écrire.
-      peutAnnoter: Boolean(choisi.emprunte),
-      auteurId: etat.utilisateur.id, nomAuteur: monNom(),
-      // Savoir QUI a corrigé fait partie de la correction : « l'encadrement »
-      // ne veut rien dire quand trois maîtres se relaient.
-      noms: new Map(equipe.map((m) => [
-        m.user_id,
-        nomAffiche(fichesRP.get(m.user_id), m.profil) || m.profil?.display_name || "L'encadrement"
-      ]))
-    });
-
-    const ecriture = bureau.peutFaire("ecrire");
-    editeurPersonnel = creerEditeurCahier({
-      cahier: choisi,
-      surPage: (page) => margePersonnelle.suivre(page),
-      // Privé de matériel, on ouvre quand même son cahier — on ne peut
-      // simplement plus rien y écrire. Voir sans pouvoir noter, c'est
-      // exactement la punition qu'on joue. Un cahier prêté, lui, ne se
-      // récrit jamais : la marge est faite pour ça.
-      // Et il faut de quoi écrire, sur le bureau. Pas de stylo, pas
-      // d'écriture : rien ne s'ajoute à la page, et on dit pourquoi.
-      peutEcrire: !prive() && !choisi.emprunte && ecriture.ok,
-      // Le bloc « manque-outil » au-dessus dit déjà ce qui manque : l'éditeur
-      // ne le répète pas dans sa barre, il le rappelle seulement au clic.
-      manqueEcriture: !prive() && !choisi.emprunte && !ecriture.ok ? { ...ecriture, discret: true } : null,
-      garde: (action) => bureau.peutFaire(action),
-      compact: true,
-      tempsReel: true,
-      rp: reglagesRP(classe)
-    });
-
-    const pret = pretes.get(String(choisi.id));
-    const rangeeGestes = el("div.mon-cahier__gestes",
-      choisi.emprunte
-        ? el("button.btn.btn--fantome", {
-            onclick: () => rendreCahier(choisi),
-            title: "Le rendre à qui vous l'a tendu"
-          }, icone("sortie", 14), "Le rendre")
-        : el("button.btn.btn--fantome", {
-            onclick: () => tendreCahier(),
-            title: "Le montrer, le prêter ou le donner à quelqu'un qui est là"
-          }, icone("main", 14), "Le tendre à quelqu'un"),
-      pret
-        ? el("button.btn.btn--fantome", {
-            onclick: () => reprendreCahier(pret),
-            title: "Il l'a entre les mains : le récupérer"
-          }, icone("entree", 14), "Le reprendre")
-        : null,
-      pret ? el("span.petit.faible", "Prêté — il l'a en main.") : null);
-
-    render(zoneScene,
-      el("div.mon-cahier",
-        rangeeGestes,
-        // On montre la rangée dès qu'il y a un choix à faire — ou un objet
-        // qui n'est pas à soi : savoir lequel on tient en main compte.
-        disponibles.length > 1 || disponibles.some((c) => c.emprunte)
-          ? el("div.mon-cahier__rangee",
-              // Un cahier prêté n'est pas « dans mon sac » : il est en main.
-              el("span.petit.faible",
-                disponibles.every((c) => c.emprunte) ? "En main :" : "Dans mon sac :"),
-              disponibles.map((c) => el("button.mon-cahier__dos", {
-                type: "button",
-                class: c.emprunte ? "mon-cahier__dos--emprunte" : "",
-                title: c.emprunte ? "On vous l'a tendu" : c.title,
-                dataset: { couleur: c.color || "olive", objet: c.support || "cahier" },
-                "aria-pressed": String(String(c.id) === String(choisi.id)),
-                onclick: async () => { cahierOuvertId = c.id; await peindreMonCahier(); }
-              }, c.title)))
-          : null,
-        choisi.emprunte
-          ? el("p.petit.faible", { style: { padding: "0 var(--e-4)" } },
-              icone("main", 12), " Ce cahier n'est pas le vôtre : vous pouvez le lire "
-              + "et écrire dans sa marge, pas dans son texte.")
-          : null,
-        prive()
-          ? el("p.petit.faible", { style: { padding: "0 var(--e-4)" } },
-              icone("cadenas", 12),
-              " Vous pouvez relire, pas écrire : il vous manque de quoi le faire.")
-          : null,
-        // Pas d'outil d'écriture sur le bureau : on le dit là où on essaie,
-        // avec le geste qui répare juste à côté.
-        !prive() && !choisi.emprunte && !ecriture.ok && !aSec()
-          ? el("div.manque-outil",
-              icone("crayon", 18),
-              el("div",
-                el("strong", ecriture.message),
-                el("p.petit.faible", ecriture.conseil || "")),
-              el("span.pousse"),
-              ecriture.prendre
-                ? el("button.btn.btn--primaire", { onclick: () => bureau.prendre(ecriture.prendre) },
-                    el("img", { src: imageDetouree(ecriture.prendre.kind), alt: "", style: { height: "18px" } }),
-                    ` Prendre ${nomObjet(ecriture.prendre).toLowerCase()}`)
-                : diagnostic(bureau).faisable
-                  ? el("button.btn.btn--primaire", { onclick: async () => { await pretAEcrire(bureau); } },
-                      icone("crayon", 14), "Sortir un crayon et le prendre")
-                  : el("button.btn", { onclick: () => appliquerFenetre("sac") }, icone("sac", 14), "Ouvrir mon sac"),
-              ecriture.prendre ? null : el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
-                icone("main", 14), "Emprunter"))
-          : null,
-        // Une plume à sec : on le dit là où on s'en aperçoit, avec le geste
-        // qui répare juste à côté.
-        !prive() && aSec()
-          ? el("div.encre-vide",
-              el("span.encre-vide__figure", { "aria-hidden": "true" },
-                figureObjet("encrier")),
-              el("div",
-                el("strong", "Votre encrier est vide"),
-                el("p.petit.faible",
-                  "La plume gratte le papier sans rien laisser. Remplissez-la au "
-                  + "flacon, ou demandez de l'encre à quelqu'un.")),
-              el("span.pousse"),
-              el("button.btn", { onclick: remplirMonEncrier },
-                icone("goutte", 14), "Remplir"),
-              el("button.btn.btn--fantome", { onclick: () => demanderUnObjet() },
-                icone("main", 14), "En demander"))
-          : null,
-        !prive() && !aSec() && jEcrisALaPlume() && monEncrier()
-          ? jaugeEncrier(monEncrier(), { remplir: remplirMonEncrier })
-          : null,
-        el("div.inspection--annotable", editeurPersonnel.noeud, margePersonnelle.noeud)
-      )
-    );
-
-    // Chaque frappe boit. On écoute au-dessus de l'éditeur : l'événement
-    // remonte du contenu éditable, et l'éditeur n'a pas à connaître l'encre.
-    if (editeurPersonnel.noeud && !choisi.emprunte) {
-      editeurPersonnel.noeud.addEventListener("input", (e) => {
-        if (!e.target?.closest?.(".parchemin__corps")) return;
-        fraisEncre += 1;
-        boireUnPeu();
-      });
-    }
-  }
-
-  /* --- Scène : tableau -------------------------------------------------------- */
+  /* --- Scène : le tableau ------------------------------------------------- */
   async function peindreTableau() {
-    const pageCourante = pagesTableau[indexPage];
-    if (!pageCourante) {
-      render(zoneScene, blocVide("Tableau vide", "Aucune page de tableau."));
-      return;
-    }
+    fermerSuiviExercice();
+    const page = pagesTableau[indexPage];
+    if (!page) { render(zoneScene, blocVide("Tableau vide", "Aucune page de tableau.")); return; }
 
-    const ecriture = peutDessiner(tableau) && !prive();
-    moteurTableau = creerTableau({
+    const ecriture = peutDessiner(tableau);
+    moteur = creerTableau({
       lectureSeule: !ecriture,
-      // Au tableau, on écrit à la craie ; on trace droit à la règle, rond au
-      // compas, et on efface avec de quoi effacer. Ce qui manque sur le bureau
-      // ne se dessine pas.
-      garde: (outil) => {
-        // Écrire au tableau coûte de l'encre (le portefeuille, tenu par la base) ;
-        // effacer, jamais.
-        if (outil !== "gomme" && !peutProduire()) return { ok: false, message: MESSAGE_ENCRE_EPUISEE };
-        const besoin = { gomme: "effacer", ligne: "ligne", fleche: "ligne", rect: "angle", ellipse: "cercle" }[outil];
-        // L'élève appelé au tableau prend la craie posée au pied du tableau ;
-        // le professeur, lui, écrit avec la sienne.
-        const craie = staff ? bureau.peutFaire("craie") : { ok: true };
-        if (outil !== "gomme" && !craie.ok) return craie;
-        if (outil === "gomme" && !staff) return { ok: true };
-        return besoin ? bureau.peutFaire(besoin) : { ok: true };
-      },
-      surRefus: (verdict) => toast(verdict.message, { corps: verdict.conseil || "", type: "attn", duree: 6000 }),
-      fond: nomFond(pageCourante.background),
+      fond: nomFond(page.background),
+      // Plus d'objets : tous les outils sont là. Seule l'encre limite, et la base fait foi.
+      garde: () => (peutProduire() ? { ok: true } : { ok: false, message: MESSAGE_ENCRE_EPUISEE }),
+      surRefus: (verdict) => toast("Plus d'encre", { corps: verdict.message, type: "attn", duree: 6000 }),
       surElementTermine: async (element) => {
         try {
           await tableaux.ajouterElement({
-            id: element.id, page_id: pageCourante.id, kind: element.kind,
-            data: element.data, author_id: etat.utilisateur.id, z: element.z, deleted: false
+            id: element.id, page_id: page.id, kind: element.kind, data: element.data,
+            author_id: moiId, z: element.z || 0, deleted: false
           });
           synchroniserBientot();
         } catch (err) {
-          moteurTableau.retirerElement(element.id);             // le tracé refusé disparaît
+          moteur.retirerElement(element.id);             // le tracé refusé disparaît
           if (estEncreEpuisee(err)) {
             toast("Plus d'encre", { corps: MESSAGE_ENCRE_EPUISEE, type: "attn", duree: 7000 });
             synchroniserBientot();
           } else erreur("Tracé non enregistré", messageErreur(err));
         }
       },
-      surElementRetire: async (element) => {
-        try { await tableaux.supprimerElement(element.id); } catch { /* déjà supprimé */ }
-      },
-      surFragment: (fragment) => {
-        canalSession?.envoyer("fragment", { ...fragment, page: pageCourante.id });
-        if (staff) decor.signalerEcriture();
-      },
-      surCurseur: (x, y) => canalSession?.envoyer("curseur", {
-        id: etat.utilisateur.id, x, y,
-        nom: monNom(), page: pageCourante.id
-      })
+      surElementRetire: async (element) => { try { await tableaux.supprimerElement(element.id); } catch { /* déjà supprimé */ } },
+      surFragment: (fragment) => canalSession?.envoyer("fragment", { ...fragment, page: page.id }),
+      surCurseur: (x, y) => canalSession?.envoyer("curseur", { id: moiId, x, y, nom: monNom(), page: page.id })
     });
+    moteur.definirElements(await tableaux.elements(page.id));
+    if (page.background_image) await moteur.definirImageFond(page.background_image).catch(() => {});
 
-    const elements = await tableaux.elements(pageCourante.id);
-    moteurTableau.definirElements(elements);
-    if (pageCourante.background_image) {
-      await moteurTableau.definirImageFond(pageCourante.background_image).catch(() => {});
-    }
-
-    render(zoneScene,
-      el("div.tableau",
-        barreTableau(ecriture, pageCourante),
-        el("div.tableau__scene", moteurTableau.noeud)
-      )
-    );
-
-    brancherCanalTableau(pageCourante.id);
+    render(zoneScene, el("div.tableau", barreTableau(ecriture, page), el("div.tableau__scene", moteur.noeud)));
+    brancherCanalTableau(page.id);
   }
 
-  function barreTableau(ecriture, pageCourante) {
-    const barre = el("div.tableau__barre");
-
-    const groupeOutils = el("div.outils", OUTILS.map((o) => el("button.outil", {
+  function barreTableau(ecriture, page) {
+    const outils = el("div.outils", OUTILS.map((o) => el("button.outil", {
       type: "button", title: o.libelle, "aria-label": o.libelle,
-      "aria-pressed": String(moteurTableau.outil() === o.cle),
+      "aria-pressed": String(moteur.outil() === o.cle),
       onclick: (e) => {
-        moteurTableau.definirOutil(o.cle);
-        groupeOutils.querySelectorAll(".outil").forEach((b) => b.setAttribute("aria-pressed", "false"));
+        moteur.definirOutil(o.cle);
+        outils.querySelectorAll(".outil").forEach((b) => b.setAttribute("aria-pressed", "false"));
         e.currentTarget.setAttribute("aria-pressed", "true");
       }
     }, icone(o.icone, 16))));
-
-    const groupeTeintes = el("div.teintes", TEINTES.map((t) => el("button.teinte", {
+    const teintes = el("div.teintes", TEINTES.map((t) => el("button.teinte", {
       type: "button", "aria-label": `Couleur ${t}`, style: { background: t },
-      "aria-pressed": String(moteurTableau.couleur() === t),
+      "aria-pressed": String(moteur.couleur() === t),
       onclick: (e) => {
-        moteurTableau.definirCouleur(t);
-        groupeTeintes.querySelectorAll(".teinte").forEach((b) => b.setAttribute("aria-pressed", "false"));
+        moteur.definirCouleur(t);
+        teintes.querySelectorAll(".teinte").forEach((b) => b.setAttribute("aria-pressed", "false"));
         e.currentTarget.setAttribute("aria-pressed", "true");
       }
     })));
-
-    const groupeEpaisseurs = el("div.epaisseurs", EPAISSEURS.map((ep) => el("button.epaisseur", {
+    const epaisseurs = el("div.epaisseurs", EPAISSEURS.map((ep) => el("button.epaisseur", {
       type: "button", "aria-label": `Épaisseur ${ep}`,
-      "aria-pressed": String(moteurTableau.epaisseur() === ep),
+      "aria-pressed": String(moteur.epaisseur() === ep),
       onclick: (e) => {
-        moteurTableau.definirEpaisseur(ep);
-        groupeEpaisseurs.querySelectorAll(".epaisseur").forEach((b) => b.setAttribute("aria-pressed", "false"));
+        moteur.definirEpaisseur(ep);
+        epaisseurs.querySelectorAll(".epaisseur").forEach((b) => b.setAttribute("aria-pressed", "false"));
         e.currentTarget.setAttribute("aria-pressed", "true");
       }
     }, el("i", { style: { width: `${Math.min(ep, 12)}px`, height: `${Math.min(ep, 12)}px` } }))));
 
-    const choixTaille = el("select.select-fond", {
+    const tailles = el("select.select-fond", {
       "aria-label": "Taille du texte", title: "Taille du texte (outil T)",
-      onchange: (e) => moteurTableau.definirTailleTexte(Number(e.target.value))
-    }, TAILLES_TEXTE.map((t) => el("option", { value: t.px, selected: moteurTableau.tailleTexte() === t.px }, `Texte : ${t.libelle}`)));
-    const choixPolice = el("select.select-fond", {
+      onchange: (e) => moteur.definirTailleTexte(Number(e.target.value))
+    }, TAILLES_TEXTE.map((t) => el("option", { value: t.px, selected: moteur.tailleTexte() === t.px }, `Texte : ${t.libelle}`)));
+    const polices = el("select.select-fond", {
       "aria-label": "Police du texte", title: "Police du texte (outil T)",
-      onchange: (e) => moteurTableau.definirPolice(e.target.value)
-    }, POLICES_TABLEAU.map((f) => el("option", { value: f.cle, selected: moteurTableau.police() === f.cle }, f.libelle)));
+      onchange: (e) => moteur.definirPolice(e.target.value)
+    }, POLICES_TABLEAU.map((f) => el("option", { value: f.cle, selected: moteur.police() === f.cle }, f.libelle)));
 
-    render(barre,
-      ...(ecriture ? [groupeOutils, groupeTeintes, groupeEpaisseurs, choixTaille, choixPolice,
+    return el("div.tableau__barre",
+      ...(ecriture ? [outils, teintes, epaisseurs, tailles, polices,
         el("div.outils",
           el("button.outil", { title: "Annuler", onclick: annulerTrace }, icone("annuler", 16)),
           el("button.outil", { title: "Refaire", onclick: refaireTrace }, icone("refaire", 16)),
-          el("button.outil", { title: "Tout effacer", onclick: viderTableau }, icone("corbeille", 16))
-        )] : [el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule")]),
-
+          staff ? el("button.outil", { title: "Tout effacer", onclick: viderTableau }, icone("corbeille", 16)) : null)]
+        : [el("span.etiq.etiq--info", icone("oeil", 13), "Lecture seule")]),
       el("span.pousse"),
-
       el("div.pages-tableau",
-        pagesTableau.map((page, i) => el("button.page-tableau", {
-          "aria-current": String(i === indexPage),
-          title: page.title,
-          onclick: () => changerPageTableau(i)
+        pagesTableau.map((p, i) => el("button.page-tableau", {
+          "aria-current": String(i === indexPage), title: p.title,
+          onclick: () => changerPage(i)
         }, String(i + 1))),
-        staff ? el("button.page-tableau", { title: "Ajouter une page", onclick: ajouterPageTableau },
-          icone("plus", 13)) : null
-      ),
-
-      staff ? el("button.btn", { onclick: capturerTableau },
-        icone("appareil", 15), "Capturer") : null,
-
-      staff ? el("button.btn.btn--fantome.btn--icone", {
-        "aria-label": "Réglages du tableau",
-        onclick: (e) => menuTableau(e.currentTarget, pageCourante)
-      }, icone("reglages", 15)) : null
+        staff ? el("button.page-tableau", { title: "Ajouter une page", onclick: ajouterPage }, icone("plus", 13)) : null),
+      staff ? el("select.select-fond", {
+        "aria-label": "Fond du tableau",
+        onchange: async (e) => {
+          await tableaux.majorerPage(page.id, { background: e.target.value });
+          page.background = e.target.value;
+          moteur.definirFond(nomFond(e.target.value));
+        }
+      }, FONDS.map((f) => el("option", { value: f.cle, selected: (page.background || "slate") === f.cle }, f.libelle))) : null,
+      staff ? el("button.btn", { onclick: basculerParticipation },
+        icone("eleves", 14), tableau.mode === "locked" ? "Ouvrir aux élèves" : "Fermer aux élèves") : null,
+      staff ? el("button.btn", { onclick: capturer }, icone("appareil", 14), "Capturer") : null
     );
-    return barre;
   }
 
   function annulerTrace() {
-    const action = moteurTableau.annuler();
+    const action = moteur.annuler();
     if (!action) return;
     if (action.type === "retrait") tableaux.supprimerElement(action.element.id).catch(() => {});
-    else reinsererElement(action.element);
+    else reinserer(action.element);
   }
-
   function refaireTrace() {
-    const action = moteurTableau.refaire();
+    const action = moteur.refaire();
     if (!action) return;
-    if (action.type === "ajout") reinsererElement(action.element);
+    if (action.type === "ajout") reinserer(action.element);
     else tableaux.supprimerElement(action.element.id).catch(() => {});
   }
-
-  async function reinsererElement(element) {
-    const pageCourante = pagesTableau[indexPage];
+  async function reinserer(element) {
     try {
       await tableaux.ajouterElement({
-        id: element.id, page_id: pageCourante.id, kind: element.kind,
-        data: element.data, author_id: etat.utilisateur.id, z: element.z, deleted: false
+        id: element.id, page_id: pagesTableau[indexPage].id, kind: element.kind,
+        data: element.data, author_id: moiId, z: element.z, deleted: false
       });
-    } catch { /* l'élément existe déjà côté base */ }
+    } catch (err) {
+      if (estEncreEpuisee(err)) toast("Plus d'encre", { corps: MESSAGE_ENCRE_EPUISEE, type: "attn" });
+    }
   }
 
   async function viderTableau() {
     const ok = await confirmer({
-      titre: "Effacer le tableau",
-      message: "Tout le contenu de cette page de tableau sera perdu. Les pages capturées dans le cahier restent intactes.",
-      libelle: "Effacer", danger: true
+      titre: "Effacer le tableau", libelle: "Effacer", danger: true,
+      message: "Tout le contenu de cette page de tableau sera perdu. Les pages capturées dans le cahier restent intactes."
     });
     if (!ok) return;
-    const pageCourante = pagesTableau[indexPage];
-    await tableaux.viderPage(pageCourante.id);
-    moteurTableau.vider();
-    canalSession?.envoyer("vider", { page: pageCourante.id });
+    const page = pagesTableau[indexPage];
+    await tableaux.viderPage(page.id);
+    moteur.vider();
+    canalSession?.envoyer("vider", { page: page.id });
   }
 
-  async function ajouterPageTableau() {
+  async function ajouterPage() {
     const page = await tableaux.ajouterPage(tableau.id);
     pagesTableau.push(page);
-    await changerPageTableau(pagesTableau.length - 1);
+    await changerPage(pagesTableau.length - 1);
   }
 
-  async function changerPageTableau(index) {
+  async function changerPage(index) {
     indexPage = index;
     if (staff) {
-      await tableaux.majorer(tableau.id, { current_page: index });
-      await diffuserFocus({ kind: "tableau", ref: tableau.id, page: index });
+      tableau = await tableaux.majorer(tableau.id, { current_page: index });
+      await diffuserFocus({ kind: "tableau", page: index });
     }
+    scene = "tableau"; documentAffiche = null;
     await peindreTableau();
   }
 
-  function menuTableau(ancre, pageCourante) {
-    menu(ancre, [
-      { titre: "Mode d'écriture" },
-      ...[
-        ["locked", "Professeur seul"],
-        ["participative", "Élèves sélectionnés"],
-        ["open", "Toute la classe"]
-      ].map(([mode, libelle]) => ({
-        libelle: libelle + (tableau.mode === mode ? "  ✓" : ""),
-        action: async () => {
-          tableau = await tableaux.majorer(tableau.id, { mode });
-          toast(`Tableau : ${libelle.toLowerCase()}`);
-          await peindreTableau();
-        }
-      })),
-      { separateur: true },
-      {
-        libelle: "Choisir les élèves autorisés", icone: "eleves",
-        action: choisirAutorises
-      },
-      { separateur: true },
-      { titre: "Poser sous le tableau" },
-      { libelle: "Une image", icone: "image", action: () => poserFondImage(pageCourante, "image") },
-      { libelle: "Une page de PDF", icone: "documents", action: () => poserFondImage(pageCourante, "pdf") },
-      pageCourante.background_image
-        ? { libelle: "Retirer ce qui est posé", icone: "croix",
-            action: () => retirerFondImage(pageCourante) }
-        : null,
-      { separateur: true },
-      { titre: "Fond" },
-      ...[["slate", "Ardoise"], ["chalk", "Craie"], ["grid", "Quadrillé"], ["lines", "Lignes"], ["seyes", "Seyès"], ["paper", "Papier"]]
-        .map(([fond, libelle]) => ({
-          libelle: libelle + (nomFond(pageCourante.background) === nomFond(fond) ? "  ✓" : ""),
-          action: async () => {
-            await tableaux.majorerPage(pageCourante.id, { background: fond });
-            pageCourante.background = fond;
-            moteurTableau.definirFond(nomFond(fond));
-          }
-        })),
-      { separateur: true },
-      pagesTableau.length > 1 && {
-        libelle: "Supprimer cette page de tableau", icone: "corbeille", danger: true,
-        action: async () => {
-          const ok = await confirmer({
-            titre: "Supprimer la page de tableau",
-            message: `« ${pageCourante.title} » et son contenu seront perdus.`,
-            libelle: "Supprimer", danger: true
-          });
-          if (!ok) return;
-          await tableaux.supprimerPage(pageCourante.id);
-          pagesTableau = await tableaux.pages(tableau.id);
-          indexPage = Math.max(0, Math.min(indexPage, pagesTableau.length - 1));
-          await peindreTableau();
-        }
-      }
-    ].filter(Boolean));
-  }
-
-  /**
-   * Poser quelque chose sous le tableau. L'image devient un calque : on écrit
-   * dessus, on efface ses propres traits sans l'emporter, et on la retire
-   * quand on veut. Elle est stockée avec la page, donc toute la classe la voit.
-   */
-  async function poserFondImage(pageCourante, genre) {
-    const entree = el("input", {
-      type: "file",
-      accept: genre === "pdf" ? "application/pdf" : "image/*"
-    });
-    entree.click();
-
-    const fichier = await new Promise((resoudre) => {
-      entree.onchange = () => resoudre(entree.files?.[0] || null);
-      // Annuler la boîte de fichiers ne déclenche rien : on n'attend pas indéfiniment.
-      window.addEventListener("focus", () => setTimeout(() => resoudre(entree.files?.[0] || null), 400),
-        { once: true });
-    });
-    if (!fichier) return;
-
-    let source;
-    try {
-      if (genre === "pdf") {
-        const total = await compterPagesPdf(fichier);
-        const choix = total > 1
-          ? await formulaire({
-              titre: "Quelle page ?",
-              champs: [{ cle: "page", label: `Page (1 à ${total})`, type: "number",
-                valeur: 1, min: 1, max: total }],
-              libelle: "Poser"
-            })
-          : { page: 1 };
-        if (!choix) return;
-        const numero = Math.max(1, Math.min(total, Number(choix.page) || 1));
-        toast("Conversion de la page…");
-        const images = await pdfEnImages(fichier, { pagesVoulues: [numero], echelle: 2 });
-        source = images[0];
-      } else {
-        source = await new Promise((resoudre, rejeter) => {
-          const lecteur = new FileReader();
-          lecteur.onload = () => resoudre(lecteur.result);
-          lecteur.onerror = () => rejeter(lecteur.error);
-          lecteur.readAsDataURL(fichier);
-        });
-      }
-    } catch (err) {
-      erreur("Conversion impossible", messageErreur(err));
-      return;
-    }
-    if (!source) return;
-
-    try {
-      await tableaux.majorerPage(pageCourante.id, { background_image: source });
-      pageCourante.background_image = source;
-      await moteurTableau.definirImageFond(source);
-      succes(genre === "pdf" ? "Page posée au tableau" : "Image posée au tableau");
-    } catch (err) {
-      // Une page de PDF en pleine résolution dépasse vite ce qu'une colonne
-      // de texte accepte : on le dit plutôt que d'échouer en silence.
-      erreur("Impossible de poser cette image", messageErreur(err));
-    }
-  }
-
-  async function retirerFondImage(pageCourante) {
-    try {
-      await tableaux.majorerPage(pageCourante.id, { background_image: null });
-      pageCourante.background_image = null;
-      await moteurTableau.definirImageFond(null);
-      toast("Retiré. Les annotations restent.");
-    } catch (err) {
-      erreur("Impossible", messageErreur(err));
-    }
-  }
-
-  async function choisirAutorises() {
-    equipe = await depotMembres.liste(classe.id);
-    const eleves = equipe.filter((m) => m.status === "active" && m.role === "student");
-    const autorises = new Set(Array.isArray(tableau.allowed) ? tableau.allowed : []);
-
-    const sortie = await formulaire({
-      titre: "Élèves autorisés au tableau",
-      note: "En mode « élèves sélectionnés », seuls ces élèves peuvent écrire.",
-      champs: eleves.map((m) => ({
-        cle: m.user_id, type: "checkbox",
-        label: m.profil?.display_name || "Élève",
-        valeur: autorises.has(m.user_id)
-      })),
-      libelle: "Enregistrer"
-    });
-    if (!sortie) return;
-
-    const liste = Object.entries(sortie).filter(([, v]) => v).map(([k]) => k);
-    tableau = await tableaux.majorer(tableau.id, { allowed: liste, mode: "participative" });
-    toast(`${pluriel(liste.length, "élève")} autorisé${liste.length > 1 ? "s" : ""} au tableau`);
+  async function basculerParticipation() {
+    const mode = tableau.mode === "locked" ? "open" : "locked";
+    tableau = await tableaux.majorer(tableau.id, { mode });
+    toast(mode === "open" ? "Les élèves peuvent tracer au tableau" : "Tableau fermé aux élèves");
     await peindreTableau();
   }
 
-  async function capturerTableau() {
-    if (!cahierCommun) {
-      erreur("Aucun cahier commun", "Créez-le depuis la fiche de la classe.");
-      return;
-    }
-    const pageCourante = pagesTableau[indexPage];
-    const instantane = moteurTableau.instantane();
+  /** Une capture du tableau, versée dans le cahier commun de la classe. */
+  async function capturer() {
     try {
-      const page = await depotPages.capturerTableau(
-        pageCourante.id, cahierCommun.id,
-        `${session.title} — ${pageCourante.title}`,
-        { image: instantane, legende: `Tableau du ${heure(Date.now())}` }
-      );
-      journal.ecrire({
-        class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-        action: "board.capture", meta: { page: page.id }
-      });
-      succes("Tableau capturé", "Ajouté au cahier commun de la classe.");
-    } catch (err) {
-      erreur("Capture impossible", messageErreur(err));
-    }
-  }
-
-  /* --- Scène : cahier commun --------------------------------------------------- */
-  async function peindreCahierCommun() {
-    if (!cahierCommun) {
-      render(zoneScene, blocVide("Pas de cahier commun",
-        staff ? "Créez-le depuis la fiche de la classe." : "Le professeur n'en a pas encore ouvert."));
-      return;
-    }
-    const peutEcrire = staff || (cahierCommun.collaborative && contributeur);
-    editeurCommun = creerEditeurCahier({
-      cahier: cahierCommun,
-      peutEcrire,
-      rp: reglagesRP(classe),
-      pageInitiale: refScene,
-      tempsReel: true,
-      surPage: (page) => {
-        if (staff) diffuserFocus({ kind: "cahier", ref: cahierCommun.id, page: page.id });
-      }
-    });
-    render(zoneScene, editeurCommun.noeud);
-  }
-
-  /* --- Scène : document --------------------------------------------------------- */
-  async function peindreDocument() {
-    if (!documentAffiche) {
-      render(zoneScene, blocVide("Aucun document affiché", "Le professeur n'a rien distribué pour l'instant."));
-      return;
-    }
-    try {
-      const url = await documents.url(documentAffiche);
-      render(zoneScene,
-        el("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: "0" } },
-          el("div.feuillet__barre",
-            icone("documents", 15),
-            el("b", documentAffiche.title),
-            el("span.pousse"),
-            el("a.btn", { href: url, target: "_blank", rel: "noopener" },
-              icone("televerser", 14), "Ouvrir dans un onglet")
-          ),
-          documentAffiche.kind === "image"
-            ? el("div.feuillet__zone", el("img", {
-                src: url, alt: documentAffiche.title,
-                style: { maxWidth: "100%", objectFit: "contain", borderRadius: "var(--r-sm)" }
-              }))
-            : el("iframe", {
-                src: url, title: documentAffiche.title,
-                style: { flex: "1", border: "0", background: "var(--encre-800)" }
-              })
-        )
-      );
-    } catch (err) {
-      render(zoneScene, blocVide("Document indisponible", messageErreur(err)));
-    }
-  }
-
-  /* --- Scène : exercice ---------------------------------------------------------- */
-  async function peindreExercice() {
-    if (!exerciceActif) {
-      render(zoneScene, blocVide("Aucun exercice en cours", ""));
-      return;
-    }
-    const { rendreExerciceEnLigne } = await import("../features/exercice-direct.js");
-    render(zoneScene, await rendreExerciceEnLigne({
-      exercice: exerciceActif, classe, session, staff,
-      surFermeture: async () => {
-        await exercices.fermer(exerciceActif.id);
-        toast("Exercice fermé");
-      }
-    }));
-  }
-
-  /* --- Panneau latéral ------------------------------------------------------------ */
-  function peindrePanneau() {
-    const onglets = staff
-      ? [
-          { cle: "eleves", libelle: L("Eleves"), compteur: participants.length },
-          { cle: "questions", libelle: "Questions", compteur: listeQuestions.filter((q) => q.status === "open").length },
-          { cle: "sondage", libelle: "Sondage" },
-          { cle: "journal", libelle: "Journal" }
-        ]
-      : [
-          { cle: "notes", libelle: "Mes notes" },
-          { cle: "classe", libelle: "La classe", compteur: participants.length },
-          { cle: "sondage", libelle: "Sondage" },
-          { cle: "annonces", libelle: "Annonces" }
-        ];
-
-    render(ongletsPanneau, onglets.map((o) => el("button.onglet", {
-      role: "tab", "aria-selected": String(o.cle === ongletPanneau),
-      onclick: () => { ongletPanneau = o.cle; peindrePanneau(); }
-    }, o.libelle,
-      o.compteur ? el("span.pastille-compteur", String(o.compteur)) : null
-    )));
-
-    const rendus = {
-      eleves: panneauEleves, classe: panneauEleves, questions: panneauQuestions,
-      sondage: panneauSondage, journal: panneauJournal, notes: panneauNotes,
-      annonces: panneauAnnonces
-    };
-    render(zonePanneau, (rendus[ongletPanneau] || panneauEleves)());
-  }
-
-  function panneauEleves() {
-    if (!participants.length) {
-      return el("p.petit.faible", { style: { padding: "var(--e-4)" } }, "Personne pour l'instant.");
-    }
-    const mainsParUtilisateur = new Map(listeMains.map((m) => [m.user_id, m]));
-    const renvoyes = new Set(listeRenvois.map((r) => r.user_id));
-    const controleMateriel = staff && offre(session, "cartable") && !attendu.vide();
-
-    return el("div",
-      controleMateriel ? el("div.controle-materiel",
-        el("span.controle-materiel__titre", icone("sac", 12), " Matériel demandé"),
-        el("span.petit.faible", attendu.enUneLigne()),
-        regles.bloquant
-          ? el("span.petit.faible", `Privation de ${regles.minutes} min en cas d'oubli.`)
-          : null
-      ) : null,
-
-      // Ceux qui n'ont rien pour écrire, et ce qu'ils demandent. On les sort
-      // de la liste ordinaire : une main levée pour aller chercher sa plume
-      // ne se confond pas avec une main levée pour répondre.
-      staff && privationsSeance.size ? el("section.privations",
-        el("span.controle-materiel__titre", icone("alerte", 12), " Privés de matériel"),
-        [...privationsSeance.values()]
-          .filter((v) => privations.prive(v) || v.state === "asked")
-          .map((v) => lignePrivation({
-            privation: v,
-            nom: participants.find((x) => x.user_id === v.user_id)?.nom
-              || equipe.find((x) => x.user_id === v.user_id)?.profil?.display_name
-              || "Un cadet",
-            secondes: privations.secondesRestantes(v),
-            surAccord: () => trancherPrivation(v, true),
-            surRefus: () => trancherPrivation(v, false),
-            surLevee: () => leverPrivation(v)
-          }))
-      ) : null,
-
-      participants.map((p) => {
-        const main = mainsParUtilisateur.get(p.user_id);
-        const renvoye = renvoyes.has(p.user_id);
-        return el("div.eleve", {
-          class: [main ? "eleve--main-levee" : "", renvoye ? "eleve--renvoye" : ""]
-            .filter(Boolean).join(" ")
-        },
-          pastillePresence(renvoye ? "absent" : (p.statut || "present")),
-          el("span.avatar", { class: p.role === "teacher" ? "avatar--prof" : "" }, initiales(p.nom)),
-          el("div.eleve__infos",
-            el("div.eleve__nom",
-              p.grade ? el("span.fiche__grade", { style: { marginRight: "6px" } }, p.grade) : null,
-              p.grade ? " " : null,
-              p.nom || "Participant"),
-            el("div.eleve__activite",
-              renvoye ? el("em", "renvoyé de la séance")
-                : main ? el("em", `✋ ${modeSeance.parole.demander.toLowerCase()}`)
-                : (p.activite || libelleScene(p.scene))),
-            controleMateriel && p.role !== "teacher"
-              ? el("div.eleve__materiel",
-                  ligneMateriel(sacs.get(p.user_id), attendu,
-                    { court: true, session: session.id }))
-              : null
-          ),
-          staff
-            ? el("div.liste__fin",
-                main ? el("button.btn.btn--fantome.btn--icone", {
-                  title: "Donner la parole",
-                  onclick: () => repondreMain(main, "accepted")
-                }, icone("coche", 14)) : null,
-                main ? el("button.btn.btn--fantome.btn--icone", {
-                  title: "Faire redescendre la main",
-                  onclick: () => repondreMain(main, "lowered")
-                }, icone("croix", 14)) : null,
-                p.role !== "teacher" ? el("button.btn.btn--fantome.btn--icone", {
-                  title: `Agir sur ${p.nom || "ce membre"}`,
-                  "aria-label": `Agir sur ${p.nom || "ce membre"}`,
-                  onclick: (e) => menuParticipant(e.currentTarget, p, renvoye)
-                }, icone("points", 14)) : null
-              )
-            : null
-        );
-      }),
-
-      staff ? blocRenvoyes() : null
-    );
-  }
-
-  /**
-   * Un renvoyé quitte la salle, donc il disparaît de la liste des présents.
-   * Sans cette section, l'instructeur n'aurait plus aucun moyen de revenir
-   * sur sa décision : on garde les renvois sous les yeux jusqu'à la fin de la
-   * séance.
-   */
-  function blocRenvoyes() {
-    const dehors = listeRenvois.filter((r) =>
-      !participants.some((p) => p.user_id === r.user_id));
-    if (!dehors.length) return null;
-
-    const parId = new Map(equipe.map((m) => [m.user_id, m]));
-    return el("div.renvoyes",
-      el("span.renvoyes__titre", icone("renvoi", 12), " Renvoyés de cette séance"),
-      dehors.map((r) => {
-        const membre = parId.get(r.user_id);
-        const nom = nomAffiche(fichesRP.get(r.user_id), membre?.profil) || "Un membre";
-        return el("div.renvoyes__ligne",
-          el("div", { style: { flex: "1", minWidth: "0" } },
-            el("div.tronque", nom),
-            el("div.petit.faible", (r.reason || "").trim() || "Aucun motif porté.")),
-          el("button.btn.btn--fantome.btn--icone", {
-            title: "Lever le renvoi", "aria-label": `Lever le renvoi de ${nom}`,
-            onclick: () => leverRenvoi({ user_id: r.user_id, nom })
-          }, icone("entree", 14))
-        );
-      })
-    );
-  }
-
-  /**
-   * Ce qu'un encadrant peut faire d'un participant. Trois de ces gestes
-   * supposent qu'on soit à côté de lui : le site le demande avant, il ne le
-   * vérifie pas après.
-   */
-  function menuParticipant(ancre, participant, renvoye) {
-    menu(ancre, [
-      offre(session, "cartable")
-        ? { libelle: "Demander son cahier", icone: "cahier",
-            action: () => inspecterSupport(participant) }
-        : null,
-      offre(session, "papiers")
-        ? { libelle: "Lui tendre un papier", icone: "papier",
-            action: () => remettreUnPapier(participant) }
-        : null,
-      { libelle: "Lui tendre un cahier", icone: "cahier",
-        action: () => tendreCahier(participant) },
-      { libelle: "Lui tendre un objet", icone: "sac",
-        action: () => tendreUnObjet(participant) },
-      { libelle: "Lui demander un objet", icone: "main",
-        action: () => demanderUnObjet(participant) },
-      staff
-        ? { libelle: "Changer de place", icone: "grille",
-            action: () => {
-              placerQui = participant;
-              toast(`Où asseoir ${nomPersonne(participant)} ?`, { corps: "Cliquez une place libre dans la salle.", type: "info" });
-            } }
-        : null,
-      staff && Number.isInteger(session.plan?.[participant.user_id])
-        ? { libelle: "Le laisser choisir sa place", icone: "profil",
-            action: async () => {
-              const plan = { ...(session.plan || {}) };
-              delete plan[participant.user_id];
-              session.plan = plan;
-              decor.majClasse();
-              await depotSessions.majorer(session.id, { plan }).catch((e) => erreur("Plan non enregistré", messageErreur(e)));
-            } }
-        : null,
-      staff && offre(session, "cartable")
-        ? { libelle: "Confisquer un objet", icone: "bouclier", danger: true,
-            action: () => confisquer(participant) }
-        : null,
-      staff
-        ? { libelle: "Porter une note", icone: "balance",
-            action: () => porterUneNote({ classe, session, participant }) }
-        : null,
-      enRP
-        ? { libelle: "Inscrire au livret", icone: "etoile",
-            action: () => inscrire(participant.user_id) }
-        : null,
-      { separateur: true },
-      renvoye
-        ? { libelle: "Lever le renvoi", icone: "entree",
-            action: () => leverRenvoi(participant) }
-        : { libelle: "Le renvoyer de la séance", icone: "renvoi", danger: true,
-            action: () => renvoyer(participant) }
-    ].filter(Boolean));
-  }
-
-  /* --- Inspection d'un support apporté --------------------------------------- */
-
-  /**
-   * L'encadrement a le droit d'ouvrir ce qu'on a apporté — c'est un droit, pas
-   * une demande. Mais il ne s'exerce pas à distance, et jamais en cachette :
-   * le propriétaire en est averti par la procédure elle-même.
-   */
-  async function inspecterSupport(participant) {
-    const sac = sacs.get(participant.user_id);
-    const apportes = depotCartable.apportes(sac);
-    if (!apportes.length) {
-      toast(`${participant.nom || "Ce membre"} n'a rien apporté : il n'y a rien à ouvrir.`);
-      return;
-    }
-
-    let supports = [];
-    try {
-      supports = (await depotCahiers.mesCahiers(participant.user_id))
-        .filter((c) => apportes.includes(String(c.id)));
-    } catch { supports = []; }
-
-    if (!supports.length) {
-      // Le sac dit qu'il a apporté quelque chose, mais on n'y a pas accès :
-      // on tente quand même par identifiant, la procédure tranchera.
-      const intitules = sac?.notebooks && !Array.isArray(sac.notebooks) ? sac.notebooks : {};
-      supports = apportes.map((id) => ({
-        id, title: intitules[id] || "Support apporté", support: "cahier"
-      }));
-    }
-
-    const choix = supports.length === 1 ? supports[0].id : await formulaire({
-      titre: "Quel support ?",
-      champs: [{
-        cle: "cahier", label: "Ce qu'il a dans son sac", type: "select",
-        valeur: supports[0].id,
-        options: supports.map((c) => ({ valeur: c.id, libelle: c.title }))
-      }],
-      libelle: "Continuer"
-    }).then((r) => r?.cahier);
-    if (!choix) return;
-
-    const proche = await exigerProximite({
-      motif: "cahier",
-      cible: participant.profil || participant,
-      personnage: fichesRP.get(participant.user_id),
-      detail: supports.find((c) => String(c.id) === String(choix))?.title || null
-    });
-    if (!proche) return;
-
-    let cahier;
-    try {
-      cahier = await depotCahiers.inspecter(choix, classe.id);
-    } catch (err) {
-      erreur("Consultation impossible", messageErreur(err));
-      return;
-    }
-
-    const ligne = Array.isArray(cahier) ? cahier[0] : cahier;
-
-    // La marge suit la page ouverte : on annote ce qu'on est en train de
-    // lire, pas une page choisie dans une liste.
-    const marge = creerMarge({
-      peutAnnoter: true, auteurId: etat.utilisateur.id, nomAuteur: monNom()
-    });
-    const editeur = ouvrirCahierInspecte({
-      cahier: ligne, peutEcrire: false, compact: true, rp: reglagesRP(classe),
-      surPage: (page) => marge.suivre(page)
-    });
-
-    await ouvrirModale({
-      titre: `Le ${ligne.support || "cahier"} de ${participant.nom || "ce membre"}`,
-      large: true,
-      corps: () => el("div.inspection",
-        el("p.petit.faible",
-          icone("oeil", 12),
-          " Sa copie reste intacte : vous ne pouvez écrire que dans la marge, "
-          + "et il verra de quelle main. L'intéressé a été prévenu."),
-        el("div.inspection--annotable", editeur.noeud, marge.noeud)),
-      actions: [{ libelle: "Rendre le cahier", variante: "primaire", valeur: true }],
-      surFermeture: () => editeur.detruire()
-    });
-
-    journal.ecrire({
-      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-      action: "cahier.inspection", meta: { cahier: ligne.id, membre: participant.user_id }
-    });
-  }
-
-  /* --- Renvoi ---------------------------------------------------------------- */
-
-  /**
-   * « Vous ne faites pas partie de ce cours. » On sort de la séance, pas de la
-   * classe : le lien reste, la scène s'arrête là pour aujourd'hui.
-   */
-  async function renvoyer(participant) {
-    const sortie = await formulaire({
-      titre: `Renvoyer ${participant.nom || "ce membre"}`,
-      note: "Le motif sera lu par l'intéressé et porté au registre de la séance.",
-      champs: [{
-        cle: "motif", label: "Motif", type: "textarea", lignes: 3,
-        placeholder: "Ne figure pas sur la liste des inscrits à cette instruction."
-      }],
-      libelle: "Continuer"
-    });
-    if (!sortie) return;
-
-    const proche = await exigerProximite({
-      motif: "renvoi",
-      cible: participant.profil || participant,
-      personnage: fichesRP.get(participant.user_id)
-    });
-    if (!proche) return;
-
-    try {
-      await renvois.renvoyer(session.id, participant.user_id, sortie.motif, true);
-      listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
-      succes(`${participant.nom || "Le membre"} a été prié de sortir`);
-      peindrePanneau();
-    } catch (err) {
-      erreur("Renvoi impossible", messageErreur(err));
-    }
-  }
-
-  async function leverRenvoi(participant) {
-    const ligne = listeRenvois.find((r) => r.user_id === participant.user_id);
-    if (!ligne) return;
-    try {
-      await renvois.lever(ligne.id);
-      listeRenvois = listeRenvois.filter((r) => r.id !== ligne.id);
-      toast("Renvoi levé : il peut revenir.");
-      peindrePanneau();
-    } catch (err) {
-      erreur("Impossible", messageErreur(err));
-    }
-  }
-
-  /* --- Mode de la séance ------------------------------------------------------ */
-  function choisirMode(ancre) {
-    menu(ancre, LISTE_MODES.map((m) => ({
-      libelle: m.libelle, icone: m.icone,
-      action: async () => {
-        if (m.cle === (session.mode || "cours")) return;
-        try {
-          const maj = await depotSessions.definirMode(session.id, m.cle);
-          session.mode = maj?.mode || m.cle;
-          modeSeance = modeDe(session);
-          if (!offre(session, "tableau") && scene === "tableau") scene = "cahier";
-          await diffuserFocus({ kind: scene, ref: null, mode: session.mode });
-          peindreBandeau(); peindrePanneau(); await peindreScene(); decor.peindre(); consoleSalle.peindreBarre();
-          toast(`Séance en mode « ${m.libelle} »`);
-        } catch (err) {
-          erreur("Changement impossible", messageErreur(err));
-        }
-      }
-    })));
-  }
-
-  /* --- La privation de matériel ----------------------------------------------- */
-
-  /**
-   * Suis-je privé d'écrire, à cet instant ? Une seule source de vérité :
-   * tout ce qui peut s'écrire passe par ici, sans quoi on finirait avec un
-   * tableau verrouillé et un cahier qui s'ouvre quand même.
-   */
-  function prive() {
-    return !staff && privations.prive(maPrivation);
-  }
-
-  /** Ce qui manque à quelqu'un pour pouvoir travailler. */
-  function manqueDeQuoiEcrire(utilisateurId) {
-    if (!regles.bloquant || !offre(session, "cartable")) return [];
-    if (attendu.vide()) return [];
-    const sac = sacs.get(utilisateurId);
-    // Posséder une plume et l'avoir sur soi ce matin sont deux choses. Un sac
-    // qui n'a pas été repris pour cette séance ne compte pas : sans quoi on
-    // s'équiperait une fois en septembre pour toute l'année.
-    return nePeutPasEcrire(
-      depotCartable.equipePour(sac, session.id) ? sac : null, attendu);
-  }
-
-  /** Ses affaires sont-elles équipées pour cette séance-ci ? */
-  function affairesEquipees(utilisateurId = etat.utilisateur.id) {
-    return depotCartable.equipePour(sacs.get(utilisateurId), session.id);
-  }
-
-  /**
-   * À l'entrée : celui qui n'a rien pour écrire l'apprend tout de suite. On
-   * n'ouvre la privation qu'une fois — ressortir et revenir ne remet pas le
-   * compteur à zéro.
-   */
-  async function ouvrirPrivationSiBesoin() {
-    if (staff) return;
-    const manquants = manqueDeQuoiEcrire(etat.utilisateur.id);
-    if (!manquants.length) return;
-    try {
-      maPrivation = await privations.ouvrir({
-        sessionId: session.id, classeId: classe.id, utilisateurId: etat.utilisateur.id,
-        minutes: regles.minutes, manquants
-      });
-    } catch (err) {
-      // Une privation qu'on ne peut pas inscrire ne doit pas fermer la salle.
-      maPrivation = null;
-    }
-  }
-
-  /**
-   * Le bandeau du privé, ou rien du tout. On ne le reconstruit qu'au
-   * changement d'état : le reste du temps, seul le décompte bouge.
-   */
-  let bandeauPrive = null;
-  function peindrePrivation() {
-    if (!prive()) {
-      if (bandeauPrive) { render(zonePrivation); bandeauPrive = null; }
-      return;
-    }
-    const secondes = privations.secondesRestantes(maPrivation);
-    if (bandeauPrive?.dataset.etat === maPrivation.state) {
-      bandeauPrive.majDelai(secondes);
-      return;
-    }
-    bandeauPrive = bandeauPrivation({
-      manquants: (maPrivation.missing || []).length
-        ? maPrivation.missing : manqueDeQuoiEcrire(etat.utilisateur.id),
-      privation: maPrivation, secondes,
-      surDemande: demanderSesAffaires,
-      surAffaires: () => ouvrirCartable()
-    });
-    bandeauPrive.dataset.etat = maPrivation.state;
-    render(zonePrivation, bandeauPrive);
-  }
-
-  /** « Puis-je aller les chercher ? » — la main levée du cadet démuni. */
-  async function demanderSesAffaires() {
-    if (!maPrivation) return;
-    try {
-      maPrivation = await privations.demander(maPrivation.id);
-      canalSession?.envoyer("privation", { user_id: etat.utilisateur.id });
-      toast("Demande transmise", { corps: "Le maître décidera." });
-      peindrePrivation();
-    } catch (err) {
-      erreur("Demande impossible", messageErreur(err));
-    }
-  }
-
-  /** La décision du maître. Accordée, la privation tombe sur-le-champ. */
-  async function trancherPrivation(privation, accorde) {
-    try {
-      await privations.trancher(privation.id, accorde, etat.utilisateur.id);
-      canalSession?.envoyer("privation", { user_id: privation.user_id });
-      await rafraichirPrivations();
-      peindrePanneau();
-      journal.ecrire({
-        class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-        action: accorde ? "materiel.autorise" : "materiel.refuse",
-        meta: { membre: privation.user_id }
-      });
-    } catch (err) {
-      erreur("Décision non enregistrée", messageErreur(err));
-    }
-  }
-
-  async function leverPrivation(privation) {
-    try {
-      await privations.lever(privation.id, etat.utilisateur.id);
-      canalSession?.envoyer("privation", { user_id: privation.user_id });
-      await rafraichirPrivations();
-      peindrePanneau();
-    } catch (err) {
-      erreur("Levée impossible", messageErreur(err));
-    }
-  }
-
-  async function rafraichirPrivations() {
-    if (!offre(session, "cartable") || !regles.bloquant) return;
-    try {
-      const lignes = await privations.liste(session.id);
-      privationsSeance = new Map(lignes.map((l) => [l.user_id, l]));
-      if (!staff) {
-        maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
-        peindrePrivation();
-      }
-    } catch { /* la salle vit sans */ }
-  }
-
-  /* --- Cartable et papiers ---------------------------------------------------- */
-  async function ouvrirCartable() {
-    await preparerAffaires({
-      classe, session,
-      surEnregistrement: async () => {
-        sacs = await depotCartable.liste(classe.id).catch(() => sacs);
-        await rafraichirPrivations();
-        // Le laissez-passer accordé a déjà levé la privation : rouvrir son sac
-        // sert alors à y remettre ce qui manquait, sous l'œil du maître, qui
-        // voit dans la liste des présents si c'est vraiment fait.
-        peindrePrivation();
-        await peindreScene();
-        peindrePanneau();
-      }
-    });
-  }
-
-  /* --- Tendre un cahier ------------------------------------------------------ */
-
-  /** Tendre le sien à quelqu'un qui se tient là. */
-  async function tendreCahier(destinataire = null) {
-    const remise = await tendreSonCahier({
-      classe, session, fiches: fichesRP,
-      candidats: (destinataire ? [destinataire] : participants)
-        .filter((p) => p.user_id !== etat.utilisateur.id)
-        .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }))
-    });
-    if (remise) {
-      canalSession?.envoyer("cahier-tendu", { pour: remise.to_user });
-      await peindreMonCahier().catch(() => {});
-    }
-  }
-
-  /* --- Tendre, demander, confisquer un objet --------------------------------- */
-
-  const candidatsProches = (destinataire = null) =>
-    (destinataire ? [destinataire] : participants)
-      .filter((p) => p.user_id !== etat.utilisateur.id)
-      .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }));
-
-  /** Choisir lequel des miens je tends. On ne tend pas ce qu'on n'a pas sur soi. */
-  async function tendreUnObjet(destinataire = null) {
-    mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
-    const disponibles = mesAffaires.filter((o) =>
-      String(o.owner_id) === String(etat.utilisateur.id)
-      && o.state !== "confiscated" && o.state !== "lost"
-      && !ficheObjet(o.kind)?.contenant);
-    if (!disponibles.length) {
-      toast("Vous n'avez rien à tendre.", { corps: "Passez par Mes affaires pour vous équiper." });
-      return;
-    }
-    const sortie = await formulaire({
-      titre: "Lequel ?",
-      champs: [{ cle: "objet", label: "Dans vos affaires", type: "select",
-        valeur: disponibles[0].id,
-        options: disponibles.map((o) => ({ valeur: o.id, libelle: nomObjet(o) })) }],
-      libelle: "Continuer"
-    });
-    if (!sortie?.objet) return;
-    const objet = disponibles.find((o) => String(o.id) === String(sortie.objet));
-
-    const fait = await tendreObjet({
-      objet, classe, session, candidats: candidatsProches(destinataire), fiches: fichesRP
-    });
-    if (fait) {
-      canalSession?.envoyer("objet", {});
-      mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
-    }
-  }
-
-  async function demanderUnObjet(destinataire = null) {
-    const fait = await demanderObjet({
-      classe, session, candidats: candidatsProches(destinataire), fiches: fichesRP
-    });
-    if (fait) canalSession?.envoyer("objet", {});
-  }
-
-  /**
-   * Confisquer. La base ne l'accepte que sur un objet qui a été apporté : ce
-   * qui est resté chez lui est hors de portée, exactement comme un cahier non
-   * déclaré au cartable.
-   */
-  async function confisquer(participant) {
-    const sac = sacs.get(participant.user_id);
-    const declare = sac?.supplies;
-    const liste = !declare || Array.isArray(declare) ? [] :
-      Object.entries(declare).map(([id, v]) => ({
-        id, label: typeof v === "string" ? v : (v.label || nomType(v.kind)), kind: v?.kind || null
-      }));
-    if (!liste.length) {
-      toast(`${participant.nom || "Ce membre"} n'a rien apporté : il n'y a rien à prendre.`);
-      return;
-    }
-    const sortie = await formulaire({
-      titre: "Confisquer",
-      champs: [{ cle: "objet", label: "Ce qu'il a sur lui", type: "select",
-        valeur: liste[0].id,
-        options: liste.map((o) => ({ valeur: o.id, libelle: o.label })) }],
-      libelle: "Continuer"
-    });
-    if (!sortie?.objet) return;
-
-    const proche = await exigerProximite({
-      motif: "objet", cible: participant.profil || participant,
-      personnage: fichesRP.get(participant.user_id),
-      detail: liste.find((o) => o.id === sortie.objet)?.label || null
-    });
-    if (!proche) return;
-
-    const choisi = liste.find((o) => o.id === sortie.objet);
-    const fait = await confisquerObjet({
-      objet: { id: choisi.id, kind: choisi.kind, label: choisi.label },
-      classe, proprietaire: participant.profil || participant,
-      fiche: fichesRP.get(participant.user_id)
-    });
-    if (fait) {
-      canalSession?.envoyer("objet", {});
-      journal.ecrire({
-        class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-        action: "affaires.confiscation", meta: { membre: participant.user_id, objet: choisi.id }
-      });
-    }
-  }
-
-  /** Reprendre ce qu'on a prêté. Le prêt s'arrête, la lecture avec. */
-  async function reprendreCahier(remise) {
-    try {
-      await remisesCahier.reprendre(remise.id);
-      toast("Cahier repris");
-      await peindreMonCahier();
-    } catch (err) {
-      erreur("Reprise impossible", messageErreur(err));
-    }
-  }
-
-  /** Rendre ce qu'on nous a prêté, de sa propre main. */
-  async function rendreCahier(support) {
-    try {
-      const remises = await remisesCahier.empruntes(etat.utilisateur.id);
-      const sienne = remises.find((r) => String(r.notebook_id) === String(support.id));
-      if (!sienne) return;
-      await remisesCahier.rendre(sienne.id);
-      cahierOuvertId = null;
-      toast("Cahier rendu");
-      await peindreMonCahier();
-    } catch (err) {
-      erreur("Restitution impossible", messageErreur(err));
-    }
-  }
-
-  /**
-   * Ce qu'on nous tend. On regarde au chargement et à chaque remise : un
-   * cahier tendu qu'on ne verrait qu'au prochain rechargement ne serait pas
-   * tendu, il serait posté.
-   */
-  async function releverCahiersTendus() {
-    let enAttente = [];
-    try { enAttente = await remisesCahier.enAttente(etat.utilisateur.id); } catch { return; }
-    for (const remise of enAttente) {
-      const support = await depotCahiers.lire(remise.notebook_id).catch(() => null);
-      const donneur = equipe.find((m) => m.user_id === remise.from_user);
-      const issue = await accueillirRemiseCahier(remise, {
-        titre: support?.title,
-        de: nomAffiche(fichesRP.get(remise.from_user), donneur?.profil)
-          || donneur?.profil?.display_name
-      });
-      if (issue === "prise" && scene === "moncahier") await peindreMonCahier();
-    }
-  }
-
-  /** Rédiger puis tendre. Le papier existe avant le geste, jamais l'inverse. */
-  async function remettreUnPapier(destinataire = null) {
-    const papier = await composerPapier({ classe });
-    if (!papier) return;
-
-    const candidats = (destinataire ? [destinataire] : participants)
-      .filter((p) => p.user_id !== etat.utilisateur.id)
-      .map((p) => ({ user_id: p.user_id, profil: p.profil || null, nom: p.nom }));
-
-    if (!candidats.length) {
-      toast("Le papier est dans votre sacoche : vous le tendrez quand quelqu'un sera là.");
-      return;
-    }
-    await tendrePapier({ papier, classe, session, candidats, fiches: fichesRP });
-  }
-
-  function libelleScene(nom) {
-    return { tableau: "Regarde le tableau", cahier: "Cahier commun",
-             moncahier: "Écrit dans son cahier",
-             document: "Consulte un document", exercice: "Répond à l'exercice" }[nom] || "En ligne";
-  }
-
-  /** Nom à afficher pour l'auteur d'une question : le personnage d'abord. */
-  function nomDe(ligne) {
-    return nomAffiche(fichesRP.get(ligne.user_id), ligne.profil) || "Participant";
-  }
-
-  function panneauQuestions() {
-    const ouvertes = listeQuestions.filter((q) => q.status !== "dismissed");
-    if (!ouvertes.length) {
-      return el("p.petit.faible", { style: { padding: "var(--e-4)" } }, "Aucune question posée.");
-    }
-    return el("div", ouvertes.map((q) => el("div.question", { dataset: { statut: q.status } },
-      el("div.question__entete",
-        el("span.avatar", initiales(nomDe(q))),
-        el("b.petit", nomDe(q)),
-        q.out_of_character ? el("span.etiq.etiq--hrp", "hors-RP") : null,
-        el("span.petit.faible", depuis(q.created_at))
-      ),
-      el("div.question__corps",
-        q.out_of_character ? el("span.hrp", q.body) : baliserHRP(q.body)),
-      q.context ? el("span.petit.faible", q.context) : null,
-      q.answer ? el("div.question__reponse", baliserHRP(q.answer)) : null,
-      staff && q.status === "open"
-        ? el("div.ligne-flex", { style: { marginTop: "var(--e-2)" } },
-            el("button.btn.petit", { onclick: () => repondreQuestion(q) }, "Répondre"),
-            el("button.btn.btn--fantome.petit", {
-              onclick: async () => { await depotQuestions.ignorer(q.id); await rafraichirQuestions(); }
-            }, "Écarter")
-          )
-        : null
-    )));
-  }
-
-  function panneauSondage() {
-    if (!sondageActif) {
-      return el("div", { style: { padding: "var(--e-4)" } },
-        el("p.petit.faible", "Aucun sondage en cours."),
-        staff ? el("button.btn.btn--bloc", { onclick: lancerSondage },
-          icone("sondage", 15), "Lancer un sondage") : null
-      );
-    }
-    const total = votesSondage.length;
-    const monVote = votesSondage.find((v) => v.user_id === etat.utilisateur.id);
-
-    return el("div.sondage",
-      el("div.sondage__question", sondageActif.question),
-      (sondageActif.options || []).map((option, i) => {
-        const compte = votesSondage.filter((v) => v.choice === i).length;
-        const part = total ? Math.round((compte / total) * 100) : 0;
-        return el("button.sondage__option", {
-          "aria-pressed": String(monVote?.choice === i),
-          disabled: sondageActif.status !== "open" || staff,
-          onclick: () => voter(i)
-        },
-          (staff || monVote || sondageActif.status !== "open")
-            ? el("span.sondage__barre", { style: { width: `${part}%` } })
-            : null,
-          el("span.sondage__texte",
-            el("span", option),
-            (staff || monVote || sondageActif.status !== "open")
-              ? el("span.mono.petit", `${compte} · ${part} %`) : null
-          )
-        );
-      }),
-      el("div.ligne-flex", { style: { marginTop: "var(--e-3)" } },
-        el("span.petit.faible", pluriel(total, "réponse")),
-        staff && sondageActif.status === "open"
-          ? el("button.btn.petit.pousse", {
-              onclick: async () => { await sondages.fermer(sondageActif.id); await rafraichirSondage(); }
-            }, "Clore le sondage")
-          : null,
-        staff && sondageActif.status !== "open"
-          ? el("button.btn.petit.pousse", { onclick: lancerSondage }, "Nouveau sondage")
-          : null
-      )
-    );
-  }
-
-  function panneauJournal() {
-    return el("div.journal", { ref: async (noeud) => {
-      const entrees = await journal.liste({ session_id: session.id }, 60);
-      const LIBELLES = {
-        "session.start": "Session ouverte", "session.check_in": "a rejoint la session",
-        "session.end": "Session terminée", "board.capture": "Tableau capturé dans le cahier",
-        "exercise.launch": "Exercice lancé", "exercise.close": "Exercice fermé",
-        "exercise.submit": "a rendu l'exercice", "document.share": "Document distribué",
-        "poll.open": "Sondage lancé", "announcement": "Annonce publiée",
-        "livret.entree": "Inscription au livret",
-        "focus": "Changement de page"
-      };
-      render(noeud, entrees.length
-        ? entrees.map((e) => el("div.journal__ligne",
-            el("span.journal__heure", heure(e.created_at)),
-            el("span", `${e.meta?.nom ? e.meta.nom + " " : ""}${LIBELLES[e.action] || e.action}`)
-          ))
-        : el("p.petit.faible", { style: { padding: "var(--e-4)" } }, "Le journal se remplira au fil du cours."));
-    } });
-  }
-
-  function panneauNotes() {
-    const cle = `ojm.notes.${session.id}`;
-    const enregistrer = debounce((valeur) => local.ecrire(cle, valeur), 500);
-    return el("div", { style: { padding: "var(--e-3)" } },
-      el("p.petit.faible", { style: { marginBottom: "var(--e-2)" } },
-        "Visible de vous seul, même quand le professeur pilote l'affichage."),
-      el("div.note-perso",
-        el("textarea", {
-          value: local.lire(cle, ""),
-          placeholder: "Mes notes personnelles…",
-          "aria-label": "Notes personnelles",
-          oninput: (e) => enregistrer(e.target.value)
-        })
-      ),
-      el("button.btn.btn--bloc", {
-        style: { marginTop: "var(--e-3)" },
-        onclick: verserNotesAuCahier
-      }, icone("cahier", 15), "Verser dans mon cahier")
-    );
-  }
-
-  async function verserNotesAuCahier() {
-    const texte = local.lire(`ojm.notes.${session.id}`, "");
-    if (!texte.trim()) { toast("Aucune note à verser"); return; }
-
-    const mesCahiers = await cahiers.mesCahiers(etat.utilisateur.id);
-    let cible = mesCahiers[0];
-    if (!cible) {
-      cible = await cahiers.creer({
-        owner_id: etat.utilisateur.id, kind: "personal", title: "Notes de cours",
-        cover: "parchment", color: "olive", icon: "book"
-      });
-    } else if (mesCahiers.length > 1) {
-      const sortie = await formulaire({
-        titre: "Verser mes notes",
-        champs: [{
-          cle: "cahier", label: "Cahier de destination", type: "select",
-          valeur: mesCahiers[0].id,
-          options: mesCahiers.map((c) => ({ valeur: c.id, libelle: c.title }))
-        }],
-        libelle: "Verser"
-      });
-      if (!sortie) return;
-      cible = mesCahiers.find((c) => c.id === sortie.cahier);
-    }
-
-    const corps = texte.split("\n").map((l) => `<p>${l.replace(/[<>&]/g, "")}</p>`).join("");
-    await depotPages.creer(cible.id, {
-      title: `${session.title} — ${classe.name}`,
-      body: corps, created_by: etat.utilisateur.id
-    });
-    succes("Notes versées", `Ajoutées à « ${cible.title} ».`);
-  }
-
-  function panneauAnnonces() {
-    return el("div", { style: { padding: "var(--e-3)" }, ref: async (noeud) => {
-      const liste = await annonces.liste({ class_id: classe.id }, 12);
-      render(noeud, liste.length
-        ? liste.map((a) => el("div.annonce", { dataset: { niveau: a.level } },
-            el("div.annonce__titre",
-              heure(a.created_at),
-              a.out_of_character ? el("span.etiq.etiq--hrp", { style: { marginLeft: "6px" } }, "hors-RP") : null),
-            el("div.annonce__corps",
-              a.out_of_character ? el("span.hrp", a.title) : baliserHRP(a.title)),
-            a.body ? el("p.petit.doux", { style: { margin: "6px 0 0" } }, baliserHRP(a.body)) : null
-          ))
-        : el("p.petit.faible", "Aucune annonce."));
-    } });
-  }
-
-  /* --- Actions de session --------------------------------------------------------- */
-  function maMainLevee() {
-    return listeMains.some((m) => m.user_id === etat.utilisateur.id && m.status === "raised");
-  }
-
-  async function basculerMain() {
-    try {
-      if (maMainLevee()) await mains.baisser(session.id, etat.utilisateur.id);
-      else {
-        await mains.lever(session.id, etat.utilisateur.id);
-        canalSession?.envoyer("main", { nom: monNom() });
-      }
-      await rafraichirMains();
-    } catch (err) {
-      erreur("Action impossible", messageErreur(err));
-    }
-  }
-
-  async function repondreMain(main, statut) {
-    await mains.majorer(main.id, { status: statut });
-    if (statut === "accepted") {
-      canalSession?.envoyer("parole", { utilisateur: main.user_id });
-    }
-    await rafraichirMains();
-  }
-
-  async function poserQuestion() {
-    const rp = reglagesRP(classe);
-    const sortie = await formulaire({
-      titre: "Poser une question",
-      note: rp.hrpAutorise
-        ? "Votre personnage lève la main. Si la question vient de vous et non de lui, "
-          + "cochez « hors-roleplay » : elle sera marquée comme telle et ne polluera pas la scène."
-        : null,
-      champs: [
-        { cle: "body", label: "Votre question", type: "textarea", lignes: 3, requis: true,
-          placeholder: "Je n'ai pas saisi la manœuvre, mon instructeur." },
-        ...(rp.hrpAutorise
-          ? [{ cle: "hrp", label: "Question hors-roleplay (elle sort du personnage)", type: "checkbox" }]
-          : [])
-      ],
-      libelle: "Envoyer"
-    });
-    if (!sortie?.body) return;
-    const texte = sortie.body;
-    try {
-      await depotQuestions.poser({
-        session_id: session.id, user_id: etat.utilisateur.id,
-        body: texte, context: contexteCourant(),
-        out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
-      });
-      canalSession?.envoyer("question", { nom: monNom() });
-      succes("Question envoyée", `Le ${L("professeur")} la verra dans son panneau.`);
-      await rafraichirQuestions();
-    } catch (err) {
-      erreur("Envoi impossible", messageErreur(err));
-    }
-  }
-
-  function contexteCourant() {
-    if (scene === "tableau") return `Tableau ${indexPage + 1}`;
-    if (scene === "cahier") return "Cahier commun";
-    if (scene === "document") return documentAffiche?.title || "Document";
-    if (scene === "exercice") return exerciceActif?.title || "Exercice";
-    return null;
-  }
-
-  async function repondreQuestion(question) {
-    const reponse = await demander({
-      titre: `Répondre à ${question.profil?.display_name || "l'élève"}`,
-      label: "Réponse", valeur: "", multiligne: true, libelle: "Répondre"
-    });
-    if (!reponse) return;
-    await depotQuestions.repondre(question.id, reponse, etat.utilisateur.id);
-    await rafraichirQuestions();
-  }
-
-  async function lancerSondage() {
-    const sortie = await formulaire({
-      titre: "Lancer un sondage",
-      champs: [
-        { cle: "question", label: "Question", valeur: "Avez-vous compris ?", requis: true },
-        { cle: "options", label: "Réponses (une par ligne)", type: "textarea",
-          valeur: "Oui\nPartiellement\nNon", lignes: 4, requis: true }
-      ],
-      libelle: "Lancer"
-    });
-    if (!sortie) return;
-    const options = sortie.options.split("\n").map((o) => o.trim()).filter(Boolean);
-    if (options.length < 2) { erreur("Deux réponses minimum"); return; }
-
-    if (sondageActif?.status === "open") await sondages.fermer(sondageActif.id);
-    await sondages.creer({
-      session_id: session.id, author_id: etat.utilisateur.id,
-      question: sortie.question, options, kind: "poll"
-    });
-    journal.ecrire({ class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id, action: "poll.open" });
-    ongletPanneau = "sondage";
-    await rafraichirSondage();
-    peindrePanneau();
-  }
-
-  async function voter(choix) {
-    try {
-      await sondages.voter(sondageActif.id, etat.utilisateur.id, choix);
-      await rafraichirSondage();
-      peindrePanneau();
-    } catch (err) {
-      erreur("Vote impossible", messageErreur(err));
-    }
-  }
-
-  async function pilotageMinuterie(action) {
-    if (!minuterie) return;
-    if (action === "retirer") {
-      await minuteries.supprimer(minuterie.id);
-      minuterie = null;
-      peindreBandeau();
-      return;
-    }
-    if (action === "pause") {
-      const ecoule = minuterie.elapsed_sec
-        + Math.floor((Date.now() - new Date(minuterie.started_at).getTime()) / 1000);
-      minuterie = await minuteries.majorer(minuterie.id, { state: "paused", elapsed_sec: ecoule });
-    } else if (action === "reprise") {
-      minuterie = await minuteries.majorer(minuterie.id, { state: "running", started_at: new Date().toISOString() });
-    } else if (action === "reset") {
-      minuterie = await minuteries.majorer(minuterie.id, { state: "idle", elapsed_sec: 0, started_at: null });
-    }
-    peindreBandeau();
-  }
-
-  async function creerMinuterie() {
-    const sortie = await formulaire({
-      titre: "Minuterie de séance",
-      champs: [
-        { cle: "label", label: "Intitulé", valeur: "Travail individuel", requis: true },
-        { cle: "kind", label: "Type", type: "select", valeur: "countdown", options: [
-          { valeur: "countdown", libelle: "Compte à rebours" },
-          { valeur: "chrono", libelle: "Chronomètre" }
-        ] },
-        { cle: "minutes", label: "Durée (minutes)", type: "number", valeur: 10, min: 1, max: 180 }
-      ],
-      libelle: "Lancer"
-    });
-    if (!sortie) return;
-    minuterie = await minuteries.creer({
-      session_id: session.id, label: sortie.label, kind: sortie.kind,
-      duration_sec: Math.max(60, (sortie.minutes || 10) * 60),
-      state: "running", started_at: new Date().toISOString(), elapsed_sec: 0
-    });
-    peindreBandeau();
-  }
-
-  async function diffuserFocus(focus) {
-    refScene = focus.page ?? null;
-    try {
-      await depotSessions.majorer(session.id, { focus });
-      canalSession?.envoyer("focus", focus);
-    } catch (err) {
-      console.warn("[salle] focus non diffusé", err);
-    }
-  }
-
-  function basculerSuivi(actif) {
-    suit = actif;
-    definir({ suitProfesseur: actif });
-    local.ecrire(`ojm.suivi.${session.id}`, actif);
-    peindreBandeau();
-    if (actif) appliquerFocus(session.focus);
-    else toast("Navigation libre", { corps: "Vous ne suivez plus l'affichage du professeur." });
-  }
-
-  async function appliquerFocus(focus) {
-    if (!focus?.kind) return;
-    session.focus = focus;
-    // On écrit dans son cahier : le tableau change au fond, on ne nous
-    // l'arrache pas des mains.
-    if (staff || !suit || fenetre === "cahier") return;
-
-    if (focus.kind === "tableau") {
-      scene = "tableau";
-      indexPage = focus.page ?? 0;
-      if (indexPage >= pagesTableau.length) pagesTableau = await tableaux.pages(tableau.id);
-    } else if (focus.kind === "cahier") {
-      scene = "cahier";
-      refScene = focus.page || null;
-    } else if (focus.kind === "document") {
-      scene = "document";
-      documentAffiche = await documents.lire(focus.ref).catch(() => null);
-    } else if (focus.kind === "exercice") {
-      scene = "exercice";
-      exerciceActif = await exercices.lire(focus.ref).catch(() => null);
-    }
-    await peindreScene();
-    majPresence();
-  }
-
-  function menuProfesseur(ancre) {
-    menu(ancre, [
-      { titre: "Afficher à la classe" },
-      offre(session, "tableau") ? { libelle: "Le tableau", icone: "tableau", action: async () => {
-        scene = "tableau"; await peindreScene(); await diffuserFocus({ kind: "tableau", ref: tableau.id, page: indexPage });
-      } } : null,
-      offre(session, "cahierCommun") ? { libelle: "Le cahier commun", icone: "cahier", action: async () => {
-        scene = "cahier"; await peindreScene();
-        await diffuserFocus({ kind: "cahier", ref: cahierCommun?.id, page: null });
-      } } : null,
-      offre(session, "documents")
-        ? { libelle: "Un document", icone: "documents", action: distribuerDocument } : null,
-      offre(session, "exercices")
-        ? { libelle: "Un exercice", icone: "exercices", action: choisirExercice } : null,
-      { separateur: true },
-      { titre: "Animation" },
-      { libelle: "Publier une annonce", icone: "megaphone", action: publierAnnonceSession },
-      offre(session, "sondage")
-        ? { libelle: modeSeance.motSondage || "Lancer un sondage", icone: "sondage", action: lancerSondage }
-        : null,
-      offre(session, "minuterie")
-        ? { libelle: "Minuterie / compte à rebours", icone: "chrono", action: creerMinuterie } : null,
-      { separateur: true },
-      { libelle: "Appel et présences", icone: "eleves", action: ouvrirPresences },
-      offre(session, "cartable")
-        ? { libelle: "Demander du matériel", icone: "sac", action: definirMateriel } : null,
-      { libelle: "Objets trouvés", icone: "main", action: () => ouvrirObjetsTrouves({ classe }) },
-      enRP ? { libelle: "Inscrire au livret", icone: "etoile", action: () => inscrire() } : null
-    ].filter(Boolean));
-  }
-
-  /**
-   * « Apportez votre cahier rouge, une plume, de l'encre et de quoi calculer. »
-   *
-   * Trois degrés, parce que tout ne se vaut pas : ce qui manque et qui se joue,
-   * ce qu'on signale, et ce qui est là pour mémoire. Et deux portées : cette
-   * séance, ou la classe — une consigne posée pour aujourd'hui ne doit pas
-   * réécrire ce qu'on avait demandé le mois dernier.
-   */
-  async function definirMateriel() {
-    const mesSupports = await depotCahiers.deClasse(classe.id).catch(() => []);
-
-    let portee = "seance";
-    let bloquant = regles.bloquant;
-    let minutes = regles.minutes;
-    let supportsTexte = attendu.supports.map((x) => x.title).join("\n");
-    const requis = attendu.requis.map((r) => ({ ...r }));
-    const pourMoi = attendu.professeur.map((r) => ({ ...r }));
-
-    const listeRequis = el("div.consigne__liste");
-    const listeMienne = el("div.consigne__liste");
-
-    const ordonnes = [...TYPES].sort((a, b) => nomType(a).localeCompare(nomType(b), "fr"));
-
-    /** Une ligne de consigne : l'objet, son degré, et de quoi la retirer. */
-    function ligne(entree, collection, zone, avecNiveau = true) {
-      return el("div.consigne__ligne",
-        figureObjet(entree.kind || "autre"),
-        el("select.saisie.saisie--etroite", {
-          onchange: (e) => {
-            entree.kind = e.currentTarget.value;
-            entree.label = nomType(entree.kind);
-            peindreListe(collection, zone, avecNiveau);
-          }
-        }, ordonnes.map((k) => el("option", { value: k, selected: k === entree.kind }, nomType(k)))),
-        avecNiveau
-          ? el("select.saisie.saisie--etroite", {
-              onchange: (e) => { entree.niveau = e.currentTarget.value; }
-            }, NIVEAUX.map((n) => el("option", { value: n.cle, selected: n.cle === entree.niveau,
-                title: n.aide }, n.libelle)))
-          : null,
-        el("button.btn.btn--fantome.btn--icone", {
-          type: "button", title: "Retirer",
-          onclick: () => {
-            collection.splice(collection.indexOf(entree), 1);
-            peindreListe(collection, zone, avecNiveau);
-          }
-        }, icone("croix", 13))
-      );
-    }
-
-    function peindreListe(collection, zone, avecNiveau) {
-      render(zone,
-        collection.length
-          ? collection.map((e) => ligne(e, collection, zone, avecNiveau))
-          : el("p.petit.faible", "Rien pour l'instant."),
-        el("button.btn.btn--fantome.btn--petit", {
-          type: "button",
-          onclick: () => {
-            collection.push({ kind: "plume", label: nomType("plume"), niveau: "obligatoire" });
-            peindreListe(collection, zone, avecNiveau);
-          }
-        }, icone("plus", 13), "Ajouter"));
-    }
-
-    const valide = await ouvrirModale({
-      titre: "Matériel demandé",
-      large: true,
-      corps: () => {
-        const noeud = el("div.consigne",
-          el("p.petit.faible",
-            "Ce qui manquera se verra dans la liste des présents. Vous décidez "
-            + "ensuite si l'oubli empêche de travailler, et pour combien de temps."),
-
-          el("label.champ",
-            el("span.champ__label", "Pour quoi"),
-            el("select.saisie", { onchange: (e) => { portee = e.currentTarget.value; } },
-              el("option", { value: "seance" }, "Cette séance seulement"),
-              el("option", { value: "classe" }, `Toute la ${L("classe")}, jusqu'à nouvel ordre`)),
-            el("span.champ__aide",
-              "Une consigne de séance reste attachée à cette séance : "
-              + "l'archive dira ce qui avait été demandé ce jour-là.")),
-
-          el("label.champ",
-            el("span.champ__label", "Supports attendus"),
-            el("textarea.zone", { rows: 3, value: supportsTexte,
-              placeholder: "Cahier de manœuvre\nCarnet de terrain",
-              oninput: (e) => { supportsTexte = e.currentTarget.value; } }),
-            el("span.champ__aide", "Un intitulé par ligne. Chacun apporte le sien.")),
-
-          el("div.champ",
-            el("span.champ__label", "Ce qu'ils doivent avoir"),
-            listeRequis,
-            el("span.champ__aide",
-              "Obligatoire : le manque se joue. Recommandé : on le signale. "
-              + "Facultatif : aucune alerte.")),
-
-          el("div.champ",
-            el("span.champ__label", "Ce que j'apporte, moi"),
-            listeMienne,
-            el("span.champ__aide",
-              "Votre propre matériel. Il apparaît dans vos affaires, et nulle part ailleurs.")),
-
-          el("label.case",
-            el("input", { type: "checkbox", checked: bloquant,
-              onchange: (e) => { bloquant = e.currentTarget.checked; } }),
-            el("span", "Sans de quoi écrire, on ne travaille pas")),
-          el("p.petit.faible",
-            "Le cadet démuni assiste au cours sans pouvoir rien noter. "
-            + "Vous seul pouvez l'autoriser à aller chercher ses affaires."),
-
-          el("label.champ",
-            el("span.champ__label", "Durée de la privation"),
-            el("select.saisie", { onchange: (e) => { minutes = Number(e.currentTarget.value); } },
-              MINUTES_OFFERTES.map((m) => el("option",
-                { value: String(m), selected: m === minutes }, `${m} minutes`))),
-            el("span.champ__aide", "Passé ce délai, elle tombe d'elle-même."))
-        );
-        peindreListe(requis, listeRequis, true);
-        peindreListe(pourMoi, listeMienne, false);
-        return noeud;
-      },
-      actions: [
-        { libelle: "Annuler", valeur: false },
-        { libelle: "Demander", variante: "primaire", valeur: true }
-      ]
-    });
-    if (!valide) return;
-
-    const supports = supportsTexte.split("\n")
-      .map((l) => l.trim()).filter(Boolean)
-      .map((titre) => {
-        const connu = mesSupports.find((c) => c.title.toLowerCase() === titre.toLowerCase());
-        return { id: connu?.id || titre.toLowerCase(), title: titre };
-      });
-
-    const materiel = consigneAEnregistrer({
-      supports, requis, professeur: pourMoi, bloquant, minutes
-    });
-
-    try {
-      if (portee === "seance") {
-        const maj = await depotSessions.majorer(session.id, { materiel });
-        session.materiel = maj?.materiel || materiel;
-      } else {
-        const maj = await depotClasses.majorer(classe.id, {
-          settings: { ...(classe.settings || {}), materiel }
-        });
-        classe.settings = maj?.settings || { ...(classe.settings || {}), materiel };
-        // On efface la consigne de séance, sinon la nouvelle règle de classe
-        // resterait invisible ici : elle est masquée par celle du jour.
-        if (session.materiel) {
-          await depotSessions.majorer(session.id, { materiel: null }).catch(() => {});
-          session.materiel = null;
-        }
-      }
-      attendu = materielAttendu(classe, session);
-      regles.bloquant = materiel.bloquant;
-      regles.minutes = materiel.minutes;
-      succes("Matériel demandé");
-      canalSession?.envoyer("materiel", {});
-      notifications.diffuser(classe.id, {
-        kind: "materiel", titre: "Matériel à apporter",
-        corps: attendu.enUneLigne() || "Rien de particulier.",
-        lien: `/classe/${classe.id}/salle`
-      }).catch(() => {});
-      peindrePanneau();
-    } catch (err) {
-      erreur("Consigne non enregistrée", messageErreur(err));
-    }
-  }
-
-  async function distribuerDocument() {
-    const liste = await documents.liste({ class_id: classe.id });
-    if (!liste.length) {
-      erreur("Aucun document", "Importez d'abord un document dans la bibliothèque de la classe.");
-      return;
-    }
-    const sortie = await formulaire({
-      titre: "Afficher un document",
-      champs: [{
-        cle: "document", label: "Document", type: "select",
-        valeur: liste[0].id,
-        options: liste.map((d) => ({ valeur: d.id, libelle: d.title }))
-      }],
-      libelle: "Afficher"
-    });
-    if (!sortie) return;
-
-    documentAffiche = liste.find((d) => d.id === sortie.document);
-    if (!documentAffiche.shared) await documents.majorer(documentAffiche.id, { shared: true });
-    scene = "document";
-    await peindreScene();
-    await diffuserFocus({ kind: "document", ref: documentAffiche.id });
-    journal.ecrire({
-      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-      action: "document.share", meta: { document: documentAffiche.id }
-    });
-    notifications.diffuser(classe.id, {
-      kind: "document", titre: "Nouveau document disponible",
-      corps: documentAffiche.title, lien: `/classe/${classe.id}/salle`
-    }).catch(() => {});
-  }
-
-  async function choisirExercice() {
-    const liste = await exercices.liste({ class_id: classe.id });
-    if (!liste.length) {
-      erreur("Aucun exercice", "Créez d'abord un exercice depuis l'espace professeur.");
-      return;
-    }
-    const sortie = await formulaire({
-      titre: "Lancer un exercice",
-      champs: [{
-        cle: "exercice", label: "Exercice", type: "select", valeur: liste[0].id,
-        options: liste.map((ex) => ({ valeur: ex.id, libelle: `${ex.title}${ex.exam_mode ? " (examen)" : ""}` }))
-      }],
-      libelle: "Lancer"
-    });
-    if (!sortie) return;
-
-    // Relancer un exercice déjà fait ouvre une nouvelle manche (chacun y répond à nouveau).
-    await exercices.lancer(sortie.exercice);
-    exerciceActif = await exercices.majorer(sortie.exercice, { session_id: session.id });
-    scene = "exercice";
-    await peindreScene();
-    await diffuserFocus({ kind: "exercice", ref: exerciceActif.id });
-    journal.ecrire({
-      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-      action: "exercise.launch", meta: { exercice: exerciceActif.id }
-    });
-    notifications.diffuser(classe.id, {
-      kind: "exercice", titre: `Exercice lancé — ${exerciceActif.title}`,
-      lien: `/classe/${classe.id}/salle`
-    }).catch(() => {});
-  }
-
-  async function publierAnnonceSession() {
-    const rp = reglagesRP(classe);
-    const sortie = await formulaire({
-      titre: "Annonce à la classe",
-      champs: [
-        { cle: "title", label: "Message", type: "textarea", lignes: 3, requis: true,
-          placeholder: "L'épreuve commencera au son de la cloche." },
-        ...(rp.hrpAutorise
-          ? [{ cle: "hrp", label: "Annonce hors-roleplay (consigne d'organisation)", type: "checkbox" }]
-          : [])
-      ],
-      libelle: "Publier"
-    });
-    if (!sortie?.title) return;
-    const texte = sortie.title;
-    await annonces.creer({
-      class_id: classe.id, session_id: session.id, author_id: etat.utilisateur.id,
-      title: texte, body: null, level: "important",
-      out_of_character: Boolean(sortie.hrp) || contientHRP(texte)
-    });
-    canalSession?.envoyer("annonce", { titre: texte });
-    journal.ecrire({ class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id, action: "announcement" });
-    succes("Annonce publiée");
-  }
-
-  /**
-   * Décerner une mention, un blâme ou une aptitude sans quitter la manœuvre.
-   * C'est là que l'encadrement en a besoin : à chaud, quand le fait vient de
-   * se produire, pas une heure plus tard depuis un autre écran.
-   */
-  async function inscrire(cibleId = null) {
-    const cibles = (await depotMembres.liste(classe.id))
-      .filter((m) => m.status === "active")
-      .map((m) => ({
-        user_id: m.user_id,
-        nom: nomAffiche(fichesRP.get(m.user_id), m.profil)
-      }));
-
-    const entree = await inscrireAuLivret({
-      classe, membres: cibles, auteurId: etat.utilisateur.id,
-      sessionId: session.id, membrePreselectionne: cibleId
-    });
-    if (!entree) return;
-
-    journal.ecrire({
-      class_id: classe.id, session_id: session.id, user_id: etat.utilisateur.id,
-      action: "livret.entree", meta: { genre: entree.kind, concerne: entree.user_id }
-    });
-    // Une promotion change le grade : les fiches doivent suivre à l'écran.
-    if (entree.kind === "promotion") {
-      fichesRP = await personnages.index(classe.id).catch(() => fichesRP);
-      majPresence();
-    }
-    peindrePanneau();
-  }
-
-  async function ouvrirPresences() {
-    presences = await depotPresence.liste(session.id);
-    const ETATS = [["present", "Présent"], ["away", "Absent temporaire"], ["absent", "Absent"], ["offline", "Déconnecté"]];
-
-    await formulaire({
-      titre: `${L("Presences")} — ${session.title}`,
-      large: true,
-      note: "L'état est relevé automatiquement à l'entrée ; vous pouvez le corriger.",
-      champs: presences.map((p) => ({
-        cle: p.id, label: `${p.profil?.display_name || "Élève"} — arrivé à ${heure(p.arrived_at)}`,
-        type: "select", valeur: p.status,
-        options: ETATS.map(([valeur, libelle]) => ({ valeur, libelle }))
-      })),
-      libelle: "Enregistrer"
-    }).then(async (sortie) => {
-      if (!sortie) return;
-      for (const [id, statut] of Object.entries(sortie)) {
-        const ligne = presences.find((p) => p.id === id);
-        if (ligne && ligne.status !== statut) {
-          await depotPresence.majorer(id, { status: statut, manual: true });
-        }
-      }
-      toast("Présences enregistrées");
-    });
-  }
-
-  async function terminerSession() {
-    const ok = await confirmer({
-      titre: "Terminer la session",
-      message: "Le tableau, le cahier, les exercices et les présences seront archivés. Les élèves quitteront la salle.",
-      libelle: "Terminer et archiver"
-    });
-    if (!ok) return;
-    try {
-      const close = await depotSessions.terminer(session.id);
-      canalSession?.envoyer("fin", { session: session.id });
-      definir({ sessionActive: null });
-      succes("Session terminée", `${close.summary?.participants || 0} participants · archivée.`);
-      aller(`/archive/${session.id}`);
-    } catch (err) {
-      erreur("Clôture impossible", messageErreur(err));
-    }
-  }
-
-  /* --- Rafraîchissements ------------------------------------------------------------ */
-  async function rafraichirMains() {
-    listeMains = await mains.liste(session.id).catch(() => []);
-    peindreBandeau();
-    decor.peindre();
-    if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
-  }
-
-  async function rafraichirQuestions() {
-    listeQuestions = await depotQuestions.liste(session.id).catch(() => []);
-    peindrePanneau();
-  }
-
-  async function rafraichirSondage() {
-    sondageActif = await sondages.actif(session.id).catch(() => null);
-    if (!sondageActif) {
-      const toutes = await sondages.liste(session.id).catch(() => []);
-      sondageActif = toutes[0] || null;
-    }
-    votesSondage = sondageActif ? await sondages.votes(sondageActif.id).catch(() => []) : [];
-  }
-
-  /* --- Présence -------------------------------------------------------------------- */
-  const majPresence = debounce(() => {
-    canalSession?.majPresence({
-      user_id: etat.utilisateur.id,
-      nom: monNom(),
-      grade: maFiche()?.rank || null,
-      role: staff ? "teacher" : estObservateur() ? "observer" : "student",
-      scene, statut: "present", horodatage: Date.now(),
-      bureau: resumeBureau(), avatar: monAvatar(),
-      place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: jEcris,
-      sacOuvert: Boolean(decor?.sacOuvert?.()),
-      lit: maLecture(), titre: etat.profil?.titre || null, titre_libelle: etat.profil?.titre_libelle || null
-    });
-  }, 250);
-
-  /**
-   * Ce que je lis, tel que les autres le voient : un papier qu'on m'a remis
-   * (la fenêtre de lecture est ouverte), ou mon cahier ouvert sans plume en
-   * main — avec une plume, j'écris, et cela se voit autrement.
-   */
-  function maLecture() {
-    const enCours = lectureCourante();
-    if (enCours) return enCours;
-    if (scene !== "moncahier" || jEcris) return null;
-    const tenu = bureau.enMain();
-    return tenu && ["plume", "crayon", "stylo-plume"].includes(tenu.kind) ? null : "cahier";
-  }
-  const lacherLecture = ecouter("lecture:change", () => { majPresence(); decor?.majClasse?.(); });
-
-  /**
-   * Ce que j'ai devant moi, tel que les autres le voient : le genre de chaque
-   * objet, et ce que je tiens. Pas plus — le contenu d'un cahier ne voyage
-   * pas avec sa couverture.
-   */
-  function resumeBureau() {
-    const tenu = bureau.enMain();
-    return [
-      ...bureau.cahiersSurLeBureau().map((c) => ({ k: c.support || "cahier", ...(c.cover ? { c: c.cover } : {}) })),
-      ...bureau.surLeBureau().map((o) => ({ k: o.kind, ...(tenu?.id === o.id ? { m: 1 } : {}) }))
-    ].slice(0, 14);
-  }
-
-  /* --- Canaux temps réel ------------------------------------------------------------ */
-  function brancherCanalSession() {
-    canalSession = temps.sabonner({
-      cle: `session:${session.id}`,
-      tables: [
-        { table: "class_sessions", filtre: `id=eq.${session.id}` },
-        { table: "hands", filtre: `session_id=eq.${session.id}` },
-        { table: "rp_profiles", filtre: `class_id=eq.${classe.id}` },
-        { table: "session_questions", filtre: `session_id=eq.${session.id}` },
-        { table: "polls", filtre: `session_id=eq.${session.id}` },
-        { table: "poll_votes" },
-        { table: "timers", filtre: `session_id=eq.${session.id}` },
-        { table: "announcements", filtre: `class_id=eq.${classe.id}` },
-        { table: "exercises", filtre: `class_id=eq.${classe.id}` },
-        { table: "attendance", filtre: `session_id=eq.${session.id}` },
-        { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
-        { table: "class_bags", filtre: `class_id=eq.${classe.id}` },
-        { table: "session_ejections", filtre: `session_id=eq.${session.id}` },
-        { table: "supply_blocks", filtre: `session_id=eq.${session.id}` },
-        { table: "notebook_handoffs", filtre: `session_id=eq.${session.id}` },
-        { table: "belonging_handoffs", filtre: `session_id=eq.${session.id}` },
-        { table: "paper_handoffs", filtre: `to_user=eq.${etat.utilisateur.id}` }
-      ],
-      surChangement: async ({ table, type, nouveau }) => {
-        switch (table) {
-          case "paper_handoffs":
-            await rafraichirNotes();
-            if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
-              const recue = notesRecues.find((r) => r.id === nouveau.id);
-              toast(recue?.papier?.model === "note" || !recue ? "📄 Une note vous a été remise." : "📄 On vous remet un papier.", {
-                corps: recue ? `De ${nomPersonne({ user_id: recue.from_user, profil: recue.auteur })}` : "",
-                type: "attn", duree: 9000,
-                action: { libelle: "La lire", action: () => lireNote(recue) }
-              });
-            }
-            break;
-          case "belonging_handoffs":
-            mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
-            if (type === "INSERT" && nouveau?.to_user === etat.utilisateur.id) {
-              toast(nouveau.direction === "request" ? "On vous demande un objet" : "On vous tend un objet", {
-                corps: "Ouvrez Mes affaires pour répondre.", type: "attn", duree: 9000
-              });
-            }
-            break;
-          case "class_sessions":
-            // La consigne du jour peut changer en cours de séance.
-            if (nouveau && "materiel" in nouveau && nouveau.materiel !== session.materiel) {
-              session.materiel = nouveau.materiel;
-              attendu = materielAttendu(classe, session);
-              peindrePanneau();
-            }
-            if (nouveau?.status === "ended") return surFinDeSession();
-            if (nouveau && "plan" in nouveau
-                && JSON.stringify(nouveau.plan || {}) !== JSON.stringify(session.plan || {})) {
-              session.plan = nouveau.plan || {};
-              decor.majClasse();
-            }
-            if (nouveau && "estrade" in nouveau
-                && JSON.stringify(nouveau.estrade || {}) !== JSON.stringify(session.estrade || {})) {
-              const avant = Boolean(session.estrade?.present);
-              session.estrade = nouveau.estrade || {};
-              decor.majEstrade(session.estrade);
-              peindreDock();
-              if (!staff && avant !== Boolean(session.estrade.present)) {
-                toast(session.estrade.present ? "Le professeur est devant la classe" : "Le professeur a quitté l'avant de la classe",
-                  { type: "info", duree: 3500 });
-              }
-            }
-            if (nouveau?.mode && nouveau.mode !== session.mode) {
-              session.mode = nouveau.mode;
-              modeSeance = modeDe(session);
-              toast(`Séance en mode « ${modeSeance.libelle} »`, { type: "info" });
-              peindreBandeau(); peindrePanneau(); decor.peindre(); consoleSalle.peindreBarre();
-            }
-            if (nouveau?.focus) await appliquerFocus(nouveau.focus);
-            break;
-          case "class_bags":
-            sacs = await depotCartable.liste(classe.id).catch(() => sacs);
-            if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
-            break;
-          case "notebook_handoffs":
-            if (nouveau?.to_user === etat.utilisateur.id && nouveau.state === "offered") {
-              await releverCahiersTendus();
-            } else if (scene === "moncahier") {
-              // Repris ou rendu : le dos disparaît de la rangée.
-              await peindreMonCahier();
-            }
-            break;
-          case "supply_blocks":
-            // Le maître a tranché, ou quelqu'un a levé la main : les deux
-            // camps doivent le voir sans recharger la salle.
-            await rafraichirPrivations();
-            if (!staff) {
-              maPrivation = privationsSeance.get(etat.utilisateur.id) || maPrivation;
-              peindrePrivation();
-              await peindreScene();
-            } else if (ongletPanneau === "eleves") peindrePanneau();
-            break;
-          case "session_ejections":
-            listeRenvois = await renvois.liste(session.id).catch(() => listeRenvois);
-            if (!staff) {
-              const mien = listeRenvois.find((r) => r.user_id === etat.utilisateur.id);
-              if (mien) return sortirRenvoye(mien);
-            }
-            if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
-            break;
-          case "rp_profiles":
-            fichesRP = await personnages.index(classe.id).catch(() => fichesRP);
-            peindrePanneau();
-            break;
-          case "hands": await rafraichirMains(); break;
-          case "session_questions": await rafraichirQuestions(); break;
-          case "polls":
-          case "poll_votes": await rafraichirSondage(); peindrePanneau(); break;
-          case "timers":
-            minuterie = type === "DELETE" ? null : nouveau;
-            peindreBandeau();
-            break;
-          case "announcements":
-            if (type === "INSERT" && nouveau?.session_id === session.id) {
-              toast("📢 Annonce", { corps: nouveau.title, type: "attn", duree: 9000 });
-              if (ongletPanneau === "annonces") peindrePanneau();
-            }
-            break;
-          case "exercises":
-            if (nouveau?.session_id === session.id && nouveau.status === "live" && !staff) {
-              exerciceActif = nouveau;
-              toast("📝 Exercice lancé", { corps: nouveau.title, type: "attn" });
-              if (suit) { scene = "exercice"; await peindreScene(); }
-            } else if (nouveau?.id === exerciceActif?.id) {
-              exerciceActif = nouveau;
-              if (scene === "exercice") await peindreScene();
-            }
-            break;
-          case "attendance":
-            presences = await depotPresence.liste(session.id).catch(() => presences);
-            break;
-          case "board_pages":
-            pagesTableau = await tableaux.pages(tableau.id);
-            if (scene === "tableau") await peindreTableau();
-            break;
-        }
-      },
-      diffusion: {
-        fragment: (fragment) => {
-          if (scene !== "tableau") return;
-          if (fragment.page !== pagesTableau[indexPage]?.id) return;
-          moteurTableau?.fragmentDistant(fragment);
-          decor.signalerEcriture();
-        },
-        curseur: (position) => {
-          if (scene !== "tableau" || position.id === etat.utilisateur.id) return;
-          if (position.page !== pagesTableau[indexPage]?.id) return;
-          moteurTableau?.curseurDistant(position.id, position.x, position.y, position.nom,
-            couleurParticipant(position.id));
-        },
-        vider: ({ page }) => {
-          if (scene === "tableau" && page === pagesTableau[indexPage]?.id) moteurTableau?.vider();
-        },
-        focus: (focus) => appliquerFocus(focus),
-        main: ({ nom }) => { if (staff) toast("✋ Main levée", { corps: nom, type: "attn" }); },
-        question: ({ nom }) => { if (staff) toast("❓ Question", { corps: `${nom} vous interroge.`, type: "attn" }); },
-        parole: ({ utilisateur }) => {
-          if (utilisateur === etat.utilisateur.id) toast("Vous avez la parole", { type: "ok" });
-        },
-        annonce: ({ titre }) => { if (!staff) toast("📢 Annonce", { corps: titre, type: "attn", duree: 9000 }); },
-        materiel: async () => {
-          // La consigne a changé pendant la séance : elle doit se voir sans
-          // recharger, sinon chacun prépare ses affaires d'après l'ancienne.
-          const frais = await depotSessions.lire(session.id).catch(() => null);
-          if (frais) session.materiel = frais.materiel;
-          attendu = materielAttendu(classe, session);
-          if (!staff) toast("Matériel demandé", { corps: attendu.enUneLigne(), type: "attn", duree: 9000 });
-          peindrePanneau();
-        },
-        objet: async () => {
-          mesAffaires = await depotAffaires.toutes(etat.utilisateur.id).catch(() => mesAffaires);
-          sacs = await depotCartable.liste(classe.id).catch(() => sacs);
-          peindrePanneau();
-        },
-        fin: () => surFinDeSession()
-      },
-      presence: {
-        meta: {
-          user_id: etat.utilisateur.id, nom: monNom(),
-          grade: maFiche()?.rank || null,
-          role: staff ? "teacher" : "student", scene, statut: "present", horodatage: Date.now(),
-          bureau: resumeBureau(), avatar: monAvatar(),
-          place: maPlace?.place ?? null, placeDepuis: maPlace?.depuis ?? null, ecrit: false,
-          lit: null, titre: etat.profil?.titre || null, titre_libelle: etat.profil?.titre_libelle || null
-        },
-        surMaj: (liste) => {
-          const uniques = new Map();
-          for (const p of liste) if (p?.user_id) uniques.set(p.user_id, p);
-          participants = [...uniques.values()].sort((a, b) =>
-            (a.role === "teacher" ? -1 : 1) - (b.role === "teacher" ? -1 : 1)
-            || String(a.nom).localeCompare(String(b.nom)));
-          peindreBandeau();
-          decor.peindre();
-          peindreDock();
-          if (["eleves", "classe"].includes(ongletPanneau)) peindrePanneau();
-        }
-      }
-    });
+      const commun = await cahiers.commun(classe.id);
+      if (!commun) { toast("Cette classe n'a pas de cahier commun", { type: "attn" }); return; }
+      const page = pagesTableau[indexPage];
+      await pages.capturerTableau(page.id, commun.id, `Tableau — ${new Date().toLocaleDateString("fr-FR")}`, moteur.instantane());
+      succes("Capture ajoutée au cahier commun");
+    } catch (err) { erreur("Capture impossible", messageErreur(err)); }
   }
 
   function brancherCanalTableau(pageId) {
@@ -2815,436 +314,351 @@ export default async function vueSalle({ params }) {
       cle: `tableau:${pageId}`,
       tables: [{ table: "board_elements", filtre: `page_id=eq.${pageId}` }],
       surChangement: ({ type, nouveau, ancien }) => {
-        if (!moteurTableau) return;
-        if (type === "INSERT" && nouveau.author_id !== etat.utilisateur.id) {
-          moteurTableau.ajouterElement({
-            id: nouveau.id, kind: nouveau.kind, data: nouveau.data, z: nouveau.z
-          });
-        } else if (type === "UPDATE" && nouveau.deleted) {
-          moteurTableau.retirerElement(nouveau.id);
-        } else if (type === "DELETE") {
-          moteurTableau.retirerElement(ancien?.id);
+        if (!moteur) return;
+        if (type === "INSERT" && nouveau.author_id !== moiId) {
+          moteur.ajouterElement({ id: nouveau.id, kind: nouveau.kind, data: nouveau.data, z: nouveau.z });
+        } else if (type === "UPDATE" && nouveau.deleted) moteur.retirerElement(nouveau.id);
+        else if (type === "DELETE") moteur.retirerElement(ancien?.id);
+      }
+    });
+  }
+
+  /* --- Scène : un exercice (lancé par le professeur, reçu par toute la classe) --- */
+  let racineExercice = null;
+  function fermerSuiviExercice() {
+    racineExercice?.dispatchEvent(new Event("ojm:detruire"));
+    racineExercice = null;
+  }
+
+  async function peindreExercice() {
+    fermerSuiviExercice();
+    const ex = exerciceAffiche;
+    if (!ex) { await peindreTableau(); return; }
+    const questions = await exercices.questions(ex.id);
+    if (staff) {
+      const { noeud } = await vueExercice({
+        params: { id: ex.id },
+        integre: {
+          ongletInitial: ex.status === "live" ? "suivi" : "questions",
+          surLancement: async (e) => {
+            exerciceAffiche = { ...exerciceAffiche, ...e };
+            await diffuserFocus({ kind: "exercice", ref: e.id });
+            peindrePanneau();
+          },
+          ouvrir: (id) => ouvrirExercice(id),
+          fermer: async () => { exerciceAffiche = null; scene = "tableau"; await peindreTableau(); peindrePanneau(); }
+        }
+      });
+      racineExercice = noeud;
+    } else {
+      racineExercice = await vueReponseEleve({ exercice: ex, questions, classe, session });
+    }
+    render(zoneScene,
+      el("div.salle__document",
+        el("div.tableau__barre",
+          el("strong", ex.title), el("span.pousse"),
+          el("button.btn", {
+            onclick: async () => {
+              const diffuse = session.focus?.kind === "exercice" && session.focus.ref === ex.id;
+              if (staff) { if (diffuse) await diffuserFocus({ kind: "tableau", page: indexPage }); }
+              else suit = false;
+              scene = "tableau"; exerciceAffiche = null;
+              await peindreTableau();
+            }
+          }, "Revenir au tableau")),
+        el("div.salle__document-corps", racineExercice)));
+  }
+
+  /** Le professeur prépare ou modifie un exercice sans quitter la salle (la classe ne voit rien). */
+  async function ouvrirExercice(id) {
+    exerciceAffiche = await exercices.lire(id);
+    scene = "exercice";
+    await peindreExercice();
+  }
+
+  /** Un clic : l'exercice est ouvert, annoncé et affiché sur l'écran de toute la classe. */
+  async function lancerPourLaClasse(ex) {
+    try {
+      let courant = ex, neuf = false;
+      if (ex.status !== "live") {
+        if (!(await exercices.questions(ex.id)).length) { erreur("Exercice vide", "Ajoutez au moins une question."); return; }
+        courant = await exercices.lancer(ex.id);
+        neuf = true;
+        notifications.diffuser(classe.id, { kind: "exercice", titre: `Exercice lancé — ${ex.title}`, lien: `/exercice/${ex.id}` }).catch(() => {});
+      }
+      exerciceAffiche = { ...ex, ...courant };
+      await diffuserFocus({ kind: "exercice", ref: ex.id });
+      scene = "exercice";
+      await peindreExercice();
+      if (neuf) succes("Exercice lancé", "La classe le reçoit sur son écran.");
+      peindrePanneau();
+    } catch (err) { erreur("Lancement impossible", messageErreur(err)); }
+  }
+
+  async function nouvelExercice() {
+    const titre = await demander({ titre: "Nouvel exercice", label: "Titre", libelle: "Créer" });
+    if (!titre) return;
+    try {
+      const ex = await exercices.creer({
+        class_id: classe.id, author_id: moiId, title: titre, instructions: null,
+        status: "draft", exam_mode: false, duration_sec: null, settings: {}
+      });
+      await ouvrirExercice(ex.id);
+      peindrePanneau();
+    } catch (err) { erreur("Création impossible", messageErreur(err)); }
+  }
+
+  async function panneauExercices() {
+    const autres = mesClassesEncadrees().filter((c) => c.id !== classe.id);
+    const [ici, ailleurs] = await Promise.all([
+      exercices.liste({ class_id: [classe.id] }, 100).catch(() => []),
+      autres.length ? exercices.liste({ class_id: autres.map((c) => c.id) }, 100).catch(() => []) : []
+    ]);
+    const ligne = (ex, copier) => el("li",
+      el("span", ex.title, ex.status === "live" ? el("span.etiq.etiq--direct", { style: { marginLeft: "6px" } }, "En cours") : null),
+      copier
+        ? el("button.btn.btn--petit", {
+            onclick: async () => {
+              try { await exercices.dupliquer(ex.id, classe.id, moiId); succes("Exercice copié", "Il est dans « À lancer »."); peindrePanneau(); }
+              catch (err) { erreur("Copie impossible", messageErreur(err)); }
+            }
+          }, "Copier ici")
+        : el("span.ligne-flex", { style: { gap: "6px" } },
+            el("button.btn.btn--fantome.btn--petit", { onclick: () => ouvrirExercice(ex.id) }, "Modifier"),
+            el("button.btn.btn--petit", { onclick: () => lancerPourLaClasse(ex) },
+              ex.status === "live" ? "Afficher" : ex.status === "draft" ? "Lancer" : "Relancer")));
+    const dossier = (titre, items, copier = false, ouvert = true) => el("details", ouvert ? { open: true } : {},
+      el("summary", `${titre} (${items.length})`),
+      items.length ? el("ul.liste-documents", items.map((ex) => ligne(ex, copier))) : el("p.petit.faible", "Aucun exercice."));
+    return el("div",
+      el("button.btn.btn--primaire", { onclick: nouvelExercice }, icone("plus", 15), "Nouvel exercice"),
+      dossier("À lancer", ici.filter((e) => e.status === "draft")),
+      dossier("En cours", ici.filter((e) => e.status === "live")),
+      dossier("Déjà faits — à réutiliser", ici.filter((e) => ["closed", "graded"].includes(e.status)), false, false),
+      autres.map((c) => dossier(c.name, ailleurs.filter((e) => e.class_id === c.id), true, false)));
+  }
+
+  /* --- Scène : un document affiché ---------------------------------------- */
+  async function peindreDocument() {
+    fermerSuiviExercice();
+    if (!documentAffiche) { await peindreTableau(); return; }
+    const d = documentAffiche;
+    let url = null;
+    try { url = await documents.url(d); } catch { /* introuvable */ }
+    const contenu = !url ? el("p.faible", "Ce document n'est plus disponible.")
+      : d.kind === "image" ? el("img.salle__image", { src: url, alt: d.title })
+      : d.kind === "pdf" ? el("iframe.salle__pdf", { src: url, title: d.title })
+      : el("a.btn", { href: url, target: "_blank", rel: "noopener" }, icone("telecharger", 14), "Ouvrir le document");
+    render(zoneScene,
+      el("div.salle__document",
+        el("div.tableau__barre",
+          el("strong", d.title), el("span.pousse"),
+          el("button.btn", {
+            onclick: async () => {
+              if (staff) await diffuserFocus({ kind: "tableau", page: indexPage });
+              else suit = false;
+              scene = "tableau"; documentAffiche = null;
+              await peindreTableau();
+            }
+          }, "Revenir au tableau"),
+          url ? el("a.btn.btn--fantome", { href: url, target: "_blank", rel: "noopener" }, "Ouvrir à part") : null),
+        el("div.salle__document-corps", contenu)));
+  }
+
+  /** Le professeur change ce que la classe regarde. */
+  async function diffuserFocus(focus) {
+    session.focus = focus;
+    try { await depotSessions.majorer(session.id, { focus }); } catch (err) { console.warn("[salle] focus", err); }
+    canalSession?.envoyer("focus", focus);
+  }
+
+  async function appliquerFocus(focus, force = false) {
+    if (!focus || (!staff && !suit && !force)) return;
+    if (focus.kind === "exercice") {
+      exerciceAffiche = await exercices.lire(focus.ref).catch(() => null);
+      scene = "exercice";
+      await peindreExercice();
+    } else if (focus.kind === "document") {
+      documentAffiche = await documents.lire(focus.ref).catch(() => null);
+      scene = "document";
+      await peindreDocument();
+    } else {
+      scene = "tableau"; documentAffiche = null;
+      if (typeof focus.page === "number") {
+        if (focus.page >= pagesTableau.length) pagesTableau = await tableaux.pages(tableau.id);
+        indexPage = Math.min(focus.page, Math.max(0, pagesTableau.length - 1));
+      }
+      await peindreTableau();
+    }
+  }
+
+  /* --- Panneau : mon cahier, documents, présents -------------------------- */
+  async function peindrePanneau() {
+    const liste = [{ cle: "cahier", libelle: "Mon cahier" }, { cle: "documents", libelle: "Documents" },
+      ...(staff ? [{ cle: "exercices", libelle: "Exercices" }] : []),
+    ];
+    const corps = await contenuPanneau();
+    render(zonePanneau,
+      fOnglets(liste, ongletPanneau, (cle) => { ongletPanneau = cle; peindrePanneau(); }),
+      el("div.salle__panneau-corps", corps));
+  }
+
+  async function contenuPanneau() {
+    if (ongletPanneau !== "cahier") { editeur?.detruire(); editeur = null; }
+    if (ongletPanneau === "exercices" && staff) return await panneauExercices();
+    if (ongletPanneau === "documents") return await panneauDocuments();
+    if (ongletPanneau === "presents") return panneauPresents();
+    return await panneauCahier();
+  }
+
+  async function panneauCahier() {
+    editeur?.detruire(); editeur = null;
+    const mes = await cahiers.mesCahiers(moiId);
+    if (!mes.length) {
+      return blocVide("Pas encore de cahier",
+        "Créez un cahier pour prendre vos notes pendant le cours.",
+        { libelle: "Mes cahiers", action: () => aller("/") });
+    }
+    const dernier = local.lire("ojm.dernierCahier", null);
+    const choisi = mes.find((c) => c.id === dernier) || mes[0];
+    editeur = creerEditeurCahier({ cahier: choisi, peutEcrire: true, compact: true });
+    return el("div.salle__cahier",
+      el("select.select-cahier", {
+        "aria-label": "Choisir le cahier",
+        onchange: (e) => { local.ecrire("ojm.dernierCahier", e.target.value); peindrePanneau(); }
+      }, mes.map((c) => el("option", { value: c.id, selected: c.id === choisi.id }, c.title))),
+      editeur.noeud);
+  }
+
+  async function panneauDocuments() {
+    const liste = await documents.liste({ class_id: classe.id }).catch(() => []);
+    const visibles = staff ? liste : liste.filter((d) => d.shared);
+    if (!visibles.length) return blocVide("Aucun document", `Le ${L("professeur")} n'en a pas encore partagé.`);
+    return el("ul.liste-documents", visibles.map((d) => el("li",
+      el("span", d.title),
+      el("button.btn.btn--petit", {
+        onclick: async () => {
+          if (staff) {
+            if (!d.shared) await documents.majorer(d.id, { shared: true });
+            await diffuserFocus({ kind: "document", ref: d.id });
+          } else suit = false;
+          documentAffiche = d; scene = "document";
+          await peindreDocument();
+        }
+      }, staff ? "Afficher à la classe" : "Ouvrir"))));
+  }
+
+  function panneauPresents() {
+    if (!participants.length) return el("p.faible", "Personne en ligne pour l'instant.");
+    return el("ul.liste-presents", participants.map((p, i) => el("li",
+      el("span.pastille-couleur", { style: { background: COULEURS_PARTICIPANTS[i % COULEURS_PARTICIPANTS.length] } }),
+      el("span", p.nom), p.role === "teacher" ? el("span.etiq", L("professeur")) : null)));
+  }
+
+  /* --- Annonce, fin ------------------------------------------------------- */
+  async function annoncer() {
+    const texte = await demander({ titre: "Annonce à la classe", label: "Message", multiligne: true, libelle: "Publier" });
+    if (!texte) return;
+    try {
+      await annonces.creer({
+        class_id: classe.id, session_id: session.id, author_id: moiId,
+        title: texte, body: null, level: "important"
+      });
+      canalSession?.envoyer("annonce", { titre: texte });
+      succes("Annonce publiée");
+    } catch (err) { erreur("Annonce impossible", messageErreur(err)); }
+  }
+
+  async function terminer() {
+    const ok = await confirmer({
+      titre: "Terminer la séance", libelle: "Terminer et archiver",
+      message: "Le tableau, les présences et les documents affichés seront archivés. Les élèves quitteront la salle."
+    });
+    if (!ok) return;
+    try {
+      await depotSessions.terminer(session.id);
+      local.ecrire("ojm.derniereSalle", null);
+      canalSession?.envoyer("fin", { session: session.id });
+      definir({ sessionActive: null });
+      succes("Séance terminée");
+      aller(`/archive/${session.id}`);
+    } catch (err) { erreur("Clôture impossible", messageErreur(err)); }
+  }
+
+  function surFin() {
+    if (quitte) return;
+    local.ecrire("ojm.derniereSalle", null);
+    definir({ sessionActive: null });
+    toast("Séance terminée", { corps: `Le ${L("professeur")} a clos la séance.`, type: "attn", duree: 8000 });
+    aller(`/classe/${classe.id}`);
+  }
+
+  /* --- Temps réel --------------------------------------------------------- */
+  canalSession = temps.sabonner({
+    cle: `session:${session.id}`,
+    tables: [
+      { table: "class_sessions", filtre: `id=eq.${session.id}` },
+      { table: "board_pages", filtre: `board_id=eq.${tableau.id}` },
+      { table: "boards", filtre: `id=eq.${tableau.id}` }
+    ],
+    surChangement: async ({ table, type, nouveau }) => {
+      if (quitte) return;
+      if (table === "class_sessions" && nouveau?.status === "ended") return surFin();
+      if (table === "boards" && nouveau) {
+        const change = nouveau.mode !== tableau.mode || JSON.stringify(nouveau.allowed) !== JSON.stringify(tableau.allowed);
+        tableau = { ...tableau, ...nouveau };
+        if (change && scene === "tableau") await peindreTableau();
+      }
+      if (table === "board_pages") {
+        pagesTableau = await tableaux.pages(tableau.id);
+        if (type === "UPDATE" && scene === "tableau" && nouveau?.id === pagesTableau[indexPage]?.id) {
+          moteur?.definirFond(nomFond(nouveau.background));
         }
       }
-    });
-  }
-
-  function couleurParticipant(id) {
-    const index = participants.findIndex((p) => p.user_id === id);
-    return COULEURS_PARTICIPANTS[(index < 0 ? 0 : index) % COULEURS_PARTICIPANTS.length];
-  }
-
-  /** Renvoyé : on quitte la salle, on garde la raison en clair. */
-  function sortirRenvoye(ligne) {
-    definir({ sessionActive: null });
-    toast("Vous avez été prié de quitter la séance", {
-      corps: (ligne?.reason || "").trim() || "Aucun motif n'a été porté.",
-      type: "attn", duree: 12000
-    });
-    aller(`/classe/${classe.id}`);
-    return {
-      noeud: el("div.page", blocVide(
-        "Vous avez été renvoyé de cette séance",
-        (ligne?.reason || "").trim() || "Aucun motif n'a été porté au registre.",
-        { libelle: "Retour à la classe", action: () => aller(`/classe/${classe.id}`) })),
-      titre: classe.name
-    };
-  }
-
-  /* --- La fenêtre : compacte, bureau, cahier, sac, document, étendue --------------
-     On passe de l'une à l'autre sans rien perdre : la zone de scène (tableau,
-     cahier, document) n'est pas reconstruite, elle est DÉPLACÉE — au fond de
-     la classe en petit, sur le bureau quand on écrit, en grand quand on lit. */
-  async function appliquerFenetre(m) {
-    fenetre = m;
-    if (["compact", "bureau", "etendu"].includes(m)) local.ecrire("ojm.fenetre", m);
-    noeud.classList.toggle("salle--immersif", m !== "etendu");
-    noeud.classList.toggle("salle--compact", m === "compact");
-    modeImmersif(m !== "etendu");
-
-    const cible = m === "etendu" ? corps
-      : m === "cahier" ? decor.livre
-      : m === "document" ? decor.grand
-      : decor.ecranTableau;
-    if (zoneScene.parentElement !== cible) cible.prepend(zoneScene);
-
-    let change = false;
-    if (m === "cahier" && scene !== "moncahier") { scene = "moncahier"; change = true; }
-    else if (m !== "cahier" && m !== "etendu" && scene === "moncahier") { scene = "tableau"; change = true; }
-
-    const etatDecor = ["sac", "cahier", "document"].includes(m) ? m : "bureau";
-    if (decor.etat() !== etatDecor) decor.definirEtat(etatDecor);
-    else decor.peindre();
-
-    if (change) {
-      if (scene !== "moncahier" && !staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
-      else await peindreScene();
-    }
-    peindreDock();
-    peindreBandeau();
-    majPresence();
-    decor?.majClasse?.();
-  }
-
-  /** Ouvrir son cahier : s'il est dans le sac, on l'en sort d'abord. */
-  async function ouvrirMonCahier() {
-    let pose = bureau.cahiersSurLeBureau()[0];
-    if (!pose) {
-      const dansLeSac = bureau.cahiersDansMonSac()[0];
-      if (dansLeSac && await bureau.sortir(dansLeSac, "cahier")) pose = dansLeSac;
-    }
-    if (pose) { cahierOuvertId = cahierOuvertId || pose.id; appliquerFenetre("cahier"); return; }
-    toast("Vous n'avez pas de cahier sur vous", {
-      corps: "Il est peut-être resté à la maison, ou dans une autre salle.", type: "attn", duree: 7000
-    });
-  }
-
-  /** Le crayon : posé, on le prend ; dans le sac, on le sort et on le prend. */
-  async function prendreOutilEcriture(outil) {
-    if (!outil) {
-      const { verdict } = await pretAEcrire(bureau);
-      if (!verdict.ok) {
-        toast("Aucun outil d'écriture sur vous.", { corps: verdict.conseil || verdict.message || "", type: "attn", duree: 6000 });
-      }
-      return;
-    }
-    bureau.prendre(bureau.enMain()?.id === outil.id ? null : outil);
-  }
-
-  async function noteRapide(destinataire = null) {
-    const ok = await ecrireUneNote({
-      bureau, classe, session, gens: participants, destinataire,
-      nomDe: nomPersonne, silhouette: (p) => silhouetteDe(p, nomPersonne(p))
-    });
-    if (ok) { await bureau.charger(); decor.peindre(); peindreDock(); }
-  }
-
-  async function rafraichirNotes() {
-    const toutes = await depotPapiers.recus(etat.utilisateur.id).catch(() => []);
-    notesRecues = toutes.filter((r) => r.state === "offered");
-    peindreDock();
-  }
-
-  async function lireNote(remise = null) {
-    const r = remise || notesRecues[0];
-    if (!r) { toast("Aucune note en attente."); return; }
-    await recevoirPapier(r, { classe, fiche: fichesRP.get(r.from_user) });
-    await rafraichirNotes();
-  }
-
-  async function ouvrirMesDossiers() {
-    const moi = etat.utilisateur.id;
-    const connus = [
-      ...await depotPapiers.mesPapiers(moi).catch(() => []),
-      ...(await depotPapiers.recus(moi).catch(() => []))
-        .filter((r) => r.state === "accepted" && r.papier).map((r) => r.papier)
-    ];
-    const zone = await panneauDossiers({ moiId: moi, connus, ctx: bureau.ctx });
-    await ouvrirModale({ titre: "Mes dossiers", large: true, corps: () => zone,
-      actions: [{ libelle: "Refermer", valeur: true }] });
-  }
-
-  async function basculerEstrade(present) {
-    const estrade = { present, user_id: etat.utilisateur.id, nom: monNom(), at: new Date().toISOString() };
-    try {
-      await depotSessions.majorer(session.id, { estrade });
-      session.estrade = estrade;
-      decor.majEstrade(estrade);
-      peindreDock();
-    } catch (err) { erreur("Impossible", messageErreur(err)); }
-  }
-
-  function menuPersonne(ancre, p) {
-    if (staff) {
-      menuParticipant(ancre, p, listeRenvois.some((r) => r.user_id === p.user_id));
-      return;
-    }
-    menu(ancre, [
-      { titre: nomPersonne(p) },
-      { libelle: "Lui passer une note", icone: "papier", action: () => noteRapide(p) },
-      offre(session, "papiers")
-        ? { libelle: "Lui tendre un document", icone: "documents", action: () => remettreUnPapier(p) } : null,
-      { libelle: "Lui tendre un cahier", icone: "cahier", action: () => tendreCahier(p) },
-      { libelle: "Lui tendre un objet", icone: "sac", action: () => tendreUnObjet(p) },
-      { libelle: "Lui demander un objet", icone: "main", action: () => demanderUnObjet(p) }
-    ].filter(Boolean));
-  }
-
-  function pictoBureauConsole() { return pictoBureau(); }
-  function pictoPersonneConsole() { return pictogramme(); }
-
-  /* --- Le dock : les gestes essentiels, sous forme d'objets --------------------- */
-  function chose({ image, mot, actif = false, manque = false, pastille = 0, titre, action, signe = null, principal = false }) {
-    return el("button.dock__chose", {
-      type: "button", title: titre || mot, "aria-label": titre || mot,
-      "aria-pressed": String(Boolean(actif)),
-      class: [manque ? "dock__chose--manque" : "", principal ? "dock__chose--principal" : ""].join(" ").trim(),
-      onclick: (e) => action(e.currentTarget)
     },
-      signe ? el("span.dock__signe", signe) : el("img", { src: imageDetouree(image), alt: "", draggable: false }),
-      el("span.dock__mot", mot),
-      pastille ? el("span.dock__pastille", String(pastille)) : null);
-  }
-
-  function peindreDock() {
-    if (!dock || quitte) return;
-    const tenu = bureau.enMain();
-    const outils = bureau.surLeBureau().filter((o) => OUTILS_REQUIS.ecrire.includes(o.kind));
-    const outil = (tenu && OUTILS_REQUIS.ecrire.includes(tenu.kind)) ? tenu : outils[0] || null;
-    const cahierPose = bureau.cahiersSurLeBureau()[0];
-    const sac = bureau.sacsPortes()[0];
-    // Au palais, le souverain est présent quand il est dans la salle : il
-    // siège sur son trône, il ne se « place » pas devant la classe.
-    const souverainLa = ["audience", "reunion"].includes(session.mode) && (
-      siegeSurLeTrone(etat.profil?.titre)
-      || participants.some((p) => p.user_id !== etat.utilisateur.id && siegeSurLeTrone(p.titre)));
-    const present = Boolean(session.estrade?.present) || souverainLa;
-    const autres = participants.filter((p) => p.user_id !== etat.utilisateur.id);
-
-    // En haut, une ligne : le responsable est-il devant ? combien sommes-nous ?
-    definirStatut([
-      staff
-        ? el("button.presence", { type: "button", class: present ? "presence--oui" : "",
-            title: present ? "Je quitte l'avant de la classe" : "Je me place devant la classe",
-            onclick: () => basculerEstrade(!present) },
-            el("span.presence__long", present ? "Devant la classe" : "Pas devant la classe"))
-        : el("span.presence", { class: present ? "presence--oui" : "" },
-            el("span.presence__long", present ? `${modeSeance.meneur || L("Professeur")} présent` : `${modeSeance.meneur || L("Professeur")} absent`)),
-      compteurPersonnes(autres.length, (e) => ouvrirBande(e.currentTarget, {
-        personnes: autres, nomDe: nomPersonne,
-        roleDe: (p) => (p.role === "teacher" ? "responsable" : ""),
-        surChoix: (p, b) => menuPersonne(b, p)
-      }))
-    ]);
-    consoleSalle.peindreBarre();
-
-    render(dock,
-      el("div.dock__groupe",
-        chose({ image: sac?.kind || "cartable", mot: "Sac", actif: fenetre === "sac", manque: !sac, principal: true,
-          titre: fenetre === "sac" ? "Refermer le sac" : "Ouvrir mon sac",
-          action: () => appliquerFenetre(fenetre === "sac" ? "bureau" : "sac") }),
-        chose({ image: cahierPose?.support || "cahier", mot: "Cahier", actif: fenetre === "cahier", principal: true,
-          manque: !cahierPose && !bureau.cahiersDansMonSac().length,
-          titre: fenetre === "cahier" ? "Fermer le cahier" : "Ouvrir mon cahier",
-          action: () => (fenetre === "cahier" ? appliquerFenetre("bureau") : ouvrirMonCahier()) }),
-        chose({ image: outil?.kind || "crayon", mot: tenu && outil?.id === tenu.id ? "En main" : "Stylo",
-          actif: Boolean(tenu && outil?.id === tenu.id), principal: true,
-          manque: !outil && !bureau.dansMonSac().some((o) => OUTILS_REQUIS.ecrire.includes(o.kind)),
-          titre: !outil ? "Sortir un crayon du sac et le prendre"
-            : tenu?.id === outil.id ? `Reposer ${nomObjet(outil).toLowerCase()}` : `Prendre ${nomObjet(outil).toLowerCase()}`,
-          action: () => prendreOutilEcriture(outil) }),
-        chose({ image: "feuille", mot: "Note", principal: true, titre: "Écrire une note à quelqu'un", action: () => noteRapide() })),
-      el("span.dock__sep"),
-      el("div.dock__groupe",
-        chose({ image: "pochette", mot: "Reçus", pastille: notesRecues.length, manque: !notesRecues.length,
-          titre: notesRecues.length ? "Lire ce qu'on m'a remis" : "Rien ne vous a été remis",
-          action: () => lireNote() }),
-        offre(session, "papiers")
-          ? chose({ image: "feuilles", mot: "Document", titre: "Rédiger et tendre un document",
-              action: () => remettreUnPapier() }) : null,
-        chose({ image: "dossier", mot: "Dossiers", titre: "Mes dossiers", action: () => ouvrirMesDossiers() }),
-        chose({ signe: icone("tableau", 26), mot: "Tableau", actif: fenetre === "document",
-          titre: fenetre === "document" ? "Revenir au bureau" : "Regarder le tableau",
-          action: () => appliquerFenetre(fenetre === "document" ? "bureau" : "document") })),
-      !staff && contributeur ? el("span.dock__sep") : null,
-      !staff && contributeur ? el("div.dock__groupe",
-        chose({ signe: icone("main", 26), mot: maMainLevee() ? "Baisser" : "Main",
-          actif: Boolean(maMainLevee()), titre: maMainLevee() ? modeSeance.parole.annuler : modeSeance.parole.demander,
-          action: () => basculerMain() }),
-        (session.mode || "cours") === "cours"
-          ? chose({ signe: icone("interro", 26), mot: "Question", titre: "J'ai une question", action: () => poserQuestion() })
-          : null) : null,
-      el("span.dock__pousse"),
-      staff ? el("div.dock__groupe",
-        chose({ signe: icone("reglages", 24), mot: "Outils", titre: "Outils du professeur",
-          action: (b) => menuProfesseur(b) }),
-        chose({ signe: icone("stop", 24), mot: "Terminer", titre: "Terminer la séance", action: () => terminerSession() })) : null,
-      el("div.dock__fenetre", { role: "group", "aria-label": "Fenêtre" },
-        el("button", { type: "button",
-          title: fenetre === "etendu" ? "Revenir à la classe" : "Vue détaillée : tableau, cahiers, participants",
-          "aria-pressed": String(fenetre === "etendu"),
-          onclick: () => appliquerFenetre(fenetre === "etendu" ? "bureau" : "etendu") }, icone("grille", 15)),
-        el("button", { type: "button", title: "Quitter la salle", onclick: () => aller(`/classe/${classe.id}`) },
-          icone("croix", 15)))
-    );
-  }
-
-  let finTraitee = false;
-  function surFinDeSession() {
-    if (staff || finTraitee) return;
-    finTraitee = true;
-    // La séance est close : ce qui est resté sur le bureau reste dans la
-    // salle. C'est un oubli, et il se joue comme tel.
-    bureau.laisserTout();
-    definir({ sessionActive: null });
-    toast("Session terminée", { corps: "Le professeur a clos la séance.", type: "attn", duree: 8000 });
-    aller(`/classe/${classe.id}`);
-  }
-
-  /* --- Démarrage ------------------------------------------------------------------- */
-  await depotPresence.pointer(session.id).catch((err) => console.warn("[salle] pointage", err));
-  await Promise.all([rafraichirMains(), rafraichirQuestions(), rafraichirSondage()]);
-  minuterie = await minuteries.active(session.id).catch(() => null);
-  [sacs, listeRenvois, equipe] = await Promise.all([
-    depotCartable.liste(classe.id).catch(() => new Map()),
-    renvois.liste(session.id).catch(() => []),
-    depotMembres.liste(classe.id).catch(() => [])
-  ]);
-
-  // Renvoyé avant même d'entrer : on ne force pas la porte.
-  if (!staff && listeRenvois.some((r) => r.user_id === etat.utilisateur.id)) {
-    return sortirRenvoye(listeRenvois.find((r) => r.user_id === etat.utilisateur.id));
-  }
-
-  /**
-   * On s'équipe à chaque séance.
-   *
-   * Pas « on refait son sac » : le chargement est permanent, il revient
-   * pré-coché. Mais on repose la main dessus avant de s'asseoir, sinon
-   * s'équiper une fois en septembre vaudrait pour toute l'année — et le
-   * geste, répété à vide, ne voudrait plus rien dire.
-   *
-   * On ne l'impose que là où il compte : quand du matériel a été demandé.
-   * Ailleurs, le bouton « Mes affaires » suffit.
-   */
-  /**
-   * L'ordre compte, et il a failli être faux.
-   *
-   * Si l'on ouvre la privation avant de laisser le cadet s'équiper, on le
-   * punit d'un geste que l'application ne lui a pas encore proposé. La
-   * sanction doit porter sur ce qu'il DÉCLARE avoir sur lui, jamais sur
-   * l'état du sac à la seconde où il pousse la porte.
-   *
-   * Donc : quand il doit s'équiper, la privation attend qu'il ait répondu —
-   * et s'il referme sans rien prendre, elle tombe, ce qui est juste.
-   */
-  const doitSEquiper = !staff && offre(session, "cartable")
-    && !attendu.vide()
-    && !affairesEquipees();
-
-  if (doitSEquiper) {
-    setTimeout(async () => {
-      await ouvrirCartable();
-      // Relire le sac ici plutôt que de compter sur le rappel d'enregistrement :
-      // celui-ci n'est pas attendu, et on jugerait alors sur l'état d'avant.
-      sacs = await depotCartable.liste(classe.id).catch(() => sacs);
-      // Qu'il ait bouclé son sac ou refermé sans rien prendre, c'est
-      // maintenant qu'on regarde ce qu'il a.
-      await ouvrirPrivationSiBesoin();
-      await rafraichirPrivations();
-      peindrePrivation();
-      await peindreScene();
-    }, 900);
-  }
-
-  // Le professeur a sa craie : sans elle, il n'écrirait pas au tableau.
-  if (staff) await assurerMaterielProfesseur(etat.utilisateur.id).catch(() => false);
-  await bureau.charger();
-  mesAffaires = bureau.objets();
-  await rafraichirNotes();
-
-  if (!doitSEquiper) await ouvrirPrivationSiBesoin();
-  await rafraichirPrivations();
-  releverCahiersTendus();
-
-  brancherCanalSession();
-  peindreBandeau();
-  peindrePrivation();
-  peindrePanneau();
-
-  await appliquerFenetre(fenetre);
-  if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus);
-  else await peindreScene();
-
-  // La taille de la fenêtre change le comportement : en petit, la console ;
-  // en grand, la scène — et la zone de scène revient à sa place.
-  const petit = () => ["compact", "mini"].includes(etat.taille);
-  // J'ai changé de tenue : les autres le voient aussitôt.
-  const lacherAvatar = ecouter("avatar:change", () => majPresence());
-  // J'écris dans mon cahier (ou sur un pense-bête) : les autres me voient
-  // écrire ; deux secondes sans rien taper, la main s'arrête.
-  function surFrappe(e) {
-    if (quitte || !e.target?.closest?.(".parchemin__corps, .pense-bete__texte, .note-rapide textarea")) return;
-    clearTimeout(finEcriture);
-    finEcriture = setTimeout(() => { jEcris = false; majPresence(); decor.majClasse(); }, 2000);
-    if (jEcris) return;
-    jEcris = true;
-    majPresence();
-    decor.majClasse();
-  }
-  // On écoute là où l'on tape : la page, ou la fenêtre flottante.
-  let docFrappe = null;
-  function ecouterFrappe() {
-    docFrappe?.removeEventListener("input", surFrappe, true);
-    docFrappe = docHote();
-    docFrappe.addEventListener("input", surFrappe, true);
-  }
-  ecouterFrappe();
-  const lacherFlottant = observer("flottant", ecouterFrappe);
-  var lacherTaille = observer("taille", async () => {
-    if (petit()) { if (!consoleSalle.ouvert()) consoleSalle.demarrer(); }
-    else { consoleSalle.fermer(); decor.classeDans(null); await appliquerFenetre(fenetre); }
+    diffusion: {
+      fragment: (f) => { if (scene === "tableau" && f.page === pagesTableau[indexPage]?.id) moteur?.fragmentDistant(f); },
+      curseur: (p) => {
+        if (scene !== "tableau" || p.id === moiId || p.page !== pagesTableau[indexPage]?.id) return;
+        const i = Math.max(0, participants.findIndex((x) => x.user_id === p.id));
+        moteur?.curseurDistant(p.id, p.x, p.y, p.nom, COULEURS_PARTICIPANTS[i % COULEURS_PARTICIPANTS.length]);
+      },
+      vider: ({ page }) => { if (scene === "tableau" && page === pagesTableau[indexPage]?.id) moteur?.vider(); },
+      focus: (focus) => { session.focus = focus; if (!staff) appliquerFocus(focus); },
+      annonce: ({ titre }) => { if (!staff) toast("Annonce", { corps: titre, type: "attn", duree: 9000 }); },
+      fin: () => surFin()
+    },
+    presence: {
+      meta: { user_id: moiId, nom: monNom(), role: staff ? "teacher" : "student", horodatage: Date.now() },
+      surMaj: (liste) => {
+        const uniques = new Map();
+        for (const p of liste) if (p?.user_id) uniques.set(p.user_id, p);
+        participants = [...uniques.values()].sort((a, b) =>
+          (a.role === "teacher" ? -1 : 1) - (b.role === "teacher" ? -1 : 1) || String(a.nom).localeCompare(String(b.nom)));
+        peindreBarre();
+        if (ongletPanneau === "presents") peindrePanneau();
+      }
+    }
   });
-  if (petit()) consoleSalle.demarrer();
 
-  tictac = setInterval(() => {
-    // La privation tombe d'elle-même : au dernier battement, la salle se
-    // rouvre sans que personne ait rien à faire.
-    if (maPrivation && !staff) {
-      const etaitPrive = Boolean(bandeauPrive);
-      peindrePrivation();
-      if (etaitPrive && !prive()) {
-        peindreScene();
-        toast("Votre privation est levée", { type: "ok" });
-      }
-    }
-    // Côté estrade, le décompte n'a pas besoin de la seconde près, et
-    // repeindre la liste des présents à chaque battement gênerait plus
-    // qu'autre chose.
-    if (staff && privationsSeance.size && ongletPanneau === "eleves"
-        && Date.now() - dernierRafraichiPrivations > 5000) {
-      dernierRafraichiPrivations = Date.now();
-      peindrePanneau();
-    }
-
-    if (minuterie?.state === "running") {
-      peindreBandeau();
-      if (minuterie.kind === "countdown" && calculerMinuterie() <= 0) {
-        minuteries.majorer(minuterie.id, { state: "done" }).catch(() => {});
-        minuterie.state = "done";
-        toast("⏱️ Temps écoulé", { corps: minuterie.label, type: "attn", duree: 9000 });
-      }
-    }
-  }, 1000);
-
+  /* --- Démarrage ---------------------------------------------------------- */
+  await depotPresence.pointer(session.id).catch((err) => console.warn("[salle] pointage", err));
+  peindreBarre();
+  if (!staff && suit && session.focus?.kind) await appliquerFocus(session.focus, true);
+  else await peindreTableau();
+  await peindrePanneau();
   modePleineVue(true);
 
   return {
-    noeud,
-    titre: `${session.title} — ${classe.name}`,
+    noeud: racine,
+    titre: session.title || classe.name,
     nettoyer: () => {
       quitte = true;
-      decor.detruire();
-      modeImmersif(false);
-      definirStatut(null);
-      lacherTaille?.();
-      lacherAvatar();
-      lacherLecture();
-      docFrappe?.removeEventListener("input", surFrappe, true);
-      lacherFlottant();
-      clearTimeout(finEcriture);
-      // On sort de la salle : ce qui n'a pas été rangé y reste.
-      bureau.laisserTout();
-      clearInterval(tictac);
-      canalSession?.fermer();
-      canalTableau?.fermer();
-      editeurCommun?.detruire();
+      oublierFlottant();
+      canalSession?.fermer(); canalTableau?.fermer();
+      editeur?.detruire();
       modePleineVue(false);
-      definir({ sessionActive: null, suitProfesseur: false });
+      definir({ sessionActive: null });
     }
   };
-}
-
-function vueErreur(message) {
-  return { noeud: el("div.page", blocVide(message, "")), titre: message };
 }

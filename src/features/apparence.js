@@ -15,7 +15,6 @@
  * La base est la seule source de vérité : le cache local ne sert qu'à ne pas
  * montrer le décor par défaut pendant le chargement.
  * ------------------------------------------------------------------------- */
-import { logoCahier } from "../ui/logo-cahier.js";
 import { temps, pilote } from "../data/index.js";
 import { etat } from "../core/store.js";
 import { emettre } from "../core/bus.js";
@@ -214,7 +213,7 @@ const idYoutube = (u) => { const m = String(u).match(/(?:youtu\.be\/|v=|shorts\/
 /* --- La marque : le logo, ou le nom du site ---------------------------------------- */
 export function marque() {
   if (courant.logo) return el("img.logo", { src: courant.logo, alt: nomDuSite() });
-  return el("span.brand", logoCahier(34), el("b", nomDuSite()));
+  return el("span.brand", el("b", nomDuSite()));
 }
 
 /* ===========================================================================

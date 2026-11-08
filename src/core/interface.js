@@ -1,31 +1,12 @@
 /* ---------------------------------------------------------------------------
  * Réglages d'affichage : thème et raccourcis.
  * ------------------------------------------------------------------------- */
-import { definir, etat } from "./store.js";
+import { etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { local } from "./util.js";
 import { stockageLocal } from "./stockage.js";
-import { majPreference } from "./session.js";
 
 /** Un seul thème : le verre de Whitelist Hub. Sa couleur se règle dans Administration › Apparence. */
-
-/**
- * Les animations de décor (la salle et la chambre en 3D) sont-elles à l'écran ?
- * Jamais en fenêtre flottante : posée sur le jeu, la fenêtre ne doit ni
- * consommer de quoi faire tourner une scène, ni bouger. Le choix de la personne
- * est conservé et revient en sortant du mode flottant. L'animation de remise
- * d'un document, elle, n'en dépend pas : elle joue toujours.
- */
-export function animationsActives() {
-  return etat.animations !== false && !etat.flottant;
-}
-
-/** Animations allumées (la salle en 3D, soi assis à son bureau) ou éteintes (tableaux et interface seuls). */
-export function definirAnimations(actives) {
-  const v = Boolean(actives);
-  try { stockageLocal.setItem("ojm.animations", String(v)); } catch { /* stockage refusé */ }
-  definir({ animations: v });
-}
 export function restaurerInterface() {
   document.documentElement.dataset.theme = "nuit";
 }
@@ -38,10 +19,7 @@ export const RACCOURCIS_DEFAUT = {
   "cahiers.liste":     "g b",
   "classes.liste":     "g k",
   "tableau.ouvrir":    "g t",
-  "notes.ouvrir":      "n",
   "recherche.ouvrir":  "/",
-  "densite.cycler":    "mod+\\",
-  "densite.minimal":   "mod+shift+m",
   "fenetre.flottante": "mod+shift+f",
   "page.suivante":     "alt+ArrowRight",
   "page.precedente":   "alt+ArrowLeft",

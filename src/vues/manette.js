@@ -1,0 +1,70 @@
+/* ---------------------------------------------------------------------------
+ * La manette : ce que l'on voit en mode flottant, à côté du jeu.
+ * Quelques gros boutons, un geste chacun. On choisit, c'est fait.
+ * ------------------------------------------------------------------------- */
+import { el } from "../ui/dom.js";
+import { icone } from "../ui/icons.js";
+import { aller } from "../core/router.js";
+import { L } from "../core/lexique.js";
+import { local, normaliserCode } from "../core/util.js";
+import { classes as depotClasses, sessions } from "../data/index.js";
+import { formulaire, menu } from "../ui/modal.js";
+import { erreur, succes, toast, messageErreur } from "../ui/toast.js";
+import { rafraichirClasses } from "../core/session.js";
+
+function bouton(libelle, aide, nomIcone, action) {
+  return el("button.manette__bouton", { type: "button", onclick: action },
+    icone(nomIcone, 30), el("span.manette__mot", libelle), el("span.manette__aide", aide));
+}
+
+export default async function vueManette() {
+  function ouvrirCahier() {
+    const dernier = local.lire("ojm.dernierCahier", null);
+    aller(dernier ? `/cahier/${dernier}` : "/");
+  }
+
+  async function rejoindre() {
+    const sortie = await formulaire({
+      titre: `Rejoindre une ${L("classe")}`,
+      note: `Le ${L("professeur")} annonce un code au début du cours.`,
+      champs: [{ cle: "code", label: "Code de classe", placeholder: "K7F-29A", requis: true }],
+      libelle: "Rejoindre"
+    });
+    if (!sortie) return;
+    try {
+      const resultat = await depotClasses.rejoindre(normaliserCode(sortie.code));
+      await rafraichirClasses();
+      if (resultat.member_status === "pending") succes("Demande envoyée", "Votre inscription doit être validée.");
+      else { succes("Classe rejointe", resultat.class_name); aller(`/classe/${resultat.class_id}`); }
+    } catch (err) {
+      erreur("Impossible de rejoindre", messageErreur(err));
+    }
+  }
+
+  async function suivre(e) {
+    const ancre = e.currentTarget;
+    const liste = (await rafraichirClasses()).filter((c) => !c.archived);
+    const enDirect = (await Promise.all(liste.map(async (classe) =>
+      ({ classe, session: await sessions.enCours(classe.id).catch(() => null) }))))
+      .filter((x) => x.session);
+    if (!enDirect.length) {
+      toast("Rien en ce moment", { corps: `Aucun cours ni réunion n'a commencé dans vos ${L("classes")}.` });
+      return;
+    }
+    if (enDirect.length === 1) { aller(`/classe/${enDirect[0].classe.id}/salle`); return; }
+    menu(ancre, [
+      { titre: "En ce moment" },
+      ...enDirect.map(({ classe, session }) => ({
+        libelle: `${classe.name} — ${session.title || "en cours"}`,
+        action: () => aller(`/classe/${classe.id}/salle`)
+      }))
+    ]);
+  }
+
+  const noeud = el("div.manette",
+    bouton("Cahier", "Ouvrir mon cahier et écrire", "cahier", ouvrirCahier),
+    bouton("Suivre", "Un cours ou une réunion en cours", "tableau", suivre),
+    bouton("Rejoindre", `Une ${L("classe")}, avec son code`, "entree", rejoindre)
+  );
+  return { noeud, titre: "Manette" };
+}

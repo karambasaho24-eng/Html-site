@@ -71,15 +71,7 @@ async function creerCompte(page, nom) {
   await page.fill('input[name="mdp2"]', "motdepasse1");
   await page.click('button[type="submit"]:has-text("Créer mon compte")');
   await page.waitForSelector(".contexte", { timeout: 15000 });
-  // Première visite : on habille son personnage, puis on choisit ses cahiers.
-  // Les essais de la boutique créent leurs cahiers eux-mêmes : on referme.
-  const habiller = await page.waitForSelector(".apparence", { timeout: 15000 }).then(() => true).catch(() => false);
-  // On referme l'habillage, puis « Et vos cahiers ? » qui le suit.
-  await page.keyboard.press("Escape");
-  if (await page.waitForSelector(".mes-cahiers", { timeout: 6000 }).then(() => true).catch(() => false))
-    await page.keyboard.press("Escape");
-  await page.waitForTimeout(600);
-  return habiller;
+  await page.waitForTimeout(900);
 }
 
 const nav = await chromium.launch({ executablePath: CHROME });
@@ -106,17 +98,16 @@ try {
   await admin.waitForSelector(".contexte");
   await admin.waitForTimeout(600);
 
-  const habille = await creerCompte(eleve, `Eleve${sfx}`);
-  verifier("à l'inscription, on habille son personnage", habille);
-  verifier("l'accueil est « Chez moi »", (await eleve.locator(".nav-lien[aria-current=page]").textContent()).includes("Chez moi"));
+  await creerCompte(eleve, `Eleve${sfx}`);
+  verifier("aucune fenêtre d'avatar à l'inscription", (await eleve.locator(".apparence").count()) === 0);
+  verifier("l'accueil est « Mes cahiers »", (await eleve.locator("h1").first().textContent()).includes("cahiers"));
   verifier("la jauge d'encre est visible", await eleve.locator(".jauge-encre").isVisible());
-  verifier("quatre onglets : chez moi, cahiers, documents, classes", (await eleve.locator(".nav-lien").count()) === 4);
+  verifier("trois onglets : cahiers, documents, classes", (await eleve.locator(".nav-lien").count()) === 3);
 
   /* =======================================================================
      1. Le premier cahier est gratuit, et il garde ce qu'on y écrit
      ===================================================================== */
   titre("1. Le premier cahier");
-  await eleve.goto(`${RACINE}#/cahiers`);
   await eleve.click('button:has-text("Nouveau cahier")');
   await eleve.fill('input[name="title"]', "Histoire");
   await eleve.click('[role="dialog"] button:text-is("Créer")');
@@ -141,7 +132,7 @@ try {
      2. Le deuxième cahier s'achète ; supprimer ne rend rien
      ===================================================================== */
   titre("2. Cahiers payants");
-  await eleve.goto(`${RACINE}#/cahiers`);
+  await eleve.goto(`${RACINE}#/`);
   await eleve.waitForSelector(".droits-cahiers");
   await eleve.click('button:has-text("Nouveau cahier")');
   const modale = await eleve.waitForSelector('.voile, [role="dialog"]', { timeout: 5000 }).catch(() => null);
@@ -385,10 +376,21 @@ try {
     }
     await popup.setViewportSize({ width: 460, height: 760 });
     verifier("le cahier y est, avec son texte", (await popup.locator(".parchemin__corps").innerText()).includes("Suite."));
-    verifier("seuls Cahiers et Documents sont proposés", (await popup.locator(".nav-lien").count()) === 2);
+    const ongletsFlottant = await popup.evaluate(() => [...document.querySelectorAll(".nav-lien")].map((a) => a.title));
+    verifier("à côté du jeu, un seul onglet : la manette", ongletsFlottant.join() === "Manette", JSON.stringify(ongletsFlottant));
     await popup.click(".parchemin__corps");
     await popup.keyboard.type(" Notée à côté du jeu.", { delay: 8 });
     await popup.waitForTimeout(1500);
+    await popup.click('.nav-lien[title="Manette"]');
+    await popup.waitForSelector(".manette", { timeout: 5000 }).catch(() => null);
+    const gestes = await popup.locator(".manette__mot").allInnerTexts();
+    verifier("la manette : Cahier, Suivre, Rejoindre", gestes.join(",") === "Cahier,Suivre,Rejoindre", gestes.join(","));
+    const boutonsVisibles = await popup.evaluate(() => [...document.querySelectorAll(".manette__bouton")]
+      .every((b) => { const r = b.getBoundingClientRect(); return r.height >= 100 && r.right <= innerWidth + 1; }));
+    verifier("ses boutons sont gros et tiennent dans la fenêtre étroite", boutonsVisibles);
+    await popup.click('.manette__bouton:has-text("Cahier")');
+    await popup.waitForSelector(".parchemin__corps", { timeout: 8000 }).catch(() => null);
+    verifier("« Cahier » rouvre le dernier cahier", (await popup.locator(".parchemin__corps").count()) === 1);
     await popup.close();
     await eleve.waitForTimeout(800);
     await eleve.reload();
@@ -416,9 +418,8 @@ try {
     await eleve.waitForSelector(".salle", { timeout: 8000 });
     verifier("la salle s'ouvre pour le professeur et l'élève", true);
     verifier("le tableau est là", (await eleve.locator("canvas.tableau__toile").count()) === 1);
-    await eleve.waitForSelector(".scene--3d", { timeout: 15000 }).catch(() => null);
-    verifier("la salle est en 3D", (await eleve.locator(".scene--3d").count()) >= 1);
-    verifier("les affaires sont de retour : bureau ou sac à portée", (await eleve.locator("[class*=bureau], [class*=sac]").count()) > 0);
+    verifier("le cahier de l'élève est à côté", (await eleve.locator(".salle__panneau .parchemin__corps").count()) === 1);
+    verifier("aucun élément d'objet ou de bureau", (await eleve.locator("[class*=bureau], [class*=cartable], [class*=sac]").count()) === 0);
     await admin.waitForTimeout(600);
     verifier("le professeur a les outils de tableau", (await admin.locator(".tableau__barre .outil").count()) >= 5);
     verifier("l'élève est en lecture seule sur le tableau", (await eleve.locator(".tableau__barre .outil").count()) === 0);
@@ -462,47 +463,24 @@ try {
   verifier("le PDG rend son rôle à l'élève", (await depot(admin, `return (await d.profils.lire("${eleveId}")).role_key;`)) === "student");
 
   /* =======================================================================
-     11. Les systèmes rapatriés de l'ancienne version, à côté des nouveaux
+     11. Simplicité : menu court, animations en option
      ===================================================================== */
-  titre("11. Systèmes rapatriés");
-  // Données : objets et remises de papiers fonctionnent avec la boutique.
-  const remise = await depot(admin, `
-    const p = await d.papiers.creer({ author_id: etat.utilisateur.id, title: "Convocation", model: "note", body: "Demain 8 h" });
-    const r = await d.papiers.tendre({ paper_id: p.id, from_user: etat.utilisateur.id, to_user: "${eleveId}", attested: true });
-    return r.id;`);
-  const recus = await depot(eleve, `return (await d.papiers.recus(etat.utilisateur.id)).map((r) => r.id);`);
-  verifier("un papier tendu arrive chez le destinataire", recus.includes(remise));
-  await depot(eleve, `await d.papiers.confirmerPresence("${remise}", { present: true, lieu: "Couloir" });`);
-  const prise = await depot(eleve, `return (await d.papiers.repondre("${remise}", "accepted")).state;`);
-  verifier("présence confirmée, le papier est accepté", prise === "accepted", prise);
-  const affairesEleve = await depot(eleve, `return (await d.affaires.miennes(etat.utilisateur.id)).map((o) => o.kind);`);
-  verifier("l'élève a ses affaires (cartable, plume, encrier)",
-    ["cartable", "plume", "encrier"].every((k) => affairesEleve.includes(k)), affairesEleve.join(","));
-  // Encre : l'encrier (objet RP) et le porte-monnaie d'encre (boutique) coexistent.
-  await eleve.goto(`${RACINE}#/affaires`); await eleve.waitForTimeout(1500);
-  verifier("la page « Mes affaires » montre l'encrier", await eleve.locator('.objet-vignette__nom:text-is("Encrier")').count() >= 1);
-  verifier("la jauge du porte-monnaie d'encre reste en haut", await eleve.locator(".jauge-encre").isVisible());
-  // Bureau 3D : Chez moi ouvre la scène ; three.js ne se charge qu'à ce moment.
-  // Rechargement sur « Mes affaires » : la session reste, et aucune 3D n'est encore demandée.
-  await eleve.reload(); await eleve.waitForTimeout(2000);
-  const threeCharge = () => eleve.evaluate(() => performance.getEntriesByType("resource").some((r) => /three\.module/.test(r.name)));
-  verifier("three.js n'est pas chargé tant qu'aucune scène 3D n'est ouverte", !(await threeCharge()));
-  await eleve.goto(`${RACINE}#/`);
-  await eleve.waitForSelector(".chez-moi .scene--3d", { timeout: 15000 }).catch(() => null);
-  verifier("Chez moi : la scène 3D du bureau s'ouvre, et three.js se charge à ce moment",
-    await threeCharge() && await eleve.locator(".chez-moi .scene--3d").count() === 1);
-  verifier("la barre du bas : Bureau, Sac, Cahier, Note, Papiers, Personnes",
-    (await eleve.locator(".actions .actions__geste").count()) === 6);
-  // Animations réduites : la scène reste, immobile.
-  const ctxReduit = await nav.newContext({ viewport: { width: 1360, height: 900 }, reducedMotion: "reduce" });
-  await ctxReduit.addInitScript(() =>
-    localStorage.setItem("ojm.config", JSON.stringify({ supabaseUrl: "", supabaseAnonKey: "" })));
-  const pr = await ctxReduit.newPage();
-  pr.on("pageerror", (e) => erreursPage.push(`reduit: ${e.message}`));
-  await creerCompte(pr, `Calme${sfx}`);
-  await pr.goto(`${RACINE}#/`); await pr.waitForTimeout(2500);
-  verifier("mouvements réduits : Chez moi s'affiche sans erreur", await pr.locator(".chez-moi").count() === 1);
-  await ctxReduit.close();
+  titre("11. Simplicité");
+  await eleve.goto(`${RACINE}#/documents`); await eleve.waitForTimeout(800);
+  await eleve.goto(`${RACINE}#/`); await eleve.reload(); await eleve.waitForTimeout(1500);   // l'élève vient de redevenir élève (étape 10)
+  verifier("aucune animation n'est allumée par défaut",
+    await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === null);
+  verifier("aucun dessin de cahier sur l'accueil", (await eleve.locator(".cahier-illu, .logo-cahier").count()) === 0);
+  await eleve.click('[aria-label="Tout le reste"]'); await eleve.waitForTimeout(400);
+  const entrees = await eleve.locator(".tiroir .rail__lien").allInnerTexts();
+  verifier("le menu d'un élève tient en 5 entrées", entrees.length === 5, entrees.join(" | "));
+  verifier("le menu ne répète pas les onglets du haut",
+    !entrees.some((t) => /Mes cahiers|^Documents$|Mes classes|Archives|Rechercher/.test(t.trim())), entrees.join(" | "));
+  await eleve.click('.tiroir [role="switch"]'); await eleve.waitForTimeout(300);
+  verifier("un clic allume les animations", await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === "true");
+  await eleve.click('.tiroir [role="switch"]'); await eleve.waitForTimeout(300);
+  verifier("un second clic les éteint", await eleve.evaluate(() => localStorage.getItem("ojm.animations")) === "false");
+  await eleve.keyboard.press("Escape");
 
 } catch (err) {
   echoues++;

@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
  * Cycle de vie de la session utilisateur : connexion, profil, permissions.
  * ------------------------------------------------------------------------- */
-import { auth, profils, rbac, classes, membres, personnages, notifications } from "../data/index.js";
+import { auth, profils, rbac, classes, membres, notifications } from "../data/index.js";
 import { definir, etat } from "./store.js";
 import { emettre } from "./bus.js";
 import { local } from "./util.js";
@@ -28,8 +28,6 @@ export async function chargerSession() {
 
   // Préférences d'interface stockées sur le profil
   const prefs = profil.preferences || {};
-  if (prefs.densite) definir({ densite: prefs.densite });
-  if (prefs.theme) definir({ theme: prefs.theme });
 
   await rafraichirClasses();
   await rafraichirNotifications();
@@ -65,17 +63,16 @@ export function notificationsNonLues() {
 /** Sélectionne la classe courante et recharge le membre associé. */
 export async function activerClasse(classeId) {
   if (!classeId) {
-    definir({ classeActive: null, membreActif: null, personnageActif: null });
+    definir({ classeActive: null, membreActif: null });
     return null;
   }
   const classe = await classes.lire(classeId);
   if (!classe) {
-    definir({ classeActive: null, membreActif: null, personnageActif: null });
+    definir({ classeActive: null, membreActif: null });
     return null;
   }
   const membre = await membres.pour(classeId, etat.utilisateur.id);
-  const personnage = await personnages.pour(classeId, etat.utilisateur.id).catch(() => null);
-  definir({ classeActive: classe, membreActif: membre, personnageActif: personnage });
+  definir({ classeActive: classe, membreActif: membre });
   local.ecrire("ojm.derniereClasse", classeId);
   return classe;
 }
@@ -85,7 +82,7 @@ export async function deconnecter() {
   definir({
     utilisateur: null, profil: null, permissions: new Set(),
     classes: [], notifications: [], classeActive: null,
-    membreActif: null, personnageActif: null, sessionActive: null, commerce: null,
+    membreActif: null, sessionActive: null, commerce: null,
     suitProfesseur: false, modeExamen: false
   });
   oublierPortefeuille();

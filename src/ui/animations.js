@@ -9,8 +9,17 @@
  * appelle annuler() et l'élément réapparaît tel quel.
  * ------------------------------------------------------------------------- */
 
-const reduit = () =>
-  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+import { local } from "../core/util.js";
+
+/* Les animations sont une option : coupées tant qu'on ne les a pas allumées
+   (menu « Tout le reste »), et toujours coupées si l'appareil demande moins de mouvement. */
+const CLE = "ojm.animations";
+export const animationsVoulues = () => local.lire(CLE, false) === true;
+export const animationsActives = () => animationsVoulues()
+  && globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches !== true;
+export function basculerAnimations() { local.ecrire(CLE, !animationsVoulues()); }
+
+const reduit = () => !animationsActives();
 
 const SANS_EFFET = { fini: Promise.resolve(), annuler() {} };
 

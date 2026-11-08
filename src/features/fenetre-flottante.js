@@ -140,9 +140,8 @@ export async function ouvrirFenetreFlottante() {
  */
 function allerALEssentiel() {
   // La séance (tableau + cahier) reste : elle s'adapte à la petite fenêtre.
-  if (["cahier", "documents", "accueil", "salle"].includes(etat.route?.nom)) return;
-  const dernier = local.lire("ojm.dernierCahier", null);
-  aller(dernier ? `/cahier/${dernier}` : "/");
+  if (["cahier", "salle"].includes(etat.route?.nom)) return;
+  aller("/manette");
 }
 
 /** Ramène l'interface dans la page d'origine. */

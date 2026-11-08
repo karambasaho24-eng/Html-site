@@ -14,7 +14,6 @@ import { config } from "../core/config.js";
 import { erreur, messageErreur } from "../ui/toast.js";
 import { stockageSession } from "../core/stockage.js";
 import { local } from "../core/util.js";
-import { logoCahier } from "../ui/logo-cahier.js";
 
 /** Logo Discord, en SVG inline (aucune ressource externe). */
 function ICONE_DISCORD() {
@@ -33,7 +32,6 @@ export default async function vueAuth() {
   const boite = el("div.acces__carte");
   const noeud = el("div.acces",
     el("div.acces__colonne",
-      el("div.acces__logo", logoCahier(76)),
       el("h1.acces__titre", config.academyName || "Classe Parallèle"),
       el("p.acces__sous-titre", "Votre école, à côté du jeu."),
       boite

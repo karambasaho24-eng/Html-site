@@ -12,29 +12,25 @@ import { etat, observer, definir } from "../core/store.js";
 import { aller, chemin } from "../core/router.js";
 import { config } from "../core/config.js";
 import { L } from "../core/lexique.js";
-import { estEnseignant, estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
-import { initiales, local } from "../core/util.js";
+import { estAdmin, estModerateur, encadreUneClasse } from "../core/permissions.js";
 import { menu } from "./modal.js";
 import { docHote, fenetreHote } from "../core/hote.js";
-import { construireBarreActions } from "./barre-actions.js";
+import { local } from "../core/util.js";
 import { basculerFenetreFlottante, estFlottant, flottantAuPremierPlan, flottantDisponible }
   from "../features/fenetre-flottante.js";
 import { deconnecter, notificationsNonLues, rafraichirNotifications } from "../core/session.js";
-import { barreConsole } from "../features/console-rp.js";
 import { marque, nomDuSite } from "../features/apparence.js";
 import { ecouter } from "../core/bus.js";
 import { jaugeEncre } from "../features/encre.js";
 import { notifications as depotNotifications, pilote } from "../data/index.js";
+import { animationsVoulues, basculerAnimations } from "./animations.js";
 
 let refs = {};
 
 export function construireChassis(hote) {
-  // Plus de rail ni de tableau de bord : une ligne de contexte en haut (où je
-  // suis), la vue, et la barre des gestes en bas. Le reste de l'application
-  // se range dans le tiroir « ⋯ ».
-  const chassis = el("div.chassis.chassis--monde", { dataset: { taille: "grand" } },
+  const chassis = el("div.chassis", { dataset: { taille: "grand" } },
     el("header.contexte",
-      refs.sceau = el("button.contexte__sceau", { type: "button", title: "Chez moi", "aria-label": "Chez moi",
+      refs.sceau = el("button.contexte__sceau", { type: "button", title: "Mes cahiers", "aria-label": "Mes cahiers",
         onclick: () => aller("/") }, marque()),
       refs.fil = el("div.contexte__lieu"),
       refs.onglets = el("nav.nav-principale", { "aria-label": "Navigation principale" }),
@@ -42,9 +38,7 @@ export function construireChassis(hote) {
       refs.outils = el("div.contexte__outils")
     ),
     refs.vue = el("div#vue.vue", { role: "main", tabindex: "-1" }),
-    refs.actions = construireBarreActions(),
-    refs.rail = el("nav.rail.tiroir", { "aria-label": "Tout le reste" }),
-    refs.console = el("div.console-hote", { hidden: true })
+    refs.rail = el("nav.rail.tiroir", { "aria-label": "Tout le reste" })
   );
   refs.chassis = chassis;
 
@@ -52,14 +46,13 @@ export function construireChassis(hote) {
   peindreRail();
   peindreOutils();
   peindreFil();
-  majActions();
   peindreOnglets();
   suivreLaTaille();
 
   const marquerRoute = () => { document.body.dataset.route = etat.route?.nom || ""; };
   marquerRoute();
   observer("route", marquerRoute);
-  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); peindreOnglets(); majActions(); });
+  observer(["route", "classes", "profil"], () => { peindreRail(); peindreFil(); peindreOnglets(); });
   observer(["notifications", "reseau", "utilisateur", "flottant"], peindreOutils);
   // La marque (logo ou nom) suit les réglages d'apparence, en direct.
   ecouter("apparence", () => { if (refs.sceau) render(refs.sceau, marque()); peindreRail(); peindreFil(); });
@@ -118,14 +111,6 @@ function suivreLaTaille() {
   calculer();
 }
 
-/** La barre des gestes n'a pas sa place là où l'écran a déjà la sienne. */
-function majActions() {
-  const nom = etat.route?.nom;
-  const cachee = !etat.utilisateur || ["connexion", "salle"].includes(nom);
-  refs.actions.hidden = cachee;
-  refs.chassis?.classList.toggle("chassis--sans-actions", cachee);
-}
-
 /* --- Onglets ---------------------------------------------------------------- */
 function onglet(href, libelle, icone_, actif) {
   return el("a.nav-lien", { href: `#${href}`, "aria-current": actif ? "page" : null, title: libelle },
@@ -135,15 +120,14 @@ function onglet(href, libelle, icone_, actif) {
 function peindreOnglets() {
   if (!etat.utilisateur) { render(refs.onglets, []); return; }
   const { nom } = etat.route;
-  const chezMoi = nom === "accueil";
-  const cahiers = ["cahiers", "cahier"].includes(nom);
+  const cahiers = ["accueil", "cahier"].includes(nom);
   const documents = nom === "documents";
   const classes = ["classes", "classe", "salle"].includes(nom);
-  // À côté du jeu, on ne garde que ce qui sert à travailler.
+  // À côté du jeu : un seul retour, la manette.
   render(refs.onglets,
-    etat.flottant ? null : onglet("/", "Chez moi", "accueil", chezMoi),
-    onglet("/cahiers", L("Cahiers"), "cahiers", cahiers),
-    onglet("/documents", "Documents", "documents", documents),
+    etat.flottant ? onglet("/manette", "Manette", "grille", nom === "manette") : null,
+    etat.flottant ? null : onglet("/", L("Cahiers"), "cahiers", cahiers),
+    etat.flottant ? null : onglet("/documents", "Bibliothèque", "dossier", documents),
     etat.flottant ? null : onglet("/classes", L("Classes"), "classe", classes),
     // À côté du jeu : retrouver d'un clic la séance (tableau + cahier) quittée pour un autre cahier.
     etat.flottant && local.lire("ojm.derniereSalle", null)
@@ -165,7 +149,6 @@ function lienRail(href, libelle, icone_, compteur = null) {
 
 function peindreRail() {
   const enseignant = encadreUneClasse();
-  const classesActives = etat.classes.filter((c) => !c.archived);
   const fermer = () => docHote().body.classList.remove("tiroir-ouvert");
 
   render(refs.rail,
@@ -174,22 +157,12 @@ function peindreRail() {
         el("span.tiroir__nom", etat.profil?.display_name || "—"),
         el("span.tiroir__mail", nomDuSite())),
       el("button.contexte__bouton", { type: "button", "aria-label": "Fermer", onclick: fermer }, icone("croix", 15))),
-    el("div.rail__titre", "Mes lieux"),
-    lienRail("/", "Chez moi", "accueil"),
-    lienRail("/classes", `Mes ${L("classes")}`, "classe", classesActives.length || null),
-    ...classesActives.slice(0, 6).map((c) => lienRail(`/classe/${c.id}`, c.name, "entree")),
-    el("div.rail__titre", "Mes affaires"),
-    lienRail("/affaires", "Tout ce que je possède", "sac"),
-    lienRail("/cahiers", `Mes ${L("cahiers")}`, "cahiers"),
-    lienRail("/papiers", "Papiers et dossiers", "papier"),
-    lienRail("/documents", "Documents", "documents"),
+    // Les onglets du haut mènent déjà aux cahiers, aux documents et aux classes : on ne les répète pas ici.
     lienRail("/boutique", "Encre et cahiers", "stylo"),
-    lienRail("/exercices", L("Exercices"), "exercices"),
-    lienRail("/archives", "Archives", "archives"),
-    lienRail("/recherche", "Rechercher", "recherche"),
 
     enseignant ? el("div.rail__titre", "Encadrement") : null,
     enseignant ? lienRail("/professeur", "Vue d'ensemble", "grille") : null,
+    enseignant ? lienRail("/exercices", L("Exercices"), "exercices") : null,
     enseignant ? lienRail("/modeles", "Modèles", "cours") : null,
 
     estModerateur() ? el("div.rail__titre", estAdmin() ? "Administration" : "Modération") : null,
@@ -197,18 +170,12 @@ function peindreRail() {
       estAdmin() ? "Comptes, boutique, journal" : "Modération et journal", "bouclier") : null,
 
     el("div.rail__pied",
-      etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: async () => {
-        fermer();
-        const { ouvrirApparence } = await import("../features/mon-personnage.js");
-        ouvrirApparence();
-      } }, icone("eleves", 16), el("span", "Mon personnage")) : null,
+      el("button.rail__lien", {
+        type: "button", role: "switch", "aria-checked": String(animationsVoulues()),
+        onclick: () => { basculerAnimations(); peindreRail(); }
+      }, icone("etoile", 16), el("span", animationsVoulues() ? "Animations : oui" : "Animations : non")),
       lienRail("/profil", "Profil", "profil"),
       lienRail("/reglages", "Réglages", "reglages"),
-      // La console de commandes : d'ici, ou avec la touche « ² ».
-      etat.utilisateur ? el("button.rail__lien", { type: "button", onclick: () => {
-        fermer();
-        docHote().querySelector(".commandes__bouton")?.click();
-      } }, icone("cours", 16), el("span", "Commandes (touche ²)")) : null,
       etat.utilisateur ? el("button.rail__lien.rail__lien--danger", { type: "button", onclick: async () => {
         fermer(); await deconnecter(); aller("/connexion");
       } }, icone("sortie", 16), el("span", "Se déconnecter")) : null
@@ -216,36 +183,24 @@ function peindreRail() {
   );
 }
 
-/**
- * Monte ou démonte la console. On la reconstruit à chaque apparition : elle
- * compte ce qui attend une réponse, et ce nombre ne vaut que maintenant.
- */
-function majConsole() {
-  const visible = Boolean(etat.flottant || etat.console);
-  refs.console.hidden = !visible;
-  docHote().body.classList.toggle("avec-console", visible);
-  render(refs.console, visible ? barreConsole() : []);
-}
-
 /* --- L'espace actuel ------------------------------------------------------ */
 /** Où je suis : une ligne, jamais un fil d'Ariane de site. */
 function peindreFil() {
   const { nom } = etat.route;
   const lieux = {
-    accueil: ["Chez moi", null],
+    accueil: [`Mes ${L("cahiers")}`, null],
     salle: [etat.classeActive?.name || L("Classe"), etat.sessionActive?.title || "En séance"],
     classe: [etat.classeActive?.name || L("Classe"), "Espace"],
-    cahier: ["Cahier", etat.classeActive?.name || null],
-    cahiers: [`Mes ${L("cahiers")}`, null], classes: [`Mes ${L("classes")}`, null],
-    papiers: ["Papiers", null], affaires: ["Mes affaires", null], boutique: ["Encre et cahiers", null],
-    documents: ["Documents", null], exercices: [L("Exercices"), null], exercice: [L("Exercice"), null],
+    cahier: ["Cahier", null],
+    classes: [`Mes ${L("classes")}`, null], boutique: ["Encre et cahiers", null],
+    documents: ["Bibliothèque", null], exercices: [L("Exercices"), null], exercice: [L("Exercice"), null],
     archives: ["Archives", null], archive: ["Archive", null], profil: ["Profil", null], reglages: ["Réglages", null],
     professeur: [`Espace ${L("professeur")}`, null],
     modeles: ["Modèles", null], administration: ["Administration", null], recherche: ["Recherche", null],
     connexion: [nomDuSite(), null]
   };
   // Les trois onglets disent déjà où l'on est : pas la peine de le répéter.
-  if (["accueil", "cahiers", "documents", "classes"].includes(nom)) { render(refs.fil, []); return; }
+  if (["accueil", "documents", "classes"].includes(nom)) { render(refs.fil, []); return; }
   const [lieu, precision] = lieux[nom] || [nomDuSite(), null];
   const direct = etat.sessionActive?.status === "live" && nom === "salle";
   render(refs.fil,
@@ -267,8 +222,6 @@ function peindreOutils() {
     ok: "En ligne", rompu: "Hors ligne", reprise: "Reconnexion…", local: "Démonstration"
   }[etatReseau];
 
-  // La barre du haut est minuscule : des icônes, pas de phrases. Tout ce qui
-  // demande des mots passe en info-bulle.
   render(refs.outils,
     etatReseau !== "ok" ? el("span.contexte__reseau", { dataset: { etat: etatReseau }, title: libelleReseau, "aria-label": libelleReseau },
       el("span.contexte__voyant"), etatReseau === "local" ? el("span", "Démo") : null) : null,
@@ -277,7 +230,7 @@ function peindreOutils() {
 
     flottantDisponible() && etat.utilisateur ? el("button.contexte__bouton.contexte__bouton--flottant", {
       type: "button",
-      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Au-dessus du jeu",
+      "aria-label": estFlottant() ? "Revenir dans le navigateur" : "Mode flottant",
       title: estFlottant() ? "Revenir dans le navigateur"
         : flottantAuPremierPlan() ? "Mode flottant : poser le cahier par-dessus la fenêtre de jeu" : "Détacher dans sa propre fenêtre",
       "aria-pressed": String(estFlottant()),
@@ -333,12 +286,4 @@ export function zoneVue() { return refs.vue; }
 /** Affiche la vue en pleine hauteur (tableau, salle, cahier). */
 export function modePleineVue(actif) {
   refs.vue?.classList.toggle("vue--pleine", Boolean(actif));
-}
-
-/**
- * Le mode immersif : plus de rail ni de barre d'application. Il ne reste que
- * ce que le personnage a devant lui — c'est une interface de jeu, pas un site.
- */
-export function modeImmersif(actif) {
-  refs.vue?.closest(".chassis")?.classList.toggle("chassis--immersif", Boolean(actif));
 }
