@@ -42,14 +42,10 @@ export default async function vueAccueil() {
       el("div.entree__texte",
         el("p.entree__sur", "Bienvenue"),
         el("div.entree__titre", `Bonjour ${etat.profil?.display_name || ""}`.trim()),
-        el("p.entree__lead",
-          "Votre école, à côté du jeu : prenez vos notes sans quitter le cours. "
-          + "Vos cahiers sont privés, personne d'autre que vous n'y a accès, et ils restent consultables même sans encre."),
+        el("p.entree__lead", "Vos cahiers sont privés et restent lisibles même sans encre."),
         el("div.entree__actions",
           el("button.btn.btn--primaire.btn--grand", { onclick: creer }, icone("plus", 15), `Nouveau ${L("cahier")}`),
-          el("button.btn.btn--grand", { onclick: () => aller("/classes") }, icone("classe", 15), "Mes classes")),
-        el("div.entree__faits",
-          el("span.etiq", "Cahiers privés"), el("span.etiq", "Notes en plein cours"), el("span.etiq", "Classes et exercices"))
+          el("button.btn.btn--grand", { onclick: () => aller("/classes") }, icone("classe", 15), "Mes classes"))
       )
     ),
     nomRPLibre() ? el("div.panneau", { style: { marginBottom: "var(--e-4)" } },

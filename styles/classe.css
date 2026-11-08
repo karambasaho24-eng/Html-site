@@ -708,7 +708,6 @@ html.telephone .salle__barre .pousse { display: none; }
 .entree__titre { margin: 0; font-size: clamp(28px, 4.6vw, 46px); font-weight: 800; letter-spacing: -.03em; line-height: 1.08; overflow-wrap: anywhere; }
 .entree__lead { margin: 12px 0 20px; max-width: 48ch; line-height: 1.55; color: var(--m); }
 .entree__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.entree__faits { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .entree__etagere { margin: 0 0 var(--e-3); font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
 
 @media (max-width: 860px) {
@@ -768,3 +767,26 @@ html.telephone .entree__titre { font-size: 28px; }
 .papier__sceau { display: flex; gap: 6px; align-items: center; justify-self: end; font-style: italic; margin: 0; }
 .manette-page { box-sizing: border-box; width: 100%; max-width: 760px; margin: 0 auto; }
 .manette-page > .remises { margin: 14px 14px 0; }
+
+/* ===========================================================================
+   Lisible sur n'importe quel fond (l'administration choisit l'image) :
+   tout ce qui porte du texte est posé sur du verre dépoli, jamais à nu.
+   =========================================================================== */
+.vide, .manette__bouton, .remises, .page__entete {
+  -webkit-backdrop-filter: var(--bf); backdrop-filter: var(--bf);
+}
+.vide { background: var(--surf); box-shadow: var(--sh-surf); }
+.page__entete { padding: 14px 18px; border-radius: var(--r-md); background: var(--surf);
+  border: 1px solid rgba(var(--tl), .1); box-shadow: var(--sh-surf); }
+
+/* Le reflet « aéro » : une demi-lune de lumière en haut des gestes principaux. */
+.btn--primaire, .manette__bouton {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, .05) 48%, transparent 52%), var(--ctl-on);
+}
+.manette__bouton:hover { background-image: linear-gradient(180deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .08) 48%, transparent 52%), var(--ctl-h); }
+.entree { margin-bottom: var(--e-5); }
+@media (max-width: 560px) {
+  .entree__actions .btn { flex: 1 1 140px; }
+}
+/* Les petites lignes posées à même le fond (droits, étagère vide) : une ombre plus franche. */
+.droits-cahiers, .grille > p.petit, .entree__etagere { text-shadow: 0 1px 3px rgba(0, 0, 0, .9), 0 0 14px rgba(0, 0, 0, .65); }

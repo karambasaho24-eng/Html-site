@@ -194,7 +194,7 @@ function peindreFil() {
     accueil: [`Mes ${L("cahiers")}`, null],
     salle: [etat.classeActive?.name || L("Classe"), etat.sessionActive?.title || "En séance"],
     classe: [etat.classeActive?.name || L("Classe"), "Espace"],
-    cahier: ["Cahier", null],
+    cahier: ["Cahier", null], papier: ["Papier", null], manette: ["Manette", null],
     classes: [`Mes ${L("classes")}`, null], boutique: ["Encre et cahiers", null],
     documents: ["Bibliothèque", null], exercices: [L("Exercices"), null], exercice: [L("Exercice"), null],
     archives: ["Archives", null], archive: ["Archive", null], profil: ["Profil", null], reglages: ["Réglages", null],
